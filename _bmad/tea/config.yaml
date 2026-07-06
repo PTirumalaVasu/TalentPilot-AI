@@ -22,5 +22,5 @@ trace_output: _bmad-output/test-artifacts/traceability
 project_name: TalentPilot-AI
 document_output_language: English
 output_folder: "{project-root}/_bmad-output"
-user_name: SAILS-DM481
+user_name: TalentPilot
 communication_language: English
