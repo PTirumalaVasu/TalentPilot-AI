@@ -349,3 +349,87 @@ All files live under:
 ---
 
 No other files were created or modified during this phase.
+
+---
+---
+
+# Technical Research Phase — Skills, Agents, and Files
+
+## Agents Called
+
+**No facilitation persona was invoked in this phase.** Unlike the Brainstorming (Carson), Design Thinking (Maya), Market Research (Mary), or Innovation Strategy (Victor) phases, the user invoked `bmad-technical-research` directly both times — no preceding `/bmad-agent-*` or `/bmad-cis-agent-*` persona command. There was consequently no in-character voice, no menu dispatch, and no party-mode digression in this phase; the skill ran as itself throughout, exactly as in the Domain Research phase.
+
+No subagents were spawned — all web research and document writing were performed directly.
+
+---
+
+## Skills Used
+
+### 1. bmad-technical-research (Run 1 — Video Embed & Watch-Progress Tracking)
+
+**Purpose:** Runs a six-step, web-search-grounded technical research workflow — scope confirmation → technology stack analysis → integration patterns → architectural patterns → implementation research → final synthesis — producing a single authoritative technical research document with source citations at every claim.
+
+**Why it was called:** The user asked to research the technical approach they were proposing: embedding third-party video (YouTube or Vimeo) while capturing watch progress via each provider's player API and persisting it in TalentPilot's own database, rather than relying on provider-side analytics.
+
+**Detailed sequence of what happened inside this skill:**
+
+- **Activation:** Resolved `customize.toml` directly (no team/user override files existed under `_bmad/custom/`), confirming the default `workflow` block — empty `activation_steps_prepend`/`activation_steps_append`, and `persistent_facts = ["file:{project-root}/**/project-context.md"]`. Loaded `_bmad-output/project-context.md` and `_bmad/bmm/config.yaml` (`user_name`, `communication_language`, `planning_artifacts`).
+- **Topic discovery:** The user's message already contained a fully specified proposed approach, so clarifying questions (via `AskUserQuestion`) focused on narrowing goal (feasibility validation / provider comparison / architecture guidance — user selected all three) and scope breadth (broad vs. narrow — user selected broad).
+- **Step 1 (Scope Confirmation):** Confirmed the five standard technical-research areas (architecture, implementation approaches, technology stack, integration patterns, performance) applied to this specific topic; user continued.
+- **Step 2 (Technology Stack Analysis):** Ran parallel web searches on the YouTube IFrame Player API vs. Vimeo Player SDK progress-capture mechanics, and on database schema patterns for storing watch progress. Key finding: YouTube requires polling `getCurrentTime()` (no continuous progress event exists), while Vimeo exposes a native `timeupdate` event — an architecturally simpler, event-driven option. Also researched a provider comparison (ads, privacy, branding, cost).
+- **Step 3 (Integration Patterns):** Researched provider API auth/rate-limit constraints (YouTube: no auth/quota for iframe embeds; Vimeo: privacy features plan-gated) and designed the persistence-endpoint pattern (debounced REST POST, `sendBeacon`/`visibilitychange` flush-on-close safety net, standard session/JWT auth). Explicitly scoped out enterprise integration patterns (message queues, service mesh) as premature complexity at this project's scale.
+- **Step 4 (Architectural Patterns):** Recommended an **Adapter pattern** to normalize YouTube's polling vs. Vimeo's event-driven capture into one interface, and a **conditional-write** persistence pattern (only write if the incoming timestamp is newer) to prevent stale/out-of-order updates from regressing stored progress.
+- **Step 5 (Implementation Research):** Surfaced a decision-relevant platform constraint — YouTube's branding is mandatory and cannot be removed (attempting to hide it via CSS violates YouTube's ToS) — plus a testing strategy (mock the Adapter interface, not the real cross-origin player) and a risk table (tab-close data loss, stale-write regression, branding, Vimeo cost).
+- **Step 6 (Synthesis):** Produced a right-sized executive summary and recommendations rather than the skill's full generic 12-section template — explicitly noting that regulatory/compliance, competitive-positioning, and multi-year-outlook sections were skipped as inapplicable to a narrowly-scoped MVP feature decision, rather than fabricating content for them.
+
+**Follow-up decision (same session, after the document was complete):** The user asked when the YouTube-vs-Vimeo call should be made. Since the research had already established it as a product/branding/budget trade-off rather than a technical blocker, two clarifying questions (via `AskUserQuestion` — branding-native requirement? paid-plan budget?) were asked directly. Both answers ("branding doesn't matter," "free only") pointed to **YouTube**, so the decision was made and recorded immediately rather than deferred to a later phase.
+
+### 2. bmad-technical-research (Run 2 — RAG / Vector Database Tutorial Matching)
+
+**Purpose:** Same six-step workflow, run a second time for a distinct technical question raised later in the same working session.
+
+**Why it was called:** The user asked whether RAG/vector-database research had been done for matching learning content to employee skills — it had not — then asked to run it, scoped explicitly to matching against skills HR already assigns (no automatic skill-gap inference).
+
+**Detailed sequence of what happened inside this skill:**
+
+- **Topic discovery:** Clarifying questions established the goal (feasibility + vector-DB comparison + architecture guidance — user selected all three) and confirmed tutorial content would be **external/web-sourced** (not a curated internal library) — this shaped the rest of the research.
+- **Step 1 (Scope Confirmation):** Confirmed scope explicitly excludes automatic skill-gap inference — matching is against skills HR has already assigned.
+- **Step 2 (Technology Stack Analysis):** Opened with a scoping finding rather than jumping straight to tool comparisons: the feature needs only **retrieval**, not full RAG (retrieval + LLM generation), since tutorials are surfaced as-is, not synthesized into new text. Also flagged that **vector search itself might be unnecessary** if HR's skill taxonomy and tutorial tags share vocabulary — a plain metadata/tag filter could suffice. Then compared embedding models (`text-embedding-3-small` as the default cost/quality pick) and vector databases (recommended **pgvector**, since it runs inside the existing Postgres database, over Pinecone/Weaviate/standalone Qdrant, which are overkill at MVP scale).
+- **Step 3 (Integration Patterns):** Surfaced a hard constraint: YouTube's `search.list` (keyword discovery search) is capped at roughly 100 calls/day under a June 2026 policy change, independent of the general quota pool — meaning tutorial discovery must be a **scheduled batch job**, never a live per-request search. Also designed the query-side REST endpoint (top-k results, cacheable, standard auth).
+- **Step 4 (Architectural Patterns):** Recommended a two-part pipeline (batch ingestion → online query, no LLM step) and a **filter-then-rank** query pattern — pre-filter candidate tutorials by exact `skill_tags` metadata, then rank only that narrowed set by vector similarity — since skill assignment is exact/known, making pre-filtering the correct default per established vector-search practice.
+- **Step 5 (Implementation Research):** Established that embedding cost is negligible (~$0.02/1M tokens) but surfaced the phase's most significant finding: because content is externally sourced from YouTube, there is a **documented content-quality risk** (inconsistent quality, undisclosed AI-generated "slop" contaminating search results) — recommending a human-approval checkpoint in the ingestion pipeline rather than fully automated curation. Also proposed a lightweight Precision@k/Recall@k evaluation approach using a small hand-built ground-truth set.
+- **Step 6 (Synthesis):** Produced a right-sized executive summary and recommendations, again explicitly scoping out inapplicable generic sections (regulatory, competitive positioning, multi-year outlook) rather than padding the document.
+
+**Follow-up decision (same session, after the document was complete):** The user stated that exact skill-to-content matching is **not required** — approximate/loose matches are acceptable for now. This directly resolved the research's open "do you even need vector search?" question: since exact-tag matching cannot be relied upon, **semantic/vector matching (`pgvector` + `text-embedding-3-small`) is the confirmed path**, not the plain metadata-filter alternative the research had floated as a possible simpler v0.
+
+---
+
+## The Role of Project Context in This Workflow
+
+- `_bmad-output/project-context.md` was loaded automatically as a `persistent_fact` on activation for both research runs, the same mechanism used by every prior phase — so this phase's research already had the "no pre-build validation sprint" decision and the (at the time) still-open video-hosting question in view.
+- Both research documents' completions, and both follow-up decisions, were written back to `project-context.md` immediately rather than left implicit in conversation — consistent with this project's mandatory-update rule — so a future session (architecture, PRD, or build) can pick up the settled decisions (YouTube as video provider; pgvector/semantic matching for tutorials; human-approval gate on content ingestion) without re-deriving or re-litigating them.
+
+---
+
+## Files Created or Modified
+
+- **`_bmad-output/planning-artifacts/research/technical-third-party-video-embeds-youtubevimeo-with-custom-watch-progress-tracking-research-2026-07-07.md`** (created) — the full video-embed/watch-tracking technical research document: scope confirmation, technology stack (player API mechanics, storage), integration patterns (provider auth/limits, persistence API, security), architectural patterns (Adapter pattern, conditional writes), implementation approaches (branding risk, testing strategy, risk table, roadmap), and synthesis (executive summary, recommendations, conclusion).
+- **`_bmad-output/planning-artifacts/research/technical-rag-and-vector-database-approach-for-matching-hr-assigned-skills-to-tutorials-research-2026-07-08.md`** (created) — the full RAG/vector-DB tutorial-matching technical research document, same six-section shape: scope confirmation, technology stack (RAG-vs-retrieval scoping note, embedding models, vector DB comparison), integration patterns (YouTube discovery quota constraint, query API), architectural patterns (pipeline design, data model, filter-then-rank query pattern), implementation approaches (cost, content-quality risk, testing strategy, roadmap), and synthesis.
+- **`_bmad-output/project-context.md`** (appended to multiple times, not overridden):
+  - Resolved the long-open "self-hosted vs. third-party video embeds" question and recorded the video-tracking research's carry-forward decisions (Adapter pattern, conditional writes, unload-safety flush).
+  - Recorded the **YouTube provider decision** and its build implication (polling-based capture, not Vimeo's event-driven path).
+  - Recorded the RAG/vector-DB research's carry-forward decisions (retrieval-only, no LLM; pgvector + `text-embedding-3-small`; filter-then-rank; YouTube search-quota constraint on ingestion; human-approval requirement for content quality).
+  - Recorded the **exact-matching-not-required decision**, confirming semantic/vector matching (not plain tag-filtering) as the path forward.
+- **`documentation/PROJECTWORKFLOW.md`** (this file, appended to) — this section.
+
+---
+
+## Session Notes
+
+**Two research runs, two real decisions, not just documents.** Both technical research sessions were followed immediately by a live decision conversation in the same working session — the research didn't just sit as a reference document; its trade-off tables were used on the spot (via `AskUserQuestion`) to resolve the YouTube-vs-Vimeo provider choice and to confirm the RAG-vs-plain-filter matching approach, both recorded in `project-context.md` before moving on.
+
+**Why this matters:** Each research document explicitly flagged where it was deliberately right-sized (e.g., skipping regulatory/compliance and multi-year-outlook sections, or recommending against a full RAG+LLM system when simple retrieval would do) rather than padding to match a generic template — keeping the deliverable proportionate to a narrow MVP feature decision rather than a broad technology-landscape survey.
+
+---
+
+No other files were created or modified during this phase.
