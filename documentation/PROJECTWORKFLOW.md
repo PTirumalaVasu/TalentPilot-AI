@@ -134,3 +134,46 @@ No other files were created or modified during this session.
 - **`_bmad-output/party-mode/memories/installed/.memlog.md`** (created, then appended to) — the default installed-agent party's persistent memory, holding both rounds' key beats (evidence gaps, concessions, ideas, still-open questions) so a future party-mode session in this project can pick the room's dynamic back up.
 - **`_bmad-output/project-context.md`** (appended to, not overridden) — a BMAD-process-conventions note (where these new artifacts live, the Windows python/uv quirk) and a new "Product & Design Decisions" section (the deliberate no-validation-sprint decision and its carried assumptions).
 - **`documentation/PROJECTWORKFLOW.md`** (this file, appended to) — this section.
+
+---
+
+# Domain Research Phase — Skills, Agents, and Files
+
+## Agents Called
+
+**No facilitation persona was invoked in this phase.** Unlike the Brainstorming phase (Carson) and Design Thinking phase (Maya), the user invoked the domain research skill directly — `/bmad-domain-research` — with no preceding `/bmad-cis-agent-*` persona command. There was consequently no in-character voice, no menu dispatch, and no party-mode digression in this phase; the skill ran as itself throughout.
+
+No subagents were spawned either (contrast with the Brainstorming phase's delegated subagent that generated `brainstorm-intent.md` in isolation) — all web research and document writing in this phase were performed directly, not delegated.
+
+## Skills Used
+
+### 1. bmad-domain-research
+**Purpose:** Conducts industry/domain research using live web search plus source verification, producing a structured research document (market sizing, competitive landscape, technology trends, regulatory environment, supply chain) intended to ground downstream product decisions.
+
+**Why it was called:** The user asked to invoke `/bmad-domain-research` for TalentPilot-AI, explicitly framing it as concise and time-boxed research to support a 1-week hackathon pitch — with the three prior artifacts (`brainstorm-intent.md`, `.memlog.md`, `design-thinking-2026-07-07.md`) supplied as the complete project context to research against, rather than re-deriving scope from scratch.
+
+**Detailed sequence of what happened inside this skill:**
+
+- **Activation:** Attempted the skill's standard customization resolution (`resolve_customization.py --key workflow`) via `python3`; it failed on this machine (`python3` not found — same Windows/`uv` quirk already logged in `project-context.md` from the Design Thinking phase, now confirmed to also affect `python3` specifically, not just the emoji/`PYTHONUTF8` case). Fell back to the documented manual procedure: read `customize.toml` directly (no team/user override files existed under `_bmad/custom/`), confirming the default `workflow` block — empty `activation_steps_prepend`/`activation_steps_append`, and `persistent_facts = ["file:{project-root}/**/project-context.md"]`.
+- Loaded `_bmad-output/project-context.md` as a persistent fact and `_bmad/bmm/config.yaml` for `user_name` (TalentPilot), `communication_language` (English), and the `planning_artifacts` output path.
+- **Skipped the "Quick Topic Discovery" question** ("what domain do you want to research?") since the user's invocation already supplied a fully-specified topic and goals — per the skill's own note that a pre-discovered topic should be passed straight through rather than re-asked.
+- Created the starter output file from `research.template.md` at `_bmad-output/planning-artifacts/research/domain-corporate-skill-tracking-ai-video-learning-platforms-research-2026-07-07.md`, then loaded `step-01-init.md`.
+- **Step 1 (Scope Confirmation):** Rather than silently assuming the hackathon time-box justified cutting scope, explicitly asked the user to choose between the skill's full standard 5-area scope (industry, regulatory, technology, economic, supply chain) and a trimmed, pitch-focused variant. The user chose the trimmed variant, so Regulatory Environment and Supply Chain Analysis were marked deferred in the document's scope confirmation rather than silently dropped.
+- **Step 2 (Industry Analysis):** Ran three parallel web searches — corporate LMS market size/CAGR, AI skills-gap/upskilling platform trends, and corporate video-learning-analytics trends — and wrote a trimmed **Industry Analysis** section covering Market Size and Growth, "Why Now" market drivers (AI-in-HR adoption stats, the skills-gap statistic), and a first-pass Competitive Landscape, each with inline source citations and an explicit confidence note (figures vary 2–3x across research firms, treated as directional).
+- **Step 3 (Competitive Landscape), trimmed:** Instead of running the step's full six-subsection structure (market share, business models, ecosystem/partnerships, entry barriers), ran one additional targeted search on named competitors (iMocha, Gloat, and LMS-analytics peers Continu/D2L/Disprz/Cognota) and added a single condensed **"Named Competitors — Business Model Snapshot"** table (value prop, business model, overlap with TalentPilot-AI) — enough to support competitive positioning in a pitch without a full competitive-intelligence dossier.
+- **Step 4 (Regulatory Focus):** Deliberately skipped per the user's Step-1 scope decision — logged as an explicit deferral (not an omission) in both the Scope Confirmation and the closing Research Limitations sections, with a note that it should be revisited only if the project moves toward a real product roadmap with enterprise compliance requirements. When the user later asked why, the reasoning was reconfirmed as a live discussion (not re-run): at hackathon-pitch stage there is no live regulatory decision this research would change.
+- **Step 5 (Technical Trends):** Substantively already covered while writing Step 2's Industry Analysis content (video watch-time/engagement analytics as a proven category, AI content discovery/personalization as an expected 2026 platform capability, and the Deloitte-cited industry-wide data-trust gap) — marked complete without re-running a separate redundant search pass, since the trimmed scope's Technology Trends focus area was already satisfied.
+- **Step 6 (Research Synthesis):** Rather than generating the skill's default output — a full 10-section "comprehensive" document with executive summary, TOC, regulatory framework, ecosystem analysis, implementation roadmap, and appendices — produced a deliberately condensed **"Research Synthesis & Pitch Recommendations"** section instead: a short executive summary, 4 key findings, 4 strategic pitch recommendations, a full source list, and an honest Research Limitations note. This substitution was explicitly framed to the user as an adaptation to keep the deliverable proportionate to a 1-week hackathon rather than producing an audit-grade report.
+- Replaced the document's `[Research overview and methodology will be appended here]` placeholder with a short overview describing the trimmed scope and pointing to the synthesis section.
+- At each gate (scope confirmation, and final completion), used `AskUserQuestion` to get an explicit decision rather than assuming continuation — the user confirmed the trimmed scope at Step 1 and confirmed completion at Step 6 without requesting additions.
+
+## The Role of Project Context in This Workflow
+
+- `_bmad-output/project-context.md` was loaded automatically as a `persistent_fact` during the skill's activation sequence (declared in `bmad-domain-research`'s `customize.toml`), the same mechanism used by the Design Thinking phase — so this phase's research already had the "no pre-build validation sprint" decision and the still-open video-hosting question in view without needing to re-read the Design Thinking artifact in full.
+- After the research document was completed and the user confirmed it, a new bullet was appended to `project-context.md`'s "Product & Design Decisions" section recording the research's headline conclusions (market growth rate, the industry-validated data-trust pain point, the de-risked video-analytics tech bet, and the specific competitive positioning gap) — so a future session (e.g. a PRD or pitch-deck pass) can cite these findings without re-running the research.
+
+## Files Created or Modified
+
+- **`_bmad-output/planning-artifacts/research/domain-corporate-skill-tracking-ai-video-learning-platforms-research-2026-07-07.md`** (created) — the domain research document: Scope Confirmation (trimmed, pitch-focused), Industry Analysis (market size/growth, market drivers, competitive landscape, named-competitor business-model snapshot), Technology Trends (video analytics, AI content discovery, the industry-wide data-trust gap), and Research Synthesis & Pitch Recommendations (executive summary, key findings, strategic recommendations, full source list, research limitations).
+- **`_bmad-output/project-context.md`** (appended to, not overridden) — a new bullet under "Product & Design Decisions" summarizing the domain research's headline findings and the deliberate scope trim, for future sessions to build on.
+- **`documentation/PROJECTWORKFLOW.md`** (this file, appended to) — this section.
