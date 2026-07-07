@@ -134,3 +134,61 @@ No other files were created or modified during this session.
 - **`_bmad-output/party-mode/memories/installed/.memlog.md`** (created, then appended to) — the default installed-agent party's persistent memory, holding both rounds' key beats (evidence gaps, concessions, ideas, still-open questions) so a future party-mode session in this project can pick the room's dynamic back up.
 - **`_bmad-output/project-context.md`** (appended to, not overridden) — a BMAD-process-conventions note (where these new artifacts live, the Windows python/uv quirk) and a new "Product & Design Decisions" section (the deliberate no-validation-sprint decision and its carried assumptions).
 - **`documentation/PROJECTWORKFLOW.md`** (this file, appended to) — this section.
+
+
+---
+---
+
+# Market Research Phase — Skills, Agents, and Files
+
+## Agents Called
+
+### Mary — Business Analyst (`bmad-agent-analyst`)
+**Purpose:** Acts as the persistent facilitation persona for this phase — a strategic business analyst archetype channeling Michael Porter's strategic rigor and Barbara Minto's Pyramid Principle discipline, bringing market-research methodology and structured findings rather than raw brainstorming energy.
+
+**Why it was called:** The user explicitly invoked the `/bmad-agent-analyst` command to start this phase in this persona.
+
+**What it did specifically in this session:**
+- Resolved its own customization (name, icon, communication style, principles, and its menu of seven options: BP brainstorming, MR market research, DR domain research, TR technical research, CB product brief, WB PRFAQ, DP document project).
+- Loaded the BMM module config (`_bmad/bmm/config.yaml`) to know the user's name (TalentPilot), language (English), and output-artifact folder conventions.
+- Checked for `project-context.md` persistent facts (none found) and greeted the user, presenting the menu.
+- Dispatched into `bmad-market-research` once the user selected the `MR` option.
+- Remained "in character" (📊 icon, treasure-hunter/McKinsey-memo tone) for the rest of the conversation, since the persona carries through sub-skill calls until dismissed.
+
+No other agent was invoked in this phase.
+
+---
+
+## Skills Used
+
+### 1. bmad-market-research
+**Purpose:** The core engine of this phase — runs a structured, six-step, web-search-grounded market research process: initialize scope → customer behavior analysis → customer pain points → customer decision journey → competitive landscape → final strategic synthesis into one authoritative document.
+
+**Why it was called:** Selected from Mary's menu (`MR`) at the user's request. The user then redirected the topic-discovery step to instead pull full context from the already-completed brainstorming session (`brainstorm-talent-pool-management-capabilities-2026-07-07/brainstorm-intent.md` and `.memlog.md`) rather than re-asking scoping questions from scratch.
+
+**Detailed purpose of each step run inside this skill:**
+
+- **Step 1 — Initialization:** Read the brainstorming session's intent doc and memlog to derive the research topic ("AI-assisted Talent Pool / Skills Development Management Platform for Enterprise HR") and research goals (validate/position TalentPilot-AI's MVP) without re-asking discovery questions. Created the starter research document from the skill's template and confirmed scope with the user before proceeding.
+- **Step 2 — Customer Behavior and Segments:** Ran four parallel web searches covering behavior patterns, demographics, psychographics, and behavior drivers for the HR/L&D buyer and employee-learner segments. Confirmed the two-segment model (HR buyer/admin, employee end-user) matches the brainstorming session's two-role scope, and surfaced supporting stats (79% of companies adopting skills-based HR models, only 20% of HR leaders trust their skills data).
+- **Step 3 — Customer Pain Points and Needs:** Ran four parallel web searches on LMS/spreadsheet-tracking frustrations, unmet needs, adoption barriers, and satisfaction gaps. Directly validated the brainstorming session's core pain thesis (manual Excel tracking is error-prone and untrustworthy) with independent evidence (88% of spreadsheets contain errors; 70–80% of LMS implementations are commonly cited as failing).
+- **Step 4 — Customer Decision Processes and Journey:** Ran searches on B2B/enterprise HR-tech buying journeys and skills-intelligence vendor selection. Mapped the 4–6 month, committee-driven procurement cycle and identified that buyers value a fast, real-data proof-of-concept over scripted demos — directly informing go-to-market recommendations for TalentPilot-AI's narrow MVP scope.
+- **Step 5 — Competitive Analysis:** Ran searches across three competitor tiers (enterprise talent-intelligence suites like Eightfold/Gloat/Reejig; LMS/LXP incumbents like Cornerstone/Degreed/LinkedIn Learning; newer AI skills-gap point tools like Valamis/Disco) plus market-sizing sources. Confirmed no reviewed competitor combines TalentPilot-AI's specific wedge (HR-assignment-first + AI content discovery + fully automatic progress capture + consumer-grade resume UX).
+- **Step 6 — Research Completion:** Ran additional searches on B2B SaaS market-entry strategy and risk-assessment frameworks, then synthesized all prior steps into one comprehensive document with executive summary, full table of contents, 11 numbered sections (market dynamics, customer insights, competitive landscape, strategic recommendations, GTM, risk assessment, implementation roadmap, future outlook, methodology, conclusion), and a rewritten Research Overview summarizing the whole report.
+
+At each step, findings were written immediately to the output document and the user confirmed with `[C] Continue` before the next step ran — no step was skipped or auto-advanced.
+
+---
+
+## Files Created and Purpose of Each
+
+All files live under:
+`_bmad-output/planning-artifacts/research/`
+
+### 1. `market-ai-talent-pool-management-platform-research-2026-07-07.md`
+**Purpose:** The single, comprehensive market research deliverable for this phase — a source-cited report validating and positioning TalentPilot-AI's MVP against the corporate learning/skills-management software market (LMS, LXP, skills-intelligence, talent-marketplace categories).
+
+**Why it exists:** Produced by the `bmad-market-research` skill's six-step workflow, seeded from the prior brainstorming session's confirmed MVP scope so the research stayed grounded in what TalentPilot-AI is actually building rather than a generic market survey.
+
+**Contents produced:** Frontmatter tracking workflow progress (`stepsCompleted: [1..6]`); a rewritten Research Overview and Executive Summary; a full Table of Contents; and 11 numbered sections — Introduction & Methodology, Market Analysis & Dynamics (market sizing $15–34B, 8.4–22.9% CAGR), Customer Insights & Behavior (segments, pain points, decision journey), Competitive Landscape & Positioning (three competitor tiers, differentiation gap), Strategic Market Recommendations, Market Entry & Growth Strategies, Risk Assessment & Mitigation, Implementation Roadmap & Success Metrics, Future Market Outlook, Methodology & Source Verification, and Conclusion — every claim cited with a source URL gathered from ~18 web searches across the six workflow steps.
+
+No other files were created or modified during this phase.
