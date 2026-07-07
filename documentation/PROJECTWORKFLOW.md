@@ -177,3 +177,175 @@ No subagents were spawned either (contrast with the Brainstorming phase's delega
 - **`_bmad-output/planning-artifacts/research/domain-corporate-skill-tracking-ai-video-learning-platforms-research-2026-07-07.md`** (created) — the domain research document: Scope Confirmation (trimmed, pitch-focused), Industry Analysis (market size/growth, market drivers, competitive landscape, named-competitor business-model snapshot), Technology Trends (video analytics, AI content discovery, the industry-wide data-trust gap), and Research Synthesis & Pitch Recommendations (executive summary, key findings, strategic recommendations, full source list, research limitations).
 - **`_bmad-output/project-context.md`** (appended to, not overridden) — a new bullet under "Product & Design Decisions" summarizing the domain research's headline findings and the deliberate scope trim, for future sessions to build on.
 - **`documentation/PROJECTWORKFLOW.md`** (this file, appended to) — this section.
+
+---
+---
+
+# Market Research Phase — Skills, Agents, and Files
+
+## Agents Called
+
+### Mary — Business Analyst (`bmad-agent-analyst`)
+**Purpose:** Acts as the persistent facilitation persona for this phase — a strategic business analyst archetype channeling Michael Porter's strategic rigor and Barbara Minto's Pyramid Principle discipline, bringing market-research methodology and structured findings rather than raw brainstorming energy.
+
+**Why it was called:** The user explicitly invoked the `/bmad-agent-analyst` command to start this phase in this persona.
+
+**What it did specifically in this session:**
+- Resolved its own customization (name, icon, communication style, principles, and its menu of seven options: BP brainstorming, MR market research, DR domain research, TR technical research, CB product brief, WB PRFAQ, DP document project).
+- Loaded the BMM module config (`_bmad/bmm/config.yaml`) to know the user's name (TalentPilot), language (English), and output-artifact folder conventions.
+- Checked for `project-context.md` persistent facts (none found) and greeted the user, presenting the menu.
+- Dispatched into `bmad-market-research` once the user selected the `MR` option.
+- Remained "in character" (📊 icon, treasure-hunter/McKinsey-memo tone) for the rest of the conversation, since the persona carries through sub-skill calls until dismissed.
+
+No other agent was invoked in this phase.
+
+---
+
+## Skills Used
+
+### 1. bmad-market-research
+**Purpose:** The core engine of this phase — runs a structured, six-step, web-search-grounded market research process: initialize scope → customer behavior analysis → customer pain points → customer decision journey → competitive landscape → final strategic synthesis into one authoritative document.
+
+**Why it was called:** Selected from Mary's menu (`MR`) at the user's request. The user then redirected the topic-discovery step to instead pull full context from the already-completed brainstorming session (`brainstorm-talent-pool-management-capabilities-2026-07-07/brainstorm-intent.md` and `.memlog.md`) rather than re-asking scoping questions from scratch.
+
+**Detailed purpose of each step run inside this skill:**
+
+- **Step 1 — Initialization:** Read the brainstorming session's intent doc and memlog to derive the research topic ("AI-assisted Talent Pool / Skills Development Management Platform for Enterprise HR") and research goals (validate/position TalentPilot-AI's MVP) without re-asking discovery questions. Created the starter research document from the skill's template and confirmed scope with the user before proceeding.
+- **Step 2 — Customer Behavior and Segments:** Ran four parallel web searches covering behavior patterns, demographics, psychographics, and behavior drivers for the HR/L&D buyer and employee-learner segments. Confirmed the two-segment model (HR buyer/admin, employee end-user) matches the brainstorming session's two-role scope, and surfaced supporting stats (79% of companies adopting skills-based HR models, only 20% of HR leaders trust their skills data).
+- **Step 3 — Customer Pain Points and Needs:** Ran four parallel web searches on LMS/spreadsheet-tracking frustrations, unmet needs, adoption barriers, and satisfaction gaps. Directly validated the brainstorming session's core pain thesis (manual Excel tracking is error-prone and untrustworthy) with independent evidence (88% of spreadsheets contain errors; 70–80% of LMS implementations are commonly cited as failing).
+- **Step 4 — Customer Decision Processes and Journey:** Ran searches on B2B/enterprise HR-tech buying journeys and skills-intelligence vendor selection. Mapped the 4–6 month, committee-driven procurement cycle and identified that buyers value a fast, real-data proof-of-concept over scripted demos — directly informing go-to-market recommendations for TalentPilot-AI's narrow MVP scope.
+- **Step 5 — Competitive Analysis:** Ran searches across three competitor tiers (enterprise talent-intelligence suites like Eightfold/Gloat/Reejig; LMS/LXP incumbents like Cornerstone/Degreed/LinkedIn Learning; newer AI skills-gap point tools like Valamis/Disco) plus market-sizing sources. Confirmed no reviewed competitor combines TalentPilot-AI's specific wedge (HR-assignment-first + AI content discovery + fully automatic progress capture + consumer-grade resume UX).
+- **Step 6 — Research Completion:** Ran additional searches on B2B SaaS market-entry strategy and risk-assessment frameworks, then synthesized all prior steps into one comprehensive document with executive summary, full table of contents, 11 numbered sections (market dynamics, customer insights, competitive landscape, strategic recommendations, GTM, risk assessment, implementation roadmap, future outlook, methodology, conclusion), and a rewritten Research Overview summarizing the whole report.
+
+At each step, findings were written immediately to the output document and the user confirmed with `[C] Continue` before the next step ran — no step was skipped or auto-advanced.
+
+---
+
+## Files Created and Purpose of Each
+
+All files live under:
+`_bmad-output/planning-artifacts/research/`
+
+### 1. `market-ai-talent-pool-management-platform-research-2026-07-07.md`
+**Purpose:** The single, comprehensive market research deliverable for this phase — a source-cited report validating and positioning TalentPilot-AI's MVP against the corporate learning/skills-management software market (LMS, LXP, skills-intelligence, talent-marketplace categories).
+
+**Why it exists:** Produced by the `bmad-market-research` skill's six-step workflow, seeded from the prior brainstorming session's confirmed MVP scope so the research stayed grounded in what TalentPilot-AI is actually building rather than a generic market survey.
+
+**Contents produced:** Frontmatter tracking workflow progress (`stepsCompleted: [1..6]`); a rewritten Research Overview and Executive Summary; a full Table of Contents; and 11 numbered sections — Introduction & Methodology, Market Analysis & Dynamics (market sizing $15–34B, 8.4–22.9% CAGR), Customer Insights & Behavior (segments, pain points, decision journey), Competitive Landscape & Positioning (three competitor tiers, differentiation gap), Strategic Market Recommendations, Market Entry & Growth Strategies, Risk Assessment & Mitigation, Implementation Roadmap & Success Metrics, Future Market Outlook, Methodology & Source Verification, and Conclusion — every claim cited with a source URL gathered from ~18 web searches across the six workflow steps.
+
+No other files were created or modified during this phase.
+
+---
+---
+
+# Innovation Strategy Phase — Skills, Agents, and Files
+
+## Agents Called
+
+### Victor — Disruptive Innovation Oracle (`bmad-cis-agent-innovation-strategist`)
+**Purpose:** Acts as the persistent facilitation persona for the innovation strategy phase — a former McKinsey strategist archetype channeling Clayton Christensen's disruption theory, Kim & Mauborgne's Blue Ocean reframing, and Jobs-to-be-Done methodology to identify disruption opportunities and architect business model innovation.
+
+**Why it was called:** The user explicitly invoked `/bmad-cis-agent-innovation-strategist` to start this phase in this persona.
+
+**What it did specifically in this session:**
+- Resolved its own customization (icon ⚡, "chess grandmaster" communication style, principles — markets reward genuine new value; innovation without business-model thinking is theater; incremental thinking kills category leaders).
+- Loaded the CIS module config (`_bmad/cis/config.yaml`) to know the user's name (TalentPilot), language (English), and output-artifact folder conventions.
+- Checked for `project-context.md` persistent facts and greeted the user, presenting a single menu option (`IS` → `bmad-cis-innovation-strategy`).
+- Dispatched into `bmad-cis-innovation-strategy` once the user selected the `IS` option.
+- Remained "in character" (⚡ prefix, bold/direct tone) for the rest of the conversation, applying pressure-tested strategic discipline throughout.
+
+No other agent was invoked in this phase.
+
+---
+
+## Skills Used
+
+### 1. bmad-cis-innovation-strategy
+**Purpose:** The core engine of this phase — runs a structured, nine-step innovation strategy workflow: establish strategic context → market analysis → current business model → disruption opportunities → innovation opportunities → strategic options → recommended strategy → execution roadmap → success metrics & risk mitigation. Each step produces templated artifact sections and includes strategic checkpoints.
+
+**Why it was called:** Selected from Victor's menu (`IS`) once the user confirmed they wanted to complete the full innovation strategy workflow.
+
+**Detailed purpose of each step run:**
+
+- **Step 1 (Establish Strategic Context):** Synthesized from the brainstorming session's MVP scope and the market research document. Confirmed the strategic challenge: validate POC with real HR teams → launch production MVP → establish market leadership in "assignment-first skills tracking" category before LMS/LXP incumbents add competing features within 12-24 months.
+
+- **Step 2 (Market Landscape & Competitive Dynamics):** User elected to skip this step, referencing the completed `market-ai-talent-pool-management-platform-research-2026-07-07.md`. Victor accepted the skip and proceeded directly to Step 3, noting that market analysis was already sufficient from the prior phase.
+
+- **Step 3 (Current Business Model Deconstruction):** Identified core irreplaceable value as "AI-powered skill-to-content matching," supporting value as "auto-capture video progress tracking + HR dashboard." Confirmed value delivery is SaaS web application model. Flagged five business-model weaknesses: (1) competitive feature-parity risk from incumbents, (2) category ambiguity slowing GTM, (3) undefined business model (pricing/packaging TBD), (4) HRIS integration complexity as deal-killer, (5) data privacy/compliance as hidden blocker.
+
+- **Step 4 (Disruption Opportunities):** Identified four disruption vectors beyond the POC scope: (1) employee-driven learning (invert control model), (2) predictive capability intelligence (forward-looking), (3) two-sided skills marketplace (network effects), (4) distributed-first positioning (beachhead for non-consumer market). Confirmed these are long-term roadmap plays, not POC scope.
+
+- **Step 5 (Generate Innovation Opportunities):** Synthesized 9-10 concrete innovation opportunities spanning business model, value chain, and positioning dimensions: proactive resume nudges, transcript-level semantic search, performance-to-skills correlation, proactive capability gap detection, employee capability profiles, distributed-team lightweight mode, content co-creation toolkit, skills marketplace, AI-generated learning paths, org-wide capability blueprints.
+
+- **Step 6 (Develop & Evaluate Strategic Options):** Developed three distinct strategic directions:
+  - **Option A: Focused Wedge (Recommended)** — Execute POC narrowly, establish category leadership, defend against incumbents via workflow lock-in and fast-follow features. Highest defensibility, strongest unit economics, clear expansion path.
+  - **Option B: Expand Adjacent** — Launch narrowly, quickly expand scope (performance correlation, proactive planning). Super-linear revenue potential but higher execution complexity and resource requirements.
+  - **Option C: Distributed-First** — Target distributed/remote-first teams and startups; freemium + product-led-growth motion. Different market, lower ACV, longer path to profitability but less incumbent threat.
+  - Comparative analysis showed Option A has best risk/reward profile for current stage.
+
+- **Step 7 (Recommend Strategic Direction):** **Recommended Option A — Focused Wedge Strategy** with explicit rationale: (1) urgent competitive window (12-24 months before parity), (2) alignment with POC validation already underway, (3) highest defensibility via workflow lock-in, (4) strongest unit economics, (5) clear fast-follow feature path (nudges by Q4 2026, semantic search by Q1 2027, performance correlation by Q2 2027).
+
+- **Step 8 (Build Execution Roadmap):** Developed comprehensive three-phase, 24-month roadmap:
+  - **Phase 1 (Months 1-4: Immediate Impact)** — Complete POC with 2-3 customers, launch production MVP, establish category messaging, build repeatable 2-week pilot playbook. Exit gate: POC adoption >80%, pilot-to-paid conversion >50%.
+  - **Phase 2 (Months 5-12: Foundation Building)** — Land 10-15 paying customers, prove 80%+ retention, build HRIS integrations, launch fast-follow features (nudges, semantic search). Exit gate: 10+ customers, 80%+ retention, CAC payback <12 months.
+  - **Phase 3 (Months 13-24: Scale & Optimization)** — Establish market leadership, scale to 50-100 customers, explore optional expansion (performance correlation, distributed teams). Exit gate: market leadership recognized, 50-100 customers, sustainable unit economics.
+
+- **Step 9 (Success Metrics & Risk Mitigation):** Defined comprehensive success metrics (leading indicators: pilot-to-paid conversion, time-to-first-value, dashboard-as-primary-reference rate, shadow-spreadsheet abandonment, employee video consumption; lagging indicators: MRR/ARR, retention rate, LTV/CAC, expansion revenue, win rate) and decision gates at each phase exit. Identified and mitigated 8 key risks: (1) incumbent feature parity, (2) category ambiguity, (3) self-serve underperformance, (4) slow acquisition/runway exhaustion, (5) auto-capture not differentiating, (6) HRIS integration bottleneck, (7) competitive pricing pressure, (8) privacy/compliance issues.
+
+---
+
+## Key Strategic Outputs & Recommendations
+
+**Strategic Recommendation:** Launch narrowly (Option A), establish workflow lock-in via becoming the HR dashboard of record, defend via fast-follow innovation and HRIS integrations, and expand into adjacent opportunities (performance correlation, distributed teams) only after Phase 2 validates retention and unit economics.
+
+**Critical Success Factors:**
+1. Become the "Trusted Dashboard of Record" — HR abandons spreadsheets completely by day 60 post-launch
+2. Deliver measurable time savings — 20-30% reduction in manual HR tracking
+3. Establish & own category narrative — "assignment-first skills tracking" as TalentPilot's category, not a competitor feature
+4. Defend against incumbent copies — maintain fast-follow innovation pace before feature parity arrives
+5. Build repeatable pilot motion — 2-week real-data POC as structural GTM advantage
+
+**Highest Risks to Manage:** Incumbent feature parity (12-24 month window to establish lock-in) + category ambiguity (GTM friction until narrative lands).
+
+---
+
+## Files Created and Purpose of Each
+
+All files live under:
+`_bmad-output/`
+
+### 1. `innovation-strategy-2026-07-07.md`
+**Purpose:** The comprehensive innovation strategy deliverable — a source-cited, templated strategy document spanning all nine workflow steps with strategic options evaluation, recommended direction, detailed execution roadmap (3 phases × 24 months with explicit milestones and exit gates), success metrics framework, and risk mitigation playbook.
+
+**Why it exists:** Produced by the `bmad-cis-innovation-strategy` skill's nine-step workflow, grounded in the completed brainstorming session (MVP scope, role model, core insights) and market research (customer pain, competitive landscape, GTM dynamics) so strategy stayed anchored in validated reality rather than abstract theorizing.
+
+**Contents produced:**
+- **Section 1 — Strategic Context** (current situation, strategic challenge, POC→MVP→category-leadership arc)
+- **Section 2 — Market Analysis** (market landscape, competitive dynamics, market opportunities, critical insights — synthesized from market research phase)
+- **Section 3 — Business Model Analysis** (value creation, value delivery, value capture, revenue/cost structure, five key business-model weaknesses)
+- **Section 4 — Disruption Opportunities** (four disruption vectors: invert control, predictive intelligence, marketplace, distributed-first)
+- **Section 5 — Innovation Opportunities** (10 concrete opportunities: nudges, semantic search, performance correlation, gap detection, credentials, distributed mode, content toolkit, marketplace, AI paths, org blueprints)
+- **Section 6 — Strategic Options** (Option A: Focused Wedge; Option B: Expand Adjacent; Option C: Distributed-First — with comparative analysis table)
+- **Section 7 — Recommended Strategy** (Option A chosen with explicit rationale: urgency, alignment, defensibility, unit economics, expansion path + four hypotheses to validate + five critical success factors)
+- **Section 8 — Execution Roadmap** (Phase 1 detailed: POC completion, MVP launch, messaging, pilot playbook; Phase 2: customer acquisition, retention, integrations, fast-follow features; Phase 3: market leadership, scale, optional expansion — each phase with milestones, exit gates, success metrics)
+- **Section 9 — Success Metrics** (6 leading indicators: pilot-to-paid conversion, time-to-first-value, dashboard-as-primary-reference, shadow-spreadsheet abandonment, employee consumption, feature adoption; 6 lagging indicators: MRR/ARR, retention, LTV/CAC, expansion revenue, win rate, analyst mentions; explicit decision gates at Phase 1/2/3 exits)
+- **Section 10 — Risks & Mitigation** (8 key risks with severity, failure scenario, mitigation strategy, and escalation trigger: incumbent parity, category ambiguity, self-serve underperformance, slow acquisition, auto-capture not differentiating, HRIS integration blocker, pricing pressure, privacy/compliance issues)
+
+### 2. Updated `project-context.md`
+**Purpose:** Persistent facts and decision log for future agents to reference.
+
+**What was appended:** A note that the Innovation Strategy phase was completed 2026-07-07, documenting the strategic recommendation (Option A: Focused Wedge) and flagging that disruption opportunities (employee-driven learning, predictive capability planning, skills marketplace) are explicitly long-term roadmap plays, not POC scope.
+
+---
+
+## Session Notes
+
+**How Victor Worked:** The Innovation Strategist persona applied sustained pressure on the user to move from theoretical strategy to ground truth. When the user initially pushed innovation-strategy exploration into long-term vision, Victor repeatedly pushed back ("We're still circling the same questions; you need to answer the uncomfortable ones") until it was clear that the POC scope was distinct from disruption strategy. Once that clarity was achieved, Victor completed Steps 5-9 in one focused push, producing a full strategy document without further back-and-forth.
+
+**Key Dynamic:** The session revealed a tension between "validate the feature" (POC phase) and "disrupt the market" (long-term vision). Victor's role was to separate these cleanly: recommend a strategy that defends the feature-validation path against incumbents AND leaves a clear expansion path to disruption opportunities once traction is proven. The result is Option A: narrow, fast, defensible now; disruptive potential later.
+
+**Why This Artifact Matters:** The Innovation Strategy document serves three purposes: (1) **internal alignment** — the team now has a shared, written strategy, not fragmented conversations; (2) **investor/board communication** — a narrative from POC through Phase 3, with clear gates and success metrics; (3) **de-risking** — explicit risk identification and mitigation strategies so the team isn't blindsided by known threats (incumbent parity, category ambiguity, unit economics).
+
+---
+
+No other files were created or modified during this phase.
