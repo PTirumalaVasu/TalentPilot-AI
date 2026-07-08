@@ -24,7 +24,7 @@ source_verification: true
 
 This research validates a proposed technical approach for TalentPilot's video-based skill-tracking feature: embedding third-party video (YouTube or Vimeo) while capturing and persisting watch progress in our own database via each provider's player API, rather than relying on provider-side analytics. The research covers the technology stack (player API mechanics for both providers), integration patterns (API/auth constraints and our own persistence endpoint design), architectural patterns (adapter pattern for provider normalization, conditional-write persistence), and implementation considerations (testing strategy, risk assessment, and a phased roadmap).
 
-The core finding: this is a low-risk, well-established technical pattern with no novel research risk in the capture/persistence mechanics themselves. The one decision-relevant discovery is that **YouTube's branding is mandatory and cannot be removed**, which — combined with Vimeo's native `timeupdate` event (simpler than YouTube's polling requirement) and stronger built-in privacy controls — makes Vimeo the stronger technical fit if brand-consistency or content privacy matters for this internal HR tool, at the cost of a paid plan. See the Technical Research Synthesis section below for the full executive summary and recommendations.
+The core finding: this is a low-risk, well-established technical pattern with no novel research risk in the capture/persistence mechanics themselves. The one decision-relevant discovery is that **YouTube's branding is mandatory and cannot be removed**, and that Vimeo's native `timeupdate` event would have been architecturally simpler than YouTube's polling requirement — but since this MVP has no brand-consistency or content-privacy requirement and is budget-constrained to free tooling, **YouTube is the chosen provider**: Vimeo's paid-tier advantages buy nothing here while its cost has no offsetting benefit. Build uses the polling-based `getCurrentTime()`/`onStateChange` capture approach inside the Adapter layer (see `_bmad-output/project-context.md` for the recorded decision). See the Technical Research Synthesis section below for the full executive summary and recommendations.
 
 ---
 
@@ -216,7 +216,7 @@ _Confidence: High — this roadmap directly follows from the technology, integra
 
 ### Executive Summary
 
-Third-party video embeds with client-side watch-progress persistence is a low-risk, well-trodden technical approach — every component of it (adapter pattern for divergent player APIs, conditional-write persistence, debounced capture with an unload safety net) is an established pattern used in production systems at far larger scale, just without the scale-driven additions (caching, sharding) this MVP doesn't need. The one hard platform constraint that changes the provider decision is YouTube's mandatory, un-removable branding — if TalentPilot's dashboard needs the video to feel native/branded to the product, that alone pushes the choice toward Vimeo (paid tier), independent of any difference in technical capability.
+Third-party video embeds with client-side watch-progress persistence is a low-risk, well-trodden technical approach — every component of it (adapter pattern for divergent player APIs, conditional-write persistence, debounced capture with an unload safety net) is an established pattern used in production systems at far larger scale, just without the scale-driven additions (caching, sharding) this MVP doesn't need. **Provider decision: YouTube.** YouTube's branding is mandatory and un-removable, but this MVP has no brand-consistency requirement and is budget-constrained to free tooling, so Vimeo's paid-tier advantages (custom branding, stronger privacy) buy nothing here (decision recorded in `_bmad-output/project-context.md`, 2026-07-07).
 
 **Key Technical Findings:**
 
@@ -227,9 +227,9 @@ Third-party video embeds with client-side watch-progress persistence is a low-ri
 
 **Technical Recommendations:**
 
-1. Build a throwaway spike first — wire up one provider's embed with the adapter and confirm the capture→persist round-trip before committing further
-2. Choose **Vimeo** if brand-consistency or content privacy matters for this internal HR tool; choose **YouTube** if zero cost and simplicity outweigh those concerns for the MVP/pitch stage
-3. Implement the **Adapter pattern** from day one so the provider choice isn't load-bearing on the rest of the application
+1. Build a throwaway spike first — wire up the YouTube embed with the adapter and confirm the capture→persist round-trip before committing further
+2. Use **YouTube** (decided): zero cost and simplicity outweigh Vimeo's branding/privacy advantages for this internal HR tool's MVP/pitch stage
+3. Implement the **Adapter pattern** from day one so the provider choice isn't load-bearing on the rest of the application (and keeps a future Vimeo swap cheap if requirements change)
 4. Use **conditional writes**, not a naive upsert, for the persistence layer
 5. Test against the **adapter interface** with mocked synthetic events, not the real cross-origin embedded player
 
