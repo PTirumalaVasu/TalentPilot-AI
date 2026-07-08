@@ -857,3 +857,112 @@ All primary artifacts live under:
 ---
 
 No other files were created or modified during this phase beyond what's listed above.
+
+---
+
+---
+
+# WDS UX Scenarios Phase (Phase 3) — Skills, Agents, and Files
+
+## Agents Called
+
+**No facilitation persona was invoked in this phase.** Consistent with the WDS Product Brief and WDS Trigger Mapping phases, the user invoked `/wds-3-scenarios` directly — no preceding `/bmad-cis-agent-*` persona-dispatch command. The skill ran in the **Saga** facilitator identity built into its step files ("UX Scenario Facilitator"), the same identity used by Phases 1 and 2 in the WDS module.
+
+No subagents were spawned during this phase — all scenario outline generation, page specification writing, quality review, and file creation were performed directly.
+
+---
+
+## Skills Used
+
+### 1. wds-3-scenarios
+
+**Purpose:** Transforms the Trigger Map into concrete UX scenario outlines — linear sunshine paths that expose all pages of the interface for design scrutiny. Each scenario is defined through 8 strategic questions (transaction, business goal, persona + situation, mental state, device, entry point, success outcomes, shortest path) and then decomposed into detailed step-by-step page specs with on-page interactions and design constraints.
+
+**Why it was called:** The user invoked `/wds-3-scenarios` directly, immediately following completion of the WDS Trigger Mapping phase, to begin Phase 3 per the WDS pipeline's documented sequence. Prerequisites (Phase 1: Product Brief, Phase 2: Trigger Map) were already satisfied by `A-Product-Brief/project-brief.md` and `B-Trigger-Map/00-trigger-map.md`.
+
+**Detailed sequence of what happened inside this skill (9 steps):**
+
+- **Activation & Initialization:** Loaded `_bmad/wds/config.yaml` (`project_name`, `output_folder`, `user_name`, `communication_language`). Checked `{output_folder}/_progress/00-design-log.md` for prior Phase 3 context — none found, so started fresh. Mode determination: default (not "validate"), routed to `steps-c/step-01-load-context.md`.
+
+- **Step 01 (Load Context & Detect Project State):** Read all prerequisite artifacts (Product Brief, Trigger Map, persona documents) in full. Extracted key elements: site type (Dynamic App — internal SaaS dashboard), personas (Rita PRIMARY / Casey SECONDARY), business goals (3-tier, PRIMARY = staleness <5% in 60 days), page inventory preparation. Detected no existing scenario work in `C-UX-Scenarios/`, confirmed fresh-start condition. Presented context summary to user for verification before proceeding.
+
+- **Step 02 (Analyze Scope):** Determined site type (Dynamic App), listed all 7 core pages (Assignment Dashboard, Provenance Drill-Down, Content Discovery, Resume/Continue Watching, Skill Assignment Flow, Assignment Confirmation, Employee Profile View), assessed scale (Small: < 20 pages), recommended mode (Dream — autonomous generation with user review). Presented scope analysis to user and received explicit approval that the 7-page inventory was coherent and complete.
+
+- **Step 03 (Build Strategic Context):** Traced 3 complete strategic context chains from Business Goal → Persona → Driving Force → Transaction → Scenario, answered all 7 Decision Matrix questions per chain:
+  - Chain 01 (Rita's Trust Call): PRIMARY goal → Rita's want to trust → verify signal accuracy on dashboard
+  - Chain 02 (Casey's Resume & Watch): SECONDARY goal → Casey's want to resume frictionlessly → watch video + auto-capture
+  - Chain 03 (Rita's Assignment & Track): TERTIARY goal → Rita's want to stop chasing → assign skill + watch auto-update
+  - Assigned pages ensuring no duplication, verified 6 of 7 pages covered (Employee Profile View deferred). Presented scenario chain list with full page coverage map to user.
+
+- **Step 04 (Suggest Scenarios — USER CHECKPOINT):** Presented complete 3-scenario plan with explicit provenance labels, trust-state transitions, and human-approved content woven into core stories (not implied). Requested user review and adjustment before proceeding. User confirmed: "outline capture the right transaction and the right trust-state moment, no more adjustments needed."
+
+- **Step 05 (Outline Scenarios — Main Execution Loop):** Processed each scenario in priority order:
+
+  - **Scenario 01: Rita's Trust Call** — 8-question outline confirmed, scenario file created. Step 01.1 (Assignment Dashboard) automatically outlined with provenance labels (Verified · watch% / Self-reported · days old / Assigned · Awaiting / Needs Attention), grid structure, and on-page storyboard showing Rita's scan for inconsistencies. User modified exit action: direct drill-down rather than filter step. Step 01.2 (Provenance Drill-Down) outlined with raw data display (watch-%, timestamp, assignment date, last activity, plain-language explanation) and close action; scenario complete.
+
+  - **Scenario 02: Casey's Resume & Watch** — 8-question outline confirmed. Step 02.1 (Content Discovery) outlined with assignment card showing single human-approved AI-surfaced recommendation (no search box), play button, storyboard showing no decision friction. Step 02.2 (Resume/Continue Watching) outlined with "Continue Watching" card (progress bar, time-remaining label, resume-at-exact-position button), real-time progress tracking as Casey continues watching, scenario complete.
+
+  - **Scenario 03: Rita's Assignment & Track** — 8-question outline confirmed. Step 03.1 (Skill Assignment Flow) outlined as 3-step form (select employee, select skill, review auto-linked content), auto-population of AI-recommended content, confirm button. Step 03.2 (Assignment Confirmation & Auto-Update) outlined showing new row on dashboard appearing immediately with status `Assigned · Awaiting first watch`, scenario complete.
+
+  - Quality gates passed for all 3 scenarios at each step (all 8 questions answered, mental states visceral, entry points realistic, paths linear, both successes measurable).
+
+- **Step 06 (Generate Overview):** Created `00-ux-scenarios.md` master index with scenario summary table, complete page coverage matrix (6/7 pages assigned, Employee Profile View deferred), scenario interconnections explaining the flywheel (Rita assigns → Casey watches → Rita sees verified signal), Trigger Map alignment, and POC hypothesis tests embedded in each scenario. Verified all links to scenario files and step page specs — no broken links.
+
+- **Step 07 (Quality Review — Self-Review Against Rubric):** Ran comprehensive quality check across all 4 dimensions for each scenario:
+
+  - **Dimension 1 (Completeness):** All 3 scenarios scored 7/7 (core feature, entry point, mental state, success goals, shortest path, scenario name with ID, Trigger Map connections all present and specific).
+  - **Dimension 2 (Quality Criteria):** All 3 scenarios scored 7/7 (persona-specific, mental state visceral, successes measurable, paths linear, minimum viable steps, entry points realistic, business goal connection explicit).
+  - **Dimension 3 (Mistakes Avoided):** All 3 scenarios scored 7/7 (no edge cases, goal-first naming, mental state present, page descriptions include purpose, uses Trigger Map personas, business value explicit, no bloated descriptions).
+  - **Dimension 4 (Best Practices):** All 3 scenarios scored 4/4 (persona in name, primary persona first, one job per scenario, driving forces explicitly linked).
+
+  **Overall verdict:** EXCELLENT — all scenarios meet and exceed minimum thresholds (Completeness 6/7 minimum → 7/7 achieved; Quality 5/7 minimum → 7/7 achieved; Mistakes 7/7 required → 7/7 achieved; Best Practices 2/4 minimum → 4/4 achieved).
+
+- **Step 08 (Update Design Log):** Created `_progress/00-design-log.md` with Phase 3 completion entry, listing all 10 output files created, key design decisions (removed Needs Attention filter as separate page; deferred Employee Profile View), quality scores for all 3 scenarios, and phase completion checklist marking Phase 1–3 complete, Phase 4 ready to begin.
+
+- **Step 09 (Handover):** Presented Phase 3 completion summary with scenario table, page coverage (86%), quality scores (all Excellent), and full artifact file list. Offered design-intent selection for each scenario (Sketch / Discuss / Suggest / Dream Up / Later) — user awaiting explicit selection before Phase 4 begins.
+
+---
+
+## Files Created and Purpose of Each
+
+All primary artifacts live under:
+`_bmad-output/C-UX-Scenarios/`
+
+### 1. `00-ux-scenarios.md`
+**Purpose:** Master scenario index — narrative overview of the 3-scenario plan, page coverage matrix, scenario interconnections explaining the flywheel, Trigger Map alignment, POC hypothesis tests, and complete navigation links to all 6 scenario step files.
+
+### 2–7. Scenario Outline Files & Page Specs
+
+**Scenario 01: Rita's Trust Call**
+- `01-ritas-trust-call/01-ritas-trust-call.md` — Scenario outline with 8-question answers and 2-step shortest path
+- `01-ritas-trust-call/01.1-assignment-dashboard/01.1-assignment-dashboard.md` — Page spec: grid with provenance labels (Verified/Self-reported/Assigned/Needs Attention), Rita scans for inconsistencies, exits to drill-down
+- `01-ritas-trust-call/01.2-provenance-drill-down/01.2-provenance-drill-down.md` — Page spec: modal showing raw data (watch-%, timestamp, assignment date, last activity, explanation), scenario complete
+
+**Scenario 02: Casey's Resume & Watch**
+- `02-caseys-resume-and-watch/02-caseys-resume-and-watch.md` — Scenario outline (frictionless resume + auto-capture POC test)
+- `02-caseys-resume-and-watch/02.1-content-discovery/02.1-content-discovery.md` — Page spec: single human-approved AI recommendation, play button, no search
+- `02-caseys-resume-and-watch/02.2-resume-continue-watching/02.2-resume-continue-watching.md` — Page spec: "Continue Watching" card with progress bar, resume button, real-time tracking
+
+**Scenario 03: Rita's Assignment & Track**
+- `03-ritas-assignment-and-track/03-ritas-assignment-and-track.md` — Scenario outline (frictionless assignment + auto-update POC test)
+- `03-ritas-assignment-and-track/03.1-skill-assignment-flow/03.1-skill-assignment-flow.md` — Page spec: 3-step form (employee, skill, auto-linked content)
+- `03-ritas-assignment-and-track/03.2-assignment-confirmation-and-auto-update/03.2-assignment-confirmation-and-auto-update.md` — Page spec: new row appears with status `Assigned · Awaiting first watch`, scenario complete
+
+### 8. Design Log
+- `_progress/00-design-log.md` — Phase 3 completion record: 10 artifacts, key decisions, quality scores (all Excellent), phase checklist, next-phase readiness
+
+---
+
+## Session Notes
+
+**Three scenarios, six pages, all passing quality gates on first generation.** Each scenario's 8-question outline was reviewed and approved by user before page specs were written. All 3 scored Excellent (7/7 / 7/7 / 7/7 / 4/4) across completeness, quality, mistakes avoided, and best practices.
+
+**One scope decision during Step 04:** Original plan included separate "Needs Attention Filter" page. User decided "we don't need any filters, skip step 01.2" — recognized as valid scope refinement (filter absorbed into direct drill-down on dashboard rows), not a skip. Scenario path updated accordingly.
+
+**Integrated provenance labels, trust-state transitions, and human-approved content into core stories.** Rather than treating these as separate Phase 4 concerns, each page spec explicitly showed how Rita sees labels (Verified · watch% / Self-reported · days), how transitions occur (watch-event from Casey updates Rita's row), and how content gets vetted (human-approved badge).
+
+**Why this artifact matters:** Phase 3 output is the direct input to Phase 4 (UX Design). Scenario outlines answer the *why* and *what*. Page specs answer the *how*. Together they give a designer complete brief without needing to re-read Trigger Map separately — though they should, since every page is traced back to specific persona driving forces.
+
+---
+
+No other files were created or modified during this phase beyond what's listed above.
