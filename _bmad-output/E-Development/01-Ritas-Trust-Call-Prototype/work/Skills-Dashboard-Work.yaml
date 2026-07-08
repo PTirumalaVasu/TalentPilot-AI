@@ -1,0 +1,388 @@
+# ============================================================================
+# PROTOTYPE WORK FILE: 01.1 Skills Dashboard (+ 01.2 Provenance Drill-Down modal)
+# ============================================================================
+# Purpose: Complete planning document for section-by-section implementation
+# Created: 2026-07-08
+# Page Specs:
+#   ../../C-UX-Scenarios/01-ritas-trust-call/01.1-assignment-dashboard/01.1-assignment-dashboard.md
+#   ../../C-UX-Scenarios/01-ritas-trust-call/01.2-provenance-drill-down/01.2-provenance-drill-down.md
+# Logical View Map: ./Logical-View-Map.md
+# ============================================================================
+
+metadata:
+  page_number: "01.1 + 01.2"
+  page_name: "Skills Dashboard (with Provenance Drill-Down modal)"
+  scenario: "01-Ritas-Trust-Call"
+  complexity: "medium"
+  estimated_sections: 6
+  estimated_time: "90 minutes"
+
+  device_compatibility:
+    type: "desktop-only"
+    primary_viewport: "1280px"
+    test_viewports:
+      - width: 1280
+        height: 800
+        device: "Desktop (minimum)"
+      - width: 1440
+        height: 900
+        device: "Desktop (laptop common)"
+      - width: 1920
+        height: 1080
+        device: "Desktop (external monitor)"
+    breakpoints: []
+    touch_optimized: false
+    hover_interactions: true
+
+  dependencies:
+    - "shared/prototype-api.js"
+    - "shared/init.js"
+    - "shared/utils.js"
+
+# ============================================================================
+# DESIGN TOKENS (Tailwind Config) — Generic Gray Model, no design system
+# ============================================================================
+
+design_tokens:
+  colors:
+    primary: "#2563eb"
+    primary_hover: "#1d4ed8"
+    success: "#10b981"
+    warning: "#f59e0b"
+    error: "#ef4444"
+    gray_bg: "#f9fafb"
+
+  tailwind_config:
+    theme_extend:
+      colors:
+        "talentpilot":
+          50: "#eff6ff"
+          500: "#2563eb"
+          600: "#1d4ed8"
+          700: "#1e40af"
+      fontFamily:
+        sans: "['Inter', 'system-ui', 'sans-serif']"
+
+  components_available:
+    - "modal (components/modal.js)"
+    - "toast (components/toast.js) — used later for 03.2, not required here"
+
+# ============================================================================
+# PAGE REQUIREMENTS (from specification)
+# ============================================================================
+
+page_purpose: |
+  Let Rita scan employee skill assignments with provenance labels
+  (Verified / Self-reported / Needs Attention) and drill into any row to see
+  the raw signal data behind the label, so she can make a staffing-readiness
+  decision without cross-referencing a spreadsheet.
+
+user_context:
+  - "Rita just logged in and clicked Skills Dashboard / Assignments from nav"
+  - "She's under time pressure to answer a staffing question in minutes"
+  - "She arrives skeptical about data freshness — the provenance labels are the trust mechanism"
+
+success_criteria:
+  - "Rita can distinguish Verified / Self-reported / Needs Attention rows at a glance (color + text, never color-only)"
+  - "Clicking a drill-down arrow opens the modal with assignment date, last activity, and a plain-language explanation"
+  - "Modal closes via X, Escape, or click-outside and always returns cleanly to the dashboard"
+  - "Loading/Empty/Error states are implemented for both the grid and the modal, not just the happy path"
+
+# ============================================================================
+# DEMO DATA REQUIREMENTS
+# ============================================================================
+
+demo_data_needed:
+  current_user:
+    firstName: "Rita"
+    lastName: "the Referee"
+    role: "HR"
+
+  source: "../data/demo-data.js (window.DEMO_DATA) — assignments array (Casey/Morgan/Jordan/Sam)"
+
+  example_drill_down:
+    employee: "Jordan"
+    skill: "Data Visualization Fundamentals"
+    provenance: "Self-reported · Not updated in 21 days"
+    assignment_date: "2026-06-17"
+    last_self_report: "In progress — 40% estimated (entered 2026-06-17)"
+    explanation: "This skill was assigned 21 days ago. No video watch activity has been recorded since assignment. The employee's last self-reported update said '40% estimated,' but that entry was made on the same day as assignment and hasn't been updated since. The row is marked 'needs attention' because the signal is stale and we can't confirm current progress."
+
+# ============================================================================
+# OBJECT ID MAP (all interactive elements)
+# ============================================================================
+
+object_ids:
+  header:
+    - "skills-dashboard-logo"
+    - "skills-dashboard-nav-primary"
+    - "skills-dashboard-user-menu"
+
+  toolbar:
+    - "skills-dashboard-btn-new-assignment"
+
+  main_content:
+    - "skills-dashboard-heading-title"
+    - "skills-dashboard-summary-count"
+    - "skills-dashboard-grid-skills"
+    - "skills-dashboard-pagination-controls"
+
+  footer:
+    - "skills-dashboard-version-info"
+
+  modal_header:
+    - "assignment-details-header-id"
+    - "assignment-details-btn-close"
+
+  modal_body:
+    - "assignment-details-employee-name"
+    - "assignment-details-skill-name"
+    - "assignment-details-provenance-summary"   # added this session — no formal ID existed in spec
+    - "assignment-details-raw-signal"           # added this session
+    - "assignment-details-explanation"          # added this session
+    - "assignment-details-actions"              # added this session
+
+# ============================================================================
+# SECTION BREAKDOWN (implementation order)
+# ============================================================================
+
+sections:
+  - id: "section-1"
+    name: "Page Structure & Header"
+    scope: "HTML skeleton, header (logo/nav/user menu dropdown), toolbar with [+ New Assignment] button"
+    files_affected: ["01.1-Skills-Dashboard.html"]
+    dependencies: []
+    object_ids:
+      - "skills-dashboard-logo"
+      - "skills-dashboard-nav-primary"
+      - "skills-dashboard-user-menu"
+      - "skills-dashboard-btn-new-assignment"
+    tailwind_classes:
+      - "Layout: min-h-screen, bg-gray-50"
+      - "Header: bg-white, border-b, px-6, py-3, flex, items-center, justify-between"
+      - "Nav: flex, gap-6, text-gray-600, hover:text-gray-900"
+    acceptance_criteria:
+      - "Header displays logo, primary nav (Dashboard/Assignments), user menu"
+      - "User menu opens/closes on click, Sign Out item present"
+      - "[+ New Assignment] button visible in toolbar (click wired in Section 6)"
+    placeholder_message: "🚧 Building the dashboard grid next..."
+
+  - id: "section-2"
+    name: "Skills Grid — Loaded State"
+    scope: "Grid rows with provenance labels, summary count, pagination, footer"
+    files_affected: ["01.1-Skills-Dashboard.html"]
+    dependencies: ["section-1"]
+    object_ids:
+      - "skills-dashboard-heading-title"
+      - "skills-dashboard-summary-count"
+      - "skills-dashboard-grid-skills"
+      - "skills-dashboard-pagination-controls"
+      - "skills-dashboard-version-info"
+    tailwind_classes:
+      - "Grid: w-full, border-collapse, text-sm"
+      - "Row: border-b, hover:bg-gray-50"
+      - "Provenance label: inline-flex, items-center, gap-1, px-2, py-0.5, rounded-full, text-xs, font-medium (color varies by status, always paired with text)"
+    acceptance_criteria:
+      - "All 4 demo assignments render (Casey/Morgan/Jordan/Sam) from demo-data.js"
+      - "Provenance labels are color + text, never color-only (Verified=green, Self-reported=gray, Needs Attention=amber)"
+      - "Drill-down arrow present on each row (click wired in Section 6)"
+    placeholder_message: "🚧 Adding loading/empty/error states next..."
+
+  - id: "section-3"
+    name: "Grid — Loading / Empty / Error States"
+    scope: "The 3 non-happy-path dashboard states from the Phase 4 validation retrofit"
+    files_affected: ["01.1-Skills-Dashboard.html"]
+    dependencies: ["section-2"]
+    object_ids: []
+    tailwind_classes:
+      - "Loading: animate-pulse, bg-gray-200 skeleton rows"
+      - "Empty/Error message: text-center, text-gray-500, py-12"
+    acceptance_criteria:
+      - "Loading state shows skeleton rows, header/nav remain interactive"
+      - "Empty state shows 'No assignments yet — click + New Assignment to get started'"
+      - "Error state shows 'Couldn't load assignments. [Retry]' and Retry re-attempts the fetch"
+    placeholder_message: "🚧 Building the Provenance Drill-Down modal next..."
+
+  - id: "section-4"
+    name: "Provenance Drill-Down Modal — Open State"
+    scope: "Modal header, employee/skill identifiers, provenance summary, raw signal data, plain-language explanation, close button"
+    files_affected: ["01.1-Skills-Dashboard.html"]
+    dependencies: ["section-2"]
+    object_ids:
+      - "assignment-details-header-id"
+      - "assignment-details-btn-close"
+      - "assignment-details-employee-name"
+      - "assignment-details-skill-name"
+      - "assignment-details-provenance-summary"
+      - "assignment-details-raw-signal"
+      - "assignment-details-explanation"
+      - "assignment-details-actions"
+    tailwind_classes:
+      - "Modal overlay: fixed, inset-0, bg-black/40, flex, items-center, justify-center"
+      - "Modal panel: bg-white, rounded-lg, shadow-xl, max-w-lg, p-6"
+    acceptance_criteria:
+      - "Clicking a row's drill-down arrow opens the modal with that row's data"
+      - "Modal shows assignment date, last activity, and plain-language explanation text"
+      - "Explanation text matches the tone rules in the spec (factual, no interpretation beyond what's stated)"
+    placeholder_message: "🚧 Adding modal loading/error states next..."
+
+  - id: "section-5"
+    name: "Modal — Loading / Error States"
+    scope: "The 2 non-happy-path modal states from the retrofit"
+    files_affected: ["01.1-Skills-Dashboard.html"]
+    dependencies: ["section-4"]
+    object_ids: []
+    tailwind_classes:
+      - "Loading: animate-pulse skeleton inside modal body"
+      - "Error message: text-red-600, text-sm"
+    acceptance_criteria:
+      - "Loading state shows header immediately with a body-area loading placeholder"
+      - "Error state shows 'Couldn't load provenance details. [Retry]', Close still works"
+    placeholder_message: "🚧 Wiring interactions next..."
+
+  - id: "section-6"
+    name: "Interactions & Polish"
+    scope: "Wire dashboard→modal open/close, nav dropdown, pagination clicks, Escape/click-outside handling, dev-mode Object ID overlay"
+    files_affected: ["01.1-Skills-Dashboard.html"]
+    dependencies: ["section-1", "section-2", "section-3", "section-4", "section-5"]
+    object_ids: []
+    tailwind_classes: []
+    acceptance_criteria:
+      - "Drill-down arrow click opens modal with correct row's data"
+      - "X button, Escape key, and click-outside all close the modal"
+      - "User menu dropdown opens/closes on click"
+      - "Pagination controls change the displayed page (demo data can be a single page — verify no-op is graceful)"
+      - "Dev-mode Shift+Click copies Object IDs to clipboard for handoff reference"
+    placeholder_message: "🚧 Final integration test..."
+
+# ============================================================================
+# JAVASCRIPT REQUIREMENTS
+# ============================================================================
+
+javascript_functions:
+  initialization:
+    - "initPage() - loads demo data, renders grid"
+
+  ui_interactions:
+    - "openDrillDown(assignmentId) - populate and show modal"
+    - "closeDrillDown() - hide modal"
+    - "toggleUserMenu()"
+
+  api_calls:
+    - "PrototypeAPI.getAssignments()"
+    - "PrototypeAPI.getAssignmentDetail(assignmentId)"
+
+  feedback:
+    - "setGridState('loading' | 'loaded' | 'empty' | 'error')"
+    - "setModalState('loading' | 'open' | 'error')"
+
+# ============================================================================
+# NAVIGATION
+# ============================================================================
+
+navigation:
+  previous_page: null
+  next_page_success: null
+  note: "Only view in this prototype pass — Scenarios 02/03 will be separate prototype setups"
+
+# ============================================================================
+# TESTING CHECKLIST (after all sections complete)
+# ============================================================================
+
+testing_checklist:
+  functionality:
+    - "[ ] Grid loads and renders all 4 demo assignments"
+    - "[ ] Drill-down opens modal with correct data per row"
+    - "[ ] Modal closes via X, Escape, and click-outside"
+    - "[ ] Loading/Empty/Error states all render correctly for grid and modal"
+    - "[ ] Data persists across reload (sessionStorage)"
+
+  desktop_testing:
+    - "[ ] 1280px viewport looks correct"
+    - "[ ] 1440px viewport looks correct"
+    - "[ ] 1920px viewport looks correct"
+    - "[ ] No horizontal scroll at any tested width"
+
+  code_quality:
+    - "[ ] All Object IDs present (including the 4 added this session)"
+    - "[ ] Console logs helpful"
+    - "[ ] No console errors"
+
+  accessibility:
+    - "[ ] Provenance labels color + text, never color-only"
+    - "[ ] Keyboard navigation works (grid, modal, dropdown)"
+    - "[ ] Escape closes modal"
+    - "[ ] Focus states visible"
+
+# ============================================================================
+# MIGRATION NOTES (for production)
+# ============================================================================
+
+migration_todos:
+  - "Replace PrototypeAPI.getAssignments() with real FastAPI endpoint"
+  - "Replace sessionStorage demo data with Postgres-backed assignments table"
+  - "Real-time row updates (future) will need WebSocket/polling per DD-001"
+  - "Remove the ?demo_state= URL param mechanism (Section 3) — prototype-only testing convenience, not needed once real fetch success/error/empty states drive the UI"
+
+# ============================================================================
+# KNOWN ISSUES / EDGE CASES
+# ============================================================================
+
+edge_cases:
+  - "Concurrent drill-down clicks on different rows in quick succession — modal should always show the last-clicked row's data"
+  - "Pagination with only 4 demo rows (single page) — verify controls degrade gracefully, not required to build multi-page demo data"
+
+# ============================================================================
+# SECTION STATUS (updated as each section is approved)
+# ============================================================================
+
+section_status:
+  section-1:
+    status: "complete"
+    completed: "2026-07-08"
+    actual_time: "~15 minutes"
+    issues: "none"
+    improvements: "none"
+  section-2:
+    status: "complete"
+    completed: "2026-07-08"
+    actual_time: "~20 minutes"
+    issues: "none"
+    improvements: "none"
+  section-3:
+    status: "complete"
+    completed: "2026-07-08"
+    actual_time: "~15 minutes"
+    issues: "none"
+    improvements: "none"
+  section-4:
+    status: "complete"
+    completed: "2026-07-08"
+    actual_time: "~30 minutes (incl. fetch()/file:// bug fix)"
+    issues: "fetch() of local data/demo-data.json blocked under file:// protocol — fixed by switching to a <script>-tag global-variable pattern (data/demo-data.js). See stories/01.1.4-*.md for full writeup."
+    improvements: "none"
+  section-5:
+    status: "complete"
+    completed: "2026-07-08"
+    actual_time: "~10 minutes"
+    issues: "none (initial test confusion was a stale browser tab, resolved on recheck)"
+    improvements: "none"
+  section-6:
+    status: "complete"
+    completed: "2026-07-08"
+    actual_time: "~15 minutes"
+    issues: "none"
+    improvements: "none"
+
+# ============================================================================
+# COMPLETION CRITERIA
+# ============================================================================
+
+definition_of_done:
+  - "All 6 sections implemented and tested"
+  - "All object IDs present and correct (including the 4 added this session)"
+  - "All acceptance criteria met"
+  - "Demo data loads automatically from data/demo-data.js (window.DEMO_DATA)"
+  - "Loading/Empty/Error states work for both grid and modal"
+  - "No console errors"
+  - "Story files document all 6 sections"

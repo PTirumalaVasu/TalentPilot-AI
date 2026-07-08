@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1280, initial-scale=1.0">
+    <title>02.2 Continue Watching - TalentPilot-AI</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'talentpilot': {
+                            50: '#eff6ff',
+                            100: '#dbeafe',
+                            500: '#2563eb',
+                            600: '#1d4ed8',
+                            700: '#1e40af',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="components/dev-mode.css">
+</head>
+<body class="min-h-screen bg-gray-50 font-sans">
+    <button id="dev-mode-toggle" class="dev-mode-toggle" title="Toggle Dev Mode (Ctrl+E)">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+        </svg>
+        <span>Dev Mode: OFF</span>
+    </button>
+    <div id="dev-mode-tooltip" class="dev-mode-tooltip" style="display: none;"></div>
+
+    <!-- ========================================================================
+         HEADER (Section 1)
+         ======================================================================== -->
+    <header class="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between">
+        <div class="flex items-center gap-8">
+            <a href="#" id="continue-watching-logo" data-object-id="continue-watching-logo"
+               class="flex items-center gap-2 font-bold text-lg text-gray-900">TalentPilot-AI</a>
+            <nav id="continue-watching-nav-primary" data-object-id="continue-watching-nav-primary" class="flex gap-6 text-sm">
+                <a href="02.1-Content-Discovery.html" class="text-gray-600 hover:text-gray-900 pb-3 -mb-3 transition-colors">Assignments</a>
+                <a href="#" class="text-talentpilot-600 font-medium border-b-2 border-talentpilot-600 pb-3 -mb-3">Continue Watching</a>
+            </nav>
+        </div>
+        <div id="continue-watching-user-menu" data-object-id="continue-watching-user-menu" class="relative">
+            <button type="button" onclick="toggleUserMenu()" class="flex items-center gap-2 text-sm text-gray-700">
+                <span class="w-8 h-8 rounded-full bg-talentpilot-100 flex items-center justify-center text-talentpilot-700 font-medium">C</span>
+                Casey
+            </button>
+            <div class="hidden absolute right-0 mt-2 w-40 bg-white border border-gray-200 rounded-lg shadow-lg z-10" data-dropdown>
+                <a href="#" onclick="handleSignOut()" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg">Sign Out</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- ========================================================================
+         MAIN CONTENT (filled in by Section 2 onward)
+         ======================================================================== -->
+    <main id="page-main-content" class="px-6 py-6 max-w-2xl mx-auto">
+        <div class="bg-white rounded-lg shadow-sm p-6">
+            <div id="continue-watching-card-header" data-object-id="continue-watching-card-header" class="mb-4">
+                <h2 class="text-lg font-semibold text-gray-900" id="cw-skill-title"></h2>
+                <p class="text-sm text-gray-500" id="cw-status"></p>
+            </div>
+
+            <div class="flex gap-4">
+                <div id="continue-watching-thumbnail" data-object-id="continue-watching-thumbnail"
+                     class="relative w-40 h-24 bg-gray-200 rounded-lg flex items-center justify-center flex-shrink-0 cursor-pointer"
+                     onclick="handleResume()">
+                    <svg class="w-8 h-8 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"/>
+                    </svg>
+                    <div class="absolute bottom-0 left-0 right-0 h-1 bg-gray-300 rounded-b-lg overflow-hidden">
+                        <div class="h-full bg-talentpilot-600" style="width: 51%"></div>
+                    </div>
+                </div>
+                <div class="flex-1">
+                    <h3 id="continue-watching-content-title" data-object-id="continue-watching-content-title" class="font-medium text-gray-900"></h3>
+                    <div class="flex items-center gap-2 text-sm text-gray-500 mt-1">
+                        <span id="continue-watching-source-badge" data-object-id="continue-watching-source-badge"></span>
+                        <span>·</span>
+                        <span id="continue-watching-duration" data-object-id="continue-watching-duration"></span>
+                    </div>
+
+                    <div class="mt-3" title="14:32 of 28:00 — Last watched 3 days ago">
+                        <div id="continue-watching-progress-bar" data-object-id="continue-watching-progress-bar"
+                             class="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                            <div class="h-full bg-talentpilot-600" style="width: 51%"></div>
+                        </div>
+                        <p id="continue-watching-progress-text" data-object-id="continue-watching-progress-text"
+                           class="text-xs text-gray-500 mt-1"></p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-6">
+                <button id="continue-watching-btn-resume" data-object-id="continue-watching-btn-resume"
+                        onclick="handleResume()"
+                        class="bg-talentpilot-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-talentpilot-700 transition-colors">
+                    ▶ Resume at 14:32
+                </button>
+                <p id="continue-watching-btn-subtitle" data-object-id="continue-watching-btn-subtitle"
+                   class="text-xs text-gray-500 mt-1">Pick up where you left off</p>
+                <a href="#" id="continue-watching-btn-start-over" data-object-id="continue-watching-btn-start-over"
+                   onclick="handleStartOver()" class="text-sm text-talentpilot-600 hover:underline mt-2 inline-block">Start over</a>
+            </div>
+        </div>
+
+        <div class="mt-4 text-sm">
+            <p id="continue-watching-other-skills" data-object-id="continue-watching-other-skills"
+               class="font-medium text-gray-700 mb-1">Other assigned skills</p>
+            <p id="continue-watching-encouragement" data-object-id="continue-watching-encouragement"
+               class="text-gray-500"></p>
+        </div>
+
+        <!-- Loading skeleton (Section 3) -->
+        <div id="cw-loading-state" class="hidden bg-white rounded-lg shadow-sm p-6 space-y-3">
+            <div class="h-5 bg-gray-100 rounded animate-pulse w-1/2"></div>
+            <div class="h-24 bg-gray-100 rounded animate-pulse w-full"></div>
+        </div>
+
+        <!-- Empty state (Section 3) -->
+        <div id="cw-empty-state" class="hidden text-center py-12 border-2 border-dashed border-gray-200 rounded-lg text-gray-500">
+            Nothing in progress right now. <a href="02.1-Content-Discovery.html" class="text-talentpilot-600 underline">View your assignments</a>
+        </div>
+
+        <!-- Error state (Section 3) -->
+        <div id="cw-error-state" class="hidden text-center py-12 border-2 border-dashed border-red-200 rounded-lg text-red-600">
+            Couldn't resume this video.
+            <button onclick="loadContinueWatching()" class="underline font-medium ml-1">Try again</button>
+            · <a href="#" onclick="handleStartOver()" class="underline">Start over</a>
+        </div>
+    </main>
+
+    <!-- ========================================================================
+         JAVASCRIPT - Shared Scripts
+         ======================================================================== -->
+    <script src="data/demo-data.js"></script>
+    <script src="shared/prototype-api.js"></script>
+    <script src="shared/utils.js"></script>
+    <script src="shared/init.js"></script>
+    <script src="components/dev-mode.js"></script>
+
+    <!-- ========================================================================
+         JAVASCRIPT - Page-Specific Script
+         ======================================================================== -->
+    <script>
+        /**
+         * Page: 02.2 Continue Watching
+         * Purpose: Casey resumes an in-progress skill at the exact last
+         *          watched position, no manual seeking.
+         */
+
+        window.initPage = function() {
+            console.log('📄 02.2 Continue Watching loaded');
+            loadContinueWatching();
+        };
+
+        function getDemoStateParam() {
+            return new URLSearchParams(window.location.search).get('demo_state');
+        }
+
+        function setCardState(state) {
+            // state: 'loading' | 'loaded' | 'empty' | 'error'
+            document.getElementById('cw-loading-state').classList.toggle('hidden', state !== 'loading');
+            document.getElementById('cw-empty-state').classList.toggle('hidden', state !== 'empty');
+            document.getElementById('cw-error-state').classList.toggle('hidden', state !== 'error');
+            document.querySelector('#page-main-content > .bg-white').classList.toggle('hidden', state !== 'loaded');
+        }
+
+        async function loadContinueWatching() {
+            const forcedState = getDemoStateParam();
+
+            if (forcedState === 'loading') { setCardState('loading'); return; }
+            if (forcedState === 'error') { setCardState('error'); return; }
+            if (forcedState === 'empty') { setCardState('empty'); return; }
+
+            setCardState('loading');
+            const c = await PrototypeAPI.getContinueWatching();
+            console.log('📦 Continue Watching data:', c);
+
+            document.getElementById('cw-skill-title').textContent = c.skillName;
+            document.getElementById('cw-status').textContent = `${c.status} · ${c.lastUpdate}`;
+            document.getElementById('continue-watching-content-title').textContent = c.content.title;
+            document.getElementById('continue-watching-source-badge').textContent = c.content.source;
+            document.getElementById('continue-watching-duration').textContent = `${c.content.durationMinutes} minutes`;
+            document.getElementById('continue-watching-progress-text').textContent =
+                `${c.watchedMinutes} min watched of ${c.totalMinutes} min · ${c.totalMinutes - c.watchedMinutes} min remaining`;
+            document.getElementById('continue-watching-btn-resume').textContent = `▶ Resume at ${c.resumeTimestamp}`;
+            document.getElementById('continue-watching-encouragement').textContent = `You're making progress on ${c.skillName}!`;
+            setCardState('loaded');
+        }
+
+        function handleResume() {
+            console.log('▶ Resume clicked — would launch video player at 14:32 (real player out of scope)');
+        }
+
+        function handleStartOver() {
+            console.log('↺ Start over clicked — would launch video player at 0:00 (real player out of scope)');
+        }
+
+        function toggleUserMenu() {
+            document.querySelector('[data-dropdown]').classList.toggle('hidden');
+        }
+
+        function handleSignOut() {
+            console.log('👋 Sign out clicked (prototype no-op)');
+        }
+
+        // User menu: close on click-outside (Section 4)
+        document.addEventListener('click', (e) => {
+            const userMenu = document.getElementById('continue-watching-user-menu');
+            const dropdown = userMenu.querySelector('[data-dropdown]');
+            if (!userMenu.contains(e.target) && !dropdown.classList.contains('hidden')) {
+                dropdown.classList.add('hidden');
+            }
+        });
+    </script>
+</body>
+</html>

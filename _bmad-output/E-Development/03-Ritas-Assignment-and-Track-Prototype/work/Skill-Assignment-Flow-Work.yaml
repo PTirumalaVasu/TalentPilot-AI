@@ -1,0 +1,235 @@
+# ============================================================================
+# PROTOTYPE WORK FILE: 03.1 Skill Assignment Flow + 03.2 Toast/Highlight
+# ============================================================================
+# Purpose: Complete planning document for section-by-section implementation
+# Created: 2026-07-08
+# Page Specs:
+#   ../../C-UX-Scenarios/03-ritas-assignment-and-track/03.1-skill-assignment-flow/03.1-skill-assignment-flow.md
+#   ../../C-UX-Scenarios/03-ritas-assignment-and-track/03.2-assignment-confirmation-and-auto-update/03.2-assignment-confirmation-and-auto-update.md
+# Logical View Map: ./Logical-View-Map.md
+# Base file: ../03-Skills-Dashboard.html (duplicated from Scenario 01, already has dashboard + drill-down modal built)
+# ============================================================================
+
+metadata:
+  page_number: "03.1 + 03.2"
+  page_name: "Skill Assignment Flow modal + Toast/New Row Highlight (on the Skills Dashboard)"
+  scenario: "03-Ritas-Assignment-and-Track"
+  complexity: "medium"
+  estimated_sections: 6
+  estimated_time: "95 minutes"
+
+  device_compatibility:
+    type: "desktop-only"
+    primary_viewport: "1280px"
+    breakpoints: []
+    touch_optimized: false
+    hover_interactions: true
+
+  dependencies:
+    - "shared/prototype-api.js (extended with getContentForSkill, createAssignment)"
+    - "shared/init.js"
+    - "shared/utils.js"
+
+design_tokens:
+  tailwind_config:
+    theme_extend:
+      colors:
+        "talentpilot":
+          50: "#eff6ff"
+          500: "#2563eb"
+          600: "#1d4ed8"
+          700: "#1e40af"
+
+page_purpose: |
+  Let Rita assign a skill to an employee in under 2 minutes via a 3-step
+  form (employee -> skill -> auto-linked content review), with the new
+  assignment appearing immediately on the dashboard with confirmation.
+
+success_criteria:
+  - "Rita completes the assignment in under 2 minutes"
+  - "Content is auto-linked, never requiring manual search in the primary flow"
+  - "New row appears immediately, highlighted, with a toast confirmation"
+
+demo_data_needed:
+  source: "../data/demo-data.js — employees, skills, content_catalog, existing assignments"
+  example_flow: "Rita assigns Casey -> Python Basics -> auto-linked 'Python Basics for Beginners'"
+
+object_ids:
+  modal_chrome:
+    - "skill-assignment-flow-header-title"
+    - "skill-assignment-flow-progress-indicator"
+    - "skill-assignment-flow-btn-close"
+  step1_employee:
+    - "skill-assignment-flow-step1-title"
+    - "skill-assignment-flow-employee-dropdown"
+    - "skill-assignment-flow-employee-list"
+    - "skill-assignment-flow-btn-continue-step1"
+  step2_skill:
+    - "skill-assignment-flow-step2-title"
+    - "skill-assignment-flow-skill-search"
+    - "skill-assignment-flow-skill-list"
+    - "skill-assignment-flow-btn-continue-step2"
+  step3_content:
+    - "skill-assignment-flow-step3-title"
+    - "skill-assignment-flow-content-label"
+    - "skill-assignment-flow-content-thumbnail"
+    - "skill-assignment-flow-content-title"
+    - "skill-assignment-flow-content-source"
+    - "skill-assignment-flow-content-duration"
+    - "skill-assignment-flow-content-approval"
+    - "skill-assignment-flow-content-description"
+    - "skill-assignment-flow-btn-view-content"
+    - "skill-assignment-flow-btn-change-content"
+  footer:
+    - "skill-assignment-flow-btn-assign"
+    - "skill-assignment-flow-btn-cancel"
+  confirmation:
+    - "assignment-confirmation-toast"
+    - "assignment-confirmation-new-row-highlight"
+  reused_from_scenario_01:
+    - "skills-dashboard-grid-skills (the grid — 03.2's 'assignment-confirmation-grid' is this same element, not a new one)"
+    - "skills-dashboard-btn-new-assignment (currently a stub — Section 6 wires it to open this modal)"
+
+sections:
+  - id: "section-1"
+    name: "Modal Structure & Step 1 (Employee)"
+    scope: "Modal chrome (header, progress, close), Step 1 employee dropdown/list/continue"
+    files_affected: ["03-Skills-Dashboard.html"]
+    dependencies: []
+    object_ids:
+      - "skill-assignment-flow-header-title"
+      - "skill-assignment-flow-progress-indicator"
+      - "skill-assignment-flow-btn-close"
+      - "skill-assignment-flow-step1-title"
+      - "skill-assignment-flow-employee-dropdown"
+      - "skill-assignment-flow-employee-list"
+      - "skill-assignment-flow-btn-continue-step1"
+    acceptance_criteria:
+      - "Modal shows 'Assign a New Skill', 'Step 1 of 3'"
+      - "Employee dropdown lists Casey, Morgan, Jordan, Sam"
+      - "Selecting an employee enables Continue"
+    placeholder_message: "🚧 Building Step 2 next..."
+
+  - id: "section-2"
+    name: "Step 2 (Skill Selection)"
+    scope: "Skill search/list, continue button"
+    files_affected: ["03-Skills-Dashboard.html"]
+    dependencies: ["section-1"]
+    object_ids:
+      - "skill-assignment-flow-step2-title"
+      - "skill-assignment-flow-skill-search"
+      - "skill-assignment-flow-skill-list"
+      - "skill-assignment-flow-btn-continue-step2"
+    acceptance_criteria:
+      - "Skill list shows Python Basics, Data Visualization Fundamentals, Advanced SQL"
+      - "Selecting a skill enables Continue and fetches auto-linked content"
+    placeholder_message: "🚧 Building Step 3 next..."
+
+  - id: "section-3"
+    name: "Step 3 (Content Review)"
+    scope: "Auto-linked content display, footer Assign/Cancel"
+    files_affected: ["03-Skills-Dashboard.html"]
+    dependencies: ["section-2"]
+    object_ids:
+      - "skill-assignment-flow-step3-title"
+      - "skill-assignment-flow-content-label"
+      - "skill-assignment-flow-content-thumbnail"
+      - "skill-assignment-flow-content-title"
+      - "skill-assignment-flow-content-source"
+      - "skill-assignment-flow-content-duration"
+      - "skill-assignment-flow-content-approval"
+      - "skill-assignment-flow-content-description"
+      - "skill-assignment-flow-btn-view-content"
+      - "skill-assignment-flow-btn-change-content"
+      - "skill-assignment-flow-btn-assign"
+      - "skill-assignment-flow-btn-cancel"
+    acceptance_criteria:
+      - "Content auto-populated based on skill selection (e.g. Python Basics -> Python Basics for Beginners)"
+      - "Approval badge always shown"
+      - "[Assign] enabled once employee+skill selected"
+    placeholder_message: "🚧 Adding loading/empty/error states next..."
+
+  - id: "section-4"
+    name: "Modal Loading/Empty/Error States"
+    scope: "The 3 non-happy-path states from the retrofit"
+    files_affected: ["03-Skills-Dashboard.html"]
+    dependencies: ["section-3"]
+    object_ids: []
+    acceptance_criteria:
+      - "Loading: skeleton in place of dropdown/list options"
+      - "Empty: 'No approved content found yet for this skill. [Choose Different Content] or assign without content.'"
+      - "Error: \"Couldn't load [employees/skills/content]. [Retry]\""
+    placeholder_message: "🚧 Wiring assignment creation next..."
+
+  - id: "section-5"
+    name: "Assignment Creation + Toast/New Row Highlight"
+    scope: "Wire [Assign] click -> PrototypeAPI.createAssignment() -> close modal -> re-render grid -> toast -> highlight new row"
+    files_affected: ["03-Skills-Dashboard.html"]
+    dependencies: ["section-3"]
+    object_ids:
+      - "assignment-confirmation-toast"
+      - "assignment-confirmation-new-row-highlight"
+    acceptance_criteria:
+      - "New row (Casey, Python Basics, 'Assigned · Awaiting first watch', 0%) appears in the grid immediately"
+      - "Toast shows '✓ Skill assigned to Casey — Python Basics', auto-dismisses after 3-5s"
+      - "New row is visually highlighted (background color or badge)"
+    placeholder_message: "🚧 Final interactions next..."
+
+  - id: "section-6"
+    name: "Interactions & Polish"
+    scope: "Wire [+ New Assignment] button to open this modal (replacing the Scenario 01 stub); Escape/click-outside for this modal, coexisting with the existing Provenance modal"
+    files_affected: ["03-Skills-Dashboard.html"]
+    dependencies: ["section-1", "section-2", "section-3", "section-4", "section-5"]
+    object_ids: []
+    acceptance_criteria:
+      - "[+ New Assignment] opens the Skill Assignment Flow modal (no longer just logs to console)"
+      - "Escape/click-outside closes whichever modal is currently open, not both simultaneously"
+      - "Cancel button at any step closes without creating an assignment"
+    placeholder_message: "🚧 Final integration test..."
+
+migration_todos:
+  - "Replace PrototypeAPI.createAssignment() with real FastAPI POST endpoint"
+  - "Remove the duplicated dashboard code — in production this is one page, not two separate prototype copies"
+
+edge_cases:
+  - "Cancel mid-flow — no partial assignment record should exist"
+  - "No approved content for selected skill — Empty state in Step 3"
+
+section_status:
+  section-1:
+    status: "complete"
+    completed: "2026-07-08"
+    actual_time: "~20 minutes"
+    issues: "none"
+  section-2:
+    status: "complete"
+    completed: "2026-07-08"
+    actual_time: "~15 minutes"
+    issues: "none"
+  section-3:
+    status: "complete"
+    completed: "2026-07-08"
+    actual_time: "~20 minutes"
+    issues: "none"
+  section-4:
+    status: "complete"
+    completed: "2026-07-08"
+    actual_time: "~15 minutes"
+    issues: "none"
+  section-5:
+    status: "complete"
+    completed: "2026-07-08"
+    actual_time: "~15 minutes"
+    issues: "none"
+  section-6:
+    status: "complete"
+    completed: "2026-07-08"
+    actual_time: "~10 minutes"
+    issues: "none"
+
+definition_of_done:
+  - "All 6 sections implemented and tested"
+  - "All object IDs present and correct"
+  - "New assignment flow completes end-to-end and updates the dashboard"
+  - "No console errors"
+  - "Story files document all 6 sections"

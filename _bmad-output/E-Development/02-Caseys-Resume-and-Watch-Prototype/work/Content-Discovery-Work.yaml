@@ -1,0 +1,234 @@
+# ============================================================================
+# PROTOTYPE WORK FILE: 02.1 Content Discovery
+# ============================================================================
+# Purpose: Complete planning document for section-by-section implementation
+# Created: 2026-07-08
+# Page Spec: ../../C-UX-Scenarios/02-caseys-resume-and-watch/02.1-content-discovery/02.1-content-discovery.md
+# Logical View Map: ./Logical-View-Map.md
+# ============================================================================
+
+metadata:
+  page_number: "02.1"
+  page_name: "Content Discovery"
+  scenario: "02-Caseys-Resume-and-Watch"
+  complexity: "simple"
+  estimated_sections: 4
+  estimated_time: "60 minutes"
+
+  device_compatibility:
+    type: "desktop-only"
+    primary_viewport: "1280px"
+    test_viewports:
+      - width: 1280
+        height: 800
+        device: "Desktop (minimum)"
+      - width: 1440
+        height: 900
+        device: "Desktop (laptop common)"
+      - width: 1920
+        height: 1080
+        device: "Desktop (external monitor)"
+    breakpoints: []
+    touch_optimized: false
+    hover_interactions: true
+
+  dependencies:
+    - "shared/prototype-api.js"
+    - "shared/init.js"
+    - "shared/utils.js"
+
+design_tokens:
+  colors:
+    primary: "#2563eb"
+    primary_hover: "#1d4ed8"
+    success: "#10b981"
+    error: "#ef4444"
+  tailwind_config:
+    theme_extend:
+      colors:
+        "talentpilot":
+          50: "#eff6ff"
+          500: "#2563eb"
+          600: "#1d4ed8"
+          700: "#1e40af"
+      fontFamily:
+        sans: "['Inter', 'system-ui', 'sans-serif']"
+
+page_purpose: |
+  Let Casey see their assigned skill with exactly one human-approved content
+  recommendation, and start watching immediately with zero friction — no
+  search box, no browsing options.
+
+user_context:
+  - "Casey received a Slack/email notification about the assignment and clicked through"
+  - "Casey has not started this skill yet (fresh assignment)"
+  - "Casey's only decision is 'do I watch this?' not 'what should I watch?'"
+
+success_criteria:
+  - "Casey sees the assignment card with pre-selected content immediately, no loading delay perceived"
+  - "Clicking Play or the thumbnail signals intent to start the video (real player is out of scope for this prototype)"
+  - "Approval provenance (✓ Approved) is always visible, reinforcing human-curation trust"
+
+demo_data_needed:
+  current_user:
+    firstName: "Casey"
+    lastName: "the Continuer"
+  source: "../data/demo-data.js (window.DEMO_DATA.contentDiscovery) — fresh/0% state"
+
+object_ids:
+  header:
+    - "content-discovery-logo"
+    - "content-discovery-nav-primary"
+    - "content-discovery-user-menu"
+  assignment_card:
+    - "content-discovery-card-header"
+    - "content-discovery-recommendation-label"
+    - "content-discovery-thumbnail"
+    - "content-discovery-content-title"
+    - "content-discovery-source-badge"
+    - "content-discovery-approval-badge"
+    - "content-discovery-duration"
+    - "content-discovery-description"
+    - "content-discovery-btn-play"
+    - "content-discovery-btn-alternatives"
+  footer:
+    - "content-discovery-contact-info"
+    - "content-discovery-progress-indicator"
+
+sections:
+  - id: "section-1"
+    name: "Page Structure & Header"
+    scope: "HTML skeleton, header (logo/nav with Assignments active/user menu dropdown)"
+    files_affected: ["02.1-Content-Discovery.html"]
+    dependencies: []
+    object_ids:
+      - "content-discovery-logo"
+      - "content-discovery-nav-primary"
+      - "content-discovery-user-menu"
+    tailwind_classes:
+      - "Same header pattern as Scenario 01: bg-white border-b px-6 py-3 flex items-center justify-between"
+    acceptance_criteria:
+      - "Header displays logo, nav (Assignments active, Continue Watching inactive), user menu shows Casey"
+    placeholder_message: "🚧 Building the assignment card next..."
+
+  - id: "section-2"
+    name: "Assignment Card — Loaded State"
+    scope: "Card header, recommendation label, thumbnail, title, source, approval badge, duration, description, play button, alternatives link, footer"
+    files_affected: ["02.1-Content-Discovery.html"]
+    dependencies: ["section-1"]
+    object_ids:
+      - "content-discovery-card-header"
+      - "content-discovery-recommendation-label"
+      - "content-discovery-thumbnail"
+      - "content-discovery-content-title"
+      - "content-discovery-source-badge"
+      - "content-discovery-approval-badge"
+      - "content-discovery-duration"
+      - "content-discovery-description"
+      - "content-discovery-btn-play"
+      - "content-discovery-btn-alternatives"
+      - "content-discovery-contact-info"
+      - "content-discovery-progress-indicator"
+    tailwind_classes:
+      - "Card: bg-white rounded-lg shadow-sm p-6"
+      - "Approval badge: bg-green-100 text-green-800 (matches provenance color convention from Scenario 01)"
+    acceptance_criteria:
+      - "Card shows: 'Data Visualization Fundamentals - Assigned today by Rita', status 'Assigned · Awaiting first watch'"
+      - "Recommended content shows thumbnail placeholder, title, YouTube badge, 28 minutes, ✓ Approved, description"
+      - "Play button and thumbnail both present"
+    placeholder_message: "🚧 Adding loading/empty/error states next..."
+
+  - id: "section-3"
+    name: "Loading/Empty/Error States"
+    scope: "The 3 non-happy-path states from the spec's Page States table"
+    files_affected: ["02.1-Content-Discovery.html"]
+    dependencies: ["section-2"]
+    object_ids: []
+    tailwind_classes:
+      - "Same skeleton/empty/error pattern as Scenario 01"
+    acceptance_criteria:
+      - "Loading: skeleton card in place of assignment content"
+      - "Empty: 'No recommended content yet for this skill. [Contact Rita]'"
+      - "Error: \"This video couldn't be loaded. [Try again] · [View alternatives]\""
+    placeholder_message: "🚧 Wiring interactions next..."
+
+  - id: "section-4"
+    name: "Interactions & Polish"
+    scope: "Play button click (logs intent, no real player), approval badge hover tooltip, user menu toggle + outside-click, nav links"
+    files_affected: ["02.1-Content-Discovery.html"]
+    dependencies: ["section-1", "section-2", "section-3"]
+    object_ids: []
+    tailwind_classes: []
+    acceptance_criteria:
+      - "Play button / thumbnail click logs 'would launch video player at 0:00' (real player out of scope)"
+      - "Approval badge hover shows tooltip: 'This content was reviewed and approved by Rita before being recommended to you.'"
+      - "User menu opens/closes on click, closes on outside-click"
+    placeholder_message: "🚧 Final integration test..."
+
+javascript_functions:
+  initialization:
+    - "initPage() - loads demo data, renders assignment card"
+  ui_interactions:
+    - "toggleUserMenu()"
+    - "handlePlay() - logs intent, no real player"
+  api_calls:
+    - "PrototypeAPI.getContentDiscovery()"
+  feedback:
+    - "setCardState('loading' | 'loaded' | 'empty' | 'error')"
+
+navigation:
+  previous_page: null
+  next_page_success: "02.2-Continue-Watching.html (conceptually — not an automatic redirect in this prototype)"
+
+testing_checklist:
+  functionality:
+    - "[ ] Assignment card renders with demo content"
+    - "[ ] Loading/Empty/Error states all render correctly"
+    - "[ ] Play button logs intent, no crash"
+    - "[ ] Approval badge tooltip works"
+  desktop_testing:
+    - "[ ] 1280px/1440px/1920px viewports look correct"
+    - "[ ] No horizontal scroll"
+  code_quality:
+    - "[ ] All Object IDs present"
+    - "[ ] No console errors"
+  accessibility:
+    - "[ ] Thumbnail has alt text"
+    - "[ ] Approval badge tooltip accessible via keyboard"
+
+migration_todos:
+  - "Replace PrototypeAPI.getContentDiscovery() with real FastAPI endpoint"
+  - "Integrate real YouTube IFrame player (out of scope for this prototype)"
+  - "Real watch-position capture per DD-001 (sendBeacon, polling getCurrentTime())"
+
+edge_cases:
+  - "No approved content match — Empty state, not required to build a broken demo row"
+
+section_status:
+  section-1:
+    status: "complete"
+    completed: "2026-07-08"
+    actual_time: "~15 minutes"
+    issues: "none"
+  section-2:
+    status: "complete"
+    completed: "2026-07-08"
+    actual_time: "~20 minutes"
+    issues: "none"
+  section-3:
+    status: "complete"
+    completed: "2026-07-08"
+    actual_time: "~15 minutes"
+    issues: "none"
+  section-4:
+    status: "complete"
+    completed: "2026-07-08"
+    actual_time: "~10 minutes"
+    issues: "none"
+
+definition_of_done:
+  - "All 4 sections implemented and tested"
+  - "All object IDs present and correct"
+  - "Loading/Empty/Error states work"
+  - "No console errors"
+  - "Story files document all 4 sections"

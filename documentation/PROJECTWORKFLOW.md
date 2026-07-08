@@ -1130,3 +1130,226 @@ All primary artifacts live under:
 **Phase 4 UX Design: Complete ✅**
 
 All 6 pages from Scenarios 01–03 have development-ready specifications with Object IDs, interactions, states, spacing/typography, and real-time update architecture documented. Total specification depth: 54+ component-documentation steps (6 pages × 9 steps). Next phase (Phase 5: Prototype/Build, or direct to development if prototyping is deferred) can proceed directly from these artifacts.
+
+---
+
+---
+
+# Routing Discussion (Pre-Phase) — bmad-help Consultation
+
+## Skills Used
+
+### 1. bmad-help
+
+**Purpose:** Analyzes current project state and the user's query to answer "what skill should I use next" questions, without the user having to already know the module's phase structure.
+
+**Why it was called:** The user asked two related routing questions before any build work started this session: (1) whether to invoke `bmad-agent-pm` (John) or the `bmad-prd` skill directly for a future PRD, and (2) whether `wds-5-agentic-development`'s prototype option was needed next, given Phase 4 (UX Design) had just completed. The second question was answered directly (without bmad-help) by reading the WDS catalog (`_bmad/_config/bmad-help.csv`) and the project's actual `_progress/00-design-log.md` and `_progress/validation-report.md` state — this revealed Phase 4 wasn't fully closed per its own checklist (no Design Delivery packaged yet) and that a BMad PRD isn't part of the WDS pipeline the project is actually on (Product Brief → Trigger Map → Scenarios → Specs → Design Delivery → Agentic Development), so `bmad-prd` was flagged as optional/orthogonal, not a required next step.
+
+**What happened:** `bmad-help` was formally invoked once, mid-session, to get an authoritative "what's next" read after the [H] Design Delivery handoff and after each scenario's prototype completed — each time returning routing guidance (e.g., "next: `wds-5-agentic-development` [P] Prototyping" or "next: acceptance testing or Scenario 03") that the user then acted on directly via `AskUserQuestion` choices rather than further skill invocations of `bmad-help` itself.
+
+No output files were produced by this routing discussion — it exists purely to correctly sequence the work documented in the two phases below.
+
+---
+
+---
+
+# WDS Phase 4 Continued: Validation & Design Delivery — Skills, Agents, and Files
+
+## Agents Called
+
+**No facilitation persona was invoked in this phase.** Consistent with every other WDS phase in this project, the user routed into `wds-4-ux-design` directly (via menu choices `V` and later `H`, presented by `bmad-help` and by the skill's own Adaptive Dashboard), running in the same built-in **Freya** identity used for the original Phase 4 specification work above. This is a continuation of that same skill, invoked a second time for two different activities (`[V] Validate Specs` and `[H] Design Delivery`) that had not yet been run.
+
+No subagents were spawned — all validation analysis, spec rewriting, and delivery-document generation were performed directly.
+
+---
+
+## Skills Used
+
+### 1. wds-4-ux-design ([V] Validate Specs)
+
+**Purpose:** Systematically audits page specifications for completeness, consistency, and quality against `data/validation-standards.md` and the project's own current `templates/page-specification.template.md`, across 10 validation steps (Page Metadata → Navigation → Page Overview → Page Sections → Section Order → Object Registry → Design System Separation → SEO Compliance → Design System Consistency → Final Validation).
+
+**Why it was called:** Selected from the Phase 4 Activity Menu after the routing discussion above determined Phase 4 wasn't fully closed. The user chose `[V]` specifically to resolve one open question from the earlier Design Delivery readiness check — whether the 6 page specs actually documented error/empty states — before attempting handoff.
+
+**Detailed sequence of what happened inside this skill:**
+
+- **Step 1 (Page Metadata):** Checked all 6 specs for a dedicated `## Page Metadata` block. Found 3 pages (01.1, 03.1, 03.2) missing it entirely (CRITICAL) and 3 pages (01.2, 02.1, 02.2) with an incomplete one — present but missing Page Type/Viewport/Interaction Model/Navigation Context/inheritance-reference fields (WARNING).
+- **Step 2 (Navigation):** Checked for the template's required H3 nav header + duplicate Previous/Next Step links + embedded sketch. Found **zero of 6 pages** had this structure — traced to a root cause, not 6 independent bugs: no `Sketches/` folder exists anywhere in the project (the sketch-based `[K]` workflow was never run), so the embedded-sketch requirement was judged N/A, but the missing Prev/Next navigation links were flagged as a real, still-open gap.
+- **Step 3 (Page Overview):** Checked for Page Description / User Situation / Page Purpose / emotional context / success-criteria-or-Trigger-Map-reference. Found strategic context front-loads onto the *first* page of each scenario and drops off on the second (01.1 PASS; 01.2/02.1 WARNING; 02.2/03.1/03.2 CRITICAL) — and found a structural defect independent of content depth: 01.2, 03.1, and 03.2 all contained a dangling `## Page Overview (Phase 3 Context)` heading with no content under it, a leftover template stub.
+- **Step 4 (Page Sections):** Compared the actual specs against the project's own current `page-specification.template.md` (not just the generic validation checklist) and found the single root cause explaining almost every finding so far: **all 6 specs were authored to an older/informal format that predates the current template.** Object IDs used an uppercase `PREFIX-###-NAME` convention (e.g. `HDR-001-LOGO`) instead of the template's mandated lowercase-hyphenated convention; `## Reference Materials` (links to Product Brief/Trigger Map/related pages), `## Layout Structure` (ASCII diagram), `## Open Questions`, and `## Checklist` sections were missing from all 6 pages; and — the most functionally significant finding — all 6 pages documented only the happy-path `Page States` table, with no Loading/Empty/Error rows at all, directly confirming the open question from the pre-Validate readiness check.
+- **Steps 5–10 deliberately not run mechanically:** Rather than continuing to rediscover the same root cause under different labels (Object Registry would fail because the IDs are wrong-format; SEO would fail because there's no meta-content section), the remaining steps were skipped in favor of presenting the root-cause finding directly to the user and asking for a fix-scope decision.
+- **User decision:** Presented three options (full regeneration / targeted retrofit / defer entirely) — user chose **targeted retrofit**: fix Object ID format, add Reference Materials links, and add Loading/Empty/Error states on all 6 pages; explicitly skip the cosmetic items (ASCII diagrams, Checklist section, Prev/Next nav links, Page Metadata standardization) as non-blocking for a dev handoff.
+- **Retrofit execution (all 6 page spec files rewritten in place):** Renamed ~85 Object IDs across all pages to the lowercase-hyphenated convention (updated consistently in every table and interaction row referencing them); added a `## Reference Materials` section to each page linking to the Product Brief, Trigger Map, and adjacent scenario pages (Design System link marked N/A per `design_system_mode: none`); added realistic Loading/Empty/Error states to each page's Page States section, tailored to that page's actual data-dependency (e.g., Content Discovery's Empty state covers "no approved content found," Assignment Confirmation's Error state covers "assignment succeeded but the dashboard failed to refresh"); as a bonus fix while already editing 02.2, backfilled its entirely-missing Scenario Entry Context (User Situation/Mental State) that Step 3 had flagged as CRITICAL.
+- **Validation results recorded:** Wrote `_progress/validation-report.md` (full per-page, per-step findings and what was fixed vs. deliberately deferred) and appended a summary entry to `_progress/00-design-log.md`.
+
+### 2. wds-4-ux-design ([H] Design Delivery)
+
+**Purpose:** Packages a complete, testable design flow into a formal Design Delivery (`DD-XXX`) and Test Scenario (`TS-XXX`), runs a structured 10-phase handoff dialog, and performs final artifact verification before marking the flow officially handed off to the build phase — the WDS pipeline's equivalent of a dev-ready requirements contract.
+
+**Why it was called:** Selected from the Phase 4 Activity Menu immediately after the Validate retrofit closed the readiness gap identified earlier. This is the actual required gate between "specs exist" (Phase 4) and "build begins" (Phase 5) per the WDS catalog — not `bmad-prd`, which the earlier routing discussion had already determined is not part of this project's pipeline.
+
+**Detailed sequence of what happened inside this skill (6 steps):**
+
+- **Step 1 (Detect Completion):** Re-ran the readiness checklist against the now-retrofitted specs. All Phase 4 items passed (error states now present); Phase 5/Design System category marked N/A (`design_system_mode: none`); flow-completeness items (testable, delivers business/user value, no blockers) all confirmed — the deferred structural items (Page Metadata standardization, Prev/Next links) were explicitly carried forward as accepted debt, not silently dropped. User confirmed readiness with `[C] Continue`.
+- **Step 2 (Create Delivery):** Built `DD-001-poc-hypothesis-flows.yaml` section-by-section — User Value (problem/solution/4 measurable success criteria pulled from already-locked PRFAQ/Trigger Map numbers, not invented), Design Artifacts (all 3 scenarios/6 pages referenced), Technical Requirements (Python/FastAPI + React/Vite + Postgres/pgvector stack sourced directly from the project's own technical-research document, not guessed), Acceptance Criteria (functional/non-functional/edge cases, directly citing the Loading/Empty/Error states just added), Testing Guidance, and Complexity/Risk (sized L, risk Medium, explicitly naming the real-time dashboard-update pipeline and the coaching-only privacy-boundary enforcement as the two genuine risk concentrations, with the still-open self-hosted-vs-third-party video question and the un-staffed post-pilot-owner gap carried forward as dependencies/assumptions rather than re-litigated). Presented the full draft for confirmation before locking.
+- **Step 3 (Create Test Scenario):** Built `TS-001-poc-hypothesis-flows.yaml` — 3 happy-path tests (one per scenario, each tracing every step back to a specific spec section), 6 error-state tests (one per Loading/Empty/Error state just retrofitted), 5 edge-case tests (empty dashboard, empty continue-watching, no content match, concurrent-tab watch regression, mid-flow cancel), Design System validation marked N/A with justification, 3 accessibility tests, 2 usability tests, 5 performance tests matching DD-001's own numeric targets, and Sign-Off criteria that explicitly elevates the coaching-only data boundary to a launch-blocking "must-fix," not a nice-to-have.
+- **Step 4 (Handoff Dialog):** Walked all 10 phases of the structured handoff script (Introduction → User Value → Scenario Walkthrough → Technical Requirements → Design System Components → Acceptance Criteria → Testing Approach → Complexity Estimate → Special Considerations → Confirmation), adapted for a solo-operator project — since there is no separate BMad Architect persona on this project, the "notify architect" ceremony was explicitly skipped in favor of writing the same information to `DD-001-handoff-log.md` and the design log, which any future session can read cold. Special Considerations explicitly flagged the coaching-only privacy boundary as a launch blocker (not just documented, but named as a live requirement), the root-cause-framing copy rule to preserve, and the deliberately-deferred spec-structure gaps. Updated `DD-001-poc-hypothesis-flows.yaml`'s frontmatter to `status: in_development`.
+- **Step 5 (Official Hand-Off):** Verified all 5 required artifacts existed and were complete (Design Delivery, Test Scenario, Scenario Specs, Design System N/A, Handoff Log), then logged the handoff completion to the design log — again adapting the template's "schedule weekly check-ins / Slack channel" instructions to the single-operator context rather than performing a ceremony with no actual second party.
+- **Step 6 (Continue with Next Flow):** The template's default next-step menu (design the next flow in parallel / run acceptance testing) didn't cleanly apply, since all 3 scenarios from Phase 3 were already bundled into the single DD-001 delivery and nothing was built yet to test — this mismatch was surfaced directly to the user rather than silently forcing one of the two options, and the user chose to proceed straight to `wds-5-agentic-development` [P] Prototyping instead.
+
+---
+
+## Files Created and Purpose of Each
+
+### Modified — all 6 page specs under `_bmad-output/C-UX-Scenarios/`
+Object IDs renamed to lowercase-hyphenated convention; `## Reference Materials` sections added; Loading/Empty/Error states added to each Page States table; `02.2-resume-continue-watching.md` additionally had its missing Scenario Entry Context backfilled.
+
+### 1. `_bmad-output/_progress/validation-report.md` (created)
+**Purpose:** Full validation findings — root cause (specs predate the current template), per-page/per-step scores, what was fixed vs. deliberately deferred, and the reasoning for stopping the mechanical step-by-step audit once the root cause was clear.
+
+### 2. `_bmad-output/deliveries/DD-001-poc-hypothesis-flows.yaml` (created)
+**Purpose:** The formal Design Delivery — the dev-ready contract for all 3 scenarios, covering user value, design artifacts, technical requirements (sourced from the project's own stack research), acceptance criteria, testing guidance, and a risk-assessed complexity estimate. Status `in_development`, assigned to `wds-5-agentic-development`.
+
+### 3. `_bmad-output/deliveries/TS-001-poc-hypothesis-flows.yaml` (created)
+**Purpose:** The formal Test Scenario validating DD-001 — 24 tests across happy-path, error-state, edge-case, accessibility, usability, and performance categories, with sign-off criteria that elevate the coaching-only privacy boundary to launch-blocking status.
+
+### 4. `_bmad-output/deliveries/DD-001-handoff-log.md` (created)
+**Purpose:** The full 10-phase handoff record — adapted for a solo-operator project in place of the template's multi-person architect-notification ceremony — so a future session can read exactly what was agreed without re-deriving it from DD-001/TS-001 alone.
+
+### 5. `_bmad-output/_progress/00-design-log.md` (appended to, multiple times)
+**Purpose:** Progress entries recording the validation retrofit's scope and results, and the DD-001 handoff completion.
+
+### 6. `documentation/PROJECTWORKFLOW.md` (this file, appended to)
+**Purpose:** This section.
+
+---
+
+## Session Notes
+
+**The validation pass found one root cause, not six independent bugs.** Every finding from Steps 1–4 (wrong Object ID format, missing Reference Materials, missing nav links, missing error states, dangling template-stub headings) traced back to the same fact: the 6 specs were written before the project's current `page-specification.template.md` existed. Recognizing this early — by comparing against the actual current template, not just the generic checklist — meant the fix could be scoped precisely (retrofit the load-bearing gaps) rather than either a wasteful full regeneration or a superficial pass that would have missed the pattern.
+
+**The missing error states finding closed a loop opened earlier in the same session.** Before Validate was even run, the pre-handoff readiness check had explicitly flagged "are error states designed?" as an open question the user hadn't yet answered. Running `[V]` resolved that question definitively (no, they weren't) rather than letting an unverified assumption carry into the Design Delivery.
+
+**DD-001 and TS-001 are both traceable back to already-locked project decisions, not new invention.** The 4 success criteria in DD-001, the technical stack, the risk assessment, and the launch-blocking privacy requirement in TS-001's sign-off criteria all cite specific prior artifacts (PRFAQ, Trigger Map, the technical stack research document) rather than being freshly authored for this handoff — consistent with this project's standing practice of checking new output against the established reference set before calling it done.
+
+**Why this phase matters:** Design Delivery is the actual contract this project's pipeline uses instead of a PRD — it's what made the Phase 5 prototyping work below possible to scope precisely (6 error states to build, 3 scenarios' acceptance criteria known in advance) rather than improvised page-by-page.
+
+---
+
+No other files were created or modified during this phase beyond what's listed above.
+
+---
+
+---
+
+# WDS Phase 5: Agentic Development (Prototyping) — Skills, Agents, and Files
+
+## Agents Called
+
+**No facilitation persona was invoked in this phase.** The user routed into `wds-5-agentic-development` directly via `bmad-help`'s guidance and the skill's own Activity Menu, running in the skill's built-in **Implementation Partner** identity (distinct from Freya — this skill's role instructions frame it as a software-development collaborator, not a designer), consistent with every other WDS phase's pattern of no separately-invoked persona agent.
+
+No subagents were spawned — all HTML/JS/CSS implementation, story-file writing, and browser-based verification requests were performed directly. **No browser-automation tool (Puppeteer) was available in this environment** — a fact confirmed and disclosed to the user before Section 1 of the first prototype was presented, rather than silently claiming automated verification that didn't happen; all visual verification in this phase was done by the user directly in their own browser, with the agent doing structural verification (`grep` for Object ID presence) beforehand.
+
+---
+
+## Skills Used
+
+### 1. wds-5-agentic-development ([P] Prototyping — Scenario 01: Rita's Trust Call)
+
+**Purpose:** Builds a self-contained, static HTML/Tailwind/vanilla-JS interactive prototype from approved Phase 4 specs — explicitly a throwaway UX-validation artifact (no real backend, sessionStorage-only demo data, double-click-to-open), distinct from and prerequisite to the real DD-001 build.
+
+**Why it was called:** Selected after the user was asked to choose between `[D] Development` (the real React+FastAPI stack per DD-001) and `[P] Prototyping` (a cheap click-through mockup) via `AskUserQuestion`, given the project's 13 July 2026 pilot launch needs real data — the user explicitly chose Prototyping first, to validate the UX before committing to the real build.
+
+**Detailed sequence (5-step workflow, run once for this scenario):**
+
+- **Step 1 (Prototype Setup):** Ran the initiation dialog — confirmed Desktop-Only device compatibility and Generic Gray Model design fidelity (both already established as project-wide facts from the retrofit, not re-asked from scratch), and confirmed Scenario 01 as the starting point (foundational — Scenarios 02/03 both extend the same dashboard). Created the `01-Ritas-Trust-Call-Prototype/` folder structure and demo data (Rita, Casey/Morgan/Jordan/Sam, 4 assignments matching the exact rows already described in the retrofitted 03.2 spec).
+- **Step 2 (Scenario Analysis):** Read both page specs and identified that 01.2 (Provenance Drill-Down) is explicitly a "Modal Overlay (no separate route)" on top of 01.1 — per the logical-view reuse rule, this collapses both scenario steps into **one** logical view, not two, correcting an initial roadmap draft that had listed them as two separate HTML files. Recorded in `work/Logical-View-Map.md`.
+- **Step 3 (Section Breakdown):** Gathered all Object IDs from both specs, proposed and got approval for a 6-section build plan (Page Structure & Header → Skills Grid Loaded State → Grid Loading/Empty/Error → Provenance Modal Open State → Modal Loading/Error → Interactions & Polish), and identified one real spec gap while doing so — the modal's body content (Provenance Summary, Raw Signal Data, explanation, Actions) had never been assigned formal Object IDs during the earlier retrofit, only the header/close/name fields had. Added 4 new IDs to cover this, confirmed with the user before building. Recorded in `work/Skills-Dashboard-Work.yaml`.
+- **Step 4 (Section-by-section build loop, 6 iterations):** For each section — announced scope, created a story file (HTML/JS/Tailwind spec + acceptance criteria), implemented directly in `01.1-Skills-Dashboard.html`, verified Object ID presence via `grep`, and asked the user to test in their own browser before marking approved. **Section 4 (Provenance Modal) surfaced a real bug**, not a false alarm: `shared/prototype-api.js` seeded demo data via `fetch('data/demo-data.json')`, which browsers block under the `file://` protocol (no local server was running, by design — this prototype format's entire premise is "double-click to open"). The bug had gone undetected through Sections 1–3 because the same browser tab was reused across those tests, keeping `sessionStorage` populated from one earlier successful load; a fresh tab opened for Section 4 hit the broken fetch path for the first time. **Fixed** by replacing the fetch-based JSON load with a `<script>`-tag global-variable pattern (`data/demo-data.js` assigning to `window.DEMO_DATA`) — a plain script parse, not a network request, so it works identically under `file://` or a real server. The fix and its root-cause writeup were recorded in the Section 4 story file specifically so Scenarios 02 and 03 could avoid repeating it (and did).
+- **Step 5 (Finalization):** Ran a full end-to-end integration test across all 8 states (dashboard: Loaded/Loading/Empty/Error; modal: Open/Loading/Error/Closed) in one sitting rather than re-testing each section in isolation again, confirmed no regressions, and logged the scenario as fully built to the design log.
+
+### 2. wds-5-agentic-development ([P] Prototyping — Scenario 02: Casey's Resume & Watch)
+
+**Why it was called:** Selected via `AskUserQuestion` after Scenario 01 completed, continuing the same prototyping pass into the next scenario in sequence.
+
+**Detailed sequence:**
+
+- **Step 1 (Setup):** New `02-Caseys-Resume-and-Watch-Prototype/` folder, with `data/demo-data.js` built as a `<script>`-tag from the start (the Scenario 01 fix applied proactively, not rediscovered). Demo data question resolved via `AskUserQuestion`: Content Discovery shows Casey's assignment fresh/0%, Continue Watching shows it mid-progress at 51%/14:32-of-28:00 — matching the 02.2 spec's own worked example exactly, since the two pages are independent full routes (not a shared timeline).
+- **Step 2 (Scenario Analysis):** Unlike Scenario 01, both 02.1 and 02.2 have their **own distinct URL routes** per spec (no overlay/inherit relationship) — correctly identified as **two separate logical views**, not one, the opposite conclusion from Scenario 01's analysis and confirmation that the reuse rule was being applied on its actual merits each time, not as a rote pattern-match.
+- **Steps 3–5, run twice (once per view):**
+  - **Content Discovery (4 sections):** Header/nav → Assignment card loaded state (thumbnail, approval badge with tooltip, Play/alternatives buttons) → Loading/Empty/Error states → Interactions & Polish (user-menu outside-click). Built clean, no bugs — the Scenario 01 fetch fix was already in place.
+  - **Continue Watching (4 sections):** Header/nav → Progress card loaded state (progress bar + exact resume timestamp, matching the spec's own "14 min watched of 28 min, Resume at 14:32" example precisely) → Loading/Empty/Error states → Interactions & Polish. Also built clean.
+  - A cross-page integration check confirmed the "Assignments" ↔ "Continue Watching" nav links correctly round-trip between the two independent HTML files.
+
+### 3. wds-5-agentic-development ([P] Prototyping — Scenario 03: Rita's Assignment & Track)
+
+**Why it was called:** Selected via `AskUserQuestion` after Scenario 02 completed, to build the final scenario in the POC scope.
+
+**A structural finding changed this scenario's folder setup, flagged before any building started:** re-reading the 03.1/03.2 specs against what was already built revealed that **03.2 "Assignment Confirmation" is explicitly the same Skills Dashboard from Scenario 01** ("Layout Sections: Same as 01.1... plus Toast/New Row Highlight"), and **03.1's "Skill Assignment Flow" modal is triggered by the exact `[+ New Assignment]` button Scenario 01 had deliberately stubbed out** ("full flow is Scenario 03, not built in this pass"). This meant Scenario 03 isn't new pages at all — it's finishing a stub Scenario 01 left on purpose. The user was asked, via `AskUserQuestion`, whether to extend Scenario 01's file directly or create a new per-scenario folder anyway (the project's established convention); the user chose the new-folder convention, so the finished Scenario 01 dashboard file was **duplicated** into `03-Ritas-Assignment-and-Track-Prototype/03-Skills-Dashboard.html` as the starting point, with the trade-off (dashboard logic now exists in two places) explicitly documented in the new folder's roadmap rather than silently accepted.
+
+**Detailed sequence:**
+
+- **Step 1 (Setup):** New folder, demo data reusing Scenario 01's 4 starting assignments plus the skills/content catalog needed for the new assignment form; `shared/prototype-api.js` extended with two new methods (`getContentForSkill`, `createAssignment`) beyond what Scenario 01/02's copies had. The duplicated dashboard file was sanity-checked in the browser before any new code was added on top of it.
+- **Step 2 (Scenario Analysis):** Confirmed both 03.1 and 03.2 are the **same single logical view** as Scenario 01's dashboard (not new views) — the "overlay/modal on existing page" and "same page name" reuse rules both applied, this time spanning across scenario folders rather than within one, which the Logical View Map explicitly noted as a first for this project.
+- **Step 3 (Section Breakdown):** Proposed and got approval for 6 sections covering the new 3-step assignment modal (23 new Object IDs) plus the toast/new-row-highlight confirmation behavior, reusing the existing dashboard grid rather than treating 03.2's spec-listed `assignment-confirmation-grid` Object ID as a separate element from the already-built `skills-dashboard-grid-skills`.
+- **Step 4 (6-section build loop):** Modal Structure & Step 1 (Employee) → Step 2 (Skill Selection, triggers content auto-link lookup) → Step 3 (Content Review, auto-populated from the skill selection) → Modal Loading/Empty/Error states (including an "assign without content" allowance when no approved content matches) → **Assignment Creation + Toast/New Row Highlight** — the actual payoff of the whole scenario: clicking Assign calls `PrototypeAPI.createAssignment()`, closes the modal, re-renders the grid via the *same* `loadDashboard()` function Scenario 01 built, shows a confirmation toast, and highlights the new row, all confirmed working end-to-end in one test → Interactions & Polish, which had to handle a new complication Scenarios 01/02 didn't face: **two modals now coexist on one page** (the original Provenance Drill-Down plus the new Assignment Flow modal), so the page's single Escape-key listener was rewritten to check which modal is actually open rather than assuming only one exists, and the `[+ New Assignment]` button's Scenario-01 stub was finally replaced with a real call to open the new modal.
+- **Step 5 (Finalization):** Full end-to-end test — assign Casey to Python Basics via the 3-step form, confirm the 5th dashboard row appears with toast and highlight, confirm both modals still close correctly and independently via Escape/click-outside. Confirmed with the user that all 3 scenarios' prototypes are now complete.
+
+---
+
+## The Role of Project Context / Config in This Workflow
+
+**Same deviation pattern as every other WDS phase:** neither the Validation/Handoff work nor the Prototyping work read or wrote `_bmad-output/project-context.md` — WDS uses `_bmad/wds/config.yaml` and `_progress/00-design-log.md` instead. Every completion in both phases documented above (Validate retrofit, DD-001/TS-001 handoff, and each of the 3 prototype builds) was logged to `_progress/00-design-log.md` with a `built` status row per page, consistent with `workflow-prototyping.md`'s own design-log reporting-point requirements. A future session extending any of these 3 prototypes should read the relevant `PROTOTYPE-ROADMAP.md` and `work/*.yaml` files directly, plus the design log for why specific structural choices (like Scenario 03's duplication) were made.
+
+---
+
+## Files Created and Purpose of Each
+
+### Validation & Handoff artifacts
+Already listed in full under "WDS Phase 4 Continued: Validation & Design Delivery" above.
+
+### Scenario 01 — `_bmad-output/E-Development/01-Ritas-Trust-Call-Prototype/`
+- `PROTOTYPE-ROADMAP.md` — scenario overview, corrected mid-session from a 2-file to a 1-file plan
+- `data/demo-data.js` — the fetch()/`file://` fix, seeded from the retrofitted spec data
+- `shared/prototype-api.js`, `shared/init.js`, `shared/utils.js` — mock backend, auto-init, shared helpers
+- `components/dev-mode.js`, `components/dev-mode.css` — copied from the skill's own templates, Shift+Click Object ID inspector
+- `work/Logical-View-Map.md`, `work/Skills-Dashboard-Work.yaml` — the 1-view/6-section plan and its per-section status log
+- `stories/01.1.1-page-structure-header.md` through `01.1.6-interactions-and-polish.md` (6 files) — one per built section, including the fetch-bug writeup in `01.1.4`
+- `01.1-Skills-Dashboard.html` — the finished prototype (dashboard + Provenance Drill-Down modal, 17 Object IDs, 8 states)
+
+### Scenario 02 — `_bmad-output/E-Development/02-Caseys-Resume-and-Watch-Prototype/`
+- `PROTOTYPE-ROADMAP.md`, `data/demo-data.js`, `shared/*.js`, `components/dev-mode.*` — same pattern as Scenario 01
+- `work/Logical-View-Map.md`, `work/Content-Discovery-Work.yaml`, `work/Continue-Watching-Work.yaml`
+- `stories/02.1.1-*.md` through `02.1.4-*.md` and `02.2.1-*.md` through `02.2.4-*.md` (8 files)
+- `02.1-Content-Discovery.html`, `02.2-Continue-Watching.html` — two independent finished prototypes, 24 Object IDs total, 8 states total
+
+### Scenario 03 — `_bmad-output/E-Development/03-Ritas-Assignment-and-Track-Prototype/`
+- `PROTOTYPE-ROADMAP.md` — documents the duplication-from-Scenario-01 decision and its trade-off explicitly
+- `data/demo-data.js`, `shared/prototype-api.js` (extended with `getContentForSkill`/`createAssignment`), `shared/init.js`, `shared/utils.js`, `components/dev-mode.*`
+- `work/Logical-View-Map.md`, `work/Skill-Assignment-Flow-Work.yaml`
+- `stories/03.1-*.md` through `03.6-*.md` (6 files)
+- `03-Skills-Dashboard.html` — duplicated from Scenario 01, extended with the 3-step Assignment Flow modal (23 Object IDs) and toast/highlight confirmation (2 Object IDs)
+
+### `_bmad-output/_progress/00-design-log.md` (appended to repeatedly)
+**Purpose:** A `built` status row per page plus a narrative progress entry after every scenario completed — the durable record of what got built, in what order, and what was found along the way (the fetch bug, the two logical-view-reuse decisions).
+
+### `documentation/PROJECTWORKFLOW.md` (this file, appended to)
+**Purpose:** This section.
+
+---
+
+## Session Notes
+
+**One real bug, found once, fixed once, never repeated.** The `fetch()`-under-`file://` bug in Scenario 01's Section 4 was a genuine defect — not a testing mistake — caused by the throwaway-prototype format's own core promise ("just double-click, no server") being silently broken by an implementation detail. Because the fix and its root cause were written into the Section 4 story file explicitly as a lesson for "Scenarios 02/03," both later scenarios' `shared/prototype-api.js` files were written with the `<script>`-tag pattern from the very first line, and neither hit the bug.
+
+**The logical-view-reuse analysis was applied on its merits each time, not as a rote rule.** Scenario 01's two spec steps collapsed into one HTML file (modal-on-existing-page). Scenario 02's two spec steps stayed as two separate files (each has its own route, no overlay relationship). Scenario 03 collapsed into an *existing* Scenario 01 file, not a new one at all. All three outcomes came from actually re-reading each scenario's spec language ("Modal Overlay, no separate route" vs. "URL Route: /continue-watching" vs. "Same as 01.1 - Skills Dashboard, plus...") rather than assuming the previous scenario's pattern would repeat.
+
+**A genuine architecture trade-off was surfaced and left to the user, not silently resolved either way.** Scenario 03's dashboard-reuse finding had two legitimate resolutions (extend Scenario 01's file in place, or duplicate it into a new per-scenario folder) with different trade-offs (single source of truth vs. consistent project folder convention) — this was put to the user directly via `AskUserQuestion` rather than picked unilaterally, and the resulting duplication trade-off was written into the new folder's own roadmap so it reads as a documented decision, not an oversight, to anyone opening that folder later.
+
+**A same-day alignment check confirmed this session's work against the project's full standing reference set.** After all 3 prototypes were confirmed complete, the user asked whether this session's output aligned with the earlier brainstorming, Design Thinking, and PRFAQ phases. `brainstorm-intent.md`, `design-thinking-2026-07-07.md`, and `project-context.md` were re-read fresh (not from conversation memory) and checked claim-by-claim: the provenance-badge/drill-down UI was confirmed as a faithful implementation of Design Thinking's "Trust/Freshness Dashboard" concept (ideas #13/#14/#15); DD-001's problem framing was confirmed to center "manual self-reporting," matching the PRFAQ's locked root-cause language, not "replacing the spreadsheet"; no item from the brainstorming session's "Won't (this time)" list was built. Two minor gaps were found and reported rather than smoothed over: DD-001 doesn't re-flag the still-open root-cause/"tolerable vs. resigned" hypotheses as open assumptions, and the prototype's simple exact-`skillId` content matching isn't flagged in Scenario 03's `migration_todos` as needing to become the project's actual decided approach (semantic/`pgvector` matching) in production.
+
+**Why this phase matters:** All 3 POC scenarios (Rita's Trust Call, Casey's Resume & Watch, Rita's Assignment & Track) now have working, user-tested click-through prototypes built directly from the Phase 4 specs and DD-001/TS-001's acceptance criteria — the full POC hypothesis (provenance labeling changes behavior; frictionless resume/auto-capture generates honest signal; frictionless assignment closes the loop) is demonstrable end-to-end before a single line of the real FastAPI/React stack is written, and the one real implementation lesson (the `file://` fetch restriction) is now documented project knowledge rather than something the real build would have had to rediscover on its own.
+
+---
+
+No other files were created or modified during this phase beyond what's listed above.

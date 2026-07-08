@@ -1,0 +1,347 @@
+# WDS Test Scenario
+# Validates: DD-001-poc-hypothesis-flows.yaml
+
+test_scenario:
+  id: "TS-001"
+  name: "POC Hypothesis Flows — Trust, Resume/Watch, Assignment"
+  delivery_id: "DD-001"
+  type: "user_acceptance"
+  status: "ready"
+  tester: "designer"
+  created_at: "2026-07-08T00:00:00Z"
+
+test_objectives:
+  - "Validate Rita can make a staffing-readiness judgment from the dashboard alone, without cross-referencing"
+  - "Validate Casey's watch progress is captured passively and resumes at the exact last position"
+  - "Validate a new assignment appears on the dashboard immediately and updates in real time as Casey engages"
+  - "Confirm all Loading/Empty/Error states added during the Phase 4 retrofit are implemented, not just the happy path"
+  - "Confirm the coaching-only data boundary and no-migration decisions hold in the actual implementation"
+
+test_environment:
+  devices:
+    - "Desktop Chrome (latest)"
+    - "Desktop Edge (latest)"
+    - "Desktop Firefox (latest)"
+  test_data:
+    - field: "employee"
+      value: "Casey the Continuer (Individual Contributor)"
+    - field: "skill"
+      value: "Python Basics / Data Visualization Fundamentals"
+    - field: "seed_state"
+      value: "Clean dashboard, zero pre-existing assignments (matches 2026-07-13 no-migration launch state)"
+
+# ---------------------------------------------------------------------------
+# Happy Path Tests
+# ---------------------------------------------------------------------------
+happy_path:
+  - id: "HP-001"
+    name: "Rita's Trust Call — Dashboard Scan + Drill-Down"
+    priority: "critical"
+    steps:
+      - action: "Rita opens the Skills Dashboard"
+        expected: "Grid loads within 2s showing all assignments with provenance labels (Verified/Self-reported/Needs Attention), color + text (never color-only)"
+        design_ref: "C-UX-Scenarios/01-ritas-trust-call/01.1-assignment-dashboard/01.1-assignment-dashboard.md#page-states"
+      - action: "Rita clicks the drill-down arrow on a stale row"
+        expected: "Modal opens showing Assignment Date, Last Activity, and a plain-language explanation of why the row is stale"
+        design_ref: "C-UX-Scenarios/01-ritas-trust-call/01.2-provenance-drill-down/01.2-provenance-drill-down.md#page-overview-phase-3-context"
+      - action: "Rita closes the modal (X, Escape, or click-outside)"
+        expected: "Modal closes instantly, returns to dashboard, no residual state"
+        design_ref: "C-UX-Scenarios/01-ritas-trust-call/01.2-provenance-drill-down/01.2-provenance-drill-down.md#interactions--behaviors"
+    success_criteria:
+      - "Rita answers a staffing-readiness question using only the dashboard + drill-down, with no spreadsheet cross-referencing"
+      - "Dashboard staleness (rows without a fresh verified signal) is visibly and honestly labeled, not hidden"
+
+  - id: "HP-002"
+    name: "Casey's Resume & Watch — Content Discovery to Resume"
+    priority: "critical"
+    steps:
+      - action: "Casey opens the assignment notification link, lands on Content Discovery"
+        expected: "Exactly one human-approved content recommendation shown, with thumbnail, duration, and '✓ Approved' badge — no search box"
+        design_ref: "C-UX-Scenarios/02-caseys-resume-and-watch/02.1-content-discovery/02.1-content-discovery.md#page-states"
+      - action: "Casey clicks Play, watches partway, closes the tab"
+        expected: "Watch position is persisted every 5-10s and flushed via sendBeacon on tab close, with no visible 'saving' UI"
+        design_ref: "C-UX-Scenarios/02-caseys-resume-and-watch/02.1-content-discovery/02.1-content-discovery.md#watch-position-capture-technical"
+      - action: "Casey returns later and opens Continue Watching"
+        expected: "Card shows exact resume timestamp (e.g. 'Resume at 14:32'); clicking Resume starts playback at that exact position within 1s, no seeking"
+        design_ref: "C-UX-Scenarios/02-caseys-resume-and-watch/02.2-resume-continue-watching/02.2-resume-continue-watching.md#interactions--behaviors"
+    success_criteria:
+      - "Casey never manually logs progress or clicks a 'save'/'sync' control"
+      - "Resume lands at the exact last-watched frame, no re-seeking required"
+
+  - id: "HP-003"
+    name: "Rita's Assignment & Track — 3-Step Assignment to Live Dashboard Update"
+    priority: "critical"
+    steps:
+      - action: "Rita clicks [+ New Assignment], selects an employee, then a skill"
+        expected: "Content is auto-linked to the selected skill by Step 3, no manual search required"
+        design_ref: "C-UX-Scenarios/03-ritas-assignment-and-track/03.1-skill-assignment-flow/03.1-skill-assignment-flow.md#interactions--behaviors"
+      - action: "Rita reviews the auto-linked content and clicks [Assign]"
+        expected: "Assignment created in under 2 minutes total; modal closes and returns to dashboard"
+        design_ref: "C-UX-Scenarios/03-ritas-assignment-and-track/03.1-skill-assignment-flow/03.1-skill-assignment-flow.md#design-constraints"
+      - action: "Dashboard reloads"
+        expected: "New row appears immediately, visually highlighted, status 'Assigned · Awaiting first watch', 0% progress"
+        design_ref: "C-UX-Scenarios/03-ritas-assignment-and-track/03.2-assignment-confirmation-and-auto-update/03.2-assignment-confirmation-and-auto-update.md#page-states"
+      - action: "Casey (from HP-002) watches the newly assigned content"
+        expected: "Rita's row updates automatically within 30s to 'Verified · [%] watched', with no manual refresh"
+        design_ref: "C-UX-Scenarios/03-ritas-assignment-and-track/03.2-assignment-confirmation-and-auto-update/03.2-assignment-confirmation-and-auto-update.md#auto-update-architecture-technical"
+    success_criteria:
+      - "Full assignment-to-tracking loop closes without any manual sync step by Rita or Casey"
+      - "Assignment completed in under 2 minutes"
+
+# ---------------------------------------------------------------------------
+# Error State Tests
+# ---------------------------------------------------------------------------
+error_states:
+  - id: "ES-001"
+    name: "Skills Dashboard — grid data fails to load"
+    priority: "high"
+    steps:
+      - action: "Simulate API/network failure on dashboard load"
+      - expected: "Grid area shows: \"Couldn't load assignments. [Retry]\" — header/nav remain usable"
+      - expected: "Clicking Retry re-attempts the fetch"
+      - design_ref: "C-UX-Scenarios/01-ritas-trust-call/01.1-assignment-dashboard/01.1-assignment-dashboard.md#page-states"
+    success_criteria:
+      - "User is never shown a blank page or unhandled error — always a labeled retry path"
+
+  - id: "ES-002"
+    name: "Provenance Drill-Down — raw signal data fails to load"
+    priority: "medium"
+    steps:
+      - action: "Simulate failure fetching raw signal data after drill-down click"
+      - expected: "Modal opens with header, body shows: \"Couldn't load provenance details. [Retry]\""
+      - expected: "Close (X/Escape/click-outside) still works while in this state"
+      - design_ref: "C-UX-Scenarios/01-ritas-trust-call/01.2-provenance-drill-down/01.2-provenance-drill-down.md#page-states"
+    success_criteria:
+      - "Rita is never trapped in a broken modal — Close always works"
+
+  - id: "ES-003"
+    name: "Content Discovery — video fails to load/play"
+    priority: "high"
+    steps:
+      - action: "Simulate video load failure when Casey clicks Play"
+      - expected: "Player area shows: \"This video couldn't be loaded. [Try again] · [View alternatives]\""
+      - design_ref: "C-UX-Scenarios/02-caseys-resume-and-watch/02.1-content-discovery/02.1-content-discovery.md#page-states"
+    success_criteria:
+      - "Casey has a visible recovery path (retry or alternatives), never a dead end"
+
+  - id: "ES-004"
+    name: "Continue Watching — saved position fails to load or resume fails"
+    priority: "high"
+    steps:
+      - action: "Simulate failure loading saved watch-position or resuming playback"
+      - expected: "Card shows: \"Couldn't resume this video. [Try again] · [Start over]\""
+      - design_ref: "C-UX-Scenarios/02-caseys-resume-and-watch/02.2-resume-continue-watching/02.2-resume-continue-watching.md#page-states"
+    success_criteria:
+      - "'Start over' is always available as a fallback so Casey is never fully blocked"
+
+  - id: "ES-005"
+    name: "Skill Assignment Flow — employee/skill/content list fails to load"
+    priority: "high"
+    steps:
+      - action: "Simulate failure loading employee list, skill list, or content recommendation"
+      - expected: "Inline message under the affected field: \"Couldn't load [employees/skills/content]. [Retry]\""
+      - expected: "Cancel remains available at every step"
+      - design_ref: "C-UX-Scenarios/03-ritas-assignment-and-track/03.1-skill-assignment-flow/03.1-skill-assignment-flow.md#page-states"
+    success_criteria:
+      - "Rita can always cancel out of a broken assignment attempt without side effects"
+
+  - id: "ES-006"
+    name: "Assignment Confirmation — dashboard fails to refresh after successful submit"
+    priority: "medium"
+    steps:
+      - action: "Simulate assignment created successfully in backend, but dashboard refresh call fails"
+      - expected: "Toast shows: \"Skill assigned, but the dashboard couldn't refresh. [Refresh]\" — assignment is NOT lost, only the visual update failed"
+      - design_ref: "C-UX-Scenarios/03-ritas-assignment-and-track/03.2-assignment-confirmation-and-auto-update/03.2-assignment-confirmation-and-auto-update.md#page-states"
+    success_criteria:
+      - "Verify via direct data check that the assignment record exists even when this UI error is showing (no silent data loss)"
+
+# ---------------------------------------------------------------------------
+# Edge Case Tests
+# ---------------------------------------------------------------------------
+edge_cases:
+  - id: "EC-001"
+    name: "Empty dashboard — fresh pilot start, zero assignments"
+    priority: "high"
+    steps:
+      - action: "Load Skills Dashboard with no assignments in the system (matches 2026-07-13 no-migration launch state)"
+      - expected: "Grid area replaced with: \"No assignments yet — click + New Assignment to get started\""
+      - design_ref: "C-UX-Scenarios/01-ritas-trust-call/01.1-assignment-dashboard/01.1-assignment-dashboard.md#page-states"
+    success_criteria:
+      - "Empty state is a guided call-to-action, not a blank grid"
+
+  - id: "EC-002"
+    name: "Empty Continue Watching — no in-progress skills"
+    priority: "medium"
+    steps:
+      - action: "Casey opens Continue Watching with all assignments either not-started or completed"
+      - expected: "Card area shows: \"Nothing in progress right now. [View your assignments]\""
+      - design_ref: "C-UX-Scenarios/02-caseys-resume-and-watch/02.2-resume-continue-watching/02.2-resume-continue-watching.md#page-states"
+    success_criteria:
+      - "Casey is redirected toward an action, not left on a dead page"
+
+  - id: "EC-003"
+    name: "No approved content match for selected skill"
+    priority: "medium"
+    steps:
+      - action: "Rita selects a skill with no approved content in the catalog during assignment Step 3"
+      - expected: "Step 3 shows: \"No approved content found yet for this skill. [Choose Different Content] or assign without content.\""
+      - design_ref: "C-UX-Scenarios/03-ritas-assignment-and-track/03.1-skill-assignment-flow/03.1-skill-assignment-flow.md#page-states"
+    success_criteria:
+      - "Rita can still complete the assignment even when auto-matching finds nothing"
+
+  - id: "EC-004"
+    name: "Concurrent watch — same video open in two tabs"
+    priority: "medium"
+    steps:
+      - action: "Casey opens the same assigned video in two browser tabs and watches out of order"
+      - expected: "Conditional write logic ensures only the newer timestamp's watch_position is persisted; no regression to an earlier position"
+      - design_ref: "C-UX-Scenarios/02-caseys-resume-and-watch/02.2-resume-continue-watching/02.2-resume-continue-watching.md#real-time-progress-tracking-technical"
+    success_criteria:
+      - "Rita's dashboard never shows progress regressing backward"
+
+  - id: "EC-005"
+    name: "Interrupted assignment flow — cancel mid-step"
+    priority: "low"
+    steps:
+      - action: "Rita starts the assignment flow, selects an employee and skill, then clicks Cancel before clicking Assign"
+      - expected: "Modal closes, no assignment record is created, dashboard is unchanged"
+      - design_ref: "C-UX-Scenarios/03-ritas-assignment-and-track/03.1-skill-assignment-flow/03.1-skill-assignment-flow.md#interactions--behaviors"
+    success_criteria:
+      - "No partial/orphaned assignment records exist after a mid-flow cancel"
+
+# ---------------------------------------------------------------------------
+# Design System Validation
+# ---------------------------------------------------------------------------
+design_system_checks: "N/A — design_system_mode: none for this project (see _bmad/wds/config.yaml). No shared component library to validate against."
+
+# ---------------------------------------------------------------------------
+# Accessibility Tests
+# ---------------------------------------------------------------------------
+accessibility:
+  - id: "A11Y-001"
+    name: "Provenance labels are never color-only"
+    priority: "high"
+    setup: "Enable grayscale/color-blind simulation"
+    steps:
+      - action: "View Skills Dashboard and Provenance Drill-Down"
+      - verify:
+          - "Every status label (Verified/Self-reported/Needs Attention/In Progress/Completed) is distinguishable by text alone, without relying on color"
+    success_criteria:
+      - "WCAG AA color-independence requirement met on every status indicator across all 6 pages"
+
+  - id: "A11Y-002"
+    name: "Full keyboard navigation across all 6 pages"
+    priority: "high"
+    setup: "Navigate using Tab/Shift-Tab/Enter/Escape only, no mouse"
+    steps:
+      - action: "Navigate the dashboard grid, drill-down modal, content discovery, continue-watching card, and the 3-step assignment form"
+      - verify:
+          - "All interactive elements reachable via Tab in a logical order"
+          - "Modals close via Escape"
+          - "Dropdowns operable via arrow keys + Enter"
+    success_criteria:
+      - "No interactive element is mouse-only across all 6 pages"
+
+  - id: "A11Y-003"
+    name: "Screen reader announces dynamic updates"
+    priority: "medium"
+    setup: "Enable VoiceOver/NVDA"
+    steps:
+      - action: "Trigger the assignment confirmation toast and a real-time dashboard row update"
+      - verify:
+          - "Toast notification is announced"
+          - "New/updated row is announced or otherwise discoverable, not silently changed"
+    success_criteria:
+      - "Dynamic content changes are perceivable to screen reader users, not just sighted users"
+
+# ---------------------------------------------------------------------------
+# Usability Tests
+# ---------------------------------------------------------------------------
+usability:
+  - id: "UX-001"
+    name: "Rita's staffing decision without cross-referencing"
+    type: "observational"
+    instructions: |
+      Give Rita a real staffing-readiness question ("who's ready for the Q3
+      initiative?") and observe whether she answers using only the dashboard
+      + drill-down, or reverts to habitual spreadsheet cross-referencing.
+      Note any hesitation or confusion about what "Needs Attention" means.
+    success_criteria:
+      - "Rita answers within minutes using only in-app data"
+      - "No spontaneous request to 'check the spreadsheet to be sure'"
+
+  - id: "UX-002"
+    name: "Casey resumes without prompting"
+    type: "observational"
+    instructions: |
+      Have Casey stop watching a video partway, leave, and return days
+      later without being told how to resume. Observe whether they find
+      and use the Resume button unprompted.
+    success_criteria:
+      - "Casey resumes without asking 'where do I click?'"
+      - "No manual seeking/scrubbing to find their prior position"
+
+# ---------------------------------------------------------------------------
+# Performance Tests
+# ---------------------------------------------------------------------------
+performance:
+  - id: "PERF-001"
+    name: "Dashboard load time"
+    verify:
+      - "Skills Dashboard fully loaded (grid populated)"
+    success_criteria:
+      - "< 2 seconds"
+
+  - id: "PERF-002"
+    name: "Content Discovery + player load time"
+    verify:
+      - "Assignment card and video player ready to play"
+    success_criteria:
+      - "< 3 seconds"
+
+  - id: "PERF-003"
+    name: "Assignment-to-dashboard update latency"
+    verify:
+      - "Time from clicking [Assign] to new row visible on dashboard"
+    success_criteria:
+      - "< 1 second"
+
+  - id: "PERF-004"
+    name: "Resume playback start latency"
+    verify:
+      - "Time from clicking Resume to video playing at the correct timestamp"
+    success_criteria:
+      - "< 1 second, no visible seek lag"
+
+  - id: "PERF-005"
+    name: "Real-time dashboard row update latency"
+    verify:
+      - "Time from Casey's watch-position write to Rita's dashboard row reflecting it"
+    success_criteria:
+      - "< 30 seconds, no manual refresh required"
+
+# ---------------------------------------------------------------------------
+# Sign-off Criteria
+# ---------------------------------------------------------------------------
+sign_off:
+  required_for_approval:
+    - "All critical happy-path tests (HP-001, HP-002, HP-003) pass"
+    - "No critical or high-severity issues open (all ES-* and high-priority EC-*/A11Y-* pass)"
+    - "Design system compliance: N/A (design_system_mode: none)"
+    - "Accessibility tests (A11Y-001, A11Y-002) pass"
+    - "Coaching-only data boundary verified at the backend/data-access layer, not just in UI copy — this is a launch-blocking privacy requirement, not a nice-to-have"
+  must_fix:
+    - "Any broken happy-path flow (HP-001/002/003)"
+    - "Any error state that leaves the user with no recovery path (dead end)"
+    - "Coaching-only data accessible in any performance-evaluation-facing view or export"
+    - "Color-only status indicators (WCAG AA violation)"
+  nice_to_fix:
+    - "Minor visual/spacing differences from spec"
+    - "Deferred structural spec gaps (Page Metadata standardization, Prev/Next nav links) — tracked in validation-report.md, not blocking"
+  designer_approval:
+    statement: |
+      I confirm that the implemented feature matches the design
+      specifications in C-UX-Scenarios/ and meets the acceptance
+      criteria defined in DD-001-poc-hypothesis-flows.yaml.
+    signature: "________________"
+    date: "________________"

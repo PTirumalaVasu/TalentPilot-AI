@@ -1,0 +1,144 @@
+id: DD-001
+name: "POC Hypothesis Flows — Trust, Resume/Watch, Assignment"
+status: in_development
+created: 2026-07-08
+designer: TalentPilot
+handed_off_at: "2026-07-08"
+assigned_to: "wds-5-agentic-development"
+handoff_log: "deliveries/DD-001-handoff-log.md"
+
+# ---------------------------------------------------------------------------
+# User Value
+# ---------------------------------------------------------------------------
+user_value:
+  problem: >
+    HR (Rita) cannot trust the freshness of manually self-reported skill
+    progress and must cross-reference constantly before making staffing
+    decisions. Employees (Casey) get no credit for progress unless they
+    manually log it, and lose their place when they stop watching training
+    content. Assigning skills is manual and disconnected from tracking.
+  solution: >
+    Three POC flows demonstrate the core mechanic: (1) provenance-labeled
+    dashboard rows (Verified / Self-reported / Needs Attention) let Rita make
+    a staffing call without cross-referencing; (2) frictionless content
+    discovery + auto-captured, resumable video watch progress generates
+    honest signal with zero manual logging; (3) a 3-step assignment flow with
+    auto-linked content closes the loop, updating Rita's dashboard instantly
+    and in real time as Casey engages.
+  success_criteria:
+    - "Dashboard staleness (rows without a fresh verified signal) below 5% within 60 days of launch"
+    - "Rita completes a skill assignment in under 2 minutes (3-step form)"
+    - "Casey resumes a video at the exact last-watched position with no seeking/searching"
+    - "Rita's dashboard row updates automatically within 30 seconds of Casey's watch-position change, with no manual refresh"
+
+# ---------------------------------------------------------------------------
+# Design Artifacts
+# ---------------------------------------------------------------------------
+design_artifacts:
+  scenarios:
+    - id: "01"
+      name: "Rita's Trust Call"
+      path: "C-UX-Scenarios/01-ritas-trust-call/01-ritas-trust-call.md"
+      pages:
+        - "C-UX-Scenarios/01-ritas-trust-call/01.1-assignment-dashboard/01.1-assignment-dashboard.md"
+        - "C-UX-Scenarios/01-ritas-trust-call/01.2-provenance-drill-down/01.2-provenance-drill-down.md"
+    - id: "02"
+      name: "Casey's Resume & Watch"
+      path: "C-UX-Scenarios/02-caseys-resume-and-watch/02-caseys-resume-and-watch.md"
+      pages:
+        - "C-UX-Scenarios/02-caseys-resume-and-watch/02.1-content-discovery/02.1-content-discovery.md"
+        - "C-UX-Scenarios/02-caseys-resume-and-watch/02.2-resume-continue-watching/02.2-resume-continue-watching.md"
+    - id: "03"
+      name: "Rita's Assignment & Track"
+      path: "C-UX-Scenarios/03-ritas-assignment-and-track/03-ritas-assignment-and-track.md"
+      pages:
+        - "C-UX-Scenarios/03-ritas-assignment-and-track/03.1-skill-assignment-flow/03.1-skill-assignment-flow.md"
+        - "C-UX-Scenarios/03-ritas-assignment-and-track/03.2-assignment-confirmation-and-auto-update/03.2-assignment-confirmation-and-auto-update.md"
+  design_system: "N/A — design_system_mode: none for this project"
+  strategic_foundation:
+    - "A-Product-Brief/project-brief.md"
+    - "B-Trigger-Map/00-trigger-map.md"
+    - "planning-artifacts/prfaq-TalentPilot-AI.md"
+
+# ---------------------------------------------------------------------------
+# Technical Requirements
+# ---------------------------------------------------------------------------
+technical_requirements:
+  platform: "Desktop-primary web app (no mobile required; Rita and Casey both work from desktop/laptop)"
+  stack:
+    backend: "Python 3.12+ / FastAPI, domain-module structure (video_progress/, skill_matching/, auth/)"
+    frontend: "React + TypeScript + Vite (SPA) — no Next.js/SSR (internal, authenticated, no SEO surface)"
+    database: "PostgreSQL + pgvector (skill-to-tutorial matching), async SQLAlchemy 2.0 + asyncpg"
+  integrations:
+    - "YouTube IFrame API — polling-based getCurrentTime() for watch-position capture; sendBeacon on tab close/unload"
+  data_models:
+    - "assignments: employee, skill, content link, status (Assigned/In Progress/Completed), provenance type (Verified/Self-reported), created/updated timestamps"
+    - "skill_progress: user_id, skill_id, watch_position, timestamp — conditional writes only (skip if incoming timestamp is not newer)"
+    - "content_catalog + embeddings (pgvector) for skill-to-tutorial matching"
+  performance:
+    - "Dashboard loads in < 2 seconds"
+    - "Content Discovery page + video player load in < 3 seconds"
+    - "Assignment creation reflected on dashboard within 1 second of submission"
+    - "Resume playback begins within 1 second of click (no seek lag)"
+    - "Dashboard row updates within 30 seconds of a watch-position change (real-time, no manual refresh)"
+  no_data_migration: "Dashboard starts clean on 2026-07-13 — historical spreadsheet data is not imported (confirmed decision)"
+  privacy_constraint: "Auto-captured progress data is coaching-only — must never be exposed to or usable in performance-evaluation contexts. This is a data-access/reporting boundary, not just a copy/communication choice."
+
+# ---------------------------------------------------------------------------
+# Acceptance Criteria
+# ---------------------------------------------------------------------------
+acceptance_criteria:
+  functional:
+    - "Rita can view all employee skill assignments with a provenance label (Verified / Self-reported / Needs Attention) on the dashboard"
+    - "Rita can drill down into any row to see raw signal data (assignment date, last activity, last self-report) and a plain-language explanation of the current status"
+    - "Casey sees exactly one human-approved content recommendation per assigned skill (no search results)"
+    - "Casey's watch position is auto-captured every 5-10s during playback and on tab close (sendBeacon)"
+    - "Casey can resume a video at the exact last-watched position with a single click"
+    - "Rita can assign a skill to an employee in a 3-step flow (employee -> skill -> auto-linked content review) and see it appear on the dashboard immediately"
+  non_functional:
+    - "WCAG AA: provenance labels always pair color with text/icon, never color-only"
+    - "All interactive elements keyboard-navigable (grid, dropdowns, modals, video player controls)"
+    - "No manual 'save' or 'sync' UI anywhere in the watch-tracking flow — all capture is passive/background"
+  edge_cases:
+    - "Empty state: no assignments yet (fresh pilot start) on Skills Dashboard and Continue Watching"
+    - "Loading state: grid/card data not yet returned on all 3 scenarios' pages"
+    - "Error state: data fetch failure (dashboard grid, provenance drill-down, content recommendation, employee/skill lists in assignment form)"
+    - "Error state: video playback failure on Content Discovery / Continue Watching"
+    - "Error state: dashboard fails to refresh after a successful assignment submission (assignment is not lost, only the visual update fails)"
+    - "No approved content match found for a selected skill during assignment (03.1)"
+
+# ---------------------------------------------------------------------------
+# Testing Guidance
+# ---------------------------------------------------------------------------
+testing_guidance:
+  user_testing: >
+    Observe Rita completing a real staffing-readiness judgment using only the
+    dashboard + drill-down (no spreadsheet cross-referencing) and Casey
+    resuming a paused video without prompting. Watch for hesitation, manual
+    verification habits, or confusion about what "Needs Attention" means.
+  qa_scope: "Desktop browsers only (Chrome, Edge, Firefox latest) — no mobile/tablet testing required per platform constraint"
+  design_validation: >
+    Compare implementation against each page spec's Object Registry-equivalent
+    (Components & Object IDs tables) and Page States table — confirm Loading/
+    Empty/Error states are implemented, not just the happy path.
+
+# ---------------------------------------------------------------------------
+# Complexity & Risk
+# ---------------------------------------------------------------------------
+complexity:
+  size: "L — 3 scenarios, 6 pages, real-time update pipeline, pgvector matching"
+  dependencies:
+    - "Self-hosted vs. third-party video embed decision still open — affects what 'auto-captured watch %' can technically mean (see project memory, unresolved as of 2026-07-08)"
+  assumptions:
+    - "design_system_mode: none is intentional for this pilot — no shared component library to build/maintain"
+    - "Legal/compliance review of employee video-watch tracking was consciously declined for this internal-pilot scope (see project memory) — revisit if scope expands"
+    - "No named owner or team/timeline commitment exists yet for post-pilot maintenance — accepted as open, to be resolved before Pilot & Validation phase, not before this build"
+  risk_level: "Medium"
+  risk_rationale: >
+    Core UX flows and tech stack are well-specified and low-novelty (FastAPI/
+    React/Postgres+pgvector is a well-trodden combination). Risk sits in two
+    places: (1) the real-time dashboard-update pipeline (watch-position write
+    -> dashboard row update within 30s) is the most technically novel piece
+    and central to the POC hypothesis; (2) the coaching-only privacy boundary
+    must be enforced at the data-access layer, not just in UI copy — getting
+    this wrong is a trust failure, not a cosmetic one.
