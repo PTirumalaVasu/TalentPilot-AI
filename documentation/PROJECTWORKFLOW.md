@@ -541,3 +541,81 @@ All files live under:
 
 - **`_bmad-output/project-context.md`** (ready for future phases to append carry-forward decisions from brief when stakeholder approval lands)
 - **`documentation/PROJECTWORKFLOW.md`** (this file, appended to) — this section
+
+---
+---
+
+# PRFAQ Phase — Skills, Agents, and Files
+
+## Agents Called
+
+**No facilitation persona was invoked in this phase.** The user invoked `/bmad-prfaq` directly — no preceding `/bmad-cis-agent-*` or `/bmad-agent-*` persona command — so the skill ran as itself throughout, the same pattern as Domain Research and Technical Research.
+
+**One subagent was spawned** during Stage 1 Contextual Gathering:
+- **Web Researcher** (`general-purpose` agent, following the role defined in `bmad-prfaq`'s `agents/web-researcher.md`) — researched the build-vs-buy landscape against existing HR/LMS vendors (Cornerstone, Degreed, LinkedIn Learning, Eightfold, Gloat, Continu, Valamis, Paradiso), framed specifically around the internal-tool context (since the concept doesn't compete for external customers, the live question was "why build instead of buy," not general market sizing).
+
+**Deviation from the skill's default flow:** `bmad-prfaq` also defines an **Artifact Analyzer** subagent to scan `{planning_artifacts}`/`{project_knowledge}` for relevant prior documents. That subagent was not spawned separately — the relevant repo artifacts (`project-context.md`, the product brief, the memory system's MVP-scope summary) had already been read directly during Stage 1 to draft the opening hypothesis for the user to react to, so a dedicated scanning pass was judged redundant rather than skipped for lack of availability. Only the Web Researcher ran as an actual delegated subagent call.
+
+---
+
+## Skills Used
+
+### 1. bmad-prfaq
+**Purpose:** Runs Amazon's Working Backwards methodology — write the press release for the finished product before building anything else, then stress-test it through a skeptical Customer FAQ and an even more skeptical Internal FAQ, ending in a candid three-category verdict (forged in steel / needs more heat / cracks in the foundation) and a token-efficient distillate for downstream PRD work.
+
+**Why it was called:** The user invoked `/bmad-prfaq` directly to pressure-test the TalentPilot-AI concept from a customer-first angle before committing further planning effort, using the already-completed product brief and research as grounding rather than starting from a blank concept.
+
+**Detailed sequence of what happened inside this skill:**
+
+- **Activation:** Attempted `resolve_customization.py --key workflow` via `python3`; failed with the same recurring Windows/`uv` quirk already logged in `project-context.md` from earlier phases (`python3` not found). Fell back to reading `customize.toml` directly — no team/user override files existed under `_bmad/custom/`, confirming the default `workflow` block (empty `activation_steps_prepend`/`activation_steps_append`, `persistent_facts = ["file:{project-root}/**/project-context.md"]`, empty `on_complete`).
+- Loaded `_bmad-output/project-context.md` as a persistent fact and `_bmad/bmm/config.yaml` for `user_name`, `communication_language`, `planning_artifacts`, and `project_knowledge` paths.
+- **Resume detection:** Checked for an existing `prfaq-TalentPilot-AI.md` — none found, so started fresh rather than offering a resume path.
+- **Mode detection:** No `--headless` flag supplied, so ran the full interactive coaching mode (the gauntlet), not autonomous first-draft generation.
+- **Stage 1 (Ignition):** Rather than asking the four essentials (customer, problem, stakes, solution) from a blank slate, read the already-completed product brief (`brief-TalentPilot-AI-2026-07-08/brief.md`) and project memory directly, then presented a drafted hypothesis of all four essentials plus a concept-type guess ("commercial product") for the user to react to — per the skill's own guidance to offer a hypothesis rather than repeat the question. The user confirmed the essentials but **corrected the concept type to "internal tool"** (not commercial) and sharpened the problem framing: the villain is manual self-reporting, not the spreadsheet format itself. Fanned out the Web Researcher subagent for build-vs-buy context (see Agents Called above). Created the output document from `assets/prfaq-template.md` and appended a `<!-- coaching-notes-stage-1 -->` block.
+- **Stage 2 (The Press Release):** Drafted headline/subheadline iteratively — two candidate headlines were explicitly rejected before landing: an overclaiming "nobody has to report progress anymore" (false — non-video content still requires self-report) and a dual-audience-equal framing the user redirected toward HR-led with employee benefit demoted to the subheadline. Drafted the opening, problem, and solution paragraphs, a leader quote (attributed to Sesha, HR), a two-persona "How It Works" section (HR / Employee), an illustrative employee quote, and a "Getting Started" section — with the launch date (13 July 2026) and no-data-migration decision confirmed live by the user rather than assumed. Appended `<!-- coaching-notes-stage-2 -->`.
+- **Stage 3 (Customer FAQ):** Generated nine devil's-advocate questions spanning skepticism, trust, practical friction, and edge cases (comprehension-vs-exposure gap, content-quality risk, no test-out path, "why not just enforce the spreadsheet," tool-discontinuation risk). Drafted honest answers for each, explicitly flagging two as needing a real decision rather than a placeholder: whether auto-captured data feeds performance reviews, and whether old spreadsheet data migrates in. Both were resolved by the user (coaching-only; no migration) and **written back into the project's memory system** (not just this document) since they constrain the actual build. Appended `<!-- coaching-notes-stage-3 -->`.
+- **Stage 4 (Internal FAQ):** Calibrated questions to the internal-tool/small-team context (maintenance burden and adoption strategy instead of unit economics and customer acquisition, per the skill's own calibration rule). Generated nine skeptical-stakeholder questions covering feasibility, resource reality, risk, and strategic fit, including the "question the founder avoids" (the root-cause hypothesis was never tested with real HR interviews). Flagged three unexamined unknowns requiring real answers rather than assumed ones: a named post-pilot owner, a committed team/timeline, and a legal/compliance review. The user resolved all three (no owner yet; timeline aspirational; legal review explicitly declined as unnecessary for current scope) and, on a targeted follow-up, pinned a deadline — owner and timeline must be locked before the Pilot & Validation phase begins, not before the 13 July build start. These were also recorded in project memory. Appended `<!-- coaching-notes-stage-4 -->`.
+- **Stage 5 (The Verdict):** Reviewed the full document and delivered a three-category assessment — **Forged in Steel** (the root-cause reframe, the "mixed trust, clearly labeled" positioning, the privacy boundary, the build-vs-buy case, technical feasibility), **Needs More Heat** (the freshness/labeling UI itself, the undefined post-pilot success path, operationalizing the content-approval step), and **Cracks in the Foundation** (the unvalidated root-cause hypothesis, the missing owner/team commitment, the legal waiver's lack of a revisit trigger) — each crack paired with a concrete remediation suggestion rather than left as an unresolved complaint. Updated frontmatter to `status: "complete"`, `stage: 5`. Produced the required distillate at `prfaq-TalentPilot-AI-distillate.md`. `workflow.on_complete` resolved to empty, so no terminal instruction ran beyond presenting completion.
+- **Post-completion alignment check:** The user asked to reaffirm a standing practice from an earlier session — verify every command's output against brainstorming/Design Thinking/prior artifacts before calling it done. Re-read `brainstorm-intent.md` and `design-thinking-2026-07-07.md` fresh (not from conversation memory) and reported an explicit table mapping each PRFAQ claim to the artifact it was checked against; found no contradictions or scope creep into the "Won't" list. Added the PRFAQ document and distillate to the standing reference set in the feedback memory so future commands are checked against this artifact too.
+
+---
+
+## The Role of Project Context in This Workflow
+
+- `_bmad-output/project-context.md` was loaded automatically as a `persistent_fact` on activation, the same mechanism used by every prior phase — so this phase's coaching already had the confirmed MVP scope, the YouTube provider decision, and the deliberate no-validation-sprint decision in view without re-deriving them.
+- **Deviation worth noting:** during the session itself, the newly-surfaced decisions (privacy policy, no-migration, owner/timeline gate, legal waiver) were written to the Claude Code auto-memory system (a separate, cross-session persistence mechanism outside this repository) rather than to `project-context.md` directly, breaking from the pattern every prior phase followed. This was corrected before writing this section — a new bullet was appended to `project-context.md`'s "Product & Design Decisions" summarizing the same decisions, so the file's own "Mandatory Rule" (any meaningful work must update it) still holds and future sessions relying on `project-context.md` alone don't miss what this phase decided.
+
+---
+
+## Files Created and Purpose of Each
+
+All files live under:
+`_bmad-output/planning-artifacts/`
+
+### 1. `prfaq-TalentPilot-AI.md`
+**Purpose:** The full Working Backwards artifact — press release, Customer FAQ, Internal FAQ, and Verdict — written to stress-test the TalentPilot-AI concept from a customer-first angle before further planning investment. Intended to replace the product brief as the primary input to PRD creation.
+
+**Why it exists:** Produced by the `bmad-prfaq` skill's five-stage workflow, seeded from the completed product brief, brainstorming, Design Thinking, market research, and technical research so the press release's claims stayed traceable to prior validated work rather than inventing new positioning from scratch.
+
+**Contents produced:** Frontmatter tracking stage progress (`stage: 5`, `status: "complete"`, full `inputs` list) and the source documents used; the press release (headline, subheadline, opening/problem/solution paragraphs, leader quote, two-persona How It Works, employee quote, Getting Started); a nine-question Customer FAQ; a nine-question Internal FAQ; The Verdict (three-category assessment with remediation suggestions); and four `<!-- coaching-notes-stage-N -->` blocks (one per stage) preserving rejected framings, trade-off decisions, and unresolved items that don't fit the press-release format itself.
+
+### 2. `prfaq-TalentPilot-AI-distillate.md`
+**Purpose:** A dense, token-efficient summary of the PRFAQ session for downstream PRD creation — grouped by theme (concept framing, rejected framings, confirmed decisions, requirements signals, open questions, competitive intelligence, scope boundaries, the Verdict) so a future PRD-writing session doesn't need to re-read the full PRFAQ or conversation history.
+
+**Why it was created:** Required output of Stage 5 per the skill's own instructions — the coaching notes and conversation surface more context than fits naturally in a press-release-shaped document, and this distillate is where that context is preserved in a structured, reusable form.
+
+No other files were created during this phase; `project-context.md` was modified (see above), not created.
+
+---
+
+## Session Notes
+
+**Hardcore mode did real work here, not just tone.** Two headline drafts were explicitly rejected mid-session for overclaiming — "nobody has to report progress anymore" was caught and corrected before it reached the document, because the user pointed out non-video content still requires self-reporting. That correction cascaded into the eventual "mixed trust, clearly labeled" positioning, which is arguably the sharpest idea to come out of this phase.
+
+**The FAQs surfaced real, previously-undocumented gaps, not just rhetorical stress-testing.** The employee-monitoring/surveillance-optics risk, the no-named-owner gap, and the missing legal review were not present in any prior artifact (brainstorming, Design Thinking, brief) — they were new findings this process was specifically designed to catch before build, and each one now has an explicit resolution or an explicit, dated deadline rather than being left implicit.
+
+**Why this artifact matters:** Unlike the product brief (which argues the solution is right), the PRFAQ additionally proves the argument survives an adversarial audience — a skeptical customer and a skeptical stakeholder panel — before the team commits the 13 July build. The Verdict's three cracks (untested root-cause hypothesis, missing owner/team commitment, legal waiver with no revisit trigger) are now explicit, dated requirements for whoever picks this up next, not narrative color that quietly gets lost.
+
+---
+
+No other files were created or modified during this phase beyond what's listed above.
