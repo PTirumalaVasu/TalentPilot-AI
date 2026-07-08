@@ -619,3 +619,119 @@ No other files were created during this phase; `project-context.md` was modified
 ---
 
 No other files were created or modified during this phase beyond what's listed above.
+
+---
+---
+
+# WDS Product Brief Phase — Skills, Agents, and Files
+
+## Agents Called
+
+**No facilitation persona was invoked in this phase.** Unlike the BMAD `cis`/`bmm` module phases above (Carson, Maya, Mary, Victor), this phase runs entirely inside the **WDS (Whiteport Design Studio)** module, which does not use the same `/bmad-cis-agent-*` / `/bmad-agent-*` persona-dispatch pattern. The user invoked WDS skills directly via slash commands (`/wds-0-alignment-signoff`, then `/wds-1-project-brief`); each skill ran as itself, in the **Saga** facilitator identity defined by the skill's own role instructions ("Saga, a curious and insightful Business Analyst"), rather than through a separately-invoked persona agent.
+
+No subagents were spawned during this phase — all document review, synthesis, and file writing were performed directly.
+
+---
+
+## Skills Used
+
+### 1. wds-0-alignment-signoff (invoked, exited early by design)
+
+**Purpose:** Creates stakeholder alignment before a project starts — an alignment/pitch document plus a signoff/contract document — for situations where a consultant, hired supplier, or internal team needs buy-in from other people before work begins.
+
+**Why it was called:** The user ran `/wds-0-alignment-signoff` with the argument "Review all the documents except projectworkflow.md." Before any alignment content is built, the workflow's own first two steps (`step-01a-understand-situation`, `step-01b-determine-if-needed`) require establishing whether the user actually needs stakeholder alignment at all.
+
+**What happened inside this skill:**
+- **Pre-step context gathering (per the user's explicit request):** Rather than jumping straight to the situation question, first read essentially every existing project artifact — the product brief, the PRFAQ and its distillate, the brainstorm intent, the design-thinking session, the innovation-strategy document, and all three technical/market/domain research reports — to synthesize a single grounding summary before asking anything, since the user had asked for a document review first.
+- **Step 01a (Understand Situation):** Asked the mandatory situation question — consultant / business owner hiring suppliers / manager-employee seeking internal approval / doing it themselves with full autonomy — while also flagging, from the just-completed document review, that the existing brief's own status line ("Draft, ready for stakeholder review... Decision required: Stakeholder approval") suggested an approval-seeking scenario, without assuming it.
+- **Step 01b (Determine If Needed):** The user confirmed **"I am doing for myself. Don't need stakeholder alignment/signoff."** Per the step's explicit rule ("FORBIDDEN to force users into alignment workflow if they have full autonomy"), routed directly to the Project Brief workflow instead of continuing into the alignment document/signoff phases (steps 02–06). No alignment document (`pitch.md`) or signoff/contract document was produced, by design — this is the documented, correct exit path for a self-directed user, not an incomplete run.
+
+### 2. wds-1-project-brief
+
+**Purpose:** Establishes the strategic foundation for all downstream WDS design work (Phase 2: Trigger Mapping, Phase 3: UX Design, etc.) through a structured, collaborative discovery process. Distinct in purpose from BMAD's `bmad-product-brief` (which targets stakeholder sign-off) — this brief is explicitly the **design-pipeline source of truth**, capturing a formal vision statement, positioning statement, target-user behavioral profiles, a named structural product concept, and platform/tone-of-voice direction that the business-facing brief does not cover in the same way.
+
+**Why it was called:** Selected immediately after the Alignment & Signoff exit, per the user's confirmation to proceed. The user chose to **refine the existing draft brief** (`_bmad-output/planning-artifacts/briefs/brief-TalentPilot-AI-2026-07-08/brief.md`) rather than start fresh, and selected the **Complete** brief depth (not Simplified) given how much prior discovery already existed to build on.
+
+**Detailed sequence of what happened inside this skill (Complete flow, steps 01–12):**
+
+- **Activation:** `brief_level` was not set anywhere in project config (`_bmad-output/wds-workflow-status.yaml` did not exist), so the Complete-vs-Simplified choice was surfaced explicitly to the user via `AskUserQuestion` rather than defaulted silently. User chose Complete.
+- **Step 01 (Init):** Confirmed no context existed beyond what had already been reviewed during the Alignment & Signoff phase's document pass — the user explicitly said "No" when asked if there was anything additional to factor in, so this step served as a scope-lock rather than new discovery.
+- **Step 01a (Client Profile):** Established that TalentPilot-AI is an internal tool for **SAILS Software's own HR function**, solo-driven by the user with full decision authority, no team currently named, still framed as a **1-week hackathon pitch** (confirmed as still-active, coexisting with the PRFAQ's later "internal pilot" framing rather than superseding it), fast-iterative working style, no approval chain. Written to `dialog/client-profile.md`.
+- **Step 02 (Vision):** Confirmed the existing brief/PRFAQ direction was unchanged ("Yes We are still in same direction as in brief. Nothing changed on 2026-07-08"), then surfaced a sharper personal marker of success through a follow-up question ("HR opens the dashboard and just trusts it") that had not been stated in exactly those terms in any prior artifact. Synthesized into a one-sentence vision statement, confirmed first try. Written to `dialog/02-vision.md`.
+- **Step 03 (Positioning):** Synthesized a formal positioning statement (target/need/category/benefit/differentiator) directly from the already-established brief/PRFAQ content, confirmed first try without correction.
+- **Step 05 (Business Model):** Explicitly re-confirmed that the innovation-strategy document's earlier commercial/GTM framing (per-employee SaaS, multi-year ARR targets) is **fully set aside** in favor of "internal pilot only, no unit economics" — closing a potential ambiguity between two prior artifacts that pointed in different directions (innovation-strategy's commercial framing vs. the PRFAQ's internal-only framing) rather than silently picking one.
+- **Step 06 (Business Customers):** Skipped — correctly routed as not applicable, since no B2B customer exists.
+- **Step 07 (Target Users):** Rather than re-deriving user profiles from scratch, specifically targeted **two items the 2026-07-07 design-thinking session had explicitly left open** pending real HR interviews (which were deliberately skipped at the time): how often HR actually opens the spreadsheet, and whether the "no workarounds" pattern meant the process was tolerable or resigned-from. The user resolved both directly — **daily** usage, and **resigned, not tolerant** — closing two genuine, previously-unvalidated assumptions without needing to run a formal interview. This also produced a concrete design implication (dashboard must feel truly live, not just "fresher than a spreadsheet"). Written to `dialog/03-users.md`.
+- **Step 07a (Product Concept):** Named, for the first time as a single unifying idea, a structural principle that existed only implicitly across the design-thinking session's separate Top Concepts: **"one signal, two payoffs"** (video watch-position simultaneously powers HR's trust signal and the employee's resume experience) paired with **"labeled trust, not uniform trust"** (every dashboard cell explicitly tagged verified/self-reported/needs-attention). Confirmed first try. Written to `dialog/04-concept.md`.
+- **Step 08 (Success Criteria):** Closed a gap the PRFAQ's Internal FAQ had explicitly flagged — that telemetry thresholds must be decided in writing *before* pilot data exists, not read favorably afterward. The existing brief only said staleness should drop "to near-zero" with no number attached. This step locked concrete, specific thresholds: **under 5%** staleness within 60 days, dashboard adoption measured via **usage analytics + direct stakeholder feedback** (not self-report alone), and reconfirmed the **60-day / ~11 September 2026** checkpoint against the hard 13 July 2026 launch date.
+- **Step 09 (Competitive Landscape):** Walked through the do-nothing, enforce-harder, and buy-an-LMS alternatives (all already addressed in prior research/PRFAQ), then asked a genuine reality-check question that had not been directly answered before: if the pilot succeeds, what stops SAILS from just buying an LMS later? The user's answer reframed the unfair advantage from "first-mover speed" to **the evidence pipeline itself** being the durable, hard-to-replace asset regardless of which of three named post-pilot paths (standalone, LMS-integration, buy-a-platform) is eventually chosen — directly resolving the PRFAQ's previously-undecided "post-pilot success path" question as a side effect.
+- **Step 10 (Constraints):** Mapped fixed constraints (13 July 2026 launch as a **hard, non-negotiable line**; zero budget; solo team; no brand/design-system requirement) against flexible ones (tech stack details, feature scope, post-pilot direction), and explicitly asked about — then documented as **deliberately left open, by user choice** — two gaps the PRFAQ had flagged: the legal/compliance waiver's revisit trigger, and confirmation that the user alone currently owns content-approval, bug fixes, and success-metric monitoring post-launch.
+- **Step 10a (Platform Strategy):** Confirmed responsive web application, desktop-first (matching HR's actual daily desk-based usage pattern), all modern evergreen browsers, no native/offline/PWA requirements — a fast, low-ceremony confirmation given the platform's obvious fit to the already-established usage context.
+- **Step 11 (Tone of Voice):** Rather than asking the user to define tone from scratch (forbidden by the step's own rules), proposed four tone attributes derived directly from the product's core trust mechanic — **clear & unambiguous, calm & matter-of-fact, honest about uncertainty, quietly encouraging (employee-facing only)** — with concrete before/after microcopy examples (e.g., "Verified · 92% watched, 2 hours ago" vs. "✓ Complete"), explicitly designed to prevent the exact mislabeling failure mode the PRFAQ's Internal FAQ had called the single worst-case outcome for the whole product. Confirmed first try.
+- **Step 12 (Create Product Brief):** Presented the full synthesized narrative (Vision → Who It's For → Problem & Opportunity → Positioning → Product Concept → Success Criteria → Reality/Constraints → What Makes You Win) as a coherent story rather than a checklist, per the step's explicit anti-template-speak rule. User confirmed it captured the strategic foundation. Generated the final `project-brief.md` document from the template, covering all eleven sections (Vision, Positioning, Business Model, Target Users, Product Concept, Success Criteria, Competitive Landscape, Constraints, Platform & Device Strategy, Tone of Voice, Additional Context/Business Context/Next Steps).
+
+**Dialog artifacts maintained throughout (per the skill's own mandatory-update rule, mirroring `project-context.md`'s pattern from earlier BMAD phases):** `dialog/00-context.md` (project metadata, stakes, collaboration style), `dialog/client-profile.md`, `dialog/02-vision.md`, `dialog/03-users.md`, `dialog/04-concept.md`, `dialog/decisions.md` (an append-only log of ten distinct key decisions across the session, each with context/rationale/impact/alternatives-considered), and `dialog/progress-tracker.md` (checklist of all thirteen steps, marked complete with a perfect 13/13 first-try confirmation record — no corrections were needed at any checkpoint).
+
+**Mid-session digression (user question, not a workflow step):** The user asked what the difference is between the existing `planning-artifacts/briefs/.../brief.md` (BMAD's `bmad-product-brief` output) and the new `A-Product-Brief/` files being built here (WDS's `wds-1-project-brief` output). Explained the distinction (business/stakeholder sign-off document vs. design-pipeline strategic foundation) and offered three resolution paths via `AskUserQuestion` (keep both separate / consolidate into one / decide later) — the user chose to defer the decision and continue the success-criteria discussion already in progress, so this remains an explicitly open item, carried into the brief's own "Next Steps" section rather than silently resolved.
+
+---
+
+## The Role of Project Context in This Workflow
+
+**Deviation from every prior phase's pattern, worth noting explicitly:** Unlike every BMAD `cis`/`bmm` phase above, `_bmad-output/project-context.md` was **not** loaded as a persistent fact or written to during this phase — the WDS module skills (`wds-0-alignment-signoff`, `wds-1-project-brief`) use their own separate context/config mechanism (`_bmad/wds/config.yaml`, `wds-workflow-status.yaml`, and the `dialog/` folder's own `00-context.md` and `decisions.md` files) rather than the `bmm`/`cis` modules' shared `project-context.md` convention. This phase's grounding instead came from directly reading the prior phases' actual output documents (the brief, PRFAQ, brainstorm intent, design-thinking session, innovation-strategy document, and all three research reports) at the start of the Alignment & Signoff phase, rather than from a persistent-facts summary file. A future session picking up WDS Phase 2 (Trigger Mapping) onward should read `_bmad-output/A-Product-Brief/dialog/decisions.md` and `project-brief.md` directly — not assume `project-context.md` was updated with this phase's findings, since it was not.
+
+---
+
+## Files Created or Modified
+
+All files live under:
+`_bmad-output/A-Product-Brief/`
+
+### 1. `project-brief.md`
+**Purpose:** The final WDS Complete Product Brief document — the strategic foundation for all downstream WDS design phases (Trigger Mapping, UX Design, Design System, PRD Finalization). Distinct from and complementary to the BMAD business brief; this is the design-pipeline-facing artifact.
+
+**Contents produced:** Strategic Summary; Vision; Positioning Statement (with full breakdown); Business Model (internal-only, explicitly no B2B/B2C); Target Users (primary HR Admin, secondary Employees, each with confirmed daily-behavior and emotional-state detail); Product Concept ("one signal, two payoffs" / "labeled trust, not uniform trust"); Success Criteria (locked numeric thresholds: <5% staleness, 60-day/~11 Sept 2026 checkpoint); Competitive Landscape (three alternatives assessed, evidence-pipeline-as-durable-advantage framing, three named post-pilot outcomes); Constraints (fixed/flexible/explicitly-open); Platform & Device Strategy (responsive web, desktop-first); Tone of Voice (four attributes with before/after microcopy examples); Additional Context (client profile summary, grounding documents, intentionally-carried-forward open items); Business Context; and Next Steps (including the still-open brief-consolidation question).
+
+### 2. `dialog/00-context.md`
+**Purpose:** Project metadata and working-relationship context (stakes, collaboration style, documentation approach) captured once at workflow start, matching the WDS dialog-template pattern.
+
+### 3. `dialog/client-profile.md`
+**Purpose:** Who the client (SAILS Software's HR function, via the solo user) actually is as an organization and as people — decision culture, internal driver (1-week hackathon framing), working style — distinct from the product's own in-app users (HR/Employee roles).
+
+### 4. `dialog/02-vision.md`
+**Purpose:** The vision-capture dialog record — opening question, key exchange, reflection checkpoint, and final one-sentence vision statement with supporting insights.
+
+### 5. `dialog/03-users.md`
+**Purpose:** Target-user behavioral profiles (primary: HR Admin; secondary: Employees), including the two previously-open design-thinking assumptions (daily usage frequency; resigned-not-tolerant mindset) resolved directly by the user in this session.
+
+### 6. `dialog/04-concept.md`
+**Purpose:** The formally-named structural product concept ("one signal, two payoffs" + "labeled trust, not uniform trust"), its rationale, a concrete worked example, and the features that stem from it.
+
+### 7. `dialog/decisions.md`
+**Purpose:** An append-only log of ten distinct key decisions made across this phase (skip Alignment & Signoff; run Complete not Simplified brief; confirm client/organization context; business-model internal-only re-confirmation; two resolved empathy-map assumptions; locked success-criteria thresholds; evidence-pipeline competitive positioning; constraints fixed/flexible/open mapping; platform strategy; tone of voice) — each entry recording context, what was decided, why, impact, and alternatives considered, mirroring the audit-trail discipline `project-context.md` provided in earlier BMAD phases.
+
+### 8. `dialog/progress-tracker.md`
+**Purpose:** Checklist of all thirteen Complete-brief steps, reflection-quality tracking (13 checkpoints, 13 confirmed first try, 0 corrections needed), and pointers to the generated artifacts. Marked `status: completed` at phase end.
+
+### 9. `documentation/PROJECTWORKFLOW.md` (this file, appended to)
+**Purpose:** This section.
+
+**No alignment/signoff documents were created** (`pitch.md`, `contract.md`/`signoff.md`) — by design, since the Alignment & Signoff workflow was exited at its first routing gate once the user confirmed full autonomy.
+
+---
+
+## Session Notes
+
+**Why the Alignment & Signoff exit was the correct outcome, not a shortcut:** The workflow's own step-01b explicitly forbids forcing a self-directed user into the alignment process ("FORBIDDEN to force users into alignment workflow if they have full autonomy"). Routing straight to Project Brief after one confirming question is the documented success path for this scenario, not a skipped step.
+
+**Two genuinely new decisions closed real, previously-open gaps — not just restated existing docs.** The Complete brief flow was expected to move fast largely as a confirmation pass over already-settled material (and mostly did — 13 of 13 checkpoints confirmed first try, zero corrections). But two steps produced information that did not exist in any prior artifact: the daily-usage/resigned-mindset pair (Step 07, closing a design-thinking-session-flagged gap) and the locked numeric success-criteria thresholds (Step 08, closing a PRFAQ-flagged gap). Both were gaps their respective source documents had explicitly named as open and pending, not items this session invented unprompted.
+
+**The evidence-pipeline reframing (Step 09) is arguably this phase's sharpest new idea.** Every prior document had treated "what if an LMS is bought later" as a pure threat (the innovation-strategy document's "feature parity risk," the PRFAQ's build-vs-buy defense). This session's Competitive Landscape step reframed it instead as a non-event for the product's actual durable value — the evidence pipeline persists as the valuable asset across all three possible post-pilot outcomes, including the one where SAILS does eventually buy a commercial platform.
+
+**One open item was deliberately deferred, not resolved, at the user's request:** the relationship between this new WDS brief and the existing BMAD business brief (keep separate, consolidate, or decide later) was raised mid-session and explicitly punted by the user in favor of finishing the success-criteria discussion already underway. It is recorded in the final brief's own "Next Steps" section as an outstanding decision, not silently dropped.
+
+**Why this artifact matters:** Where the BMAD business brief (`planning-artifacts/briefs/.../brief.md`) exists to win stakeholder approval to build, this WDS brief exists to feed the *next* phase of actual design work with a sharper strategic spine — a named structural concept, locked success thresholds, resolved user-behavior assumptions, and tone-of-voice rules specifically engineered to prevent the one failure mode (mislabeled trust) every prior adversarial review of this concept kept independently rediscovering as the single biggest risk.
+
+---
+
+No other files were created or modified during this phase beyond what's listed above.

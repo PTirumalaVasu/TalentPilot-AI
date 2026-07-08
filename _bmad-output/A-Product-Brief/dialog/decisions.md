@@ -184,4 +184,110 @@ Architecture/build decisions should treat the evidence pipeline (video-progress 
 
 ---
 
+## Decision 8: Constraints — hard lines vs. flexibility
+
+**Date:** 2026-07-08
+**Step:** Project Brief — step 10 Constraints
+**Session:** 1
+
+**Context:**
+Mapped the actual design parameters to clarify what's genuinely fixed vs. flexible, and to explicitly document two items the PRFAQ had flagged as open gaps.
+
+**What was decided:**
+
+**Fixed constraints:**
+- **Timeline:** 13 July 2026 launch is a hard line, not movable.
+- **Budget:** Effectively zero — YouTube chosen specifically for zero cost; AI embedding cost is negligible.
+- **Technical stack (shape):** YouTube IFrame API (polling-based), Postgres + pgvector, no new infrastructure required — per completed technical research.
+- **Team:** Solo-driven (TalentPilot only) as of now; TalentPilot owns content-approval, bug fixes, and success-metric monitoring post-launch.
+- **Brand/design system:** None — `design_system_mode: none` in config; internal tool with no external brand requirement.
+
+**Flexible:**
+- Exact tech stack details beyond the researched shape (specific libraries, frameworks)
+- Feature scope beyond MVP (fast-follows can be adjusted based on pilot learnings)
+- Post-pilot direction (the three documented outcomes: standalone, integrate with LMS, or adopt commercial platform)
+
+**Explicitly open/unresolved (by choice):**
+- **Legal/compliance revisit trigger:** No written condition yet for when the current waiver (internal pilot, coaching-only data) becomes invalid and legal review becomes mandatory. User chose to leave this genuinely open rather than define a trigger now.
+- **5-week phased plan:** Remains aspirational with no committed team/roles/timeline behind it yet — must be resolved before Pilot & Validation phase begins (per PRFAQ), but not required before 13 July build start.
+
+**Why:**
+Clarifies what's actually negotiable vs. non-negotiable, and explicitly documents two items that were open questions in the PRFAQ rather than silently treating them as resolved.
+
+**Impact:**
+The 13 July hard-line date is the binding constraint all other decisions must work within. Post-launch, TalentPilot is the sole named owner for operational responsibilities; if that needs to change, it's an active decision to make, not something assumed to happen on its own.
+
+**Alternatives considered:**
+- Defining a specific legal-review trigger condition now — rejected; user chose to keep this genuinely open.
+
+**Documented in:** `dialog/decisions.md` (this entry)
+
+---
+
+## Decision 9: Platform strategy — responsive web app, desktop-first, modern browsers
+
+**Date:** 2026-07-08
+**Step:** Project Brief — step 10a Platform Strategy
+**Session:** 1
+
+**Context:**
+This is an internal web tool for SAILS employees (HR admins + employees), not a consumer mobile/native product. Usage context confirms desktop-primary: HR checks the dashboard daily from their desk, employees watch assigned videos at a computer.
+
+**What was decided:**
+- **Primary platform:** Responsive web application
+- **Device priority:** Desktop-first, scales to tablets/mobile (responsive)
+- **Browser support:** All modern browsers (Chrome, Firefox, Edge, Safari — assumes evergreen browsers, no legacy IE11 unless explicitly flagged later)
+- **Interaction models:** Mouse and keyboard (primary), touch (secondary for tablet/mobile)
+- **Native features needed:** None — standard web APIs (video embed, `sendBeacon` for unload-safety, no offline/PWA/push-notification requirements)
+
+**Why:**
+Fits the actual usage pattern (HR/employees at desks, not on the go), fastest time to market (no app store approval, no separate mobile codebase), and aligns with zero-budget constraint (no native app infrastructure cost).
+
+**Impact:**
+No need to design native mobile UX flows or offline-first architecture. Video resume/continue-watching works via standard YouTube IFrame API + `sendBeacon` on tab close; no mobile-app-specific persistence layer needed.
+
+**Alternatives considered:**
+- Native mobile app, PWA, desktop-only — all rejected as unnecessary for the actual use case and timeline.
+
+**Documented in:** `dialog/decisions.md` (this entry)
+
+---
+
+## Decision 10: Tone of voice — clear, calm, honest about uncertainty
+
+**Date:** 2026-07-08
+**Step:** Project Brief — step 11 Tone of Voice
+**Session:** 1
+
+**Context:**
+Tone of voice needed to reflect the product's core trust mechanic — the PRFAQ explicitly warned that mislabeled/ambiguous status is worse than the spreadsheet it replaces, so UI microcopy carries real risk if it's unclear.
+
+**What was decided:**
+
+**Tone Attributes:**
+1. **Clear & unambiguous** — never leave room for HR to misread "self-reported" as "verified"; no cute abbreviations or icon-only status without text.
+2. **Calm & matter-of-fact** — reads like a confident colleague stating a fact, not a system seeking delight.
+3. **Honest about uncertainty** — plainly states missing/stale data ("No signal yet," "Last updated 12 days ago") rather than hiding gaps behind a neutral blank.
+4. **Quietly encouraging (employee-facing only)** — warmth is acceptable for resume prompts/progress nudges, closer to a streaming app, but never at the cost of clarity.
+
+**Example microcopy:**
+- Dashboard cell (video, current): "Verified · 92% watched, 2 hours ago" (not "✓ Complete")
+- Dashboard cell (self-reported, stale): "Self-reported · Not updated in 14 days" (not "In Progress")
+- Needs-attention flag: "Needs a second look" (not "Warning")
+- Employee resume prompt: "Pick up where you left off — 8 min remaining" (not "Continue")
+- No signal yet: "No activity recorded yet" (not "N/A")
+
+**Why:**
+Directly operationalizes the "mixed trust, clearly labeled" positioning (Decision in Positioning step) at the microcopy level — the labeling UI's clarity was flagged by the PRFAQ as the single point of failure for the entire trust story, so tone of voice guidelines exist specifically to prevent that failure mode.
+
+**Impact:**
+All future UI copy (dashboard cells, status labels, employee-facing prompts) should be checked against these attributes before ship — especially the "clear & unambiguous" rule, given the documented risk of HR misreading status.
+
+**Alternatives considered:**
+- More playful/consumer-app tone throughout — rejected for HR-facing surfaces since this is a system of record, not a consumer product; acceptable only for employee-facing resume/progress nudges.
+
+**Documented in:** `dialog/decisions.md` (this entry)
+
+---
+
 _Continue appending decisions as they're made throughout the Product Brief process._

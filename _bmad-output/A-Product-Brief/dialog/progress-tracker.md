@@ -3,7 +3,7 @@
 **Agent:** Saga (Product Brief Analyst)
 **Project:** TalentPilot-AI
 **Started:** 2026-07-08
-**Status:** in_progress
+**Status:** completed
 **Last Updated:** 2026-07-08
 
 ---
@@ -38,10 +38,10 @@ Business-stakes internal HR pilot. User has full autonomy, no external stakehold
 - [x] [Product Concept](04-concept.md) — The founding structural idea
 - [x] Success Criteria (08) — Thresholds locked (see decisions.md #6)
 - [x] Competitive Landscape (09) — Evidence pipeline is the durable advantage (see decisions.md #7)
-- [ ] Constraints (10) — Limitations and boundaries
-- [ ] Platform Strategy (10a) — Platform approach
-- [ ] Tone of Voice (11) — Brand voice
-- [ ] Create Product Brief (12) — Generate the Product Brief document
+- [x] Constraints (10) — Hard lines vs. flexibility mapped (see decisions.md #8)
+- [x] Platform Strategy (10a) — Responsive web app, desktop-first (see decisions.md #9)
+- [x] Tone of Voice (11) — Clear, calm, honest about uncertainty (see decisions.md #10)
+- [x] [Create Product Brief](../project-brief.md) — Generated final document
 
 ---
 
@@ -59,8 +59,8 @@ See [decisions.md](decisions.md) for detailed decision log.
 
 ## Reflection Quality
 
-**Total Checkpoints:** 9
-**Confirmed First Try:** 9
+**Total Checkpoints:** 12
+**Confirmed First Try:** 12
 **Required Correction:** 0
 
 This measures how well the agent understood the user's intent.
