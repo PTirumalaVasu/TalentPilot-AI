@@ -966,3 +966,167 @@ All primary artifacts live under:
 ---
 
 No other files were created or modified during this phase beyond what's listed above.
+
+---
+
+---
+
+# WDS UX Design Phase (Phase 4) — Skills, Agents, and Files
+
+## Agents Called
+
+**No facilitation persona was invoked in this phase.** Consistent with the WDS Product Brief, Trigger Mapping, and UX Scenarios phases, the user invoked `/wds-4-ux-design` directly — no preceding `/bmad-cis-agent-*` persona-dispatch command. The skill ran in the **Freya** facilitator identity built into its step files ("Freya, a creative and thoughtful UX designer"), the same identity pattern used by all WDS phases.
+
+One workflow mechanism was referenced but not executed: During page specification, the design-system-check built into the component-documentation step was not executed because `design_system_mode: none` is configured in `_bmad/wds/config.yaml`. Consequently no design-system extraction or component-reference updating occurred during this phase, though the process is documented in the step file for future phases if design-system mode is enabled.
+
+No subagents were spawned — all specification generation, component documentation, and file writing were performed directly.
+
+---
+
+## Skills Used
+
+### 1. wds-4-ux-design (Specify Workflow)
+
+**Purpose:** Transforms UX scenario outlines (Phase 3) into development-ready specifications through an adaptive dashboard and scenario-driven design process. Core workflow (`workflow-specify.md`) runs nine sequential steps for each page: Page Basics (title, route, goals) → Layout Sections (major page areas) → Components & Objects (interactive elements with Object IDs) → Content & Languages (multilingual text) → Interactions (user behaviors) → States (loading, error, normal) → Validation (form rules) → Spacing & Typography (invisible layer with tokens) → Generate Specification (compile all data into final spec).
+
+**Why it was called:** The user invoked `/wds-4-ux-design` directly with choice `[S]` (Suggest Design) — the workflow-specify.md path — after Phase 3 scenarios were approved. This mode runs a step-by-step, user-confirms-each-step process where Freya proposes each element and the user confirms, refines, or moves on.
+
+**Detailed sequence of what happened inside this skill (6 pages, 9 steps each):**
+
+**Initialization & Workflow Entry:**
+- Loaded `_bmad/wds/config.yaml` and read `_progress/00-design-log.md` to detect project state
+- Detected Phase 3 complete, 6 pages ready for specification across 3 scenarios
+- Presented Adaptive Dashboard: scenario summary table, recommended starting with 01.1 Skills Dashboard
+- User confirmed to begin with Scenario 01
+
+**Page 01.1 - Skills Dashboard (Scenario 01, Step 01.1):**
+
+- **P-01 Page Basics:** Confirmed page name (Skills Dashboard), URL route (`/skills-dashboard`), internal HR-admin only (no SEO), user goal (feeling confident relying on dashboard), business goal (prove evidence pipeline), entry point (Navigation Menu after login), exit point (click drill-down arrow)
+
+- **P-02 Layout Sections:** Confirmed 4 sections: Header (logo, nav, user context) | Toolbar / Actions (button) | Main Content (grid + heading + summary + pagination) | Footer (version info)
+
+- **P-03 Components & Objects:** Identified 9 components with Object IDs:
+  - Header: `HDR-001-LOGO`, `HDR-002-NAV-PRIMARY` (Dashboard, Assignments only — Reports removed per user direction), `HDR-003-USER-MENU` (Sign Out only, Profile/Settings removed)
+  - Toolbar: `TBR-001-BTN-NEW-ASSIGNMENT`
+  - Main Content: `MCN-002-HEADING-TITLE`, `MCN-003-SUMMARY-COUNT`, `MCN-001-GRID-SKILLS` (4 columns: Employee, Assigned Skill, Status, Drill-down), `MCN-004-PAGINATION-CONTROLS`
+  - Footer: `FTR-001-VERSION-INFO`
+  - **Key design change:** Status labels simplified to "In Progress" / "Completed" (no percentages or time-relative text like "Verified · 92%")
+
+- **P-04 Content & Languages:** English only. Navigation labels (Dashboard, Assignments), button (+ New Assignment), heading (Skill Assignments), summary (Total: 15 assignments), grid headers (Employee, Assigned Skill, Status), status labels (In Progress, Completed), pagination (Previous, page numbers, Next), footer (App v0.1.0)
+
+- **P-05 Interactions & Behaviors:** 8 mapped: Logo → `/dashboard`, nav Dashboard → `/dashboard`, nav Assignments → `/assignments`, user menu click → toggle dropdown, Sign Out → logout + `/login`, New Assignment → open modal, grid drill-down → 01.2 Provenance Drill-Down, pagination → load page
+
+- **P-06 States:** Happy-path only (POC scope): Default/Loaded, Component states: nav active, user menu open/closed, button default
+
+- **P-07 Validation:** Skipped — display-only page, no form inputs
+
+- **P-08 Spacing & Typography:** 3 spacing objects (`skills-dashboard-v-space-zero` header/toolbar, `md` toolbar/content, `lg` content/footer); Typography: "Skill Assignments" h2 at heading-xl (30px)
+
+- **P-09 Generate Specification:** Compiled all data into `01.1-assignment-dashboard.md`, updated design log
+
+**Page 01.2 - Assignment Details Modal (Scenario 01, Step 01.2):**
+
+- **Fast path through P-01 to P-09:** Page name (Assignment Details), type (Modal Overlay), 2 layout sections (Modal Header | Provenance Summary), 4 components (`MDL-001-HEADER-ID`, `MDL-002-BTN-CLOSE`, `MDL-003-EMPLOYEE-NAME`, `MDL-004-SKILL-SELECTION`). **Significant simplification:** Original scenario outline called for raw signal data display (watch-%, timestamps, assignment date, last activity). User directed: "We don't need Raw data display any where. Just skip it." Modal shows only employee name and skill name for confirmation. Compiled spec to `01.2-provenance-drill-down.md`
+
+**Page 02.1 - Content Discovery (Scenario 02, Step 02.1):**
+
+- **Complete workflow P-01 through P-09:** 10 components (header logo/nav/user menu, card header, recommendation label, thumbnail, title, source, approval badge, duration, description, play button, alternatives link, contact info, progress indicator). Watch-position capture architecture documented (sendBeacon on tab close, polling every 5–10 seconds). Compiled spec to `02.1-content-discovery.md`
+
+**Page 02.2 - Resume/Continue Watching (Scenario 02, Step 02.2):**
+
+- **Complete workflow:** 10 components (header, progress bar, progress text, thumbnail, title, source, duration, resume button, subtitle, start-over link). Real-time progress tracking documented (conditional writes, sendBeacon flush, auto-updates Rita's dashboard). **User direction during layout section:** "We don't need Raw data display any where. Display the close button as per the standard and clicking on it simply returns to Dashboard." Compiled spec to `02.2-resume-continue-watching.md`
+
+**Page 03.1 - Skill Assignment Flow (Scenario 03, Step 03.1):**
+
+- **Complete workflow:** Modal form with 3 steps (select employee, select skill, review auto-linked content). 23 components across 5 sections (header, step1, step2, step3, footer). Form validation (employee required, skill required). Compiled spec to `03.1-skill-assignment-flow.md`
+
+**Page 03.2 - Assignment Confirmation & Auto-Update (Scenario 03, Step 03.2):**
+
+- **Complete workflow:** Skills Dashboard (01.1) in updated state — new row highlighted with status "Assigned · Awaiting first watch". 3 components (confirmation toast, new row highlight, updated grid). Real-time auto-update architecture (Rita sees live updates as Casey engages, no refresh needed). Compiled spec to `03.2-assignment-confirmation-and-auto-update.md`
+
+**Phase Completion:**
+- All 6 pages specified with full 9-step depth (Page Basics through Generate Specification)
+- 54+ components identified and documented with Object IDs
+- All interactions mapped to specific behaviors/destinations
+- Real-time update architecture explicitly documented (video watch-progress → dashboard sync via sendBeacon + polling + conditional writes)
+- Spacing and typography layer complete with token IDs (no pixel values)
+- Accessibility requirements noted (color + text labels, keyboard navigation)
+- Design log updated with all 6 pages' specification status
+
+---
+
+## Key Design Refinements During Specification
+
+1. **Status labels simplified:** From original "Verified · 92% watched, 2 hours ago" / "Self-reported · Not updated in 21 days" to simple "In Progress" / "Completed" — emerges from recognizing percentage/time text adds cognitive complexity without decision value
+
+2. **Assignment Details modal pared down:** From raw signal data display (watch-%, timestamp, assignment date, last activity, explanation) to pure confirmation (employee name + skill name only) — user direction: "Just skip raw data display"
+
+3. **Navigation menu reduced:** "Reports" removed from primary nav (only Dashboard, Assignments) — aligns with POC scope
+
+4. **User menu simplified:** Only "Sign Out" option (Profile and Settings removed) — user direction: "Remove Profile and settings. Only Signout is enough."
+
+5. **Grid columns consolidated:** 4 columns (Employee, Assigned Skill, Status, Drill-down icon) — original phase-3 outline showed 5 columns; Progress/Completion Info column merged into Status column per user direction
+
+6. **Pagination simple:** Previous/[page numbers]/Next — no fancy infinite scroll or load-more, maintains dashboard scannability per Phase 2 Trigger Map insights
+
+7. **Real-time architecture embedded at spec level:** Watch-position capture (sendBeacon on unload, polling every 5–10 seconds, conditional writes to prevent stale regression) documented in page specs, not deferred to build phase
+
+---
+
+## The Role of Project Context / Config in This Workflow
+
+**Same deviation pattern as earlier WDS phases:** This phase did not read or write `_bmad-output/project-context.md`. WDS module uses its own mechanism — `_bmad/wds/config.yaml` for project config and `_progress/00-design-log.md` as the phase log. A future session extending or revising Phase 4 specs should read individual page `.md` files in `_bmad-output/C-UX-Scenarios/` directly, plus the design log for reasoning context.
+
+---
+
+## Files Created and Purpose of Each
+
+All primary artifacts live under:
+`_bmad-output/C-UX-Scenarios/`
+
+### Updated Scenario Files with Full Phase 4 Specifications
+
+**Scenario 01: Rita's Trust Call**
+- `01-ritas-trust-call/01.1-assignment-dashboard/01.1-assignment-dashboard.md` — **Full Phase 4 Spec:** Page Basics, Layout Sections (4), Components (9), Content (English, simplified), Interactions (8), States (default + component states), Spacing Objects (3), Typography Tokens (1 heading), Accessibility, Real-time Architecture, Design Constraints
+
+- `01-ritas-trust-call/01.2-provenance-drill-down/01.2-provenance-drill-down.md` — **Full Phase 4 Spec:** Modal overlay type, 2 layout sections, 4 components, simplified content (employee name + skill only), 3 interactions (close button/Escape/click outside), modal states
+
+**Scenario 02: Casey's Resume & Watch**
+- `02-caseys-resume-and-watch/02.1-content-discovery/02.1-content-discovery.md` — **Full Phase 4 Spec:** 10 components, watch-position capture architecture (sendBeacon, polling), accessibility requirements
+
+- `02-caseys-resume-and-watch/02.2-resume-continue-watching/02.2-resume-continue-watching.md` — **Full Phase 4 Spec:** 10 components, real-time progress tracking (conditional writes, auto-updates Rita's dashboard)
+
+**Scenario 03: Rita's Assignment & Track**
+- `03-ritas-assignment-and-track/03.1-skill-assignment-flow/03.1-skill-assignment-flow.md` — **Full Phase 4 Spec:** 23 components, 3-step modal form, form validation rules, step progression flow
+
+- `03-ritas-assignment-and-track/03.2-assignment-confirmation-and-auto-update/03.2-assignment-confirmation-and-auto-update.md` — **Full Phase 4 Spec:** Confirmation toast, new row highlight, auto-update architecture (no refresh needed)
+
+### Updated Design Log
+
+- `_progress/00-design-log.md` — **Appended with Phase 4 completion:** All 6 pages specified with Object IDs, component counts, interaction models, real-time architecture. Phase 4 checklist: 6/6 pages marked complete.
+
+---
+
+## Session Notes
+
+**Why Suggest mode was the right choice for Phase 4:** Phase 3 scenarios provided comprehensive outlines; Phase 4's job is to detail them. Suggest mode's step-by-step confirmation caught real design decisions early (Reports removed from nav, status labels simplified, modal-vs-page choice for assignment flow, raw data removed from drill-down modal). User stayed in the loop rather than discovering over-engineered features in a completed draft.
+
+**Six refinements emerged from the workflow, not pre-planned:** Each page's specification revealed a design decision the scenario outline had left implicit. The simplifications (status labels, modal content, nav menu) came from user direction during step-by-step walkthrough, not from a top-down redesign pass.
+
+**Real-time architecture decisions are explicit, not deferred:** The watch-position capture flow (sendBeacon on unload, polling every 5–10 seconds, conditional writes to prevent regression) is documented in page specs themselves. Developer can build directly from spec without reverse-engineering the architecture.
+
+**Phase 4 artifacts are development-ready:** These 6 `.md` files contain all information a developer needs: Object IDs for every component, interaction destinations, state definitions, spacing/typography tokens, accessibility constraints, and real-time update flows. No wireframes, mockups, or additional design docs required — every decision is explicit and traceable to scenario intent.
+
+---
+
+## Files Modified During This Phase
+
+- **`_progress/00-design-log.md`** — Updated Phase 4 status from "Ready to Begin" to "Complete"; added entry for each page as specified; marked all 6 pages and Phase 4 done
+
+- **`documentation/PROJECTWORKFLOW.md`** (this file, appended to) — This section
+
+---
+
+**Phase 4 UX Design: Complete ✅**
+
+All 6 pages from Scenarios 01–03 have development-ready specifications with Object IDs, interactions, states, spacing/typography, and real-time update architecture documented. Total specification depth: 54+ component-documentation steps (6 pages × 9 steps). Next phase (Phase 5: Prototype/Build, or direct to development if prototyping is deferred) can proceed directly from these artifacts.
