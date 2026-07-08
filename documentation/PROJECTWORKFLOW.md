@@ -764,3 +764,96 @@ All files live under:
 ---
 
 No other files were created or modified during this phase beyond what's listed above.
+
+---
+---
+
+# WDS Trigger Mapping Phase — Skills, Agents, and Files
+
+## Agents Called
+
+**No facilitation persona was invoked in this phase.** Consistent with the WDS Product Brief phase's pattern, the user invoked `/wds-2-trigger-mapping` directly — no preceding `/bmad-cis-agent-*` or `/bmad-agent-*` persona-dispatch command. The skill ran in the **Saga** facilitator identity defined by its own step files ("Saga the Analyst — facilitator of strategic clarity"), the same built-in identity `wds-1-project-brief` used, rather than through a separately-invoked persona agent.
+
+No subagents were spawned during this phase — all document synthesis, generation, and file writing were performed directly.
+
+---
+
+## Skills Used
+
+### 1. wds-2-trigger-mapping
+
+**Purpose:** Connects business goals to user psychology through Trigger Mapping — WDS's adaptation of Impact/Effect Mapping — producing a four-layer strategic map (Business Goals → Product/Solution → Target Groups → Usage Goals) with explicit positive and negative driving forces, prioritized via Feature Impact scoring. Intended as the strategic North Star for all downstream WDS design work (Phase 3 UX Scenarios onward).
+
+**Why it was called:** The user invoked `/wds-2-trigger-mapping` directly, immediately following completion of the WDS Product Brief phase, to begin Phase 2 per the WDS pipeline's documented sequence. Prerequisite (Phase 1: Product Brief) was already satisfied by `A-Product-Brief/project-brief.md`.
+
+**Detailed sequence of what happened inside this skill:**
+
+- **Activation:** Loaded `_bmad/wds/config.yaml` (`project_name`, `output_folder: {project-root}/_bmad-output`, `user_name`, `communication_language`). Checked `{output_folder}/_progress/00-design-log.md` for prior context — none existed yet in this project, so no Current/Backlog carry-forward applied.
+- **Mode determination:** Default invocation (not "validate" or "existing"), so routed to `steps-c/step-01-overview.md` — the from-scratch workshop path.
+- **Step 01 (Overview & Mode Selection):** Presented the Phase 2 overview (Business Goals → Target Groups → Driving Forces → Prioritization) and the three engagement modes (Workshop / Suggest / Dream) with time estimates, via `AskUserQuestion` rather than defaulting silently. The user selected **Dream** — fully autonomous generation with visible self-dialog, user reviews the final result.
+- **Layer 1 (Learn WDS Form) — reference-path deviation, handled transparently:** The step file's prescribed reading list (`docs/method/phase-wds-2-trigger-mapping-guide.md`, `docs/quick-start/0wds-2-trigger-mapping.md`, `docs/models/impact-effect-mapping.md`, `docs/method/dream-up-rubric-phase-2.md`) does not exist anywhere in this project — confirmed by a filesystem-wide search before proceeding, rather than assuming the paths were simply mistyped. These are generic skill-template defaults never populated for this project. Substituted the actual available methodology sources instead: `_bmad/wds/data/agent-guides/saga/trigger-mapping.md` (full Trigger Mapping methodology — structure, personas, driving-force patterns, prioritization scoring, common mistakes) and `_bmad/wds/data/agent-guides/saga/dream-up-approach.md` (the 5-layer generation process, mode-specific presentation formats, and the Layer 6 completeness gate), plus the skill's own `templates/*.template.md` (trigger-map, persona-document, feature-impact) and `data/*.md` (business-goals-template, key-insights-structure, mermaid-formatting-guide, quality-checklist). This substitution — and the reasoning behind it — was recorded explicitly in the design log rather than silently patched over.
+- **Layer 2 (Project Context, initial load):** Read `A-Product-Brief/project-brief.md` in full (the only Phase 1 output file present — `content-language.md`, `platform-requirements.md`, and `visual-direction.md`, also referenced by the step file, do not exist as separate files in this project; their content lives inside the single consolidated `project-brief.md` instead). Extracted business context (internal SAILS HR pilot, zero budget, 13 July 2026 hard launch), the two confirmed user archetypes (HR Admin primary, Employees secondary), constraints, and strategic direction (staleness <5% within 60 days).
+- **Layer 3 (Domain Research) — tooling deviation, handled transparently:** No live WebSearch tool was available in this environment (confirmed via `ToolSearch`). Rather than fabricate new research or silently skip this layer, reused the project's own already-completed domain research report (`planning-artifacts/research/domain-corporate-skill-tracking-ai-video-learning-platforms-research-2026-07-07.md`) and the Design Thinking session's empathy-map findings (`design-thinking-2026-07-07.md`) as the Layer 3 input — legitimate research inputs per the dream-up-approach guide, and re-running an identical search pass would have added no new signal. This substitution was flagged explicitly in the design log.
+- **Layer 4/5 per step (Generate + Self-Review), run for all four workshops in sequence:**
+  - **Business Goals:** Generated a 3×3-style structure (3 hierarchical goals — Prove the Evidence-Pipeline Hypothesis / Earn HR's Trust / Eliminate the Self-Report Chore — 5 SMART objectives total across them), sourced directly from the brief's locked Success Criteria and Constraints rather than inventing numbers. Self-review: 9/9 completeness, 7/7 quality, 4/4 mistakes avoided.
+  - **Target Groups / Personas:** Built exactly two personas — **Rita the Referee** (HR Admin, Primary) and **Casey the Continuer** (Employee, Secondary) — deliberately not inventing a third/tertiary persona, since both the Product Brief and the Design Thinking session explicitly confirm only two roles are in scope. Psychological profiles drawn from the Design Thinking session's confirmed Does/Says/Thinks/Feels empathy map (Rita: "resigned, not tolerant"; Casey: "no personal payoff, wants Netflix-style resume"), not invented demographics.
+  - **Driving Forces:** Generated 3 positive + 3 negative forces per persona using the WHAT+WHY+WHEN pattern, each checked against the trigger-mapping guide's Actionability/Psychology/Context vagueness test. Rita's data-distrust fear was scored high-intensity using external validation from the domain research (the "95% of L&D orgs can't trust their own data" statistic), not assumption alone.
+  - **Prioritization:** Scored features via Frequency × Intensity × Fit (max 15). Top scores — Rita's "trust the dashboard immediately" (15/15) and Casey's "progress speaks for itself" (14/15) — were checked for traceability back to the brief's own stated "one signal, two payoffs" differentiator, confirming internal consistency rather than an arbitrary new ranking.
+- **Adaptation decision (recorded explicitly in the design log):** The templates' default "champion/community flywheel" and "convert users" language is tuned for a consumer/community product with an external user base. TalentPilot-AI is an internal, single-organization pilot with two in-house roles and no external community or commercial flywheel. Adapted the metaphor to a **"trust flywheel"** (Rita's trust → validated evidence pipeline → case for post-pilot investment) while preserving the template's structure, rigor, and scoring rubric unchanged — a documented adaptation, not a deviation from methodology.
+- **Layer 6 (Completeness Gate, Dream mode only):** Verified all mandatory files existed, were non-empty, and the hub document's Mermaid diagram rendered with correct syntax before presenting results — no retry was needed; all files passed on first generation.
+- **Final presentation:** Presented a Dream Mode completion summary (quality assessment, generated artifact list, the "one signal, two payoffs" strategic insight) and offered Review / Adjust / Continue-to-next-phase options, per the skill's own Dream Mode output format.
+
+---
+
+## The Role of Project Context / Config in This Workflow
+
+**Same deviation from the BMAD `cis`/`bmm` pattern already noted in the WDS Product Brief phase:** this phase did not read or write `_bmad-output/project-context.md`. WDS module skills use their own separate mechanism — `_bmad/wds/config.yaml` for output-folder and user config, and a per-phase design log (`_bmad-output/_progress/agent-experiences/2026-07-08-trigger-map-dream.md`) rather than a single cross-phase persistent-facts file. The design log serves the equivalent purpose within this phase: a durable, append-only record of what was learned (Layer 1), what context was loaded (Layer 2), what research was applied (Layer 3), and what quality checks were run (Layer 5) — written specifically so a future session extending or revising the Trigger Map doesn't need to re-read this entire conversation to understand why Rita and Casey were shaped the way they were, or why the reference-doc and web-search substitutions were made.
+
+A future session picking up WDS Phase 3 (UX Scenarios) should read `_bmad-output/B-Trigger-Map/00-trigger-map.md` and its linked documents directly, plus the design log if the *reasoning* behind a persona or priority decision matters — not assume `project-context.md` carries any of this phase's findings, since it does not.
+
+---
+
+## Files Created and Purpose of Each
+
+All primary artifacts live under:
+`_bmad-output/B-Trigger-Map/`
+
+### 1. `00-trigger-map.md`
+**Purpose:** The hub/entry-point document — vision statement, the Rita↔Casey transformation narrative, the three-tier flywheel summary, the full Mermaid trigger-map diagram (Business Goals → Platform → Target Groups → Driving Forces, gold-highlighted primary goal), on-page summaries of every linked document, and a "How to Read This Map" explainer.
+
+### 2. `01-Business-Goals.md`
+**Purpose:** Full strategic goal structure — vision statement (character-for-character from the Product Brief), 3 priority-tiered goals (⭐ Prove the Evidence Pipeline / 🚀 Earn HR's Trust / 🌟 Eliminate the Chore) with 5 SMART objectives total, the flywheel explanation, and success-metrics alignment mapping each persona to specific objectives.
+
+### 3. `02-Rita-the-Referee.md`
+**Purpose:** The PRIMARY persona document (HR Admin) — full psychological profile, background, current situation, 6 driving forces (3 wants/3 fears, each with a TalentPilot-AI Promise/Answer), a complete BEFORE/AFTER transformation journey, her role in the strategic triangle, and her direct connection to every business-goal success metric. ~315 lines, matching the template's PRIMARY-persona depth requirement.
+
+### 4. `03-Casey-the-Continuer.md`
+**Purpose:** The SECONDARY persona document (Employee) — psychological profile, current situation (the zero-payoff self-report chore), 6 driving forces with Product Promises/Answers, a validation-strategy/conversion-path section (per the template's SECONDARY-persona structure), and his role generating the honest signal Rita's trust depends on.
+
+### 5. `05-Key-Insights.md`
+**Purpose:** Strategic implications document — the flywheel recap, primary development focus (5 items), critical success factors, design implications organized by screen/surface (Dashboard, Drill-Down, Assignment Flow, Employee Resume Experience, Cross-Cutting Tone), first-person emotional transformation goals for both personas, the design focus statement (Must Address / Should Address), and development phases aligned to the flywheel tiers.
+
+### 6. `06-Feature-Impact.md`
+**Purpose:** Feature prioritization via Frequency × Intensity × Fit scoring — 6 Must-Have MVP features, 2 Consider-for-MVP features, 1 Deferred feature — each score explicitly traced back to the Product Brief's committed MVP scope and the "one signal, two payoffs" architectural constraint, so the ranking reads as principled rather than arbitrary.
+
+### 7. `_progress/agent-experiences/2026-07-08-trigger-map-dream.md`
+**Purpose:** The Dream-mode design log — Layer 1 (methodology sources loaded, including the reference-path substitution and its rationale), Layer 2 (Product Brief extraction), Layer 3 (domain-research substitution and its rationale), and a full Generation & Self-Review log for all four workshops (Business Goals, Target Groups, Driving Forces, Prioritization), each with explicit completeness/quality/mistakes-avoided scoring. This is the audit trail explaining *why* the Trigger Map looks the way it does, distinct from the Trigger Map itself.
+
+### 8. `documentation/PROJECTWORKFLOW.md` (this file, appended to)
+**Purpose:** This section.
+
+---
+
+## Session Notes
+
+**Two tooling gaps were hit and handled the same way — substitute transparently, log the reasoning, don't silently degrade quality.** Neither the step file's prescribed Layer 1 reference docs (`docs/method/...`, `docs/quick-start/...`, `docs/models/...`) nor a live WebSearch tool actually existed in this environment. Both gaps were confirmed by direct filesystem/tool checks (not assumed), substituted with the best available equivalent already in the project (`_bmad/wds/data/agent-guides/saga/*.md` for methodology; the existing domain-research and design-thinking artifacts for Layer 3), and the substitutions were written into the design log rather than left as an undocumented quality compromise.
+
+**Dream mode ran cleanly on the first pass — no refinement iterations were needed.** All four workshops (Business Goals, Target Groups, Driving Forces, Prioritization) met the excellence threshold (9/9 completeness, 7/7 quality, 4/4 mistakes avoided) on Iteration 1, and the Layer 6 completeness gate passed without a retry. This is a departure from the dream-up-approach guide's expectation of occasional refinement cycles — attributable to how much already-validated source material (Product Brief, Design Thinking session, domain research) existed to ground the generation, rather than the workshops being under-scrutinized.
+
+**One deliberate, documented adaptation to methodology, not a deviation from it:** the WDS templates' default "champion/community flywheel" language assumes an external user base and a commercial or community growth loop. TalentPilot-AI has neither — it's two internal roles inside one organization. Reframing the metaphor as a "trust flywheel" (Rita's trust as the literal success metric, rather than a "champion count") kept the methodology's structure and rigor intact while fitting the actual product context, and this reframing was flagged to the user directly rather than silently applied.
+
+**Why this artifact matters:** The Trigger Map is explicitly the strategic North Star for every phase after it — Phase 3 (UX Scenarios) and Phase 4 (UX Design) are both scoped to draw scenarios and screens directly from Rita's and Casey's driving forces, and Phase 6 (Feature Prioritization) already has its scoring model seeded from `06-Feature-Impact.md`. Unlike the BMAD-side artifacts (which argue for stakeholder approval to build), this document exists to keep every subsequent *design* decision traceable back to a specific, named psychological driver rather than generic "good UX" judgment calls.
+
+---
+
+No other files were created or modified during this phase beyond what's listed above.
