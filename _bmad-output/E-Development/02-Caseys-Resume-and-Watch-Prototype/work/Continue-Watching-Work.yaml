@@ -1,0 +1,224 @@
+# ============================================================================
+# PROTOTYPE WORK FILE: 02.2 Continue Watching
+# ============================================================================
+# Purpose: Complete planning document for section-by-section implementation
+# Created: 2026-07-08
+# Page Spec: ../../C-UX-Scenarios/02-caseys-resume-and-watch/02.2-resume-continue-watching/02.2-resume-continue-watching.md
+# Logical View Map: ./Logical-View-Map.md
+# ============================================================================
+
+metadata:
+  page_number: "02.2"
+  page_name: "Continue Watching"
+  scenario: "02-Caseys-Resume-and-Watch"
+  complexity: "simple"
+  estimated_sections: 4
+  estimated_time: "60 minutes"
+
+  device_compatibility:
+    type: "desktop-only"
+    primary_viewport: "1280px"
+    test_viewports:
+      - width: 1280
+        height: 800
+        device: "Desktop (minimum)"
+      - width: 1440
+        height: 900
+        device: "Desktop (laptop common)"
+      - width: 1920
+        height: 1080
+        device: "Desktop (external monitor)"
+    breakpoints: []
+    touch_optimized: false
+    hover_interactions: true
+
+  dependencies:
+    - "shared/prototype-api.js"
+    - "shared/init.js"
+    - "shared/utils.js"
+
+design_tokens:
+  colors:
+    primary: "#2563eb"
+  tailwind_config:
+    theme_extend:
+      colors:
+        "talentpilot":
+          50: "#eff6ff"
+          500: "#2563eb"
+          600: "#1d4ed8"
+          700: "#1e40af"
+      fontFamily:
+        sans: "['Inter', 'system-ui', 'sans-serif']"
+
+page_purpose: |
+  Let Casey seamlessly resume watching an in-progress skill from the exact
+  last-watched position, with no manual seeking or "resume or start over"
+  friction.
+
+user_context:
+  - "Casey previously started watching and left partway through"
+  - "Casey returns via nav, notification, or direct visit"
+
+success_criteria:
+  - "Casey sees the exact resume timestamp and clicks Resume with zero friction"
+  - "Progress bar and time-remaining give a quick sense of where they left off"
+
+demo_data_needed:
+  current_user:
+    firstName: "Casey"
+  source: "../data/demo-data.js (window.DEMO_DATA.continueWatching) — 51% / 14:32 of 28:00, matching the spec's own worked example"
+
+object_ids:
+  header:
+    - "continue-watching-logo"
+    - "continue-watching-nav-primary"
+    - "continue-watching-user-menu"
+  card:
+    - "continue-watching-card-header"
+    - "continue-watching-progress-bar"
+    - "continue-watching-progress-text"
+    - "continue-watching-thumbnail"
+    - "continue-watching-content-title"
+    - "continue-watching-source-badge"
+    - "continue-watching-duration"
+    - "continue-watching-btn-resume"
+    - "continue-watching-btn-subtitle"
+    - "continue-watching-btn-start-over"
+  below_card:
+    - "continue-watching-other-skills"
+    - "continue-watching-encouragement"
+
+sections:
+  - id: "section-1"
+    name: "Page Structure & Header"
+    scope: "HTML skeleton, header with Continue Watching active nav"
+    files_affected: ["02.2-Continue-Watching.html"]
+    dependencies: []
+    object_ids:
+      - "continue-watching-logo"
+      - "continue-watching-nav-primary"
+      - "continue-watching-user-menu"
+    tailwind_classes:
+      - "Same header pattern as 02.1"
+    acceptance_criteria:
+      - "Header displays with Continue Watching marked active, user menu shows Casey"
+    placeholder_message: "🚧 Building the continue watching card next..."
+
+  - id: "section-2"
+    name: "Continue Watching Card — Loaded State"
+    scope: "Card header, progress bar/text, thumbnail, content details, resume/start-over buttons, below-card section"
+    files_affected: ["02.2-Continue-Watching.html"]
+    dependencies: ["section-1"]
+    object_ids:
+      - "continue-watching-card-header"
+      - "continue-watching-progress-bar"
+      - "continue-watching-progress-text"
+      - "continue-watching-thumbnail"
+      - "continue-watching-content-title"
+      - "continue-watching-source-badge"
+      - "continue-watching-duration"
+      - "continue-watching-btn-resume"
+      - "continue-watching-btn-subtitle"
+      - "continue-watching-btn-start-over"
+      - "continue-watching-other-skills"
+      - "continue-watching-encouragement"
+    tailwind_classes:
+      - "Progress bar: bg-gray-100 track, bg-talentpilot-600 fill at 51%"
+    acceptance_criteria:
+      - "Card shows 'In Progress · 51% watched', 'Updated 3 days ago'"
+      - "Progress text shows '14 min watched of 28 min' + '14 min remaining'"
+      - "Resume button shows 'Resume at 14:32', subtitle 'Pick up where you left off'"
+      - "Start over link present"
+    placeholder_message: "🚧 Adding loading/empty/error states next..."
+
+  - id: "section-3"
+    name: "Loading/Empty/Error States"
+    scope: "The 3 non-happy-path states from the spec's Page States table"
+    files_affected: ["02.2-Continue-Watching.html"]
+    dependencies: ["section-2"]
+    object_ids: []
+    tailwind_classes:
+      - "Same skeleton/empty/error pattern as 02.1"
+    acceptance_criteria:
+      - "Loading: skeleton card"
+      - "Empty: 'Nothing in progress right now. [View your assignments]'"
+      - "Error: \"Couldn't resume this video. [Try again] · [Start over]\""
+    placeholder_message: "🚧 Wiring interactions next..."
+
+  - id: "section-4"
+    name: "Interactions & Polish"
+    scope: "Resume/Start Over click (log intent), progress bar hover tooltip, user menu outside-click"
+    files_affected: ["02.2-Continue-Watching.html"]
+    dependencies: ["section-1", "section-2", "section-3"]
+    object_ids: []
+    tailwind_classes: []
+    acceptance_criteria:
+      - "Resume/Start Over clicks log intent, no crash"
+      - "Progress bar hover shows tooltip: '14:32 of 28:00 — Last watched 3 days ago'"
+      - "User menu closes on outside-click"
+    placeholder_message: "🚧 Final integration test..."
+
+javascript_functions:
+  initialization:
+    - "initPage() - loads demo data, renders continue watching card"
+  ui_interactions:
+    - "toggleUserMenu()"
+    - "handleResume() / handleStartOver() - log intent, no real player"
+  api_calls:
+    - "PrototypeAPI.getContinueWatching()"
+  feedback:
+    - "setCardState('loading' | 'loaded' | 'empty' | 'error')"
+
+navigation:
+  previous_page: "02.1-Content-Discovery.html"
+  next_page_success: null
+
+testing_checklist:
+  functionality:
+    - "[ ] Card renders with 51% progress, correct resume timestamp"
+    - "[ ] Loading/Empty/Error states render correctly"
+    - "[ ] Resume/Start Over log intent, no crash"
+  desktop_testing:
+    - "[ ] 1280/1440/1920px viewports look correct"
+  code_quality:
+    - "[ ] All Object IDs present"
+    - "[ ] No console errors"
+  accessibility:
+    - "[ ] Progress bar has accessible label/tooltip"
+
+migration_todos:
+  - "Replace PrototypeAPI.getContinueWatching() with real FastAPI endpoint"
+  - "Real watch-position resume via YouTube IFrame API per DD-001"
+
+edge_cases:
+  - "No in-progress skills — Empty state"
+
+section_status:
+  section-1:
+    status: "complete"
+    completed: "2026-07-08"
+    actual_time: "~15 minutes"
+    issues: "none"
+  section-2:
+    status: "complete"
+    completed: "2026-07-08"
+    actual_time: "~20 minutes"
+    issues: "none"
+  section-3:
+    status: "complete"
+    completed: "2026-07-08"
+    actual_time: "~15 minutes"
+    issues: "none"
+  section-4:
+    status: "complete"
+    completed: "2026-07-08"
+    actual_time: "~10 minutes"
+    issues: "none"
+
+definition_of_done:
+  - "All 4 sections implemented and tested"
+  - "All object IDs present and correct"
+  - "Loading/Empty/Error states work"
+  - "No console errors"
+  - "Story files document all 4 sections"

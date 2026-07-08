@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1280, initial-scale=1.0">
+    <title>Skills Dashboard (Scenario 03) - TalentPilot-AI</title>
+    <!--
+      This file is a duplicated starting point from Scenario 01's
+      01.1-Skills-Dashboard.html (see ../01-Ritas-Trust-Call-Prototype/),
+      extended here with the real Skill Assignment Flow modal (03.1) and
+      toast/new-row-highlight behavior (03.2). See PROTOTYPE-ROADMAP.md
+      "Important: This Reuses Scenario 01's Dashboard" for why duplication
+      was chosen over editing the Scenario 01 file directly.
+    -->
+
+    <!-- Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Tailwind Config (Design Tokens) -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'talentpilot': {
+                            50: '#eff6ff',
+                            100: '#dbeafe',
+                            500: '#2563eb',
+                            600: '#1d4ed8',
+                            700: '#1e40af',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Dev Mode Styles (feedback/testing tool) -->
+    <link rel="stylesheet" href="components/dev-mode.css">
+</head>
+<body class="min-h-screen bg-gray-50 font-sans">
+    <!-- ========================================================================
+         DEV MODE TOGGLE (Shift+Click any element to copy its Object ID)
+         ======================================================================== -->
+    <button id="dev-mode-toggle" class="dev-mode-toggle" title="Toggle Dev Mode (Ctrl+E)">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+        </svg>
+        <span>Dev Mode: OFF</span>
+    </button>
+    <div id="dev-mode-tooltip" class="dev-mode-tooltip" style="display: none;"></div>
+
+    <!-- ========================================================================
+         HEADER (Section 1)
+         ======================================================================== -->
+    <header class="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between">
+        <div class="flex items-center gap-8">
+            <a href="#" id="skills-dashboard-logo" data-object-id="skills-dashboard-logo"
+               class="flex items-center gap-2 font-bold text-lg text-gray-900">
+                TalentPilot-AI
+            </a>
+            <nav id="skills-dashboard-nav-primary" data-object-id="skills-dashboard-nav-primary" class="flex gap-6 text-sm">
+                <a href="#" data-nav="dashboard" class="text-talentpilot-600 font-medium border-b-2 border-talentpilot-600 pb-3 -mb-3">Dashboard</a>
+                <a href="#" data-nav="assignments" class="text-gray-600 hover:text-gray-900 pb-3 -mb-3 transition-colors">Assignments</a>
+            </nav>
+        </div>
+        <div id="skills-dashboard-user-menu" data-object-id="skills-dashboard-user-menu" class="relative">
+            <button type="button" onclick="toggleUserMenu()" class="flex items-center gap-2 text-sm text-gray-700">
+                <span class="w-8 h-8 rounded-full bg-talentpilot-100 flex items-center justify-center text-talentpilot-700 font-medium">R</span>
+                Rita
+            </button>
+            <div class="hidden absolute right-0 mt-2 w-40 bg-white border border-gray-200 rounded-lg shadow-lg z-10" data-dropdown>
+                <a href="#" onclick="handleSignOut()" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg">Sign Out</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- ========================================================================
+         TOOLBAR (Section 1)
+         ======================================================================== -->
+    <div class="px-6 py-3 flex items-center justify-between">
+        <button id="skills-dashboard-btn-new-assignment" data-object-id="skills-dashboard-btn-new-assignment"
+                onclick="handleNewAssignment()"
+                class="bg-talentpilot-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-talentpilot-700 transition-colors">
+            + New Assignment
+        </button>
+    </div>
+
+    <!-- ========================================================================
+         MAIN CONTENT (filled in by Section 2 onward)
+         ======================================================================== -->
+    <main id="dashboard-main-content" class="px-6 pb-12">
+        <div class="flex items-center justify-between mb-4">
+            <h2 id="skills-dashboard-heading-title" data-object-id="skills-dashboard-heading-title"
+                class="text-2xl font-black text-gray-900">Skill Assignments</h2>
+            <span id="skills-dashboard-summary-count" data-object-id="skills-dashboard-summary-count"
+                  class="text-sm text-gray-500"></span>
+        </div>
+
+        <table id="skills-dashboard-grid-skills" data-object-id="skills-dashboard-grid-skills"
+               class="w-full border-collapse text-sm bg-white rounded-lg overflow-hidden shadow-sm">
+            <thead>
+                <tr class="border-b border-gray-200 text-left text-gray-500">
+                    <th class="px-4 py-3 font-medium">Employee</th>
+                    <th class="px-4 py-3 font-medium">Assigned Skill</th>
+                    <th class="px-4 py-3 font-medium">Status</th>
+                    <th class="px-4 py-3 font-medium">Progress</th>
+                    <th class="px-4 py-3 font-medium w-10"></th>
+                </tr>
+            </thead>
+            <tbody id="assignments-tbody"></tbody>
+        </table>
+
+        <!-- Loading skeleton (Section 3) -->
+        <div id="grid-loading-state" class="hidden">
+            <div class="bg-white rounded-lg shadow-sm p-4 space-y-3">
+                <div class="h-6 bg-gray-100 rounded animate-pulse w-full"></div>
+                <div class="h-6 bg-gray-100 rounded animate-pulse w-full"></div>
+                <div class="h-6 bg-gray-100 rounded animate-pulse w-full"></div>
+                <div class="h-6 bg-gray-100 rounded animate-pulse w-full"></div>
+            </div>
+        </div>
+
+        <!-- Empty state (Section 3) -->
+        <div id="grid-empty-state" class="hidden text-center py-12 border-2 border-dashed border-gray-200 rounded-lg text-gray-500">
+            No assignments yet — click <strong>+ New Assignment</strong> to get started
+        </div>
+
+        <!-- Error state (Section 3) -->
+        <div id="grid-error-state" class="hidden text-center py-12 border-2 border-dashed border-red-200 rounded-lg text-red-600">
+            Couldn't load assignments.
+            <button onclick="loadDashboard()" class="underline font-medium ml-1">Retry</button>
+        </div>
+
+        <div id="skills-dashboard-pagination-controls" data-object-id="skills-dashboard-pagination-controls"
+             class="flex items-center justify-center gap-2 mt-4 text-sm">
+            <button disabled class="px-3 py-1 rounded border border-gray-200 text-gray-400 cursor-not-allowed">Previous</button>
+            <button class="px-3 py-1 rounded border border-talentpilot-600 bg-talentpilot-50 text-talentpilot-700 font-medium">1</button>
+            <button disabled class="px-3 py-1 rounded border border-gray-200 text-gray-400 cursor-not-allowed">Next</button>
+        </div>
+
+        <p id="skills-dashboard-version-info" data-object-id="skills-dashboard-version-info"
+           class="text-center text-xs text-gray-400 mt-8">App v0.1.0</p>
+    </main>
+
+    <!-- ========================================================================
+         PROVENANCE DRILL-DOWN MODAL (Section 4, from 01.2 spec)
+         ======================================================================== -->
+    <div id="assignment-details-modal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-40 p-4">
+        <div class="bg-white rounded-lg shadow-xl max-w-lg w-full p-6">
+
+            <div class="flex items-center justify-between mb-4">
+                <h3 id="assignment-details-header-id" data-object-id="assignment-details-header-id"
+                    data-employee-name-id="assignment-details-employee-name"
+                    data-skill-name-id="assignment-details-skill-name"
+                    class="font-semibold text-gray-900"></h3>
+                <button id="assignment-details-btn-close" data-object-id="assignment-details-btn-close"
+                        onclick="closeDrillDown()" class="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
+            </div>
+
+            <!-- Loading skeleton (Section 5) -->
+            <div id="assignment-details-loading" class="hidden space-y-2 mb-4">
+                <div class="h-4 bg-gray-100 rounded animate-pulse w-3/4"></div>
+                <div class="h-4 bg-gray-100 rounded animate-pulse w-1/2"></div>
+                <div class="h-16 bg-gray-100 rounded animate-pulse w-full"></div>
+            </div>
+
+            <!-- Error state (Section 5) -->
+            <div id="assignment-details-error" class="hidden text-sm text-red-600 mb-4">
+                Couldn't load provenance details.
+                <button onclick="retryDrillDown()" class="underline font-medium ml-1">Retry</button>
+            </div>
+
+            <div id="assignment-details-provenance-summary" data-object-id="assignment-details-provenance-summary"
+                 class="hidden mb-4"></div>
+
+            <div id="assignment-details-raw-signal" data-object-id="assignment-details-raw-signal"
+                 class="hidden text-sm text-gray-700 space-y-1 border-t border-gray-100 pt-4 mb-4"></div>
+
+            <div id="assignment-details-explanation" data-object-id="assignment-details-explanation"
+                 class="hidden text-sm text-gray-600 bg-gray-50 rounded-lg p-3 mb-4"></div>
+
+            <div id="assignment-details-actions" data-object-id="assignment-details-actions"
+                 class="flex justify-end">
+                <button onclick="closeDrillDown()"
+                        class="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50">
+                    Close
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- ========================================================================
+         SKILL ASSIGNMENT FLOW MODAL (Section 1, from 03.1 spec)
+         ======================================================================== -->
+    <div id="skill-assignment-flow-modal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-40 p-4">
+        <div class="bg-white rounded-lg shadow-xl max-w-lg w-full p-6">
+
+            <div class="flex items-center justify-between mb-2">
+                <h3 id="skill-assignment-flow-header-title" data-object-id="skill-assignment-flow-header-title"
+                    class="font-semibold text-gray-900">Assign a New Skill</h3>
+                <button id="skill-assignment-flow-btn-close" data-object-id="skill-assignment-flow-btn-close"
+                        onclick="closeAssignmentFlow()" class="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
+            </div>
+            <p id="skill-assignment-flow-progress-indicator" data-object-id="skill-assignment-flow-progress-indicator"
+               class="text-xs text-gray-500 mb-4">Step 1 of 3</p>
+
+            <!-- Loading skeleton (Section 4) -->
+            <div id="asf-loading-state" class="hidden space-y-2">
+                <div class="h-4 bg-gray-100 rounded animate-pulse w-1/2"></div>
+                <div class="h-10 bg-gray-100 rounded animate-pulse w-full"></div>
+            </div>
+
+            <!-- Error state (Section 4) -->
+            <div id="asf-error-state" class="hidden text-sm text-red-600">
+                Couldn't load employees.
+                <button onclick="openAssignmentFlow()" class="underline font-medium ml-1">Retry</button>
+            </div>
+
+            <!-- Step 1: Employee -->
+            <div id="asf-step-1">
+                <p id="skill-assignment-flow-step1-title" data-object-id="skill-assignment-flow-step1-title"
+                   class="text-sm font-medium text-gray-700 mb-2">Who should learn this?</p>
+                <select id="skill-assignment-flow-employee-dropdown" data-object-id="skill-assignment-flow-employee-dropdown"
+                        onchange="onEmployeeSelected()"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    <option value="">Select employee or search...</option>
+                </select>
+                <div id="skill-assignment-flow-employee-list" data-object-id="skill-assignment-flow-employee-list" class="hidden"></div>
+                <button id="skill-assignment-flow-btn-continue-step1" data-object-id="skill-assignment-flow-btn-continue-step1"
+                        onclick="goToStep(2)" disabled
+                        class="mt-4 w-full bg-talentpilot-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-talentpilot-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                    Continue to Skill Selection
+                </button>
+            </div>
+
+            <!-- Step 2: Skill (hidden by default) -->
+            <div id="asf-step-2" class="hidden">
+                <p id="skill-assignment-flow-step2-title" data-object-id="skill-assignment-flow-step2-title"
+                   class="text-sm font-medium text-gray-700 mb-2">What skill?</p>
+                <select id="skill-assignment-flow-skill-search" data-object-id="skill-assignment-flow-skill-search"
+                        onchange="onSkillSelected()"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    <option value="">Search for a skill or select...</option>
+                </select>
+                <div id="skill-assignment-flow-skill-list" data-object-id="skill-assignment-flow-skill-list" class="hidden"></div>
+                <button id="skill-assignment-flow-btn-continue-step2" data-object-id="skill-assignment-flow-btn-continue-step2"
+                        onclick="goToStep(3)" disabled
+                        class="mt-4 w-full bg-talentpilot-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-talentpilot-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                    Review Content
+                </button>
+            </div>
+
+            <!-- Step 3: Content Review (hidden by default) -->
+            <div id="asf-step-3" class="hidden">
+                <p id="skill-assignment-flow-step3-title" data-object-id="skill-assignment-flow-step3-title"
+                   class="text-sm font-medium text-gray-700 mb-1">Recommended Learning Content</p>
+                <p id="skill-assignment-flow-content-label" data-object-id="skill-assignment-flow-content-label"
+                   class="text-xs text-gray-500 mb-3">We've found the best match for this skill:</p>
+
+                <div class="flex gap-4">
+                    <div id="skill-assignment-flow-content-thumbnail" data-object-id="skill-assignment-flow-content-thumbnail"
+                         class="w-24 h-16 bg-gray-200 rounded-lg flex-shrink-0"></div>
+                    <div class="flex-1">
+                        <h4 id="skill-assignment-flow-content-title" data-object-id="skill-assignment-flow-content-title"
+                            class="font-medium text-gray-900 text-sm"></h4>
+                        <div class="flex items-center gap-2 text-xs text-gray-500 mt-1">
+                            <span id="skill-assignment-flow-content-source" data-object-id="skill-assignment-flow-content-source"></span>
+                            <span>·</span>
+                            <span id="skill-assignment-flow-content-duration" data-object-id="skill-assignment-flow-content-duration"></span>
+                            <span id="skill-assignment-flow-content-approval" data-object-id="skill-assignment-flow-content-approval"
+                                  class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 cursor-help"
+                                  title="Reviewed and approved by Rita">✓ Approved</span>
+                        </div>
+                        <p id="skill-assignment-flow-content-description" data-object-id="skill-assignment-flow-content-description"
+                           class="text-xs text-gray-600 mt-2"></p>
+                    </div>
+                </div>
+
+                <!-- Empty state: no approved content for selected skill (Section 4) -->
+                <div id="asf-empty-content-state" class="hidden text-sm text-gray-500 bg-gray-50 rounded-lg p-3 mt-3">
+                    No approved content found yet for this skill.
+                    <a href="#" onclick="handleChangeContent()" class="text-talentpilot-600 underline">Choose Different Content</a>
+                    or assign without content.
+                </div>
+
+                <div class="flex items-center gap-4 mt-3 text-xs">
+                    <a href="#" id="skill-assignment-flow-btn-view-content" data-object-id="skill-assignment-flow-btn-view-content"
+                       onclick="handleViewContent()" class="text-talentpilot-600 hover:underline">View on YouTube</a>
+                    <a href="#" id="skill-assignment-flow-btn-change-content" data-object-id="skill-assignment-flow-btn-change-content"
+                       onclick="handleChangeContent()" class="text-talentpilot-600 hover:underline">Choose Different Content</a>
+                </div>
+            </div>
+
+            <!-- Footer: Assign/Cancel -->
+            <div class="flex gap-3 mt-6">
+                <button id="skill-assignment-flow-btn-assign" data-object-id="skill-assignment-flow-btn-assign"
+                        onclick="handleAssign()" disabled
+                        class="flex-1 bg-talentpilot-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-talentpilot-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                    Assign
+                </button>
+                <button id="skill-assignment-flow-btn-cancel" data-object-id="skill-assignment-flow-btn-cancel"
+                        onclick="closeAssignmentFlow()"
+                        class="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50">
+                    Cancel
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- ========================================================================
+         ASSIGNMENT CONFIRMATION TOAST (Section 5, from 03.2 spec)
+         ======================================================================== -->
+    <div id="assignment-confirmation-toast" data-object-id="assignment-confirmation-toast"
+         class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 bg-gray-900 text-white px-6 py-3 rounded-lg shadow-lg z-50">
+    </div>
+
+    <!-- ========================================================================
+         JAVASCRIPT - Shared Scripts
+         ======================================================================== -->
+    <script src="data/demo-data.js"></script>
+    <script src="shared/prototype-api.js"></script>
+    <script src="shared/utils.js"></script>
+    <script src="shared/init.js"></script>
+    <script src="components/dev-mode.js"></script>
+
+    <!-- ========================================================================
+         JAVASCRIPT - Page-Specific Script
+         ======================================================================== -->
+    <script>
+        /**
+         * Page: 01.1 Skills Dashboard (+ 01.2 Provenance Drill-Down modal)
+         * Purpose: Rita scans provenance-labeled assignments and drills into
+         *          raw signal data to make a staffing-readiness call.
+         */
+
+        window.initPage = function() {
+            console.log('📄 01.1 Skills Dashboard loaded');
+            loadDashboard();
+
+            const demoState = getDemoStateParam();
+            if (demoState === 'modal-loading') openDrillDown('assign-003', 'loading');
+            if (demoState === 'modal-error') openDrillDown('assign-003', 'error');
+        };
+
+        function getDemoStateParam() {
+            return new URLSearchParams(window.location.search).get('demo_state');
+        }
+
+        function setGridState(state) {
+            // state: 'loading' | 'loaded' | 'empty' | 'error'
+            document.getElementById('grid-loading-state').classList.toggle('hidden', state !== 'loading');
+            document.getElementById('grid-empty-state').classList.toggle('hidden', state !== 'empty');
+            document.getElementById('grid-error-state').classList.toggle('hidden', state !== 'error');
+            document.getElementById('skills-dashboard-grid-skills').classList.toggle('hidden', state !== 'loaded');
+            document.getElementById('skills-dashboard-pagination-controls').classList.toggle('hidden', state !== 'loaded');
+        }
+
+        async function loadDashboard() {
+            const forcedState = getDemoStateParam();
+
+            if (forcedState === 'loading') {
+                setGridState('loading');
+                console.log('🔧 demo_state=loading — showing skeleton indefinitely');
+                return;
+            }
+            if (forcedState === 'error') {
+                setGridState('error');
+                console.log('🔧 demo_state=error — showing error state');
+                return;
+            }
+
+            setGridState('loading');
+            const assignments = forcedState === 'empty' ? [] : await PrototypeAPI.getAssignments();
+            console.log('📊 Assignments loaded:', assignments);
+
+            if (assignments.length === 0) {
+                setGridState('empty');
+                document.getElementById('skills-dashboard-summary-count').textContent = 'Total: 0 assignments';
+                return;
+            }
+
+            document.getElementById('skills-dashboard-summary-count').textContent =
+                `Total: ${assignments.length} assignment${assignments.length === 1 ? '' : 's'}`;
+            document.getElementById('assignments-tbody').innerHTML = assignments.map(rowHtml).join('');
+            setGridState('loaded');
+        }
+
+        function rowHtml(a) {
+            return `
+                <tr data-assignment-id="${a.id}" class="border-b border-gray-100 hover:bg-gray-50">
+                    <td class="px-4 py-3 text-gray-900">${escapeHtml(a.employee.firstName + ' ' + a.employee.lastName)}</td>
+                    <td class="px-4 py-3 text-gray-700">${escapeHtml(a.skill.name)}</td>
+                    <td class="px-4 py-3">${provenanceBadge(a)}</td>
+                    <td class="px-4 py-3">${progressBar(a.watchPercent)}</td>
+                    <td class="px-4 py-3 text-right">
+                        <button class="text-gray-400 hover:text-talentpilot-600" onclick="openDrillDown('${a.id}')">→</button>
+                    </td>
+                </tr>`;
+        }
+
+        function provenanceBadge(a) {
+            const styles = {
+                'Verified': 'bg-green-100 text-green-800',
+                'Self-reported': 'bg-gray-100 text-gray-700',
+                'Needs Attention': 'bg-amber-100 text-amber-800',
+            };
+            const label = `${a.provenance} · ${a.lastUpdate}`;
+            return `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${styles[a.provenance] || 'bg-gray-100 text-gray-700'}">${escapeHtml(label)}</span>`;
+        }
+
+        function progressBar(percent) {
+            return `
+                <div class="w-24 h-2 bg-gray-100 rounded-full overflow-hidden">
+                    <div class="h-full bg-talentpilot-600" style="width: ${percent}%"></div>
+                </div>`;
+        }
+
+        let lastDrillDownId = null;
+
+        async function openDrillDown(assignmentId, forceState) {
+            lastDrillDownId = assignmentId;
+            document.getElementById('assignment-details-modal').classList.remove('hidden');
+
+            if (forceState === 'loading') {
+                setModalState('loading');
+                console.log('🔧 demo_state=modal-loading — showing modal skeleton indefinitely');
+                return;
+            }
+            if (forceState === 'error') {
+                setModalState('error');
+                console.log('🔧 demo_state=modal-error — showing modal error state');
+                return;
+            }
+
+            setModalState('loading');
+            const a = await PrototypeAPI.getAssignmentDetail(assignmentId);
+            console.log('🔍 Drill-down opened for', a.employee.firstName, '-', a.skill.name);
+
+            document.getElementById('assignment-details-header-id').textContent =
+                `Employee: ${a.employee.firstName} ${a.employee.lastName} | Skill: ${a.skill.name}`;
+            document.getElementById('assignment-details-provenance-summary').innerHTML = provenanceBadge(a);
+            document.getElementById('assignment-details-raw-signal').innerHTML = renderRawSignal(a);
+            document.getElementById('assignment-details-explanation').textContent = renderExplanation(a);
+
+            setModalState('loaded');
+        }
+
+        function retryDrillDown() {
+            if (lastDrillDownId) openDrillDown(lastDrillDownId);
+        }
+
+        function setModalState(state) {
+            // state: 'loading' | 'loaded' | 'error'
+            document.getElementById('assignment-details-loading').classList.toggle('hidden', state !== 'loading');
+            document.getElementById('assignment-details-error').classList.toggle('hidden', state !== 'error');
+            document.getElementById('assignment-details-provenance-summary').classList.toggle('hidden', state !== 'loaded');
+            document.getElementById('assignment-details-raw-signal').classList.toggle('hidden', state !== 'loaded');
+            document.getElementById('assignment-details-explanation').classList.toggle('hidden', state !== 'loaded');
+        }
+
+        function closeDrillDown() {
+            document.getElementById('assignment-details-modal').classList.add('hidden');
+        }
+
+        function renderRawSignal(a) {
+            const rows = [`<div><strong>Assigned:</strong> ${a.assignedDate}</div>`];
+            if (a.provenance === 'Verified') {
+                rows.push(`<div><strong>Watch activity:</strong> ${a.watchPercent}% watched, auto-verified</div>`);
+                rows.push(`<div><strong>Last activity:</strong> ${a.lastUpdate}</div>`);
+            } else {
+                rows.push(`<div><strong>Watch activity:</strong> ${a.watchActivity || 'None recorded'}</div>`);
+                if (a.lastSelfReport) {
+                    rows.push(`<div><strong>Last self-report:</strong> "${a.lastSelfReport.value}" (entered ${a.lastSelfReport.enteredOn.split('T')[0]})</div>`);
+                }
+                rows.push(`<div><strong>Status:</strong> ${a.lastUpdate}</div>`);
+            }
+            return rows.join('');
+        }
+
+        function renderExplanation(a) {
+            if (a.provenance === 'Verified') {
+                return "This skill's progress is auto-verified from video watch activity — no self-reporting involved.";
+            }
+            if (a.provenance === 'Needs Attention') {
+                return `This skill was assigned on ${a.assignedDate}. The last self-reported update said "${a.lastSelfReport?.value || 'in progress'}," but that entry hasn't been updated since. The row is marked "needs attention" because the signal is stale and current progress can't be confirmed.`;
+            }
+            return `This skill was assigned on ${a.assignedDate}. No video watch activity has been recorded since assignment. The employee's last self-reported update said "${a.lastSelfReport?.value || 'in progress'}," but that entry hasn't been updated since. The row is marked stale because we can't confirm current progress.`;
+        }
+
+        function toggleUserMenu() {
+            document.querySelector('[data-dropdown]').classList.toggle('hidden');
+        }
+
+        function handleSignOut() {
+            console.log('👋 Sign out clicked (prototype no-op)');
+        }
+
+        function handleNewAssignment() {
+            openAssignmentFlow();
+        }
+
+        // ================================================================
+        // SKILL ASSIGNMENT FLOW (Section 1: modal shell + Step 1)
+        // ================================================================
+
+        let assignmentFlowState = { employeeId: null, skillId: null, content: null };
+
+        function getDemoStateParam() {
+            return new URLSearchParams(window.location.search).get('demo_state');
+        }
+
+        function setAsfState(state) {
+            // state: 'loading' | 'error' | 'normal'
+            document.getElementById('asf-loading-state').classList.toggle('hidden', state !== 'loading');
+            document.getElementById('asf-error-state').classList.toggle('hidden', state !== 'error');
+            document.getElementById('asf-step-1').classList.toggle('hidden', state !== 'normal');
+        }
+
+        async function openAssignmentFlow() {
+            assignmentFlowState = { employeeId: null, skillId: null, content: null };
+            document.getElementById('skill-assignment-flow-modal').classList.remove('hidden');
+
+            const forced = getDemoStateParam();
+            if (forced === 'asf-loading') { setAsfState('loading'); return; }
+            if (forced === 'asf-error') { setAsfState('error'); return; }
+
+            setAsfState('normal');
+            goToStep(1);
+
+            const employees = await PrototypeAPI.getEmployees();
+            const dropdown = document.getElementById('skill-assignment-flow-employee-dropdown');
+            dropdown.innerHTML = '<option value="">Select employee or search...</option>' +
+                employees.map(e => `<option value="${e.id}">${escapeHtml(e.firstName + ' ' + e.lastName)}</option>`).join('');
+
+            const skills = await PrototypeAPI.getSkills();
+            const skillDropdown = document.getElementById('skill-assignment-flow-skill-search');
+            skillDropdown.innerHTML = '<option value="">Search for a skill or select...</option>' +
+                skills.map(s => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
+        }
+
+        function closeAssignmentFlow() {
+            document.getElementById('skill-assignment-flow-modal').classList.add('hidden');
+        }
+
+        function onEmployeeSelected() {
+            const val = document.getElementById('skill-assignment-flow-employee-dropdown').value;
+            assignmentFlowState.employeeId = val || null;
+            document.getElementById('skill-assignment-flow-btn-continue-step1').disabled = !val;
+        }
+
+        async function onSkillSelected() {
+            const val = document.getElementById('skill-assignment-flow-skill-search').value;
+            assignmentFlowState.skillId = val || null;
+            document.getElementById('skill-assignment-flow-btn-continue-step2').disabled = !val;
+
+            if (val) {
+                const forced = getDemoStateParam();
+                assignmentFlowState.content = (forced === 'asf-empty') ? null : await PrototypeAPI.getContentForSkill(val);
+                console.log('🔗 Auto-linked content:', assignmentFlowState.content);
+            }
+        }
+
+        function goToStep(n) {
+            document.getElementById('skill-assignment-flow-progress-indicator').textContent = `Step ${n} of 3`;
+            document.getElementById('asf-step-1').classList.toggle('hidden', n !== 1);
+            document.getElementById('asf-step-2').classList.toggle('hidden', n !== 2);
+            document.getElementById('asf-step-3').classList.toggle('hidden', n !== 3);
+            document.getElementById('skill-assignment-flow-btn-assign').disabled = (n !== 3);
+
+            if (n === 3) {
+                document.getElementById('asf-empty-content-state').classList.toggle('hidden', !!assignmentFlowState.content);
+                if (assignmentFlowState.content) {
+                    const c = assignmentFlowState.content;
+                    document.getElementById('skill-assignment-flow-content-title').textContent = c.title;
+                    document.getElementById('skill-assignment-flow-content-source').textContent = c.source;
+                    document.getElementById('skill-assignment-flow-content-duration').textContent = `${c.durationMinutes} minutes`;
+                    document.getElementById('skill-assignment-flow-content-description').textContent = c.description;
+                }
+                // Assign remains enabled even without content — "assign without content" per spec
+            }
+        }
+
+        function handleViewContent() {
+            console.log('ℹ️ View on YouTube clicked (opens in new tab in production — no-op in prototype)');
+        }
+
+        function handleChangeContent() {
+            console.log('ℹ️ Choose Different Content clicked (secondary browse UI out of scope for this prototype)');
+        }
+
+        async function handleAssign() {
+            const newAssignment = await PrototypeAPI.createAssignment({
+                employeeId: assignmentFlowState.employeeId,
+                skillId: assignmentFlowState.skillId,
+                contentId: assignmentFlowState.content ? assignmentFlowState.content.id : null,
+            });
+            console.log('✅ Assignment created:', newAssignment);
+
+            closeAssignmentFlow();
+            await loadDashboard();
+            showToast(`✓ Skill assigned to ${newAssignment.employee.firstName} — ${newAssignment.skill.name}`);
+            highlightRow(newAssignment.id);
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('assignment-confirmation-toast');
+            toast.textContent = message;
+            toast.classList.remove('hidden');
+            setTimeout(() => toast.classList.add('hidden'), 4000);
+        }
+
+        function highlightRow(assignmentId) {
+            const row = document.querySelector(`tr[data-assignment-id="${assignmentId}"]`);
+            if (row) {
+                row.setAttribute('data-object-id', 'assignment-confirmation-new-row-highlight');
+                row.classList.add('bg-talentpilot-50');
+                setTimeout(() => row.classList.remove('bg-talentpilot-50'), 6000);
+            }
+        }
+
+        // ================================================================
+        // INTERACTIONS & POLISH (Section 6)
+        // ================================================================
+
+        // Modal: close on click-outside (the dark overlay itself, not the panel)
+        document.getElementById('assignment-details-modal').addEventListener('click', (e) => {
+            if (e.target.id === 'assignment-details-modal') {
+                closeDrillDown();
+            }
+        });
+
+        // Assignment Flow modal: close on click-outside (Section 6)
+        document.getElementById('skill-assignment-flow-modal').addEventListener('click', (e) => {
+            if (e.target.id === 'skill-assignment-flow-modal') {
+                closeAssignmentFlow();
+            }
+        });
+
+        // Modal: close on Escape key (checks both modals — Section 6)
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                const provenanceModal = document.getElementById('assignment-details-modal');
+                const assignmentModal = document.getElementById('skill-assignment-flow-modal');
+                if (!provenanceModal.classList.contains('hidden')) {
+                    closeDrillDown();
+                } else if (!assignmentModal.classList.contains('hidden')) {
+                    closeAssignmentFlow();
+                }
+            }
+        });
+
+        // User menu: close on click-outside
+        document.addEventListener('click', (e) => {
+            const userMenu = document.getElementById('skills-dashboard-user-menu');
+            const dropdown = userMenu.querySelector('[data-dropdown]');
+            if (!userMenu.contains(e.target) && !dropdown.classList.contains('hidden')) {
+                dropdown.classList.add('hidden');
+            }
+        });
+    </script>
+</body>
+</html>
