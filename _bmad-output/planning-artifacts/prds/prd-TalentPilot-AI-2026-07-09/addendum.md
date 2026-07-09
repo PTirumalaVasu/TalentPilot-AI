@@ -41,6 +41,8 @@ Implementation how-to, rejected-alternative rationale, and depth material that i
   - Approval badge tooltip (hardcoded in the prototype, not data-driven — matches the PRD's own noted assumption that no real approval gate exists): "Reviewed and approved by Rita."
   - Tone acceptance criteria from the stories (sharpens PRD §9's tone split into testable terms): Employee-facing cards should not "feel like a compliance checklist" and copy should read as "encouraging, not evaluative/surveillance-toned."
 
+- **Authentication login gate backfilled and tested** (2026-07-09, `wds-8-product-evolution` pipeline — see `_bmad-output/evolution/scenarios/authentication-login-gate.md`, `evolution/specs/authentication-login-gate.md`, `evolution/test-reports/authentication-login-gate.md`). All 3 prototype folders now gate on a mock, client-side session (`sessionStorage`, hardcoded demo accounts, no backend) before rendering — validating the login → role-routing → own-data-only UX pattern generalized into `prd.md` FR-13/FR-14. This mock gate is a prototype fixture only: the real build uses the JWT/HTTP-only-cookie session mechanism already locked above, backed by real accounts, not the demo credential list. One real bug was found and fixed during acceptance testing (an employee-selection sync call silently no-op'd because `login.html` never loaded `shared/prototype-api.js`) — not relevant to the real build's architecture, logged here only so the pattern isn't mistaken for a server-side concern.
+
 ### Known prototype regressions (fix in real build, do not carry forward)
 
 A 2026-07-09 UI-cleanup commit (`0493247`, "Add Status Badges") introduced two regressions against the prototype's own already-approved specs, discovered during PRD reconciliation:

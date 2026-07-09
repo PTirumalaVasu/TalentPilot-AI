@@ -1477,3 +1477,104 @@ All files live under `_bmad-output/planning-artifacts/prds/prd-TalentPilot-AI-20
 ---
 
 No other files were created or modified during this phase beyond what's listed above.
+
+---
+---
+
+# Authentication Backfill & PRD Reconciliation Phase — Skills, Agents, and Files
+
+## Agents Called
+
+**No facilitation persona was invoked in this phase.** The user opened directly with `/bmad-help`, then worked through the gap and its fix as a direct conversation — no `/bmad-agent-*` or `/bmad-cis-agent-*` persona command, no menu dispatch, no party-mode digression.
+
+---
+
+## Skills Used
+
+### 1. bmad-help
+
+**Purpose:** Orients the user in the BMad/WDS pipeline and recommends the next skill, grounded in the actual project state rather than a generic menu.
+
+**Why it was called:** The user opened with `/bmad-help`, asking how to add authentication — which had been missed in both the original brainstorming/Design Thinking pass and the 3 built prototypes — and whether it belonged "in the PRD."
+
+**What it did:** Resolved the merged BMad config (`_bmad/config.toml` — no `uv`/`python3` on this machine, so `resolve_config.py` was skipped in favor of reading the TOML directly, the same workaround logged in `project-context.md` since the Design Thinking phase) and read `_bmad-output/_progress/00-design-log.md` to establish exact phase state: Phase 4 (UX Design/Design Delivery) complete, Phase 5 (Agentic Development) prototypes built for all 3 scenarios, formal Acceptance Testing not yet run. Re-read `project_talentpilot_mvp_scope.md` (cross-session memory) and confirmed authentication appeared in **none** of the confirmed Must-have/Should/Won't lists from brainstorming or Design Thinking — a genuine gap, not deliberate scope exclusion. Identified that this project runs on the WDS module (not BMad Method's PRD-first flow), so there was no "PRD" step to slot the fix into at that point in the pipeline — the correct mechanism was `bmad-wds-product-evolution` ([PE]), the WDS analog to Correct Course, designed specifically for feedback → Trigger Map → spec update → code → verify. Used `AskUserQuestion` (not a unilateral call) to resolve two real decisions only the user could make: whether authentication should be MVP Must-have or a logged fast-follow, and whether the fix should go through the full Product Evolution loop (Trigger Map/spec/prototype, full traceability) or a prototype-only patch. The user chose **Must-have now** + **full Product Evolution loop**.
+
+**Memory updated as a direct consequence:** `project_talentpilot_mvp_scope.md` (cross-session memory file, not a project artifact) was edited to add authentication to the confirmed Must-have list, dated and flagged as a retroactive addition — per that memory's own stated update rule ("update this memory if the user explicitly changes MVP/Won't scope").
+
+### 2. bmad-wds-product-evolution ([S] Scope → [D] Design → [I] Implement → [T] Test)
+
+**Purpose:** Runs the full WDS pipeline in miniature for one focused, brownfield improvement to an existing product — scope as a scenario, design the solution, implement on a branch, test against the spec.
+
+**Why it was called:** Selected as the direct outcome of the `bmad-help` conversation above, to backfill the missing login gate into all 3 existing prototypes with full upstream traceability rather than a silent code patch.
+
+**What it produced, per step (reconstructed from the finished artifacts below — this portion of the session predates a context summarization boundary, so it's described from what each artifact records, not from turn-by-turn narration):**
+
+- **[S] Scope** → `_bmad-output/evolution/scenarios/authentication-login-gate.md`. Framed the gap against the *already-locked* Trigger Map, not as an isolated feature request: Rita's fear (DF0, "a dashboard that looks trustworthy but isn't") and Casey's fear (DF1, "feeling watched/surveilled," combined with the PRFAQ's locked coaching-only privacy guarantee) both depend on *some* boundary controlling who can open the product at all — which didn't exist. Scoped explicitly as a **prototype-level, client-side mock gate** (no backend, no real credential store — consistent with the rest of the prototype layer), covering all 4 protected pages across the 3 folders, with an explicit Won't list (no Manager/Team-Lead role, no production auth stack).
+- **[D] Design** → `_bmad-output/evolution/specs/authentication-login-gate.md`. Specified `shared/auth.js` (a `TalentPilotAuth` mock credential store — 5 demo accounts: Rita/HR, Casey/Morgan/Jordan/Sam/Employee — with `login()`/`getSession()`/`logout()`/`requireRole()`, session in `sessionStorage`), a shared `login.html` design replicated per folder (matching the project's existing per-folder duplication convention for `demo-data.js`/`prototype-api.js`), a 2-line synchronous guard at the top of each protected page's `<head>`, real `handleSignOut()` wiring (previously a no-op), and a data-gap fix (`emp-morgan`/`emp-jordan` `employeeAssignments` entries, previously only `emp-casey`/`emp-sam` existed) — plus 9 numbered acceptance criteria.
+- **[I] Implement** → branch `evolution/authentication-login-gate`, one `login.html` + `shared/auth.js` per folder (new), guard lines added to `01.1-Skills-Dashboard.html` / `02.1-Content-Discovery.html` / `02.2-Continue-Watching.html` / `03-Skills-Dashboard.html`, header identity in 02.1/02.2 made session-driven instead of hardcoded "Casey," `02-.../data/demo-data.js` extended with the two missing employees' assignment records.
+- **[T] Acceptance Test** → `_bmad-output/evolution/test-reports/authentication-login-gate.md`. Driven with real browser automation (Playwright/Chromium against the `file://` HTML, fresh context per folder) rather than read from the code — 9/9 acceptance criteria passed. **One real bug found and fixed during testing**, not before: `TalentPilotAuth.login()` tried to sync the selected employee via `PrototypeAPI.setSelectedEmployee(...)`, but `login.html` never loads `shared/prototype-api.js`, so the call silently no-op'd and every non-Casey employee login fell back to Casey's data (a visible inconsistency — the header said "Morgan," the assignment list still showed Casey's). Fixed by writing the `selected_employee_id` sessionStorage key directly, removing the cross-script dependency; re-verified after the fix. Two findings **unrelated to this change** were surfaced and logged, not fixed (out of scope): the prototype's floating Dev Mode toggle visually overlaps the header user-menu button (more consequential now that Sign Out is a real action), and the Provenance Drill-Down modal has no click handler wired from a normal loaded-state row (pre-existing, confirmed unaffected by the guard).
+- **[P] Deploy — not yet run.** The branch (`evolution/authentication-login-gate`) exists and is up to date with its remote, but no PR/merge has happened — this is the natural next step once the user is ready.
+
+### 3. Direct PRD reconciliation (ad hoc, not a `bmad-prd` skill invocation)
+
+**Purpose:** Bring `prd.md` — which still had the authentication gap open as Open Question 9 — in line with the now-completed and tested Product Evolution work.
+
+**Why it was called:** The user asked to analyze the PRD, update it with this session's changes, then update project context and this file. Unlike the original PRD authoring/update passes (which ran the full `bmad-prd` skill with 19 delegated subagents), this pass was a direct, targeted edit — proportionate to the size of the change (one new feature section, not a full re-draft) and grounded by reading the finished evolution artifacts directly rather than re-deriving requirements from scratch.
+
+**What happened:**
+- Read `prd.md` in full and confirmed Open Question 9 ("Authentication and employee-roster provisioning has no FR in this PRD... needs an answer before FR-1 can be built") was still open and unaddressed at the requirements layer, even though the prototype-level fix now existed.
+- Read `addendum.md` and found the production session mechanism (JWT in an HTTP-only/Secure/SameSite cookie) had **already been locked** during the earlier Technical Research phase (Run 3, Overall Stack & Architecture) but had never been turned into a Functional Requirement — the exact shape of gap Open Question 9 described.
+- Read all 3 `evolution/` artifacts (scenario, spec, test report) to ground new FRs in what was actually built and validated, explicitly avoiding the mistake of copying the prototype's mock demo-credential list into the PRD as if it were a production decision.
+- Added **§4.5 Authentication & Session Gate** to `prd.md`: **FR-13** (no Assignment/Content/Watch-Progress data reachable without a valid session; session via the already-locked JWT/cookie mechanism, not `localStorage`) and **FR-14** (session scoped to exactly one role, and for Employees exactly one identity — access-control backing for the existing "no cross-employee visibility" Non-Goal). Both FRs carry `[NOTE FOR PM]` tags flagging what's still *not* decided: credential provisioning (local accounts vs. SSO) and roster sourcing.
+- Added a **Session** Glossary entry, an MVP Scope §6.1 bullet, rewrote Open Question 9 as **partially resolved** (access-gate behavior spec'd and prototype-validated; credential/roster provisioning still open) rather than closing it outright, and added a new Assumptions Index (§12) entry tracing FR-13/FR-14 back to the prototype validation.
+- Added a short note to `addendum.md`'s Prototype Implementation Notes summarizing the auth backfill and its one found-and-fixed bug, explicit that it's a prototype-only fixture concern, not a production-architecture finding.
+- Logged every decision to the PRD workspace's `.memlog.md` (6 new entries) — the same discipline the original PRD phase used, so nothing here is trusted to conversational memory alone.
+- Appended a new dated bullet to `_bmad-output/project-context.md` describing the update and explicitly closing the loop: authentication is now reflected consistently across scope memory, the Trigger Map-aware evolution scenario, the tested prototype implementation, and the PRD's requirements layer — no artifact in the pipeline still treats it as an unscoped gap.
+
+---
+
+## The Role of Project Context in This Phase
+
+Two different conventions collided here, consistent with a pattern already noted earlier in this file: WDS-native work (the `bmad-help` orientation, the Product Evolution scope/design/implement/test cycle) logs to `_progress/00-design-log.md`, while BMM-native work (the PRD) logs to `_bmad-output/project-context.md`. Both were kept current in this phase — the design log already carried the Product Evolution work forward (visible via its `modified` git status), and this phase's own project-context.md update explicitly cross-references both conventions so a future session doesn't have to reconcile them from scratch.
+
+---
+
+## Files Created or Modified
+
+### `_bmad-output/evolution/`
+- `scenarios/authentication-login-gate.md`, `specs/authentication-login-gate.md`, `test-reports/authentication-login-gate.md` (all created) — the full Scope → Design → Test record for the login-gate backfill.
+
+### Prototype folders (all 3, branch `evolution/authentication-login-gate`)
+- `login.html`, `shared/auth.js` (new, ×3 folders)
+- `01.1-Skills-Dashboard.html`, `02.1-Content-Discovery.html`, `02.2-Continue-Watching.html`, `03-Skills-Dashboard.html` (guard + logout wiring)
+- `02-Caseys-Resume-and-Watch-Prototype/data/demo-data.js` (additive — `emp-morgan`/`emp-jordan` assignment entries)
+
+### `_bmad-output/_progress/00-design-log.md`
+Updated as part of the Product Evolution cycle (WDS-native progress log).
+
+### PRD workspace (`_bmad-output/planning-artifacts/prds/prd-TalentPilot-AI-2026-07-09/`)
+- `prd.md` — new §4.5 (FR-13, FR-14), Glossary Session entry, MVP Scope bullet, Open Question 9 rewritten, Assumptions Index entry.
+- `addendum.md` — Prototype Implementation Notes gained an auth-backfill validation summary.
+- `.memlog.md` — 6 new dated entries.
+
+### `_bmad-output/project-context.md` (appended to, not overridden)
+A new dated bullet documenting the PRD update and closing the cross-artifact loop.
+
+### `project_talentpilot_mvp_scope.md` (cross-session memory, outside the project repo — Claude's auto-memory store, not `_bmad-output`) and `documentation/PROJECTWORKFLOW.md` (this file)
+The cross-session scope memory gained the authentication Must-have addition (see `bmad-help` above); this file gained this section.
+
+---
+
+## Session Notes
+
+**A memory-layer decision preceded the code.** Before any prototype file changed, the user was asked — via `AskUserQuestion`, not assumed — whether authentication was now in scope at all, and if so, how deep the fix should go. This meant the eventual Product Evolution run started from an explicit, recorded product decision (Must-have, full loop) rather than an implicit "just add a login screen" request, and that decision is durable in cross-session memory independent of this project's own artifacts.
+
+**The same "found once, fixed once, documented once" discipline held again.** The `login.html`/`prototype-api.js` script-loading gap that caused Morgan's login to silently show Casey's data is the third instance in this project of a real bug being caught by *actually driving the browser* during acceptance testing rather than by reading the code (after the Phase 5 `fetch()`/`file://` bug and the FR-7 rewind-ordering bug caught during PRD review) — each one documented once, at the artifact that will prevent it recurring, rather than left to be rediscovered.
+
+**The PRD update deliberately did not launder the prototype's mock auth into a production spec.** The temptation with a working, tested prototype gate is to describe *it* in the PRD. Instead, FR-13/FR-14 describe the production behavior (session required, role/identity-scoped access) using the session mechanism already locked during technical research, while explicitly flagging in both the FRs and Open Question 9 that the prototype's hardcoded demo-credential list answers a UX-validation question, not a production identity-provisioning one — the same discipline the original PRD phase applied when it refused to treat the prototype's "✓ Approved" badge as a real content-approval gate.
+
+**Why this phase matters:** Authentication is now consistent across every layer of the pipeline that matters — confirmed in scope memory, traced back to the Trigger Map personas' actual fears (not bolted on as a generic feature), implemented and browser-tested at the prototype level, and formalized as testable Functional Requirements in the PRD with its genuinely open questions (credential source, roster provisioning) left open rather than papered over. The only remaining step is [P] Deploy — merging the `evolution/authentication-login-gate` branch — which the user has not yet requested.
+
+---
+
+No other files were created or modified during this phase beyond what's listed above.

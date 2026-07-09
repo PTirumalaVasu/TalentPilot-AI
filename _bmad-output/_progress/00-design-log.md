@@ -132,6 +132,19 @@
 
 ---
 
+### 2026-07-09 — Phase 8: Product Evolution — Authentication Login Gate
+
+**Agent:** wds-8-product-evolution ([S] Scope → [D] Design → [I] Implement → [T] Test), with Claude Code
+**Scope:** Backfill a login/session gate into all 3 built prototypes — flagged retroactively as a gap missed during the original brainstorming/Design Thinking phases (no persona driving force ever surfaced "who can open this," so no login gate was ever scoped).
+
+**Artifacts:** `evolution/scenarios/authentication-login-gate.md`, `evolution/specs/authentication-login-gate.md`, `evolution/test-reports/authentication-login-gate.md`. Branch: `evolution/authentication-login-gate`.
+
+**Result:** One shared login page design (`login.html`, duplicated per folder per the existing shared/-file convention) + `shared/auth.js` mock credential store (Rita=HR, Casey/Morgan/Jordan/Sam=Employee) + a 2-line session guard on each existing protected page. 9/9 acceptance criteria passed after browser-driven testing (Playwright) caught and fixed one real bug: Employee logins other than Casey silently saw Casey's data because `login.html` doesn't load `shared/prototype-api.js`. Zero visual/behavioral change to any existing authorized page, confirmed via screenshot comparison. Two pre-existing, unrelated issues surfaced during testing (Dev Mode toggle button overlapping the header user-menu; Provenance Drill-Down modal has no row-click handler) — logged in the test report and `project-context.md`, not fixed here.
+
+**Next:** Merge `evolution/authentication-login-gate` when ready; consider the two logged pre-existing issues as separate follow-up scenarios.
+
+---
+
 ## Key Decisions
 
 | Date | Decision | Phase | Contributors |
