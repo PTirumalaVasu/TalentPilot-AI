@@ -1,0 +1,98 @@
+# generated: 2026-07-09
+# last_updated: 2026-07-09
+# project: TalentPilot-AI
+# project_key: NOKEY
+# tracking_system: file-system
+# story_location: _bmad-output/implementation-artifacts
+
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+#
+# Epic Status Transitions:
+#   - backlog → in-progress: Automatically when first story is created (via create-story)
+#   - in-progress → done: Manually when all stories reach 'done' status
+#
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created in stories folder
+#   - in-progress: Developer actively working on implementation
+#   - review: Ready for code review (via Dev's code-review workflow)
+#   - done: Story completed
+#
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+#
+# Action Item Status:
+#   - open: Committed during a retrospective, not yet addressed
+#   - in-progress: Actively being worked on
+#   - done: Completed
+#
+# WORKFLOW NOTES:
+# ===============
+# - Epic transitions to 'in-progress' automatically when first story is created
+# - Stories can be worked in parallel if team capacity allows
+# - Developer typically creates next story after previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
+# - Retrospective appends its action items to action_items; sprint-status surfaces open ones
+
+generated: 2026-07-09
+last_updated: 2026-07-09
+project: TalentPilot-AI
+project_key: NOKEY
+tracking_system: file-system
+story_location: _bmad-output/implementation-artifacts
+
+development_status:
+  epic-1: backlog
+  1-1-project-structure-and-core-dependencies: backlog
+  1-2-jwt-token-generation-and-session-model: backlog
+  1-3-role-and-identity-scoping-on-every-request: backlog
+  1-4-login-endpoint-and-credential-store-mock-for-mvp: backlog
+  1-5-sign-out-and-session-invalidation: backlog
+  1-6-protected-endpoint-gate-no-flash-of-protected-content: backlog
+  1-7-database-schema-initialization-and-migration: backlog
+  epic-1-retrospective: optional
+
+  epic-2: backlog
+  2-1-content-catalog-data-model-and-schema: backlog
+  2-2-embedding-model-integration-sentence-transformers: backlog
+  2-3-batch-content-ingestion-job-youtube-search: backlog
+  2-4-semantic-content-matching-filter-then-rank: backlog
+  2-5-content-discovery-single-assignment-card-view: backlog
+  2-6-empty-and-error-states-for-content-discovery: backlog
+  epic-2-retrospective: optional
+
+  epic-3: backlog
+  3-1-assignments-data-model-and-hr-admin-scope: backlog
+  3-2-skill-master-data-and-seed: backlog
+  3-3-employee-master-data-and-seed: backlog
+  3-4-hr-assignment-flow-multi-step-modal-employee-and-skill-selection: backlog
+  3-5-assignment-creation-and-immediate-dashboard-appearance: backlog
+  3-6-cancel-assignment-flow-leaves-no-orphaned-record: backlog
+  epic-3-retrospective: optional
+
+  epic-4: backlog
+  4-0-youtube-iframe-adapter-abstraction-layer-for-player-events: backlog
+  4-1-skill-progress-data-model-and-watch-position-storage: backlog
+  4-2-watch-position-capture-and-periodic-posting-from-client: backlog
+  4-3-tab-close-flush-via-sendbeacon-reliability: backlog
+  4-4-server-side-anti-spoofing-validate-position-advances: backlog
+  4-5-event-time-ordering-conditional-write-skip-stale-writes: backlog
+  4-6-resume-position-retrieval-and-exact-point-playback: backlog
+  4-7-continue-watching-card-empty-and-loaded-states: backlog
+  epic-4-retrospective: optional
+
+  epic-5: backlog
+  5-1-assignment-dashboard-grid-status-badge-display: backlog
+  5-2-provenance-drill-down-modal-trust-detail-and-raw-data: backlog
+  5-3-needs-attention-flagging-7-day-staleness-threshold: backlog
+  5-4-dashboard-auto-update-live-row-refresh-on-watch-progress: backlog
+  5-5-hr-override-manual-readiness-confirmation: backlog
+  5-5b-hr-override-reversal-undo-manual-confirmation: backlog
+  5-6-accessibility-and-real-time-announcements: backlog
+  epic-5-retrospective: optional

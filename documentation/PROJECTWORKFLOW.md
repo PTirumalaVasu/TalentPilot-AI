@@ -2098,3 +2098,50 @@ Build timeline: 15-20 days (launch 2026-07-13 achievable).
 
 ---
 
+# Sprint Planning Phase — Skills, Agents, and Files
+
+**Date:** 2026-07-09
+**Status:** Sprint tracking established, 0 stories started
+
+## Overview
+
+Ran the sprint planning workflow to generate `sprint-status.yaml`, the single source of truth for epic/story progress tracking, from the approved `epics.md`. No prior sprint-status file existed, so this was a first-time generation covering all 5 epics and their stories in full.
+
+## Agents Called
+
+None — this phase ran entirely within the `bmad-sprint-planning` skill (no sub-agent delegation was needed; parsing and status detection were done directly against the repo file system).
+
+## Skills Used
+
+### 1. bmad-sprint-planning
+**Purpose:** Parse all epic/story headers out of `_bmad-output/planning-artifacts/epics.md`, convert each `Epic.Story: Title` into a kebab-case tracking key (e.g. `1-1-project-structure-and-core-dependencies`), detect current status by checking for existing story files under `_bmad-output/implementation-artifacts/`, and emit a structured `sprint-status.yaml`.
+
+**Process:**
+- Resolved workflow customization (`customize.toml` — no team/user overrides present)
+- Loaded `_bmad-output/project-context.md` as a persistent fact
+- Discovered a single whole `epics.md` (not sharded) as the epic source
+- Extracted 5 epics and 34 stories (including sub-lettered story `5.5b` and zero-indexed story `4.0`)
+- Checked `_bmad-output/implementation-artifacts/` for existing story files — none found, so every story defaulted to `backlog`
+- No pre-existing `sprint-status.yaml` was found to preserve/carry forward (first-time generation)
+
+**Result:** All 5 epics and 34 stories written at `backlog` status, plus one `optional` retrospective entry per epic.
+
+## Files Created and Purpose of Each
+
+### 1. `_bmad-output/implementation-artifacts/sprint-status.yaml` (created)
+The authoritative sprint tracking file. Contains:
+- Header metadata (generated/last_updated date, project name, tracking system, story location) duplicated as both comments and parsed YAML fields
+- Full status-definition reference block (Epic/Story/Retrospective/Action-Item state machines) for future agents reading this file cold
+- `development_status` map with all 5 epics, their 34 stories, and 5 retrospective placeholders, ordered epic-by-epic
+
+### 2. `documentation/PROJECTWORKFLOW.md` (this file, appended to)
+Session log entry documenting the sprint planning run.
+
+## Session Notes
+
+- This is a planning/bookkeeping phase, not a design or requirements phase — no PRD, architecture, or UX artifacts were touched.
+- Story key naming followed the skill's stated conversion rule (period → dash, title → kebab-case), including edge cases: `Story 4.0` → `4-0-...` and `Story 5.5b` → `5-5b-...`.
+- Next expected step: run `bmad-create-story` for `1-1-project-structure-and-core-dependencies`, which will flip `epic-1` to `in-progress` on the next sprint-planning refresh.
+
+---
+
