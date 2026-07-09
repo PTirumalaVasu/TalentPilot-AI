@@ -42,14 +42,15 @@
 
 generated: 2026-07-09
 last_updated: 2026-07-09
+# story 1-1 marked ready-for-dev 2026-07-09 (bmad-create-story); epic-1 auto-transitioned to in-progress
 project: TalentPilot-AI
 project_key: NOKEY
 tracking_system: file-system
 story_location: _bmad-output/implementation-artifacts
 
 development_status:
-  epic-1: backlog
-  1-1-project-structure-and-core-dependencies: backlog
+  epic-1: in-progress
+  1-1-project-structure-and-core-dependencies: done
   1-2-jwt-token-generation-and-session-model: backlog
   1-3-role-and-identity-scoping-on-every-request: backlog
   1-4-login-endpoint-and-credential-store-mock-for-mvp: backlog
