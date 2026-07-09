@@ -14,6 +14,12 @@ from app.core.security import decode_access_token
 
 logger = logging.getLogger(__name__)
 
+# In-memory, per-process record of signed-out tokens (Story 1.5). Deliberately
+# not DB/Redis-backed: local-single-process MVP scope (AR-15/AR-16, and Story
+# 1.1's "no Redis service" call), wiped on restart, unbounded-but-tiny growth
+# accepted for a five-user demo pilot.
+_revoked_tokens: set[str] = set()
+
 
 def authenticate(email: str, password: str) -> tuple[str, Role]:
     account = find_account(email)
@@ -40,10 +46,27 @@ def get_current_token_payload(request: Request) -> dict:
     if token is None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "No active session")
 
+    if token in _revoked_tokens:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Session has been signed out")
+
     try:
         return decode_access_token(token)
     except jwt.PyJWTError as exc:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid or expired session") from exc
+
+
+def logout(request: Request, response: Response) -> None:
+    token = request.cookies.get(settings.SESSION_COOKIE_NAME)
+    if token:
+        _revoked_tokens.add(token)
+
+    response.delete_cookie(
+        key=settings.SESSION_COOKIE_NAME,
+        path="/",
+        httponly=True,
+        secure=settings.COOKIE_SECURE,
+        samesite="lax",
+    )
 
 
 def get_current_user(

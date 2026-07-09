@@ -44,6 +44,9 @@ generated: 2026-07-09
 last_updated: 2026-07-09
 # story 1-1 marked ready-for-dev 2026-07-09 (bmad-create-story); epic-1 auto-transitioned to in-progress
 # story 1-1 completed and merged to main via PR #25 2026-07-09; story 1-2 marked ready-for-dev 2026-07-09 (bmad-create-story)
+# stories 1-2/1-3/1-4 completed and merged to main via PR #27 2026-07-09; story 1-5 marked ready-for-dev 2026-07-09 (bmad-create-story)
+# story 1-5 implemented 2026-07-09 (bmad-dev-story), status -> review
+# story 1-5 code review completed 2026-07-09 (bmad-code-review): 3 patches applied, 1 decision deferred, 4 total deferred, 5 dismissed; status -> done
 project: TalentPilot-AI
 project_key: NOKEY
 tracking_system: file-system
@@ -55,7 +58,7 @@ development_status:
   1-2-jwt-token-generation-and-session-model: done
   1-3-role-and-identity-scoping-on-every-request: done
   1-4-login-endpoint-and-credential-store-mock-for-mvp: done
-  1-5-sign-out-and-session-invalidation: backlog
+  1-5-sign-out-and-session-invalidation: done
   1-6-protected-endpoint-gate-no-flash-of-protected-content: backlog
   1-7-database-schema-initialization-and-migration: backlog
   epic-1-retrospective: optional
