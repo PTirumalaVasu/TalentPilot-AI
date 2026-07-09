@@ -69,11 +69,19 @@
     <!-- ========================================================================
          MAIN CONTENT (filled in by Section 2 onward)
          ======================================================================== -->
-    <main id="page-main-content" class="px-6 py-6 max-w-2xl mx-auto">
+    <main id="page-main-content" class="px-6 py-6 max-w-5xl mx-auto">
+        <div class="mb-6 flex items-center justify-between">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900" id="cw-page-title">Continue Watching</h1>
+                <p class="text-sm text-gray-600 mt-1" id="cw-page-subtitle">Pick up where you left off</p>
+            </div>
+            <a href="02.1-Content-Discovery.html" class="text-talentpilot-600 hover:underline text-sm font-medium">← Back to Skills</a>
+        </div>
+
         <div class="bg-white rounded-lg shadow-sm p-6">
-            <div id="continue-watching-card-header" data-object-id="continue-watching-card-header" class="mb-4">
+            <div id="continue-watching-card-header" data-object-id="continue-watching-card-header" class="mb-6 pb-6 border-b border-gray-200">
                 <h2 class="text-lg font-semibold text-gray-900" id="cw-skill-title"></h2>
-                <p class="text-sm text-gray-500" id="cw-status"></p>
+                <p class="text-sm text-gray-600 mt-1" id="cw-status"></p>
             </div>
 
             <div class="flex gap-4">
@@ -160,18 +168,14 @@
     <script>
         /**
          * Page: 02.2 Continue Watching
-         * Purpose: Casey resumes an in-progress skill at the exact last
-         *          watched position, no manual seeking.
+         * Purpose: Casey resumes the selected video at the last watched position
+         *          or starts from the beginning if it's new.
          */
 
         window.initPage = function() {
             console.log('📄 02.2 Continue Watching loaded');
             loadContinueWatching();
         };
-
-        function getDemoStateParam() {
-            return new URLSearchParams(window.location.search).get('demo_state');
-        }
 
         function setCardState(state) {
             // state: 'loading' | 'loaded' | 'empty' | 'error'
@@ -182,34 +186,95 @@
         }
 
         async function loadContinueWatching() {
-            const forcedState = getDemoStateParam();
-
-            if (forcedState === 'loading') { setCardState('loading'); return; }
-            if (forcedState === 'error') { setCardState('error'); return; }
-            if (forcedState === 'empty') { setCardState('empty'); return; }
-
             setCardState('loading');
-            const c = await PrototypeAPI.getContinueWatching();
-            console.log('📦 Continue Watching data:', c);
 
-            document.getElementById('cw-skill-title').textContent = c.skillName;
-            document.getElementById('cw-status').textContent = `${c.status} · ${c.lastUpdate}`;
-            document.getElementById('continue-watching-content-title').textContent = c.content.title;
-            document.getElementById('continue-watching-source-badge').textContent = c.content.source;
-            document.getElementById('continue-watching-duration').textContent = `${c.content.durationMinutes} minutes`;
-            document.getElementById('continue-watching-progress-text').textContent =
-                `${c.watchedMinutes} min watched of ${c.totalMinutes} min · ${c.totalMinutes - c.watchedMinutes} min remaining`;
-            document.getElementById('continue-watching-btn-resume').textContent = `▶ Resume at ${c.resumeTimestamp}`;
-            document.getElementById('continue-watching-encouragement').textContent = `You're making progress on ${c.skillName}!`;
+            try {
+                // Check if a video was selected
+                const selectedVideo = await PrototypeAPI.getSelectedVideo();
+
+                if (selectedVideo) {
+                    console.log('📦 Selected video:', selectedVideo);
+                    displaySelectedVideo(selectedVideo);
+                } else {
+                    // Fallback to demo data if no video selected
+                    const c = await PrototypeAPI.getContinueWatching();
+                    console.log('📦 Continue Watching data:', c);
+                    displayVideoData(c);
+                }
+            } catch (error) {
+                console.error('❌ Error loading video:', error);
+                setCardState('error');
+            }
+        }
+
+        function displaySelectedVideo(video) {
+            const watchProgress = video.watchProgress || 0;
+            const content = video.content;
+            const statusText = watchProgress > 0 ? `In Progress · ${watchProgress}% watched` : 'Assigned · Awaiting first watch';
+
+            // Update page context
+            document.getElementById('cw-page-title').textContent = video.skillName;
+            document.getElementById('cw-page-subtitle').textContent = statusText;
+
+            document.getElementById('cw-skill-title').textContent = video.skillName;
+            document.getElementById('cw-status').textContent = `Started on ${getDateString()} · ${statusText}`;
+            document.getElementById('continue-watching-content-title').textContent = content.title;
+            document.getElementById('continue-watching-source-badge').textContent = content.source;
+            document.getElementById('continue-watching-duration').textContent = `${content.durationMinutes} minutes`;
+
+            if (watchProgress > 0) {
+                const watchedMinutes = Math.round(content.durationMinutes * watchProgress / 100);
+                const remainingMinutes = content.durationMinutes - watchedMinutes;
+                document.getElementById('continue-watching-progress-text').textContent =
+                    `${watchedMinutes} min watched of ${content.durationMinutes} min · ${remainingMinutes} min remaining`;
+                document.getElementById('continue-watching-btn-resume').textContent = `▶ Resume at ${getTimestamp(watchedMinutes)}`;
+                document.getElementById('continue-watching-progress-bar').querySelector('div').style.width = `${watchProgress}%`;
+                document.querySelector('#page-main-content > .bg-white .relative div.h-1').style.width = `${watchProgress}%`;
+            } else {
+                document.getElementById('continue-watching-progress-text').textContent = `Start watching · ${content.durationMinutes} min`;
+                document.getElementById('continue-watching-btn-resume').textContent = '▶ Start watching';
+                document.getElementById('continue-watching-progress-bar').querySelector('div').style.width = '0%';
+                document.querySelector('#page-main-content > .bg-white .relative div.h-1').style.width = '0%';
+            }
+
+            document.getElementById('continue-watching-encouragement').textContent = watchProgress > 0
+                ? `You're making great progress on ${video.skillName}! Keep it up.`
+                : `Ready to start learning ${video.skillName}? Let's get started!`;
+
             setCardState('loaded');
         }
 
+        function getDateString() {
+            const date = new Date();
+            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        }
+
+        function displayVideoData(data) {
+            document.getElementById('cw-skill-title').textContent = data.skillName;
+            document.getElementById('cw-status').textContent = `${data.status} · ${data.lastUpdate}`;
+            document.getElementById('continue-watching-content-title').textContent = data.content.title;
+            document.getElementById('continue-watching-source-badge').textContent = data.content.source;
+            document.getElementById('continue-watching-duration').textContent = `${data.content.durationMinutes} minutes`;
+            document.getElementById('continue-watching-progress-text').textContent =
+                `${data.watchedMinutes} min watched of ${data.totalMinutes} min · ${data.totalMinutes - data.watchedMinutes} min remaining`;
+            document.getElementById('continue-watching-btn-resume').textContent = `▶ Resume at ${data.resumeTimestamp}`;
+            document.getElementById('continue-watching-encouragement').textContent = `You're making progress on ${data.skillName}!`;
+
+            setCardState('loaded');
+        }
+
+        function getTimestamp(minutes) {
+            const hrs = Math.floor(minutes / 60);
+            const mins = minutes % 60;
+            return hrs > 0 ? `${hrs}:${mins.toString().padStart(2, '0')}` : `${mins}:00`;
+        }
+
         function handleResume() {
-            console.log('▶ Resume clicked — would launch video player at 14:32 (real player out of scope)');
+            console.log('▶ Resume clicked — would launch video player');
         }
 
         function handleStartOver() {
-            console.log('↺ Start over clicked — would launch video player at 0:00 (real player out of scope)');
+            console.log('↺ Start over clicked — would launch video player at 0:00');
         }
 
         function toggleUserMenu() {
@@ -220,7 +285,6 @@
             console.log('👋 Sign out clicked (prototype no-op)');
         }
 
-        // User menu: close on click-outside (Section 4)
         document.addEventListener('click', (e) => {
             const userMenu = document.getElementById('continue-watching-user-menu');
             const dropdown = userMenu.querySelector('[data-dropdown]');
