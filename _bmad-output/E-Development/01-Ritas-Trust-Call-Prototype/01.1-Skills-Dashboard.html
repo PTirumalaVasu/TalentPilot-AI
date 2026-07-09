@@ -2,6 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <script src="shared/auth.js"></script>
+    <script>TalentPilotAuth.requireRole('HR');</script>
     <meta name="viewport" content="width=1280, initial-scale=1.0">
     <title>01.1 Skills Dashboard - TalentPilot-AI</title>
 
@@ -381,7 +383,7 @@
         }
 
         function handleSignOut() {
-            console.log('👋 Sign out clicked (prototype no-op)');
+            TalentPilotAuth.logout();
         }
 
         function handleNewAssignment() {

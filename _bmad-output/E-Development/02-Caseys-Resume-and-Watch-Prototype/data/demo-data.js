@@ -134,6 +134,44 @@ window.DEMO_DATA = {
           watchProgress: 0
         }
       ]
+    },
+    "emp-morgan": {
+      assignedVideos: [
+        {
+          id: "video-7",
+          employeeId: "emp-morgan",
+          skillId: "skill-python-basics",
+          skillName: "Python Basics",
+          status: "Completed · 100% watched",
+          content: {
+            title: "Python Basics for Beginners",
+            source: "YouTube",
+            durationMinutes: 45,
+            approved: true,
+            description: "Learn Python fundamentals with practical examples and exercises."
+          },
+          watchProgress: 100
+        }
+      ]
+    },
+    "emp-jordan": {
+      assignedVideos: [
+        {
+          id: "video-8",
+          employeeId: "emp-jordan",
+          skillId: "skill-data-viz",
+          skillName: "Data Visualization Fundamentals",
+          status: "In Progress · 40% watched",
+          content: {
+            title: "Data Visualization Fundamentals",
+            source: "YouTube",
+            durationMinutes: 28,
+            approved: true,
+            description: "Core principles of clear, honest data visualization."
+          },
+          watchProgress: 40
+        }
+      ]
     }
   },
 

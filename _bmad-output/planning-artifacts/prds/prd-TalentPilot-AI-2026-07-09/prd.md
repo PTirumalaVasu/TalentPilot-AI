@@ -63,6 +63,7 @@ These three journeys were already designed as UX scenarios and built as working 
 
 - **HR Admin** — The primary user role (persona: Rita). Assigns skills, makes readiness judgments. Not a people-manager role — assigns and judges org-wide, doesn't manage individual employees directly.
 - **Employee** — The secondary user role (persona: Casey). Receives skill assignments, consumes recommended content, generates watch-progress signal passively.
+- **Session** — The authenticated context established after HR Admin or Employee login, carried via a JWT in an HTTP-only/Secure/SameSite cookie (see `addendum.md`, Technical Stack). Required before any Assignment, Content, or Watch Progress data is reachable (FR-13); scoped to exactly one role and, for Employees, exactly one identity (FR-14).
 - **Skill** — A named competency HR can assign to an Employee (e.g., "Data Visualization"). Distinct from a **sub-skill**, a finer-grained status field that remains self-reported (out of MVP auto-capture scope).
 - **Assignment** — A record linking one Employee to one Skill, created by an HR Admin. Carries a Status badge (Not Started → In Progress → Completed) and, one level down via drill-down, a Provenance Label.
 - **Content** — A video, document, or website recommended for a given Skill. Only video content is auto-captured in MVP; document/website content is recommended but not progress-tracked.
@@ -216,6 +217,31 @@ HR Admin can mark an Assignment as ready independent of its Watch Progress or se
 
 **Notes:** `[NOTE FOR PM]` No existing UX scenario or prototype covers this interaction (it wasn't in the original three scenarios built and tested). Downstream UX work needs to design the override entry point and confirmation flow, not just implement it from this FR description alone.
 
+### 4.5 Authentication & Session Gate
+
+**Description:** Every User Journey in this PRD assumes an "Authenticated" entry state (UJ-1, UJ-2, UJ-3) — until this update, no Functional Requirement defined what that meant. This feature closes the authentication half of what was Open Question 9: no Assignment, Content, or Watch Progress data is reachable without a valid session, and a session is scoped to exactly one role (HR Admin, or exactly one Employee identity). The session-carrying mechanism itself (JWT in an HTTP-only/Secure/SameSite cookie) was already locked during technical research (`addendum.md`, Technical Stack); this feature turns that locked mechanism into testable product behavior. `[ASSUMPTION: the login → role-routing → own-data-only UX pattern below was validated end-to-end against a prototype-level mock gate via the wds-8-product-evolution pipeline (2026-07-09) — see _bmad-output/evolution/. The mock gate's client-side, hardcoded-credential implementation is explicitly not the production mechanism; see Open Question 9.]`
+
+**Functional Requirements:**
+
+#### FR-13: System requires a valid authenticated session before any Assignment, Content, or Watch Progress data is served
+
+No dashboard, content-discovery list, video, or API response containing Assignment/Content/Watch-Progress data is reachable without a valid session. Realizes UJ-1, UJ-2, UJ-3.
+
+**Consequences (testable):**
+- Requesting any protected page or endpoint with no session, or an expired session, redirects to login before any protected content renders — never a flash of protected content followed by a redirect.
+- Session is carried via a JWT in an HTTP-only/Secure/SameSite cookie (locked stack decision, `addendum.md`), not `localStorage` or a URL parameter — not inspectable or forgeable from client-side script.
+- Signing out invalidates the session immediately; re-requesting a previously-open protected page afterward redirects to login again, never a cached view.
+- `[NOTE FOR PM]` Where account credentials originate (HR- and Employee-provisioned local accounts vs. company SSO) and where the Employee roster comes from are still undecided — see Open Question 9. This FR defines session/access-gate behavior, not the identity-provisioning source.
+
+#### FR-14: A session is scoped to exactly one role and, for Employees, exactly one identity
+
+An HR Admin session can reach the Readiness Dashboard and Skill Assignment Flow; an Employee session can reach only Content Discovery and Continue-Watching, scoped to that Employee's own Assignments — never another Employee's. Realizes UJ-1, UJ-2, UJ-3.
+
+**Consequences (testable):**
+- An Employee session can never retrieve or display another Employee's Assignment, Content, or Watch Progress data, regardless of how the request is formed — this is the hard Non-Goal already stated in §5 ("An Employee can never view another Employee's assignments"), now backed by an access-control FR rather than only a UI-level assumption.
+- A valid session presented against a role it doesn't hold (e.g., an Employee session requesting an HR-only endpoint) is refused with an explicit access-denied response, not a silent empty result or a broken redirect.
+- `[NOTE FOR PM]` The prototype validated the *shape* of this (role-based login routing, a wrong-role notice instead of a broken redirect) using a mock, single-device credential store — the real build must enforce this scoping server-side, on every request, not just at the login/routing step client-side.
+
 ## 5. Non-Goals (Explicit)
 
 - **Not an LMS or LXP.** No course catalog browsing, no learning paths, no certifications. It is an assignment-and-tracking dashboard, deliberately narrow.
@@ -235,6 +261,7 @@ HR Admin can mark an Assignment as ready independent of its Watch Progress or se
 - AI-Assisted Content Discovery, video/doc/website recommendations (FR-3, FR-4)
 - Automatic Video Progress Capture & Resume, bundled as one mechanic (FR-5, FR-6, FR-7)
 - Readiness Dashboard — Status badges at a glance, Provenance Label + Needs Attention on drill-down, HR manual override (FR-8, FR-9, FR-10, FR-11, FR-12)
+- Authentication & Session Gate — login required for all Assignment/Content/Watch Progress access, role-scoped sessions (FR-13, FR-14)
 
 ### 6.2 Out of Scope for MVP
 
@@ -297,7 +324,7 @@ The corporate skills-tracking / LMS-LXP category has been consolidating since 20
 6. **The root-cause hypothesis itself is unvalidated.** Whether HR's relationship to the old spreadsheet was genuinely "resigned" (fixable) versus "tolerant" (a deeper behavioral pattern the product won't change) has never been tested with a real HR Admin. Validation is deferred to post-launch telemetry (SM-1, SM-2) rather than pre-launch research — a deliberate choice, not an oversight.
 7. **Deployment/hosting target is undecided.** The technical research explicitly deferred this. Given the hard 2026-07-13 launch date, this is a real risk to the date holding, not just a remaining implementation nicety — flagging it here so it doesn't fall through as "someone else's problem." Compounds with #9 below: two of this PRD's newest FRs (FR-12 and the overall timeline) have no implementation head start.
 8. **Provenance-label comprehension has not been usability-tested.** The PRFAQ named this as one of the two structural cracks in an otherwise-forged concept: whether HR Admins actually read and correctly interpret the Verified / Self-reported / Needs Attention / HR Override distinction (rather than skimming past it) is untested. Recommend a lightweight comprehension check before or immediately after launch, not deferred indefinitely.
-9. **Authentication and employee-roster provisioning has no FR in this PRD.** Every User Journey assumes an "Authenticated" entry state, but how HR Admins and Employees get accounts, and where the Employee roster/identity data comes from, is undefined anywhere in the source material. Reviewer-surfaced gap — needs an answer before FR-1 (which depends on selecting a known Employee) can be built.
+9. **Authentication is now scoped (FR-13, FR-14, added 2026-07-09) — but two sub-questions remain genuinely open.** The access-gate and session-scoping behavior is defined and was validated end-to-end at the prototype level (`wds-8-product-evolution`, see `_bmad-output/evolution/`), which confirmed the login → role-routing → own-data-only UX pattern works. Still undefined, and not answered by the prototype's mock credential store: (a) where HR Admin and Employee accounts come from in production — locally provisioned by HR, or company SSO — and (b) where the Employee roster/identity data originates. Needs an answer before FR-1 (which depends on selecting a known Employee) can be built against a real roster rather than a hand-seeded demo list.
 10. **No fallback is defined for Content that becomes unavailable after assignment.** Recommended videos/documents/websites are externally hosted and can be taken down or moved at any time after an Assignment already points to them (FR-2, FR-4). Reviewer-surfaced gap, not addressed in any source artifact.
 11. **The Status/Provenance split (FR-8, FR-9, FR-10) may reintroduce the trust-ambiguity problem this product exists to solve.** A Status badge computed purely from Watch Progress percentage doesn't distinguish Verified from Self-reported data at the row level — that distinction now lives one click away in the drill-down. This works only if HR Admins reliably use the drill-down before trusting a badge at face value, which is unproven (compounds with Open Question 8's untested label comprehension) and structurally undercuts the original design target of spotting flagged rows without clicking into each one (Business Goals Objective 3). Needs a real decision: accept the risk as-is, add a secondary at-a-glance cue for Needs Attention/stale rows specifically, or reconsider the pivot.
 12. **The Content Discovery data model already supports one Employee viewing another Employee's assignments** (`getEmployees`/`setSelectedEmployee` in the prototype's API layer, built for cross-scenario data reuse) — no UI currently exposes this, but wiring it up would take minimal effort. This is a latent privacy/scope risk, not a built feature; treated as a hard Non-Goal (§5) going forward, but worth naming here so it isn't accidentally exposed in a future iteration.
@@ -309,3 +336,4 @@ The corporate skills-tracking / LMS-LXP category has been consolidating since 20
 - §4.2 — Semantic/approximate matching (not exact-tag filtering) is required for Content Discovery to be useful — confirmed decision, not yet validated against real catalog content.
 - §4.2/FR-4 — Content Discovery pivoted from a single-recommendation model to a multi-assignment list (Total/In Progress/To Start), confirmed this session after the prototype was found to have already made this change unrecorded. Not yet validated with a real Employee.
 - §4.4/FR-8 — The dashboard's primary at-a-glance signal pivoted from Provenance Label to a completion-Status badge, with Provenance moved to drill-down, confirmed this session after the prototype was found to have already made this change unrecorded. Carries a real, unresolved coherence risk — see Open Question 11.
+- §4.5/FR-13/FR-14 — Authentication's login → role-routing → own-data-only UX pattern was validated against a prototype-level mock gate (client-side, hardcoded demo accounts, no backend) via `wds-8-product-evolution` (2026-07-09, see `_bmad-output/evolution/`), then generalized into production FRs using the session mechanism (JWT / HTTP-only cookie) already locked in `addendum.md`. The mock credential store itself is not a production decision — see Open Question 9.
