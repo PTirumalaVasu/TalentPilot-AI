@@ -6,6 +6,9 @@ pydantic==2.13.4
 pydantic-settings==2.14.2
 pyjwt==2.13.0
 python-dotenv==1.2.2
+alembic==1.13.1
+pgvector==0.3.0
+sentence-transformers==3.4.0
 
 # test dependencies
 pytest==9.1.1
