@@ -6,14 +6,14 @@ Implementation how-to, rejected-alternative rationale, and depth material that i
 
 - **Backend:** Python 3.12+ / FastAPI, domain-module structure, async SQLAlchemy 2.0 + asyncpg.
 - **Frontend:** React + TypeScript + Vite SPA (not Next.js — no SEO need, internal authenticated tool only). shadcn/ui + Tailwind. React Hook Form + Zod on the client, Pydantic on the server.
-- **Database:** PostgreSQL + pgvector, in-process (not a dedicated vector DB). Embedding model: `text-embedding-3-small`. Query pattern: filter-then-rank (metadata pre-filter on skill tag, vector similarity ranks within that set).
+- **Database:** PostgreSQL + pgvector, in-process (not a dedicated vector DB). Embedding model: **local `sentence-transformers` (e.g. `all-MiniLM-L6-v2`, 384-dim)** — free, offline, no API key. Query pattern: filter-then-rank (metadata pre-filter on skill tag, vector similarity ranks within that set). `[Updated 2026-07-09, architecture spine]` This **supersedes the previously-locked `text-embedding-3-small`** (OpenAI's hosted, paid API): a paid outbound call conflicts with the §9 zero-budget constraint and the local-only build target (below). The filter-then-rank shape is unchanged; only the model and vector dimension differ. Revisit — swap to `text-embedding-3-small` — only if local match quality proves insufficient in the pilot.
 - **Auth:** JWT in an HTTP-only/Secure/SameSite cookie, not localStorage.
 - **Video provider:** YouTube IFrame API, polling-based (`getCurrentTime()` / `onStateChange`).
   - Wrapped in an Adapter pattern so a future Vimeo swap (event-driven `timeupdate`) doesn't require rewriting the capture pipeline.
   - YouTube branding cannot be removed (ToS) — this is why Vimeo was the fallback candidate if native branding ever becomes a requirement.
   - On tab close or visibility change, the last known position flushes via the browser `sendBeacon` API — chosen specifically because it delivers the request without blocking page unload, unlike a normal fetch/XHR call.
 - **Data models (named):** `assignments`, `skill_progress` (conditional-write semantics — skip write if incoming timestamp isn't newer), `content_catalog` (+ embeddings column).
-- **Deployment/hosting:** explicitly out of scope / deferred in the technical research.
+- **Deployment/hosting:** **out of scope — local working copy only.** `[Resolved 2026-07-09, architecture spine — closes PRD Open Question 7]` The build target is a single local environment (Docker Compose PostgreSQL+pgvector + uvicorn backend + Vite-served SPA); no cloud host, no CI/CD deploy pipeline, no multi-environment, no production containers. This resolves OQ7 by declaring deployment out of scope rather than picking a host — consistent with zero-budget and with all prior technical research deferring it. Revisit only if the pilot moves beyond a local copy (and even then: no Kubernetes / serverless-FaaS split / multi-region).
 
 ## Rejected Technical Alternatives
 
