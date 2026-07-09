@@ -1578,3 +1578,130 @@ The cross-session scope memory gained the authentication Must-have addition (see
 ---
 
 No other files were created or modified during this phase beyond what's listed above.
+
+---
+---
+
+# Architecture Spine Phase — Skills, Agents, and Files
+
+## Agents Called
+
+### Winston — System Architect (`bmad-agent-architect`)
+
+**Purpose:** The persistent facilitation persona for this phase — a systems-architect archetype channeling Martin Fowler's pragmatism and Werner Vogels's cloud-scale realism, whose stated principles are "Rule of Three before abstraction," "boring technology for stability," and "developer productivity is architecture." Its defining behavior is answering with **trade-offs, not verdicts**.
+
+**Why it was called:** The user explicitly invoked `/bmad-agent-architect` to start this phase in this persona.
+
+**What it did specifically in this session:**
+- Resolved its own customization via `resolve_customization.py --key agent`. The first attempt (`python3`) failed with the Windows "Python was not found" error — the same quirk already logged in `project-context.md` since the Design Thinking phase — and succeeded on the `python` launcher. Confirmed the agent block: icon 🏗️, communication style ("calm and pragmatic; balances what could be with what should be"), and a two-item menu (`CA` → `bmad-architecture`, `IR` → `bmad-check-implementation-readiness`).
+- Loaded `_bmad-output/project-context.md` as its `persistent_facts` entry and `_bmad/bmm/config.yaml` for `user_name` (TalentPilot), `communication_language` (English), and `planning_artifacts`.
+- Before presenting the menu, read `prd.md` + `addendum.md` and surveyed `planning-artifacts/architecture/` (empty — no prior run), so the greeting could state the actual terrain rather than a generic menu: the stack was already locked in the addendum, so the spine's real job was pinning invariants and closing the open calls — chiefly deployment/hosting (Open Question 7).
+- Dispatched into `bmad-architecture` when the user replied `ca`.
+- Remained in character (🏗️ prefix, trade-off framing, "here's where I want to push") for the whole phase, including inside the sub-skill.
+
+No other agent was invoked in this phase. **No subagents were spawned at any point** — a deliberate contrast with the PRD phase's 19 delegated subagents; see Session Notes.
+
+---
+
+## Skills Used
+
+### 1. bmad-architecture (create intent)
+
+**Purpose:** Produces an **architecture spine** — a consistency contract fixing only the *invariants* that keep independently-built units from diverging (design paradigm, boundary/dependency rules, how state is mutated, who owns shared data). Everything structural (stack, tree, full data shape) is treated as **seed** — true at cold start, owned by the code once it exists. Its governing test: *if two units one level down built this independently, could they choose incompatibly?* Fix it only if yes, and the call is non-obvious, and it's a real trade-off.
+
+**Why it was called:** Selected from Winston's menu (`CA`). The PRD was final and the stack locked, but no architecture artifact existed anywhere in `planning-artifacts/`.
+
+**Detailed sequence of what happened inside this skill:**
+
+- **Activation:** Resolved the `workflow` customization block (`spine_template`, `spine_output_path`, `run_folder_pattern`, `doc_standards`, two configured `finalize_reviewers`, `persistent_facts`). Confirmed no existing run folder under `planning-artifacts/architecture/`, so this was a fresh run rather than a resume-from-memlog.
+
+- **Two mandatory activation questions, asked via `AskUserQuestion` before any drafting** (the skill treats the elicitation as the value and explicitly warns against silently drafting):
+  - **Working mode** — Coaching path (default: open-ended questions, decisions pulled out of the user, pushback where thin) vs. Fast path (draft everything fast with `[ASSUMPTION]` tags). Winston flagged that the tight timeline argued for Fast; **the user deliberately chose Coaching anyway.**
+  - **Deliverables** — spine only / + solution-design doc / + walkthrough deck. The user chose **spine + solution-design doc**, audience being "whoever picks up implementation, and the pilot record."
+
+- **Workspace bound and memlog initialized** at `planning-artifacts/architecture/architecture-TalentPilot-AI-2026-07-09/` via `memlog.py init` — invoked with `python` + `PYTHONUTF8=1` rather than the skill's documented `uv run`, per the Windows workaround recorded in `project-context.md`. Thirteen entries were logged up front: the run kickoff, the **already-adopted** stack decisions inherited from `addendum.md` (so coaching wouldn't re-litigate them), the hard constraints (coaching-only, zero budget, YouTube's ~100/day quota, no data migration), and the three carried Open Questions (7, 9, 10).
+
+- **Coaching round 1 — module boundaries and data ownership.** Winston asked, open-endedly, how the backend should be carved into domain modules and — the sharper half — which module gets to *write* each of the three tables, pressing specifically on `skill_progress` (touched by the capture path, the dashboard, and the coaching-only boundary). **The user answered with a single-writer proposal:** Assignments module writes `assignments`; Content Catalog module writes `content_catalog`; a Coaching/Progress module is the sole writer of `skill_progress`, with every other feature calling its service API — giving one enforcement point for coaching-only, FR-7 event-time ordering, and anti-spoofing. Logged as a decision.
+
+- **Coaching round 2 — Winston pushed back twice** rather than accepting the proposal as sufficient:
+  1. **Coaching-only is a *read* constraint, not a write constraint.** Single-writer stops features corrupting each other's data, but §9's launch-blocking rule governs who can *read* watch data and in what shape. If the dashboard reads `skill_progress` directly, nothing structurally stops a later `GET /export/watch-history` endpoint doing the same.
+  2. **Who computes "effective Status + Provenance"?** FR-8 (Status from watch %), FR-10 (7-day staleness → Needs Attention), and FR-12 (HR Override) all feed one derivation. If the dashboard and the assignment flow each compute it from raw columns, they diverge on an overridden or stale row — which is Open Question 11's coherence risk manifesting as an actual bug. And concretely: *where does an HR Override live*, given FR-12 requires it to coexist with fresh watch data?
+
+- **The user pivoted the method**, asking: *"can you make decision based on brainstorming, technical research, wds files and prd?"* — i.e. derive the answers from the artifacts rather than be coached question-by-question. Logged as a `direction` entry, and the run shifted to **artifact-first derivation** for everything the sources could settle.
+
+- **Artifact investigation (the substantive research step of this phase).** Read the prototypes' data layer (`01/data/demo-data.js`, `01/shared/prototype-api.js`, `02/data/demo-data.js`, `02/shared/prototype-api.js`), `01/work/Logical-View-Map.md`, `deliveries/DD-001-poc-hypothesis-flows.yaml`, and — newly surfaced this phase — `research/technical-overall-stack-architecture-for-talentpilot-ai-research-2026-07-08.md`, which had not been consulted in the PRD phase. Four findings settled the open questions:
+  - The prototype **flat-denormalizes** `status`/`provenance`/`watchPercent` onto the assignment row, but its own API header states it "mirrors the data shape from DD-001 (`assignments`, `skill_progress`)" — the intended real shape is two tables, and the flat shape is a throwaway shortcut.
+  - The prototype **conflates Status and Provenance** (`status: "Needs Attention"`, `provenance: "Assigned"`) — values the PRD explicitly separates. A live trap for anyone building from the prototype.
+  - **DD-001's `privacy_constraint`** restates coaching-only as "a data-access/reporting boundary, not just a copy/communication choice."
+  - The **overall-stack research** is decisive on the first pushback: coaching-only "should be enforced at the repository/service layer — e.g., a distinct query path or explicit field-level access control." That is a *read*-path rule, confirming single-writer was insufficient.
+
+- **Decisions derived and logged** (each as a memlog `decision` entry citing its evidence): `progress/` is the **single owner** of `skill_progress` (reads *and* writes, with no bulk/cross-employee/export read method existing to call); it is the **single derivation authority** for effective `(Status, Provenance)`; **HR Override is a separate attributed/timestamped/reversible record**, never a field-overwrite, because FR-12 demands coexistence; the module set is `auth/`, `assignments/`, `content/`, `progress/`, with the Readiness Dashboard as a **read-composition owning no table**; the write path (session identity + event-time conditional write + server-side anti-spoofing); the server-side per-request session/role gate; and batch-only ingestion with filter-then-rank matching.
+
+- **Open Question 7 (deployment/hosting) resolved by a user tool-rejection, not by a recommendation.** Winston noted this was the one call no artifact made — every research doc explicitly *defers* it — and began a web search for zero-budget, pgvector-capable hosting (pgvector rules out Neon/PlanetScale). The first search returned; **the user rejected the second with "we dont want to do deplyment, having working copy in local is enough."** That rejection *was* the decision: OQ7 closed as **deployment out of scope — local working copy only** (Docker Compose Postgres+pgvector + uvicorn + Vite), which is also what the research had implicitly assumed all along. Logged as a user decision, and OQ9/OQ10 were narrowed as a direct consequence.
+
+- **Finalize sequence** (the skill's prescribed order — distill → reconcile → reviewer gate → triage → renderings → close):
+  - **Distilled** `ARCHITECTURE-SPINE.md` from the memlog (not written incrementally): 8 initial ADs, conventions table, seed stack, runtime-topology + ERD mermaid diagrams, an FR→module→AD capability map, and a Deferred section.
+  - **Deterministic lint** via `lint_spine.py` → 3 `low` findings, all **false positives** (`{module}` in the source-tree convention and `{id}` in REST path examples are literal path-template notation, not unfilled tokens). No change made.
+  - **Reconcile** caught one dropped invariant: the addendum's locked **Adapter pattern** for the video player had survived only as a Stack-table aside, not as a boundary rule. Added as **AD-9**, plus a "Real-time" convention row (dashboard live updates via client polling, explicitly *no* WebSocket/SSE, per the research).
+  - **Reviewer Gate** run with three lenses — the rubric walker plus both configured `finalize_reviewers`.
+  - **Triage**, then **renderings** (`SOLUTION-DESIGN.md`), then **close** (spine frontmatter `status: final`, memlog `event` entry).
+
+- **The adversarial reviewer found three real seams** — pairs of units that obey every AD to the letter yet still build incompatibly. All three were fixed in the spine, not merely reported:
+  1. **Status/Provenance conflation.** A builder copying the prototype would put `Needs Attention` on the Status axis; one reading the PRD would keep it on Provenance. → AD-3 now declares the two value sets and states they are **orthogonal axes**, with `Needs Attention` never a Status.
+  2. **Who creates the progress row.** AD-1 makes `progress/` the sole writer, but a brand-new Assignment has no watch signal — one builder could expect a seeded row, another lazy creation on first watch. → AD-3 now states a no-signal Assignment derives as `Not Started` with **no row required to pre-exist**, so `assignments/` never writes into `progress/`'s domain.
+  3. **Identity-scoping broke the HR dashboard.** AD-6 originally hard-scoped *every* query to the caller's identity — correct for Employees, but a literal implementation would return an empty dashboard for an HR Admin, who legitimately reads org-wide. → AD-6 is now **role-aware**: Employees hard-scoped to own data; HR Admins org-wide but only through AD-2's coaching-shaped reads, so the privacy boundary still holds.
+
+- **The tech-currency reviewer surfaced one finding that was escalated to the user rather than autofixed**, because it contradicted a *locked* addendum decision: **`text-embedding-3-small` is OpenAI's hosted, paid API**, in tension with §9's "zero budget: no new paid infrastructure" and the just-made local-only decision. Presented via `AskUserQuestion` with three options (local `sentence-transformers` / keep OpenAI / make it swappable). **The user chose local `sentence-transformers`** (`all-MiniLM-L6-v2`, 384-dim) — free, offline, no API key — with the filter-then-rank/pgvector shape unchanged and a revisit-if-quality-disappoints condition recorded.
+
+### 2. Direct source reconciliation (ad hoc, not a `bmad-prd` skill invocation)
+
+**Purpose:** Stop the spine and its upstream source (`addendum.md`'s "Technical Stack (locked)") from silently diverging after two spine-era decisions overrode it.
+
+**Why it was called:** The skill's Update guidance states that a decision overriding a source input should be offered back to that source. Winston offered; the user replied *"update the addendum's Technical Stack so upstream and the spine don't silently diverge."*
+
+**What happened:** Both changed bullets were rewritten as **dated, additive supersession notes** rather than silent overwrites, so the rationale trail survives — the Database bullet now names the local `sentence-transformers` model *and* records what it superseded (`text-embedding-3-small`), why (zero-budget + local-only), and the revisit condition; the Deployment bullet moved from "deferred in the technical research" to "out of scope — local working copy only," tagged `[Resolved 2026-07-09 — closes OQ7]`. The reconciliation was logged as a memlog `event`, and the two spots in `project-context.md` that still read "addendum still needs updating" were corrected — closing the same loop the update was meant to close.
+
+---
+
+## The Role of Project Context in This Phase
+
+- `_bmad-output/project-context.md` was loaded as a `persistent_fact` by both Winston and `bmad-architecture` (both declare `file:{project-root}/**/project-context.md`). It is why the phase never rediscovered the `python3`/`uv` Windows quirk by trial and error — the `python` + `PYTHONUTF8=1` workaround was known before the first script ran — and why the coaching opened already aware of the locked stack, the coaching-only guarantee, and the carried Open Questions.
+- Per the file's own **Mandatory Rule**, it was written to, not just read: the long-empty **"Technology Stack & Versions"** section was populated for the first time (it had said "documented after discovery phase" since the project began, and architecture now exists to document), and a new dated bullet was added under "Product & Design Decisions" recording the spine's load-bearing calls, the two decisions that override earlier artifacts, and which Open Questions moved.
+- It was then **corrected twice** in the same session — both places that said the addendum update was "offered, not yet done" — once that became false. The file is only useful if it can't itself become the stale artifact it exists to prevent.
+
+---
+
+## Files Created or Modified
+
+### Created — `_bmad-output/planning-artifacts/architecture/architecture-TalentPilot-AI-2026-07-09/`
+
+- **`ARCHITECTURE-SPINE.md`** — the build substrate and the phase's primary deliverable. Frontmatter (`status: final`, `altitude: initiative`, `binds: [FR-1..FR-14]`, sources). Sections: Design Paradigm (modular monolith, feature-domain modules, Router→Service→Repository, with the module→table ownership table); **nine invariants AD-1..AD-9**, each carrying `Binds` / `Prevents` / `Rule`; a mermaid module-dependency-direction diagram; a Consistency Conventions table (naming, IDs/time, API schemas, error contract, auth/CORS, accessibility, validation, real-time); a seed Stack table; Structural Seed (runtime-topology mermaid, core-entity ERD, source tree); a Capability→Architecture map for all 14 FRs; and a Deferred section naming the eight things it deliberately won't decide.
+- **`SOLUTION-DESIGN.md`** — the human-facing companion the user asked for, aimed at "whoever picks up implementation, and the pilot record." Explains the *why* behind each invariant (rationale the terse spine deliberately omits), adds mermaid **sequence diagrams** for the watch-progress write path and the dashboard read/derivation path, plus the data model, local setup, a 7-step build order, an open-items table, and FR→module→invariant traceability.
+- **`.memlog.md`** — the append-only decision record, **35 entries**: run kickoff, the inherited/adopted stack, constraints, the user's single-writer decision, the artifact-derived decisions, the deployment resolution, the reviewer-gate events and fixes, the embedding-model resolution, and the closing `event` entries. The spine was distilled *from* this file, not written alongside it.
+- **`reviews/review-rubric.md`**, **`reviews/review-tech-currency.md`**, **`reviews/review-adversarial-divergence.md`** — the three Reviewer Gate reports, kept as drill-in detail; only verdicts and the escalated finding surfaced in conversation.
+
+### Modified
+
+- **`_bmad-output/planning-artifacts/prds/prd-TalentPilot-AI-2026-07-09/addendum.md`** — Technical Stack: the Database bullet (embedding-model supersession, dated) and the Deployment/hosting bullet (out of scope / local-only, dated, closing OQ7). Additive notes; nothing overwritten.
+- **`_bmad-output/project-context.md`** (appended to and corrected, not overridden) — "Technology Stack & Versions" populated for the first time; a new dated bullet under "Product & Design Decisions"; two subsequent corrections once the addendum update landed.
+- **`documentation/PROJECTWORKFLOW.md`** (this file, appended to) — this section.
+
+---
+
+## Session Notes
+
+**The user chose Coaching over Fast path, then changed the method mid-run — and both were right.** Winston recommended the Fast path given the timeline; the user picked Coaching anyway, and that choice earned its keep immediately: the single-writer ownership model came *from the user*, not from the skill. But once Winston had pushed twice on where that model was still thin, the user redirected to artifact-first derivation — and the artifacts genuinely answered both open questions, decisively, in the overall-stack research and DD-001. The elicitation surfaced the right questions; the artifacts supplied the answers. Neither mode alone would have produced the same spine.
+
+**A rejected tool call was the most consequential decision of the phase.** Open Question 7 (deployment/hosting) had been flagged in the PRD as "a real risk to the date holding." Winston was mid-way through researching zero-budget pgvector hosting when the user rejected the second web search outright — *"we dont want to do deplyment, having working copy in local is enough."* That single line closed OQ7 more cleanly than any hosting recommendation would have, by removing the dimension rather than solving it, and it cascaded: OQ9 narrowed to a hosted-only concern, and the embedding-model tension became visible precisely *because* "local-only" had just been declared.
+
+**The prototype was treated as evidence, not as a specification — again.** The prototype's flat `status`/`provenance` denormalization and its `status: "Needs Attention"` conflation were read as *artifacts of a throwaway sessionStorage mock*, cross-checked against DD-001's stated two-table shape and the PRD's explicit Status/Provenance split, and then explicitly corrected in AD-3 so nobody builds from the mock. This is the same discipline the PRD phase applied to the prototype's "✓ Approved" badge and its mock credential store — the third time this project has refused to launder a prototype fixture into a spec.
+
+**The reviewer gate ran inline rather than as parallel subagents, deliberately.** The skill's reviewer-gate reference prescribes dispatching each lens as a parallel subagent for genuinely independent context, and sanctions a sequential fallback when subagents are unavailable. Here the harness guardrail ("do not spawn agents unless the user asks") took precedence, so all three lenses ran inline and wrote to `reviews/`. This is a real, named trade-off, not an oversight: the adversarial lens still found three genuine seams, but it did so with the author's own context — the one weakness the subagent design exists to remove. Worth revisiting if a future spine carries higher stakes.
+
+**One finding was escalated instead of autofixed, on purpose.** The gate's rule at Finalize is "apply the clear fixes yourself; surface only what genuinely needs the user." The three adversarial seams were unambiguous corrections and were applied silently. The embedding-model conflict was *not* — it contradicted a decision the addendum marked **locked**, and swapping a paid cloud model for a weaker local one trades match quality for budget compliance. That is a product trade-off, not an architecture defect, so it went to `AskUserQuestion`. Knowing which findings you're allowed to fix yourself is most of what makes a gate trustworthy.
+
+**Why this phase matters:** TalentPilot-AI now has a build contract. The nine invariants make three previously-scattered guarantees structurally enforceable in one place each — coaching-only privacy becomes "the read method does not exist," FR-7's rewind-vs-stale-write correctness becomes one write path, and Open Question 11's trust-coherence risk has its *structural* half closed by a single derivation authority (its UX half correctly left to design, not silently claimed as solved). Deployment stopped being a launch risk by leaving scope. And upstream (`addendum.md`) now agrees with the spine rather than quietly contradicting it. Downstream work — `bmad-create-epics-and-stories` against the module structure, or `bmad-check-implementation-readiness` to verify PRD ↔ UX ↔ Architecture alignment — can build on this directly.
+
+---
+
+No other files were created or modified during this phase beyond what's listed above.
