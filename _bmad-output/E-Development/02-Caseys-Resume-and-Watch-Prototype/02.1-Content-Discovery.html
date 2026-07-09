@@ -69,74 +69,82 @@
     <!-- ========================================================================
          MAIN CONTENT (filled in by Section 2 onward)
          ======================================================================== -->
-    <main id="page-main-content" class="px-6 py-6 max-w-2xl mx-auto">
-        <div class="bg-white rounded-lg shadow-sm p-6">
-            <div id="content-discovery-card-header" data-object-id="content-discovery-card-header" class="mb-4">
-                <h2 class="text-lg font-semibold text-gray-900" id="card-skill-title"></h2>
-                <p class="text-sm text-gray-500" id="card-status"></p>
-            </div>
+    <main id="page-main-content" class="px-6 py-6 max-w-5xl mx-auto">
+        <div class="mb-8">
+            <h1 class="text-3xl font-bold text-gray-900">Assigned Skills</h1>
+            <p class="text-sm text-gray-600 mt-2">Select a video to continue watching or start a new one</p>
 
-            <p id="content-discovery-recommendation-label" data-object-id="content-discovery-recommendation-label"
-               class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Recommended Content</p>
-
-            <div class="flex gap-4">
-                <div id="content-discovery-thumbnail" data-object-id="content-discovery-thumbnail"
-                     class="w-40 h-24 bg-gray-200 rounded-lg flex items-center justify-center flex-shrink-0 cursor-pointer"
-                     onclick="handlePlay()">
-                    <svg class="w-8 h-8 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"/>
-                    </svg>
-                </div>
-                <div class="flex-1">
-                    <h3 id="content-discovery-content-title" data-object-id="content-discovery-content-title"
-                        class="font-medium text-gray-900"></h3>
-                    <div class="flex items-center gap-2 text-sm text-gray-500 mt-1">
-                        <span id="content-discovery-source-badge" data-object-id="content-discovery-source-badge"></span>
-                        <span>·</span>
-                        <span id="content-discovery-duration" data-object-id="content-discovery-duration"></span>
-                        <span id="content-discovery-approval-badge" data-object-id="content-discovery-approval-badge"
-                              class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 cursor-help"
-                              title="This content was reviewed and approved by Rita before being recommended to you.">✓ Approved</span>
+            <!-- Employee Info Card -->
+            <div id="employee-info-card" class="bg-gradient-to-r from-talentpilot-50 to-blue-50 rounded-lg px-5 py-4 border border-talentpilot-200 mb-6">
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div>
+                        <p class="text-xs text-gray-600 uppercase tracking-wide mb-1">Name</p>
+                        <p class="text-sm font-semibold text-gray-900" id="employee-name">Casey the Continuer</p>
                     </div>
-                    <p id="content-discovery-description" data-object-id="content-discovery-description"
-                       class="text-sm text-gray-600 mt-2"></p>
+                    <div>
+                        <p class="text-xs text-gray-600 uppercase tracking-wide mb-1">Role</p>
+                        <p class="text-sm font-semibold text-gray-900" id="employee-role">Individual Contributor</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-600 uppercase tracking-wide mb-1">Email</p>
+                        <p class="text-sm font-semibold text-gray-900" id="employee-email">casey@sailssoftware.com</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-600 uppercase tracking-wide mb-1">Skills Assigned</p>
+                        <p class="text-sm font-semibold text-talentpilot-600" id="employee-skills-count">3</p>
+                    </div>
                 </div>
             </div>
 
-            <div class="flex items-center gap-4 mt-6">
-                <button id="content-discovery-btn-play" data-object-id="content-discovery-btn-play"
-                        onclick="handlePlay()"
-                        class="bg-talentpilot-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-talentpilot-700 transition-colors">
-                    ▶ Play
-                </button>
-                <a href="#" id="content-discovery-btn-alternatives" data-object-id="content-discovery-btn-alternatives"
-                   onclick="handleAlternatives()"
-                   class="text-sm text-talentpilot-600 hover:underline">View alternatives</a>
+            <!-- Statistics Dashboard -->
+            <div id="skills-stats" class="grid grid-cols-3 gap-4 mb-6">
+                <div class="bg-white rounded-lg p-4 border border-gray-200 hover:shadow-md transition-shadow">
+                    <p class="text-xs text-gray-500 uppercase tracking-wide mb-2 font-medium">Total Skills</p>
+                    <p class="text-3xl font-bold text-gray-900" id="total-skills">3</p>
+                </div>
+                <div class="bg-white rounded-lg p-4 border border-gray-200 hover:shadow-md transition-shadow">
+                    <p class="text-xs text-gray-500 uppercase tracking-wide mb-2 font-medium">In Progress</p>
+                    <p class="text-3xl font-bold text-yellow-600" id="in-progress-count">1</p>
+                </div>
+                <div class="bg-white rounded-lg p-4 border border-gray-200 hover:shadow-md transition-shadow">
+                    <p class="text-xs text-gray-500 uppercase tracking-wide mb-2 font-medium">To Start</p>
+                    <p class="text-3xl font-bold text-blue-600" id="to-start-count">2</p>
+                </div>
             </div>
         </div>
 
-        <div class="flex items-center justify-between mt-4 text-sm text-gray-500">
-            <span id="content-discovery-contact-info" data-object-id="content-discovery-contact-info"></span>
-            <span id="content-discovery-progress-indicator" data-object-id="content-discovery-progress-indicator"></span>
+        <!-- In Progress Section -->
+        <div id="in-progress-section" class="mb-8">
+            <div class="flex items-center gap-2 mb-4">
+                <div class="w-1 h-6 bg-yellow-500 rounded"></div>
+                <h2 class="text-lg font-bold text-gray-900">In Progress</h2>
+                <span class="text-sm text-gray-500">(<span id="in-progress-count-label">1</span>)</span>
+            </div>
+            <div id="in-progress-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <!-- In Progress Videos -->
+            </div>
         </div>
 
-        <!-- Loading skeleton (Section 3) -->
-        <div id="card-loading-state" class="hidden bg-white rounded-lg shadow-sm p-6 space-y-3">
-            <div class="h-5 bg-gray-100 rounded animate-pulse w-1/2"></div>
-            <div class="h-24 bg-gray-100 rounded animate-pulse w-full"></div>
+        <!-- To Start Section -->
+        <div id="to-start-section">
+            <div class="flex items-center gap-2 mb-4">
+                <div class="w-1 h-6 bg-blue-500 rounded"></div>
+                <h2 class="text-lg font-bold text-gray-900">To Start</h2>
+                <span class="text-sm text-gray-500">(<span id="to-start-count-label">2</span>)</span>
+            </div>
+            <div id="to-start-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <!-- To Start Videos -->
+            </div>
         </div>
 
-        <!-- Empty state (Section 3) -->
-        <div id="card-empty-state" class="hidden text-center py-12 border-2 border-dashed border-gray-200 rounded-lg text-gray-500">
-            No recommended content yet for this skill. <a href="#" class="text-talentpilot-600 underline">Contact Rita</a>
+        <!-- Empty State -->
+        <div id="empty-state-container" class="hidden">
+            <div class="text-center py-12 border-2 border-dashed border-gray-200 rounded-lg">
+                <p class="text-gray-500 mb-2">No assigned skills for this employee</p>
+                <p class="text-sm text-gray-400">Select a different employee or check back later</p>
+            </div>
         </div>
 
-        <!-- Error state (Section 3) -->
-        <div id="card-error-state" class="hidden text-center py-12 border-2 border-dashed border-red-200 rounded-lg text-red-600">
-            This video couldn't be loaded.
-            <button onclick="loadAssignment()" class="underline font-medium ml-1">Try again</button>
-            · <a href="#" onclick="handleAlternatives()" class="underline">View alternatives</a>
-        </div>
     </main>
 
     <!-- ========================================================================
@@ -154,55 +162,176 @@
     <script>
         /**
          * Page: 02.1 Content Discovery
-         * Purpose: Casey sees the assigned skill with one human-approved
-         *          content recommendation and starts watching immediately.
+         * Purpose: Casey sees a list of assigned videos and can select one
+         *          to watch or continue watching.
          */
 
         window.initPage = function() {
             console.log('📄 02.1 Content Discovery loaded');
-            loadAssignment();
+            loadEmployeeData();
         };
 
-        function getDemoStateParam() {
-            return new URLSearchParams(window.location.search).get('demo_state');
+        async function loadEmployeeData() {
+            try {
+                // Load employee details
+                const employee = await PrototypeAPI.getSelectedEmployee();
+                if (employee) {
+                    document.getElementById('employee-name').textContent = `${employee.firstName} ${employee.lastName}`;
+                    document.getElementById('employee-role').textContent = employee.role;
+                    document.getElementById('employee-email').textContent = employee.email;
+                }
+
+                // Load employee videos
+                const employeeId = await PrototypeAPI.getSelectedEmployeeId();
+                const videos = await PrototypeAPI.getEmployeeVideos(employeeId);
+                console.log('📦 Employee videos:', videos);
+
+                if (videos.length === 0) {
+                    document.getElementById('empty-state-container').classList.remove('hidden');
+                    document.getElementById('in-progress-section').classList.add('hidden');
+                    document.getElementById('to-start-section').classList.add('hidden');
+                    return;
+                }
+
+                document.getElementById('empty-state-container').classList.add('hidden');
+                document.getElementById('in-progress-section').classList.remove('hidden');
+                document.getElementById('to-start-section').classList.remove('hidden');
+
+                // Calculate statistics
+                updateStatistics(videos);
+
+                // Separate videos by progress
+                const inProgressVideos = videos.filter(v => v.watchProgress > 0 && v.watchProgress < 100);
+                const toStartVideos = videos.filter(v => v.watchProgress === 0);
+
+                // Populate In Progress section
+                const inProgressContainer = document.getElementById('in-progress-container');
+                inProgressContainer.innerHTML = '';
+                if (inProgressVideos.length > 0) {
+                    inProgressVideos.forEach(video => {
+                        const card = createVideoCard(video);
+                        inProgressContainer.appendChild(card);
+                    });
+                } else {
+                    document.getElementById('in-progress-section').classList.add('hidden');
+                }
+
+                // Populate To Start section
+                const toStartContainer = document.getElementById('to-start-container');
+                toStartContainer.innerHTML = '';
+                if (toStartVideos.length > 0) {
+                    toStartVideos.forEach(video => {
+                        const card = createVideoCard(video);
+                        toStartContainer.appendChild(card);
+                    });
+                } else {
+                    document.getElementById('to-start-section').classList.add('hidden');
+                }
+
+                // Update count labels
+                document.getElementById('in-progress-count-label').textContent = inProgressVideos.length;
+                document.getElementById('to-start-count-label').textContent = toStartVideos.length;
+                document.getElementById('employee-skills-count').textContent = videos.length;
+            } catch (error) {
+                console.error('❌ Error loading employee data:', error);
+            }
         }
 
-        function setCardState(state) {
-            // state: 'loading' | 'loaded' | 'empty' | 'error'
-            document.getElementById('card-loading-state').classList.toggle('hidden', state !== 'loading');
-            document.getElementById('card-empty-state').classList.toggle('hidden', state !== 'empty');
-            document.getElementById('card-error-state').classList.toggle('hidden', state !== 'error');
-            document.querySelector('#page-main-content > .bg-white').classList.toggle('hidden', state !== 'loaded');
+        function updateStatistics(videos) {
+            const totalSkills = videos.length;
+            const inProgress = videos.filter(v => v.watchProgress > 0 && v.watchProgress < 100).length;
+            const toStart = videos.filter(v => v.watchProgress === 0).length;
+
+            document.getElementById('total-skills').textContent = totalSkills;
+            document.getElementById('in-progress-count').textContent = inProgress;
+            document.getElementById('to-start-count').textContent = toStart;
         }
 
-        async function loadAssignment() {
-            const forcedState = getDemoStateParam();
+        function createVideoCard(video) {
+            const card = document.createElement('div');
+            card.className = 'bg-white rounded-lg shadow-sm p-5 border border-gray-200 hover:shadow-lg hover:border-talentpilot-400 transition-all cursor-pointer group flex flex-col';
+            card.onclick = () => selectVideo(video);
 
-            if (forcedState === 'loading') { setCardState('loading'); return; }
-            if (forcedState === 'error') { setCardState('error'); return; }
-            if (forcedState === 'empty') { setCardState('empty'); return; }
+            const progressPercent = video.watchProgress || 0;
+            const statusColor = getStatusColor(progressPercent);
+            const statusBadgeColor = getStatusBadgeColor(progressPercent);
 
-            setCardState('loading');
-            const a = await PrototypeAPI.getContentDiscovery();
-            console.log('📦 Content Discovery data:', a);
+            let statusBadge = '';
+            if (progressPercent === 0) {
+                statusBadge = `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${statusBadgeColor}">⊕ To Start</span>`;
+            } else if (progressPercent < 100) {
+                statusBadge = `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${statusBadgeColor}">⟳ In Progress</span>`;
+            } else {
+                statusBadge = `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">✓ Completed</span>`;
+            }
 
-            document.getElementById('card-skill-title').textContent = a.skillName;
-            document.getElementById('card-status').textContent = a.status;
-            document.getElementById('content-discovery-content-title').textContent = a.content.title;
-            document.getElementById('content-discovery-source-badge').textContent = a.content.source;
-            document.getElementById('content-discovery-duration').textContent = `${a.content.durationMinutes} minutes`;
-            document.getElementById('content-discovery-description').textContent = a.content.description;
-            document.getElementById('content-discovery-contact-info').textContent = 'Questions? Contact Rita';
-            document.getElementById('content-discovery-progress-indicator').textContent = '0% watched';
-            setCardState('loaded');
+            const progressBar = progressPercent > 0 ? `
+                <div class="mt-3 pt-3 border-t border-gray-100">
+                    <div class="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                        <div class="h-full ${statusColor}" style="width: ${progressPercent}%"></div>
+                    </div>
+                    <p class="text-xs text-gray-600 font-medium mt-1">${progressPercent}% watched</p>
+                </div>
+            ` : '<p class="text-xs text-gray-500 mt-3">Not started yet</p>';
+
+            card.innerHTML = `
+                <div class="flex flex-col flex-1">
+                    <div class="relative w-full h-32 bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg flex items-center justify-center mb-3 group-hover:from-talentpilot-50 group-hover:to-talentpilot-100 transition-colors">
+                        <svg class="w-10 h-10 text-gray-400 group-hover:text-talentpilot-600 transition-colors" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"/>
+                        </svg>
+                    </div>
+                    <div class="flex-1 flex flex-col">
+                        <div class="flex items-start justify-between gap-2 mb-2">
+                            <div>
+                                <h3 class="font-semibold text-gray-900 group-hover:text-talentpilot-600 transition-colors line-clamp-2">${video.skillName}</h3>
+                                <p class="text-xs text-gray-500 uppercase tracking-wide mt-0.5">${video.status}</p>
+                            </div>
+                        </div>
+                        <div class="mb-2">${statusBadge}</div>
+                        <p class="text-sm text-gray-600 line-clamp-2">${video.content.title}</p>
+                        <div class="flex items-center gap-2 text-xs text-gray-500 mt-2 flex-wrap">
+                            <span class="font-medium">${video.content.source}</span>
+                            <span>·</span>
+                            <span>${video.content.durationMinutes} min</span>
+                        </div>
+                        <div class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 mt-2 w-fit">
+                            ✓ Approved
+                        </div>
+                        ${progressBar}
+                    </div>
+                    <div class="flex items-center justify-end mt-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <svg class="w-5 h-5 text-talentpilot-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                        </svg>
+                    </div>
+                </div>
+            `;
+
+            return card;
         }
 
-        function handlePlay() {
-            console.log('▶ Play clicked — would launch video player at 0:00 (real player out of scope for this prototype)');
+        function getStatusColor(progress) {
+            if (progress === 0) return 'bg-gray-300';
+            if (progress < 50) return 'bg-yellow-400';
+            if (progress < 100) return 'bg-blue-500';
+            return 'bg-green-500';
         }
 
-        function handleAlternatives() {
-            console.log('ℹ️ View alternatives clicked (browse UI not built — out of scope for this prototype)');
+        function getStatusBadgeColor(progress) {
+            if (progress === 0) return 'bg-gray-100 text-gray-800';
+            if (progress < 100) return 'bg-blue-100 text-blue-800';
+            return 'bg-green-100 text-green-800';
+        }
+
+        async function selectVideo(video) {
+            try {
+                await PrototypeAPI.selectVideo(video.id);
+                console.log('✅ Video selected:', video.id);
+                window.location.href = '02.2-Continue-Watching.html';
+            } catch (error) {
+                console.error('❌ Error selecting video:', error);
+            }
         }
 
         function toggleUserMenu() {
@@ -213,7 +342,6 @@
             console.log('👋 Sign out clicked (prototype no-op)');
         }
 
-        // User menu: close on click-outside (Section 4)
         document.addEventListener('click', (e) => {
             const userMenu = document.getElementById('content-discovery-user-menu');
             const dropdown = userMenu.querySelector('[data-dropdown]');
