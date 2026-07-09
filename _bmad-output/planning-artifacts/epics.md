@@ -449,15 +449,160 @@ So that first-time deployments succeed and schema drift is caught early.
 **GIVEN** a fresh PostgreSQL instance with no tables  
 **WHEN** the FastAPI application starts  
 **THEN** all required tables are created in the correct order:
-- `accounts` (for local auth credentials, locked by OQ9 decision: LOCAL)
-- `employees` (HR and Employee roster)
-- `skills` (skill master data)
-- `content_catalog` (video/doc/website catalog with pgvector embeddings)
-- `assignments` (Employee × Skill links)
-- `skill_progress` (watch position + event time for videos)
-- `assignment_overrides` (HR manual override records)
+
+#### **Table 1: `accounts` (Story 1.4 - Local Auth Credentials)**
+- `id` (UUID primary key)
+- `email` (string, unique, not null)
+- `password_hash` (string, not null)
+- `role` (enum: HR_ADMIN, EMPLOYEE, not null)
+- `created_at` (timestamp UTC)
+- **Purpose:** Mock credential store for local auth (locked by OQ9 decision: LOCAL)
+
+#### **Table 2: `employees` (Story 3.3 - Employee Master Data)**
+- `id` (UUID primary key)
+- `name` (string, not null)
+- `email` (string, unique, not null)
+- `role` (enum: EMPLOYEE, HR_ADMIN, not null)
+- `created_at` (timestamp UTC)
+- **Purpose:** HR and Employee roster matching mock credentials (Rita, Casey, Morgan, Jordan, Sam)
+- **Seeding:** Idempotent seed script populates with 5+ employees on first startup
+
+#### **Table 3: `skills` (Story 3.2 - Skill Master Data)**
+- `id` (UUID primary key)
+- `name` (string, unique, not null)
+- `description` (text, optional)
+- `embedding` (pgvector 384-dim, from sentence-transformers model)
+- `created_at` (timestamp UTC)
+- **Purpose:** Skill catalog for HR assignment flow
+- **Seeding:** Idempotent seed script populates with 5-10 core skills (e.g., "Data Visualization", "Salesforce Admin")
+
+#### **Table 4: `content_catalog` (Story 2.1 - Content Catalog Data Model)**
+- `id` (UUID primary key)
+- `skill_id` (UUID, foreign key to skills.id, not null)
+- `title` (string, not null)
+- `description` (text, content metadata)
+- `type` (enum: VIDEO, DOCUMENT, WEBSITE, not null)
+- `url` (string, external URL, not null)
+- `embedding` (pgvector 384-dim, from sentence-transformers model)
+- `source` (enum: YOUTUBE, MANUAL, not null)
+- `ingested_at` (timestamp UTC)
+- `metadata` (JSONB for source-specific fields: YouTube video ID, duration, thumbnail URL, etc.)
+- **Purpose:** Video/doc/website catalog with semantic matching embeddings
+- **Indexes:** 
+  - CREATE INDEX idx_content_skill ON content_catalog(skill_id)
+  - CREATE INDEX idx_content_embedding ON content_catalog USING ivfflat(embedding vector_cosine_ops)
+
+#### **Table 5: `assignments` (Story 3.1 - Assignments Data Model)**
+- `id` (UUID primary key)
+- `employee_id` (UUID, foreign key to employees.id, not null)
+- `skill_id` (UUID, foreign key to skills.id, not null)
+- `content_id` (UUID, nullable, foreign key to content_catalog.id — AI-recommended match)
+- `assigned_at` (timestamp UTC, not null)
+- `assigned_by` (UUID, foreign key to employees.id — HR Admin who created it, not null)
+- **Purpose:** Employee × Skill assignment links
+- **Constraint:** (employee_id, skill_id) may have multiple rows (intentional re-assignment allowed)
+- **Indexes:**
+  - CREATE INDEX idx_assignments_employee ON assignments(employee_id)
+  - CREATE INDEX idx_assignments_skill ON assignments(skill_id)
+
+#### **Table 6: `skill_progress` (Story 4.1 - Skill Progress Data Model)**
+- `id` (UUID primary key)
+- `assignment_id` (UUID, unique, foreign key to assignments.id, not null)
+- `watch_position` (integer, seconds, 0–max_duration, not null)
+- `event_time` (timestamp UTC, when client observed this position, not null)
+- `verified` (boolean, true if passed server-side anti-spoofing checks, default false)
+- `updated_at` (timestamp UTC, server time when record was persisted, not null)
+- **Purpose:** Watch position + event time for videos (lazy initialization, no row until first watch)
+- **Indexes:**
+  - CREATE UNIQUE INDEX idx_progress_assignment ON skill_progress(assignment_id)
+  - CREATE INDEX idx_progress_event_time ON skill_progress(event_time)
+
+#### **Table 7: `assignment_overrides` (Story 5.5 - HR Override Data Model)**
+- `id` (UUID primary key)
+- `assignment_id` (UUID, foreign key to assignments.id, not null)
+- `set_by` (UUID, foreign key to employees.id — HR Admin who created override, not null)
+- `set_at` (timestamp UTC, not null)
+- `reason` (text, optional — why HR overrode)
+- `active` (boolean, default true — false when reversed via Story 5.5b)
+- `override_status` (enum: NOT_STARTED, IN_PROGRESS, COMPLETED, default COMPLETED)
+- `reversed_at` (timestamp UTC, nullable — when override was reversed)
+- `reversed_by` (UUID, nullable, foreign key to employees.id — HR Admin who reversed)
+- **Purpose:** HR manual override records (separate from skill_progress, per AR-4)
+- **Indexes:**
+  - CREATE INDEX idx_overrides_assignment ON assignment_overrides(assignment_id)
+  - CREATE INDEX idx_overrides_active ON assignment_overrides(active) WHERE active = true
 
 **AND** all foreign keys, indexes, and constraints are created correctly (no referential integrity errors on first data insert)
+
+**AND** pgvector extension is enabled: `CREATE EXTENSION IF NOT EXISTS vector;`
+
+**AND** all timestamps use UTC and are stored as `TIMESTAMP WITH TIME ZONE`
+
+**AND** all UUIDs use `gen_random_uuid()` for default values where applicable
+
+---
+
+#### **SEED DATA: Initial Population for MVP**
+
+**GIVEN** a fresh database with tables created  
+**WHEN** the seed script runs (idempotent, can run multiple times)  
+**THEN** the following seed data is inserted:
+
+**Seed Data for `employees` Table:**
+```sql
+-- HR Admin
+INSERT INTO employees (id, name, email, role) VALUES 
+  ('550e8400-e29b-41d4-a716-446655440001', 'Rita the Recommender', 'rita@sails.example.com', 'HR_ADMIN');
+
+-- Employees
+INSERT INTO employees (id, name, email, role) VALUES 
+  ('550e8400-e29b-41d4-a716-446655440002', 'Casey the Continuer', 'casey@sails.example.com', 'EMPLOYEE'),
+  ('550e8400-e29b-41d4-a716-446655440003', 'Morgan the Motivated', 'morgan@sails.example.com', 'EMPLOYEE'),
+  ('550e8400-e29b-41d4-a716-446655440004', 'Jordan the Juggler', 'jordan@sails.example.com', 'EMPLOYEE'),
+  ('550e8400-e29b-41d4-a716-446655440005', 'Sam the Skeptic', 'sam@sails.example.com', 'EMPLOYEE');
+```
+
+**Seed Data for `accounts` Table (Mock Credentials):**
+```sql
+-- All accounts use password: 'demo123' (hashed with bcrypt)
+-- Hash generated via: bcrypt.hashpw('demo123'.encode('utf-8'), bcrypt.gensalt())
+INSERT INTO accounts (id, email, password_hash, role) VALUES 
+  ('550e8400-e29b-41d4-a716-446655440011', 'rita@sails.example.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5OMxZf3p6b7iS', 'HR_ADMIN'),
+  ('550e8400-e29b-41d4-a716-446655440012', 'casey@sails.example.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5OMxZf3p6b7iS', 'EMPLOYEE'),
+  ('550e8400-e29b-41d4-a716-446655440013', 'morgan@sails.example.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5OMxZf3p6b7iS', 'EMPLOYEE'),
+  ('550e8400-e29b-41d4-a716-446655440014', 'jordan@sails.example.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5OMxZf3p6b7iS', 'EMPLOYEE'),
+  ('550e8400-e29b-41d4-a716-446655440015', 'sam@sails.example.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5OMxZf3p6b7iS', 'EMPLOYEE');
+```
+
+**Seed Data for `skills` Table:**
+```sql
+-- Core Skills from Product Brief / Design Thinking Discovery
+INSERT INTO skills (id, name, description) VALUES 
+  ('650e8400-e29b-41d4-a716-446655440101', 'Data Visualization Fundamentals', 'Learn to create compelling charts, graphs, and dashboards using industry-standard tools'),
+  ('650e8400-e29b-41d4-a716-446655440102', 'Python Programming Basics', 'Introduction to Python syntax, data structures, and basic scripting for automation'),
+  ('650e8400-e29b-41d4-a716-446655440103', 'Advanced SQL Query Writing', 'Master complex SQL queries including joins, subqueries, window functions, and optimization'),
+  ('650e8400-e29b-41d4-a716-446655440104', 'Salesforce Administration', 'Core Salesforce admin skills: user management, security, workflows, and reporting'),
+  ('650e8400-e29b-41d4-a716-446655440105', 'Excel Power User Techniques', 'Advanced Excel: pivot tables, VLOOKUP/INDEX-MATCH, macros, and data analysis tools'),
+  ('650e8400-e29b-41d4-a716-446655440106', 'Public Speaking and Presentation', 'Develop confident public speaking skills and create engaging presentations'),
+  ('650e8400-e29b-41d4-a716-446655440107', 'Agile Project Management', 'Understand Agile methodologies, Scrum framework, and sprint planning techniques'),
+  ('650e8400-e29b-41d4-a716-446655440108', 'Financial Modeling Essentials', 'Build financial models, forecast revenue, and analyze business scenarios in Excel'),
+  ('650e8400-e29b-41d4-a716-446655440109', 'Customer Service Excellence', 'Master customer service best practices, conflict resolution, and empathy-driven communication'),
+  ('650e8400-e29b-41d4-a716-446655440110', 'Cybersecurity Awareness', 'Essential cybersecurity concepts: phishing prevention, password hygiene, and data protection');
+```
+
+**Embedding Generation for Skills:**
+- Embeddings for each skill are computed on first startup using the sentence-transformers model
+- Skill `name` + `description` are concatenated and passed to `embed_text()` function
+- Resulting 384-dim vector is stored in the `embedding` column (pgvector)
+- This happens automatically during seed script execution
+
+**Idempotency Guarantee:**
+- Seed script uses `INSERT ... ON CONFLICT (email) DO NOTHING` for employees/accounts
+- Seed script uses `INSERT ... ON CONFLICT (name) DO NOTHING` for skills
+- Re-running seed script multiple times does not create duplicates
+- Embedding generation is skipped if `embedding` column already has a non-null value
+
+---
 
 **GIVEN** an existing database with an outdated schema  
 **WHEN** the application starts  

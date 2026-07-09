@@ -2145,3 +2145,141 @@ Session log entry documenting the sprint planning run.
 
 ---
 
+# Entity Consolidation Phase — Skills, Agents, and Files
+
+**Date:** 2026-07-09  
+**Status:** Story 1.7 consolidated with all database entities and seed data
+
+## Overview
+
+Consolidated all database entity definitions from Stories 2.1, 3.1, 3.2, 3.3, 4.1, and 5.5 into Story 1.7 (Database Schema Initialization & Migration), so that all database tables are created at once during initial setup rather than incrementally across multiple stories. Added comprehensive seed data for MVP demo users (5 employees + accounts) and core skills (10 skills).
+
+## Agents Called
+
+None — this was a direct documentation consolidation task executed within the main conversation loop without delegating to subagents.
+
+## Skills Used
+
+### 1. bmad-create-epics-and-stories (invoked but not fully executed)
+**Purpose:** The skill was invoked with args to "pull all entity definitions from stories 2.1, 3.1, 3.2, 3.3, 4.1, 5.5 and add them in Story 1.7."
+
+**What happened:** Skill activation was interrupted by user permission denial during the initial activation sequence (config loading step). The user then re-invoked with the clarification that Story 1.1 was already done, and the task should focus on Story 1.7 consolidation.
+
+**Process:**
+- Read `_bmad-output/planning-artifacts/epics.md` in full to locate all entity definitions
+- Extracted entity schemas from:
+  - **Story 2.1:** `content_catalog` table (video/doc/website catalog with pgvector embeddings)
+  - **Story 3.1:** `assignments` table (Employee × Skill links)
+  - **Story 3.2:** `skills` table (skill master data)
+  - **Story 3.3:** `employees` table (HR and Employee roster)
+  - **Story 4.1:** `skill_progress` table (watch position + event time for videos)
+  - **Story 5.5:** `assignment_overrides` table (HR manual override records)
+- Consolidated all 7 tables (including `accounts` from Story 1.4 context) into Story 1.7 with complete field definitions, constraints, and indexes
+
+**Result:** Story 1.7 now contains the complete database schema with all entities defined in one place.
+
+## Files Modified and Purpose of Each
+
+### 1. `_bmad-output/planning-artifacts/epics.md` (modified)
+**Location of change:** Story 1.7 (Database Schema Initialization & Migration), lines 449-541
+
+**Changes made:**
+
+#### Part 1: Entity Schema Consolidation (~90 lines added)
+Replaced the simple bullet-list table enumeration with detailed schema definitions for all 7 tables:
+
+1. **`accounts` table** (Story 1.4 context)
+   - Fields: id, email, password_hash, role, created_at
+   - Purpose: Mock credential store for local auth
+
+2. **`employees` table** (Story 3.3)
+   - Fields: id, name, email, role, created_at
+   - Purpose: HR and Employee roster
+   - Note: Idempotent seed script requirement
+
+3. **`skills` table** (Story 3.2)
+   - Fields: id, name, description, embedding (pgvector 384-dim), created_at
+   - Purpose: Skill catalog for HR assignment flow
+   - Note: Idempotent seed with 5-10 core skills
+
+4. **`content_catalog` table** (Story 2.1)
+   - Fields: id, skill_id (FK), title, description, type (enum), url, embedding (pgvector), source (enum), ingested_at, metadata (JSONB)
+   - Purpose: Video/doc/website catalog with semantic matching
+   - Indexes: skill_id index, pgvector ivfflat index for embedding
+
+5. **`assignments` table** (Story 3.1)
+   - Fields: id, employee_id (FK), skill_id (FK), content_id (nullable FK), assigned_at, assigned_by (FK)
+   - Purpose: Employee × Skill assignment links
+   - Constraint: Multiple rows allowed per (employee, skill) for intentional re-assignment
+   - Indexes: employee_id, skill_id
+
+6. **`skill_progress` table** (Story 4.1)
+   - Fields: id, assignment_id (unique FK), watch_position, event_time, verified, updated_at
+   - Purpose: Watch position tracking with event-time ordering
+   - Note: Lazy initialization (no row until first watch)
+   - Indexes: unique on assignment_id, index on event_time
+
+7. **`assignment_overrides` table** (Story 5.5)
+   - Fields: id, assignment_id (FK), set_by (FK), set_at, reason, active, override_status (enum), reversed_at, reversed_by (FK)
+   - Purpose: HR manual override records (separate from skill_progress per AR-4)
+   - Indexes: assignment_id, active (partial index WHERE active=true)
+
+**Additional specifications:**
+- pgvector extension enablement: `CREATE EXTENSION IF NOT EXISTS vector;`
+- Timestamp convention: All timestamps use `TIMESTAMP WITH TIME ZONE` (UTC)
+- UUID generation: `gen_random_uuid()` for default values
+
+#### Part 2: Seed Data Addition (~60 lines added)
+Added comprehensive seed data section with concrete SQL INSERT statements:
+
+**Employee Seed Data (5 users):**
+- Rita the Recommender (HR_ADMIN) — `rita@sails.example.com`
+- Casey the Continuer (EMPLOYEE) — `casey@sails.example.com`
+- Morgan the Motivated (EMPLOYEE) — `morgan@sails.example.com`
+- Jordan the Juggler (EMPLOYEE) — `jordan@sails.example.com`
+- Sam the Skeptic (EMPLOYEE) — `sam@sails.example.com`
+
+All with pre-defined UUIDs for deterministic seeding.
+
+**Account Seed Data (Mock Credentials):**
+- All 5 accounts with password: `demo123`
+- bcrypt-hashed password: `$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5OMxZf3p6b7iS`
+- Roles match employee records (1 HR_ADMIN, 4 EMPLOYEE)
+
+**Skills Seed Data (10 core skills):**
+1. Data Visualization Fundamentals
+2. Python Programming Basics
+3. Advanced SQL Query Writing
+4. Salesforce Administration
+5. Excel Power User Techniques
+6. Public Speaking and Presentation
+7. Agile Project Management
+8. Financial Modeling Essentials
+9. Customer Service Excellence
+10. Cybersecurity Awareness
+
+Each with:
+- Pre-defined UUID
+- Name and description
+- Note about automatic embedding generation using sentence-transformers on first startup
+
+**Idempotency guarantees:**
+- `INSERT ... ON CONFLICT (email) DO NOTHING` for employees/accounts
+- `INSERT ... ON CONFLICT (name) DO NOTHING` for skills
+- Re-running seed script multiple times does not create duplicates
+- Embedding generation skipped if already populated
+
+## Session Notes
+
+**Why this consolidation matters:** The original epics.md had entity definitions scattered across 6 different stories (2.1, 3.1, 3.2, 3.3, 4.1, 5.5), which would have required implementing database schema incrementally as each story was completed. This approach is fragile — foreign key relationships span multiple stories, and implementing Story 3.1 (assignments) before Story 3.2 (skills) would cause referential integrity failures.
+
+**The consolidated approach:** Story 1.7 now owns the complete database schema initialization, matching the typical pattern where database setup is a single upfront story. All 7 tables are created together with correct foreign key ordering, and seed data is populated in one idempotent script. This unblocks all downstream stories (Epic 2-5) to focus on business logic rather than incremental schema management.
+
+**Seed data specificity:** Rather than leaving seed data as "5-10 employees" and "some skills," the consolidation includes exact SQL INSERT statements with fixed UUIDs, concrete names matching the UX scenarios (Rita, Casey, etc.), and 10 production-ready skill definitions. This makes Story 1.7 immediately implementable without additional design decisions.
+
+**Entity definitions preserved from source stories:** Each table definition explicitly references its source story (e.g., "Story 3.1 - Assignments Data Model") to maintain traceability. The field lists, constraints, and indexes match the original story acceptance criteria exactly — this was a consolidation, not a redesign.
+
+**Next expected step:** Story 1.7 is now ready for implementation via `bmad-dev-story`. Once implemented, all database tables will exist, enabling parallel development of Epic 2 (Content), Epic 3 (Assignments), Epic 4 (Progress), and Epic 5 (Dashboard) stories without schema dependencies blocking the critical path.
+
+---
+
