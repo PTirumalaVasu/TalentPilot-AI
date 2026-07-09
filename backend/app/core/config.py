@@ -9,6 +9,8 @@ class Settings(BaseSettings):
     JWT_SECRET: str
     JWT_EXPIRATION_HOURS: int = 24
     ALLOWED_ORIGINS: str = "http://localhost:5173"
+    SESSION_COOKIE_NAME: str = "access_token"
+    COOKIE_SECURE: bool = True
 
     @property
     def allowed_origins_list(self) -> list[str]:
