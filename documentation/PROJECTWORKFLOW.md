@@ -1353,3 +1353,127 @@ Already listed in full under "WDS Phase 4 Continued: Validation & Design Deliver
 ---
 
 No other files were created or modified during this phase beyond what's listed above.
+
+---
+---
+
+# PRD Phase — Skills, Agents, and Files
+
+## Agents Called
+
+### John — Product Manager (`bmad-agent-pm`)
+**Purpose:** Acts as the persistent facilitation persona for this phase — a Marty Cagan/Teresa Torres-style PM archetype (user-interview-driven discovery, not template-filling) with Bezos's six-pager writing discipline, whose job is to turn product vision into a validated PRD, epics, and stories.
+
+**Why it was called:** The user explicitly invoked `/bmad-agent-pm` to talk to John directly.
+
+**What it did specifically in this session:**
+- Resolved its own customization (icon 📋, communication style, principles — "PRDs emerge from user interviews, not template filling"; "ship the smallest thing that validates the assumption"; "user value first, technical feasibility is a constraint" — and its four-item menu: PRD, Create Epics/Stories, Implementation Readiness check, Correct Course).
+- Loaded `_bmad-output/**/project-context.md` as a persistent fact and the BMM module config (`_bmad/bmm/config.yaml`) for the user's name, language, and the `_bmad-output/planning-artifacts` output path.
+- Greeted the user, presented the menu, and dispatched into `bmad-prd` once the user selected `PRD`.
+- Remained "in character" (📋 icon) for the entire session, including through the later mid-session PRD update.
+
+**Delegated subagents (not personas) — spawned throughout by John/`bmad-prd`, not by the user directly:** Unlike the facilitation personas above, this phase made heavy use of the `general-purpose` subagent type to implement the skill's own "extract, don't ingest" discipline — source documents were never loaded wholesale into the main conversation; a subagent read each cluster and returned a compact digest. Across the full phase, **19 subagents were spawned**, all run synchronously (results needed before the next step could proceed):
+- **5** Discovery extraction agents (one per source cluster: Product Brief, Trigger Map + UX Scenarios, brainstorming/design-thinking/innovation-strategy, prototypes + deliveries + progress logs, market/technical research reports) — because the project already had a full prior WDS pipeline to digest before drafting could start.
+- **6** Input-reconciliation agents (Finalize step) — one per source cluster again, this time checking the *finished* draft against its inputs for dropped detail.
+- **3** Reviewer-Gate agents — a rubric walker plus two ad-hoc reviewers (adversarial-general, edge-case-hunter), each invoking its own named skill (see below) and writing a full report to its own file.
+- **2** Polish agents — one per document (`prd.md`, `addendum.md`), each running a structure-then-prose pass by invoking two more named skills (see below).
+- **3** Update-phase verification agents — one per prototype scenario folder, re-reading the WDS phase-5 prototype artifacts in full (including a layer of `stories/*.md` and `work/*.yaml` files the original Discovery pass had missed) to check the finished PRD against the *current* state of the prototypes.
+
+---
+
+## Skills Used
+
+### 1. bmad-prd — Create intent
+**Purpose:** Drives PRD creation through Discovery (brain dump → stakes calibration → working-mode choice → mode-scoped work) and a disciplined Finalize sequence (memlog audit → input reconciliation → reviewer gate → open-item triage → polish → close), producing a stakes-calibrated PRD plus an addendum for implementation-level overflow.
+
+**Why it was called:** Selected from John's menu (`PRD`). No prior in-progress PRD run existed, so a fresh workspace was bound at `_bmad-output/planning-artifacts/prds/prd-TalentPilot-AI-2026-07-09/`.
+
+**Detailed sequence:**
+- **Brain dump:** Rather than asking the user to restate context that already existed on disk, the 5 Discovery subagents (above) were dispatched first, surfacing a much richer picture than `project-context.md` alone showed — a full prior pipeline (Product Brief, Trigger Map, UX Scenarios, working prototypes, brainstorming, research, a PRFAQ stress-test) the user hadn't explicitly re-summarized. Two real gaps were caught here rather than glossed over: a duplicate, unreconciled second Product Brief, and an imminent hard launch date (4 days out from the PRD-authoring date).
+- **Stakes calibration / working mode:** Given how much was already locked and the tight timeline, Fast path was recommended and confirmed via `AskUserQuestion` (alongside resolving the duplicate-brief question as "merge both").
+- **Fast-path consolidated questions:** One batched round of 4 `AskUserQuestion` items resolved the remaining real gaps before drafting — timeline scope (full MVP as already scoped, date confirmed not slipped), whether AI-content-approval is an MVP gate (no — prototype badge only), how to handle an undecided data-retention policy (Open Question, deferred), and whether a manager/team-lead role should be added (no — HR + Employee only, resolving an older brief's open question).
+- **Draft:** Wrote `prd.md` (12 FRs across 4 features, 3 User Journeys reproduced from the existing UX scenarios, Cross-Cutting NFRs, Constraints and Guardrails, Why Now, Open Questions, Assumptions Index) and `addendum.md` (technical stack, rejected alternatives, market/prototype depth) in one pass, `[ASSUMPTION]`-tagging every inference.
+- **Finalize — memlog audit:** Walked all 7 Discovery-phase memlog entries with the user; all had already landed in the PRD body, nothing orphaned.
+- **Finalize — input reconciliation:** The 6 reconciliation subagents (above) surfaced real gaps, three of which were genuine conflicts needing a human call rather than a silent pick — resolved via a second `AskUserQuestion` round: a PRFAQ commitment to a content-approval gate directly contradicted the earlier Fast-path decision (resolved: no gate stands, PRFAQ superseded), a PRFAQ-committed HR manual-override capability had no FR anywhere (resolved: added as new FR-12, with its own "HR Override" Provenance Label state), and a "Needs Attention filter" named in early feature scoring wasn't built as an FR (resolved: per-row drill-down stands, no separate filter added). The remaining, non-conflicting gaps (missing NFR targets, missing FR failure-state consequences, dropped addendum depth) were fixed directly without needing to ask.
+- **Finalize — reviewer gate:** Dispatched a rubric walker (against `_bmad-output/**/prd-validation-checklist.md`) plus two ad-hoc reviewers judged warranted by the PRD's shape — `bmad-review-adversarial-general` (a Cynical Review) and `bmad-review-edge-case-hunter` (exhaustive branching/boundary analysis) — each invoked via the Skill tool from inside its subagent and writing a full report to its own file. Findings were triaged: most were fixed directly (a missing FR from the MVP scope list, a missing testable consequence, an under-specified success metric), but one finding was a genuine correctness bug — FR-7's original "never overwrite a further-along position with an earlier one" wording would have incorrectly blocked a legitimate mid-session video rewind; rewritten to order writes by event timestamp instead of position value, with an explicit `[NOTE FOR PM]` warning against the wrong implementation.
+- **Finalize — polish:** Two subagents each ran a structure-then-prose pass, invoking `bmad-editorial-review-structure` then `bmad-editorial-review-prose` via the Skill tool in sequence per document (`prd.md`, `addendum.md`) — applying safe CUT/MERGE/CONDENSE and copy-editing fixes directly, flagging anything needing a human call (e.g., whether market-strategy content belongs in an engineer-facing addendum) rather than applying it.
+- **Finalize — close:** Set `prd.md` frontmatter to `status: final`, logged the finalization event to `.memlog.md`, and appended a new "PRD finalized" entry to `_bmad-output/project-context.md` documenting every decision that superseded or extended earlier artifacts (the reversed content-approval-gate call, the promoted FR-12, the FR-7 correctness fix, the sourced 7-day staleness threshold, and the real open gaps — auth/roster provisioning, undecided hosting — carried forward as Open Questions rather than treated as solved).
+
+### 2. bmad-review-adversarial-general
+**Purpose:** Runs a Cynical Review — an adversarial pass designed to find load-bearing claims asserted without real backing.
+
+**Why it was called:** Dispatched as one of the Reviewer Gate's ad-hoc reviewers, judged warranted given the PRD makes several structural trust/security claims (the "Verified" label, the coaching-only data boundary).
+
+**What it found:** 15 findings, several severe — no FR implements the "coaching-only" guarantee it claims is structural; no FR covers authentication or employee-roster provisioning despite every User Journey assuming an authenticated entry state; the "Verified" trust signal (the product's core differentiator) had no server-side validation against a client simply posting fabricated watch-position data; and the 4-day runway to the stated launch date isn't credible given hosting is still undecided. All were triaged — the anti-spoofing and coaching-only gaps became new Cross-Cutting NFRs; the auth/roster gap became a new Open Question; the timeline concern was folded into the existing hosting Open Question rather than re-litigated, since the user had already confirmed the date this session.
+
+### 3. bmad-review-edge-case-hunter
+**Purpose:** Walks every branching path and boundary condition in the content, reporting only unhandled edge cases.
+
+**Why it was called:** Dispatched as the second ad-hoc Reviewer Gate entry, given how much of this PRD's value sits in its testable FR consequences.
+
+**What it found:** 18 unhandled edge cases, the most consequential being the FR-7 rewind-vs-stale-write ambiguity described above (a genuine spec bug, not a missing nice-to-have) — plus a missing staleness threshold definition (fixed by sourcing the original 7-day figure from the design-thinking success-metric proposal rather than inventing one), a missing reversal/precedence rule for the new HR Override FR, missing duplicate-assignment handling, and no defined fallback for Content that goes dead after assignment (logged as a new Open Question rather than answered, since no source material addressed it).
+
+### 4. bmad-editorial-review-structure / bmad-editorial-review-prose
+**Purpose:** A propose-don't-execute structural editor (cuts, merges, reorganization) followed by a clinical copy-editor (grammar/clarity fixes only) — both explicitly forbidden from changing what any section actually says.
+
+**Why they were called:** The PRD skill's declared `doc_standards` for the polish step, run in that fixed order (structure before prose) per document.
+
+**What happened:** `prd.md` needed zero structural cuts (already tight) and 5 minor prose fixes; `addendum.md` got 3 structural reorganizations (grouping engineering-relevant content contiguously for its stated engineer/architect audience) and 6 prose fixes. Both passes flagged a handful of QUESTION-tier items (e.g., whether market-strategy content belongs in an addendum meant for engineers) that were left for the user rather than resolved unilaterally.
+
+### 5. bmad-prd — Update intent (same-day, second invocation)
+**Purpose:** Reconciles an existing PRD against a change signal — source-extracting against the PRD, addendum, memlog, and the *new* originating inputs, surfacing conflicts with prior decisions before applying anything.
+
+**Why it was called:** The user asked to update the PRD with the latest WDS prototyping changes. A file-modification-time check against `E-Development/` immediately surfaced two things: a whole layer of dev-ready spec files (`stories/*.md`, `work/*.yaml`, `Logical-View-Map.md`) that the original Discovery pass had missed entirely (its directory scan wasn't deep enough — a process gap now fixed and logged in `project-context.md` so it isn't repeated), and two real same-day prototype commits.
+
+**Detailed sequence:**
+- Dispatched the 3 Update-verification subagents (above), one per prototype scenario, each instructed to read the *current* state of its scenario's HTML/JS/data plus every previously-unread `stories/`/`work/` file and check it against what the PRD already claimed.
+- The subagents surfaced two confirmed product pivots already live in the prototype code with no prior decision record — the dashboard's primary at-a-glance signal had silently changed from the Provenance Label to a completion-Status badge (Provenance demoted to drill-down), and Content Discovery had silently changed from a single AI-recommended video to a multi-assignment list — plus two prototype regressions (the drill-down's only click-target was deleted; Content Discovery lost its previously-approved loading/error states) and one latent risk (dormant, unwired employee-switching capability in the data layer).
+- Rather than silently updating the PRD to match code that might just be drift, both pivots were put to the user directly via `AskUserQuestion` — both confirmed as intentional. The two regressions were explicitly *not* applied to the PRD; they're documented in the addendum as bugs for the real build to avoid, not as new scope.
+- Applied the confirmed pivots throughout `prd.md` (Glossary, FR-8/9/10/11/12, all three User Journeys, the §4.4 section title, MVP scope list, Assumptions Index) — including flagging, not silently resolving, a real coherence risk the Status/Provenance pivot introduces (a Status badge alone can't distinguish Verified from Self-reported data, risking exactly the trust-ambiguity problem this product exists to solve) as a new, explicit Open Question rather than smoothing it over now that the user had confirmed the pivot.
+- Added a new hard Non-Goal guarding against the latent employee-switching risk, and folded genuinely new testable detail from the newly-read `stories/*.md` files (exact toast copy and timing, distinct empty/error-state copy, sharpened tone-of-voice acceptance criteria) into FR-1, FR-2, and FR-4.
+- Logged every decision to `.memlog.md` and appended a second dated entry to `project-context.md`.
+
+---
+
+## Files Created and Purpose of Each
+
+All files live under `_bmad-output/planning-artifacts/prds/prd-TalentPilot-AI-2026-07-09/` unless noted.
+
+### 1. `prd.md`
+**Purpose:** The PRD itself — created during the Create-intent pass, then substantively revised during the Update-intent pass. 12 Functional Requirements across 4 features (Skill Assignment Flow, AI-Assisted Content Discovery, Automatic Video Progress Capture & Resume, Readiness Dashboard), 3 User Journeys, Glossary, Non-Goals, MVP Scope, Success Metrics (including 2 counter-metrics), Cross-Cutting NFRs, Constraints and Guardrails, Why Now, 12 Open Questions, and an Assumptions Index. Frontmatter `status: final`.
+
+### 2. `addendum.md`
+**Purpose:** Implementation-level overflow that doesn't belong in the PRD's main narrative — locked tech stack, rejected technical and product alternatives (with reasoning), prototype implementation notes, hypothesis/test-flow summary, market landscape detail, and (added during the Update pass) a "Known prototype regressions" section documenting bugs for the real build to fix without treating them as PRD scope changes.
+
+### 3. `.memlog.md`
+**Purpose:** The canonical, append-only decision log for this PRD workspace — every Discovery decision, Finalize-stage conflict resolution, reviewer-gate triage outcome, and Update-intent pivot, in time order. 20 entries by the end of this phase.
+
+### 4. `review-rubric.md`, `review-adversarial-general.md`, `review-edge-case-hunter.md`
+**Purpose:** Full reviewer reports from the three Reviewer Gate subagents (see Skills Used above) — kept as drill-in detail; only compact summaries and triaged findings surfaced in conversation, per the skill's "findings stay in-conversation during Finalize" discipline.
+
+### 5. `reconcile-product-briefs.md`, `reconcile-trigger-ux.md`, `reconcile-ideation.md`, `reconcile-prototypes.md`, `reconcile-research.md`, `reconcile-prfaq-context.md`
+**Purpose:** Full reconciliation reports from the 6 input-reconciliation subagents — one per source cluster, each checking the finished draft against its assigned original input for dropped detail.
+
+### 6. `_bmad-output/project-context.md` (appended to twice, not overridden)
+**Purpose:** Once after the Create-intent Finalize closed, recording every decision that superseded or extended earlier artifacts and the real open gaps carried forward; again after the Update-intent pass, recording the two confirmed pivots (including the unresolved Status/Provenance coherence risk), the two documented prototype regressions, the latent employee-switching risk, and the process note about the missed `stories/`/`work/` directory layer.
+
+### 7. `documentation/PROJECTWORKFLOW.md` (this file, appended to)
+**Purpose:** This section.
+
+---
+
+## Session Notes
+
+**Extraction discipline was the load-bearing design choice of this entire phase.** With a full prior WDS pipeline already on disk, the temptation was to read everything into the main conversation directly. Instead, every substantial read — Discovery, reconciliation, review, polish, and the Update-phase prototype re-check — was delegated to a subagent that returned a compact digest, keeping the main thread's context budget spent on synthesis and user-facing decisions rather than raw source material. 19 subagents ran over the course of the phase without the main conversation ever holding a full copy of any single source document.
+
+**Two genuine conflicts were caught only because reconciliation happened *after* drafting, not skipped.** The content-approval-gate contradiction (a Fast-path decision vs. a PRFAQ commitment) and the missing HR-override capability (also a PRFAQ commitment) would have shipped silently wrong if the Finalize step's input-reconciliation pass hadn't specifically been designed to check the *finished* draft against every original input again, not just trust the Discovery-phase digest.
+
+**One real correctness bug, found once, fixed once.** FR-7's original conditional-write rule ("never overwrite a further-along position with an earlier one") reads intuitively correct but would have silently broken every legitimate mid-session video rewind — caught by the edge-case-hunter reviewer, not by construction. The fix (order by event timestamp, not position value) and an explicit `[NOTE FOR PM]` warning against the wrong implementation are now in the PRD specifically so the real build doesn't rediscover this the hard way, mirroring Phase 5's `fetch()`/`file://` bug pattern — a defect found once, documented once, and never repeated downstream.
+
+**A real product-thesis risk was surfaced and left open, not smoothed over just because the user confirmed the surrounding decision.** When the user confirmed the Status/Provenance pivot was intentional, the PRD did not simply update to match — it explicitly flagged (as a new, unresolved Open Question) that the pivot risks reintroducing the exact trust-ambiguity problem the product exists to solve, since a Status badge alone can't distinguish Verified from Self-reported data without a working drill-down. Confirming a decision is not the same as confirming its consequences were fully worked through, and the PRD says so in writing rather than implying the tension was resolved.
+
+**Why this phase matters:** The PRD is now the single authoritative capability spec for TalentPilot-AI — reconciled against the full prior pipeline (brainstorming through PRFAQ), aligned with what the WDS prototypes actually do *today* rather than what they did when Phase 5 first shipped, and honest in writing about which parts of the product thesis are proven versus still-open assumptions. Downstream work (`bmad-ux` for the undesigned FR-12 override interaction, `bmad-create-epics-and-stories` for a sprint-ready backlog) can now build on it directly.
+
+---
+
+No other files were created or modified during this phase beyond what's listed above.
