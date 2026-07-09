@@ -7,6 +7,7 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from alembic import context
+from app.core.config import settings
 from app.core.db import Base
 
 # this is the Alembic Config object, which provides
@@ -16,6 +17,12 @@ config = context.config
 # Interpret the config file for Python logging.
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
+
+# Use the app's own settings (backend/.env) as the single source of truth,
+# instead of a second hardcoded URL in alembic.ini that can drift out of sync.
+# ConfigParser applies %-interpolation to stored values, so a literal '%' in
+# the URL (e.g. a URL-encoded password character) must be escaped as '%%'.
+config.set_main_option("sqlalchemy.url", settings.DATABASE_URL.replace("%", "%%"))
 
 # set the target for 'autogenerate' support
 target_metadata = Base.metadata
