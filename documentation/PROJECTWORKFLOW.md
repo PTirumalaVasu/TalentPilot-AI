@@ -1705,3 +1705,82 @@ No other agent was invoked in this phase. **No subagents were spawned at any poi
 ---
 
 No other files were created or modified during this phase beyond what's listed above.
+
+---
+---
+
+# Implementation Readiness Check Phase — Skills, Agents, and Files
+
+## Agents Called
+
+**No facilitation persona was invoked in this phase.** The user ran `/bmad-check-implementation-readiness` directly — no `/bmad-agent-*` or `/bmad-cis-agent-*` persona command, no menu dispatch, no party-mode digression. **No subagents were spawned at any point** — every document read, cross-check, and grep against the actual prototype HTML was performed directly in the main conversation, not delegated, unlike the PRD phase's 19 subagents.
+
+---
+
+## Skills Used
+
+### 1. bmad-check-implementation-readiness
+
+**Purpose:** Validates that PRD, UX, Architecture, and Epics/Stories are complete and aligned before Phase 4 implementation starts, with a specific focus on whether epics and stories are logical and account for every requirement. Runs as six sequential, non-skippable steps, each appending to one running report file.
+
+**Why it was called:** The user invoked the skill directly, with no prior context set in this session about which artifact was suspected weak — the workflow's own document-discovery step was left to surface that.
+
+**Detailed sequence of what happened inside this skill:**
+
+- **Activation:** Attempted `resolve_customization.py --key workflow` via `python3` — failed with the same "Python was not found" Windows/Store-alias error already logged in `project-context.md` since the Design Thinking phase. Fell back to the documented manual procedure: read `customize.toml` directly (no team/user override files existed under `_bmad/custom/`), confirming empty `activation_steps_prepend`/`activation_steps_append` and a single `persistent_facts` entry (`file:{project-root}/**/project-context.md`). Loaded `_bmad-output/project-context.md` and `_bmad/bmm/config.yaml` (`user_name`: TalentPilot, `communication_language`: English, `planning_artifacts` path), then greeted the user and began Step 1.
+
+- **Step 1 — Document Discovery:** Searched systematically for PRD, Architecture, Epics/Stories, and UX documents under `planning_artifacts` and the wider `_bmad-output/` tree. Found a clean, non-duplicated PRD (`prds/prd-TalentPilot-AI-2026-07-09/prd.md` + `addendum.md`) and Architecture (`architecture/architecture-TalentPilot-AI-2026-07-09/ARCHITECTURE-SPINE.md` + `SOLUTION-DESIGN.md`), both sharded, no whole/sharded conflicts. Found **no formal Epics/Stories document anywhere** — only the WDS Phase-5 prototype-construction artifacts (20 `stories/*.md` files + `work/*.yaml` + `Logical-View-Map.md`, one set per `E-Development/` scenario folder), and no dedicated `bmad-ux` output — only the WDS `C-UX-Scenarios/` tree (6 page specs + 3 scenario overviews). Surfaced this as the phase's first real fork: since the skill treats a missing Epics/Stories document as at minimum a critical warning, and this is exactly the kind of judgment call the workflow can't make unilaterally, an `AskUserQuestion` was raised with four options (treat the WDS stories as the stand-in artifact / proceed with Epics marked missing / stop and run `bmad-create-epics-and-stories` first / user points to a different location). **The user chose to treat the 20 WDS stories as the Epics & Stories stand-in** — this decision shaped every subsequent step, since it meant evaluating prototype-construction task files against a rubric written for user-value epics. Saved the full document inventory (including the resolution) to the report's frontmatter and Step 1 section.
+
+- **Step 2 — PRD Analysis:** Read `prd.md` and `addendum.md` in full (not summarized) and extracted all 14 Functional Requirements verbatim with their testable consequences, all 8 Cross-Cutting NFRs plus one feature-specific NFR, and the §9 Constraints/Guardrails as additional binding requirements. Assessed PRD completeness: found it unusually thorough for a hackathon-timeline project (every FR carries testable consequences, an Assumptions Index traces every non-obvious decision, 12 Open Questions are explicitly logged), but flagged two FRs (FR-9, FR-12) whose own text already admits real gaps against the current build state, and two open coherence questions (Open Question 9 on auth/roster provisioning, Open Question 11 on Status/Provenance) that would need checking against the Architecture and UX artifacts rather than assumed solved.
+
+- **Step 3 — Epic Coverage Validation:** Read all 20 WDS story files plus their `work/*.yaml` and `Logical-View-Map.md` companions in full, then cross-checked what they claimed against PRD FR text — and, critically, against the **actual current prototype HTML/JS** via targeted `grep`, not just the story markdown. This surfaced the phase's most significant finding: two independent grep checks (against `01.1-Skills-Dashboard.html` for the Status-badge/Provenance-badge split, and `02.1-Content-Discovery.html` for the Total/In-Progress/To-Start list model) confirmed that the shipped prototype code has **already moved past** what both the WDS stories and the formal UX specs still document, because a same-day post-story commit updated the code without the design docs being regenerated. Built a full 14-row FR coverage matrix: only 1 FR (FR-2) cleanly covered; 5 partially covered (FR-1, FR-9, FR-10, FR-13, FR-14); 2 actively stale/mismatched (FR-4, FR-8 — documenting a superseded model); 6 with zero coverage at all (FR-3, FR-5, FR-6, FR-7, FR-11, FR-12, most consequentially FR-12, which the PRD's own text already admits has no design/story coverage anywhere).
+
+- **Step 4 — UX Alignment:** Read all 6 WDS Phase-4 UX page specs plus the 3 scenario overviews and the index in full. Found the UX documents substantive (object-ID tables, interaction tables, page-states tables — not placeholders), but discovered the **same staleness the stories had**, this time in the design-of-record itself: `01.1-assignment-dashboard.md` still conflates Status and Provenance into one column (contradicting the architecture's AD-3, which explicitly states this is the exact conflation to avoid), and `02.1-content-discovery.md` still specifies the single-recommendation-card model FR-4 has since superseded. Also found FR-12 (HR Override) and FR-13/FR-14 (Authentication) have zero coverage in the formal UX set — the only auth design record is a differently-formatted, later `evolution/` artifact not cross-referenced from the UX index at all. Cross-checked UX against Architecture and found one clean resolution (the UX docs' open "WebSocket vs. polling" question was concretely settled by the architecture's client-polling decision) alongside the same Status/Provenance divergence found from the Architecture side.
+
+- **Step 5 — Epic Quality Review:** Applied `create-epics-and-stories` best-practice rules (user-value framing, epic independence, no forward dependencies, proper story sizing, BDD acceptance criteria, database-creation timing) to the 20 stories, treating each of the 3 scenario folders as an epic-equivalent. Found 3 critical violations — most notably a **self-documented cross-epic forward dependency** (Story `01.1.1`'s own text defers wiring its primary action button to Story `03.6`, two epics later) and systemic layer-slicing (every scenario ships a happy-path story that a *later* story explicitly rewrites to add error handling, rather than shipping complete vertical increments) — plus 3 major issues (Epic 03 duplicating Epic 01's file wholesale rather than composing it; zero epics existing for any backend/infrastructure work despite the architecture's fully-specified 7-step build order; a BDD-format deviation) and 2 minor concerns. Also credited genuine strengths worth preserving: consistently specific, testable acceptance criteria, and properly user-centric epic-level naming.
+
+- **Step 6 — Final Assessment:** Reviewed all prior sections and delivered a direct, unambiguous verdict — **NOT READY**, specifically at the Epics & Stories layer, while explicitly crediting the PRD and Architecture as strong and implementation-ready on their own terms. Compiled 5 critical issues, 5 recommended next steps (headlined by re-running `bmad-create-epics-and-stories` from the PRD + architecture spine's own build order rather than adapting the WDS stories), and a final tally of 29 distinct findings across the 5 categories. Checked for a configured `workflow.on_complete` hook (none — base `customize.toml` has it empty, no overrides exist) and, per the skill's own completion instruction, invoked `bmad-help` next.
+
+### 2. bmad-help
+
+**Purpose:** Orients the user in the BMad pipeline and recommends the next skill, grounded in actual project state rather than a generic menu.
+
+**Why it was called:** Automatic — the final step of `bmad-check-implementation-readiness` explicitly instructs invoking `bmad-help` on completion, rather than ending the workflow silently.
+
+**What it did:** Resolved the merged BMad config via the `python` launcher (the same `uv`-unavailable workaround used throughout this project), then read the `bmad-help.csv` catalog to determine sequencing state for the BMad Method module's `3-solutioning` phase. Confirmed against the catalog's own `preceded-by`/`required` metadata that **Create Epics and Stories** (`bmad-create-epics-and-stories`) is the one still-missing required item — independently corroborating the readiness report's own recommendation rather than just repeating it. Presented this as the clear next step and offered to run it immediately, alongside one non-blocking optional alternative (`Correct Course`, for addressing specific findings piecemeal first).
+
+---
+
+## The Role of Project Context in This Phase
+
+- `_bmad-output/project-context.md` was read directly (not as a declared `persistent_fact`, since this skill's `customize.toml` glob-loads it the same way every other BMad skill in this project does) at Step 1 activation — this is how the readiness check already knew about the auth backfill, the architecture spine's load-bearing calls, and the Status/Provenance pivot's unresolved UX half before reading a single planning artifact.
+- Per the file's own Mandatory Rule, it was written to, not just read: a new dated bullet was appended under "Product & Design Decisions" recording the **NOT READY** verdict, the specific finding that FR-4/FR-8 are actively stale (verified against the HTML directly, not just inferred from the PRD), the cross-epic forward-dependency violation, the auth-artifact cross-reference gap, and the recommended next step — so a future session picking up `bmad-create-epics-and-stories` doesn't have to re-derive any of this from the full report.
+
+---
+
+## Files Created or Modified
+
+### 1. `_bmad-output/planning-artifacts/implementation-readiness-report-2026-07-09.md` (created)
+**Purpose:** The full six-step assessment report — Document Discovery (inventory + the Epics/Stories resolution decision), PRD Analysis (14 FRs, 8 NFRs, completeness assessment), Epic Coverage Validation (14-row FR coverage matrix, missing-coverage detail), UX Alignment Assessment (alignment issues, UX↔Architecture cross-check), Epic Quality Review (critical/major/minor violations plus preserved strengths), and Summary and Recommendations (overall status, critical issues, next steps, final tally). Frontmatter tracks `stepsCompleted` for all 6 steps plus the resolved `documents_included` inventory.
+
+### 2. `_bmad-output/project-context.md` (appended to, not overridden)
+**Purpose:** A new dated bullet recording the readiness check's verdict and its most consequential findings, so downstream work (`bmad-create-epics-and-stories`, and any re-run of this same check) starts from the current state rather than rediscovering it.
+
+### 3. `documentation/PROJECTWORKFLOW.md` (this file, appended to)
+**Purpose:** This section.
+
+---
+
+## Session Notes
+
+**The most consequential finding came from verifying against running code, not just reading documents.** Both the WDS stories and the formal UX specs read as internally coherent on their own — nothing about `01.1.2`'s row template or `01.1-assignment-dashboard.md`'s grid columns looks obviously wrong in isolation. The staleness only surfaced because the actual prototype HTML was grepped directly (`statusBadge()`/`provenanceBadge()` placement in `01.1-Skills-Dashboard.html`; the Total/In-Progress/To-Start markup in `02.1-Content-Discovery.html`) rather than trusted from the design documents' own claims — the same "prototype is evidence, not spec" discipline the PRD and Architecture phases applied to the mock credential store and the flat Status/Provenance denormalization, now applied in reverse: this time the *documents* were the stale artifact, and the *code* had already moved on.
+
+**A missing artifact was treated as a real fork requiring a decision, not silently substituted.** The workflow's own document-discovery step doesn't have a built-in answer for "there is no Epics/Stories document at all" beyond flagging it as critical. Rather than unilaterally deciding to grade the WDS stories against a rubric they were never written to satisfy, that choice was put to the user via `AskUserQuestion` before any analysis began — meaning the entire Step 3/5 findings set is explicitly scoped as "here's what happens if you evaluate X against a bar it wasn't built for," not an implicit claim that X was always meant to be the epics/stories artifact.
+
+**The review did not soften a genuinely poor result.** Per the skill's own Step 6 instruction ("don't soften the message — be direct"), the final verdict states plainly that only 1 of 14 FRs is cleanly covered and that this "is not a close call," while still crediting the PRD and Architecture as strong on their own merits — the report distinguishes *which layer* is the problem rather than issuing an undifferentiated pass/fail across the whole pipeline.
+
+**Why this phase matters:** TalentPilot-AI now has an honest, evidence-backed answer to "are we ready to start building?" — no, specifically because the epics/stories layer doesn't exist in a form that traces the current PRD or architecture, despite both of those upstream artifacts being genuinely strong. The report gives the next session (`bmad-create-epics-and-stories`) a concrete, FR-by-FR punch list to work from instead of a vague "go write some stories" instruction, and flags exactly which existing artifacts (the WDS stories' good acceptance-criteria style, the concrete UI copy in `addendum.md`) are worth keeping versus which structural pattern (layer-slicing, cross-epic forward dependencies) should not be repeated.
+
+---
+
+No other files were created or modified during this phase beyond what's listed above.
