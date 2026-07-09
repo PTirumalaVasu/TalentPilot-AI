@@ -36,6 +36,76 @@ const PrototypeAPI = {
     return data.continueWatching;
   },
 
+  async getAssignedVideos() {
+    const data = await this._load();
+    return data.contentDiscovery.assignedVideos || [];
+  },
+
+  async selectVideo(videoId) {
+    const data = await this._load();
+    const video = data.contentDiscovery.assignedVideos.find(v => v.id === videoId);
+    if (video) {
+      sessionStorage.setItem('selected_video', JSON.stringify(video));
+      return video;
+    }
+    throw new Error(`Video with id ${videoId} not found`);
+  },
+
+  async getSelectedVideo() {
+    const stored = sessionStorage.getItem('selected_video');
+    if (stored) {
+      return JSON.parse(stored);
+    }
+    return null;
+  },
+
+  async getSkills() {
+    const data = await this._load();
+    return data.skills || [];
+  },
+
+  async getEmployeeAssignments(employeeId) {
+    const data = await this._load();
+    return data.contentDiscovery.assignedVideos || [];
+  },
+
+  async getSelectedSkillDetails() {
+    const selected = await this.getSelectedVideo();
+    if (selected && selected.skillId) {
+      const skills = await this.getSkills();
+      return skills.find(s => s.id === selected.skillId);
+    }
+    return null;
+  },
+
+  async getEmployees() {
+    const data = await this._load();
+    return data.employees || [];
+  },
+
+  async getEmployeeVideos(employeeId) {
+    const data = await this._load();
+    if (data.employeeAssignments && data.employeeAssignments[employeeId]) {
+      return data.employeeAssignments[employeeId].assignedVideos;
+    }
+    // Fallback to contentDiscovery if no employee-specific data
+    return data.contentDiscovery.assignedVideos || [];
+  },
+
+  async setSelectedEmployee(employeeId) {
+    sessionStorage.setItem('selected_employee_id', employeeId);
+  },
+
+  async getSelectedEmployeeId() {
+    return sessionStorage.getItem('selected_employee_id') || 'emp-casey';
+  },
+
+  async getSelectedEmployee() {
+    const employeeId = await this.getSelectedEmployeeId();
+    const employees = await this.getEmployees();
+    return employees.find(e => e.id === employeeId);
+  },
+
   // ==========================================================================
   // DEBUG HELPERS (console commands)
   // ==========================================================================
