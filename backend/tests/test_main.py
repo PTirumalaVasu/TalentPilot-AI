@@ -1,8 +1,8 @@
 import pytest
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from httpx import ASGITransport, AsyncClient
 
-from app.core.errors import register_exception_handlers
+from app.core.errors import AppException, register_exception_handlers
 from app.main import app
 
 
@@ -41,6 +41,14 @@ def _build_test_app_with_handlers() -> FastAPI:
     @test_app.post("/validate")
     async def validate(payload: dict[str, int]):
         return payload
+
+    @test_app.get("/plain-http-exception")
+    async def plain_http_exception():
+        raise HTTPException(403, "no custom code here")
+
+    @test_app.get("/app-exception")
+    async def app_exception():
+        raise AppException(403, error_code="INVALID_ROLE", message="Role 'UNKNOWN' not recognized. Expected: HR_ADMIN or EMPLOYEE")
 
     return test_app
 
@@ -85,4 +93,30 @@ async def test_http_exception_returns_centralized_error_contract():
         body = response.json()
         assert body["status"] == "error"
         assert body["code"] == "HTTP_ERROR"
+        assert "timestamp" in body
+
+
+@pytest.mark.asyncio
+async def test_plain_http_exception_falls_back_to_generic_error_code():
+    """Backward-compatibility guard for Task 0: existing plain HTTPException
+    call sites (e.g. Story 1.2's 401s) must keep returning HTTP_ERROR."""
+    test_app = _build_test_app_with_handlers()
+    transport = ASGITransport(app=test_app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.get("/plain-http-exception")
+        assert response.status_code == 403
+        assert response.json()["code"] == "HTTP_ERROR"
+
+
+@pytest.mark.asyncio
+async def test_app_exception_carries_custom_error_code():
+    test_app = _build_test_app_with_handlers()
+    transport = ASGITransport(app=test_app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.get("/app-exception")
+        assert response.status_code == 403
+        body = response.json()
+        assert body["status"] == "error"
+        assert body["code"] == "INVALID_ROLE"
+        assert "UNKNOWN" in body["message"]
         assert "timestamp" in body

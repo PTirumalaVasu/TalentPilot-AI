@@ -21,3 +21,15 @@ def test_load_settings_succeeds_with_required_vars(monkeypatch):
 
     assert settings.DATABASE_URL == "postgresql+asyncpg://u:p@localhost:5432/db"
     assert settings.JWT_SECRET == "test-secret"
+
+
+def test_cookie_settings_defaults(monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", "postgresql+asyncpg://u:p@localhost:5432/db")
+    monkeypatch.setenv("JWT_SECRET", "test-secret")
+    monkeypatch.delenv("SESSION_COOKIE_NAME", raising=False)
+    monkeypatch.delenv("COOKIE_SECURE", raising=False)
+
+    settings = load_settings(_env_file=None)
+
+    assert settings.SESSION_COOKIE_NAME == "access_token"
+    assert settings.COOKIE_SECURE is True
