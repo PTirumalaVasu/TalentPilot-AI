@@ -1,7 +1,16 @@
 ---
-stepsCompleted: ['step-01-validate-prerequisites', 'step-02-design-epics', 'step-03-create-stories', 'step-04-final-validation', 'advanced-elicitation', 'blocker-resolution']
-blockersResolved: ['OQ9-LOCAL-provisioning', 'E1.S3-auth-edge-cases', 'E5.S2-privacy-enforcement', 'E1.S7-database-migration-added', 'E2.S2-error-handling']
-readinessStatus: 'READY FOR DEVELOPMENT'
+stepsCompleted: ['step-01-validate-prerequisites', 'step-02-design-epics', 'step-03-create-stories', 'step-04-final-validation', 'advanced-elicitation', 'blocker-resolution', 'critical-issue-resolution-round-1', 'tier-2-ux-alignment-round-2']
+blockersResolved: ['OQ9-LOCAL-provisioning', 'E1.S3-auth-edge-cases', 'E5.S2-privacy-enforcement', 'E1.S7-database-migration-added', 'E2.S2-error-handling', 'E5.S2-drill-down-regression-fixed', 'E1.S3-identity-hard-scoping-added', 'E4.S5-atomic-write-specified', 'E2.S5-content-discovery-aligned', 'E3.S4-assignment-flow-aligned', 'E5.S2-needs-attention-specified', 'E5.S5b-override-reversal-added']
+readinessStatus: 'TIER-1-AND-TIER-2-READY'
+lastUpdated: '2026-07-09-round-2-tier-2-complete'
+criticalFixesApplied: 
+  - 'TIER 1: E5.S2, E1.S3, E4.S5 — Launch blockers fixed'
+  - 'TIER 2: E2.S5, E3.S4, E5.S2, E5.S5b — All aligned to UX specs (no UX changes)'
+highPriorityFixesApplied:
+  - 'E2.S5: Rewritten as single-card Content Discovery (per UX spec 02.1)'
+  - 'E3.S4: Enhanced HR Assignment Flow with exact UX spec 03.1 copy/layout'
+  - 'E5.S2: Needs Attention rendering now concrete (⚠️ icon, red-600, WCAG compliant)'
+  - 'E5.S5b: NEW story created for HR Override Reversal with complete flow'
 inputDocuments:
   - '_bmad-output/planning-artifacts/prds/prd-TalentPilot-AI-2026-07-09/prd.md'
   - '_bmad-output/planning-artifacts/architecture/architecture-TalentPilot-AI-2026-07-09/ARCHITECTURE-SPINE.md'
@@ -271,10 +280,12 @@ So that sessions can be created and verified securely.
 ### Story 1.3: Role & Identity Scoping on Every Request
 
 As a **developer**,
-I want to enforce role and identity scoping at the FastAPI dependency layer,
-So that every protected request is validated server-side before data access.
+I want to enforce role and identity scoping at the FastAPI dependency layer and repository layer,
+So that every protected request is validated server-side before data access, and EMPLOYEE sessions are hard-scoped to prevent cross-employee data access (FR-14).
 
 **Acceptance Criteria:**
+
+#### **JWT Token Validation (FastAPI Dependency Layer)**
 
 **Given** a request to a protected endpoint with a valid JWT  
 **When** the request includes role and user_id claims  
@@ -282,9 +293,7 @@ So that every protected request is validated server-side before data access.
 - Role ∈ {HR_ADMIN, EMPLOYEE}
 - User identity (user_id) is present and non-null
 
-**And** for EMPLOYEE sessions, the identity is hard-scoped — the same user_id is used to filter all queries, making cross-employee data retrieval impossible regardless of request parameters
-
-**And** for HR_ADMIN sessions, role is verified but data access filters are applied by the downstream service layer (not here)
+**And** the dependency passes the validated (role, user_id) to the request context (e.g., `request.state.current_user`)
 
 **EDGE CASE: Missing Role Claim**  
 **Given** JWT token with no "role" key present  
@@ -309,7 +318,63 @@ So that every protected request is validated server-side before data access.
 **EDGE CASE: Valid EMPLOYEE Role**  
 **Given** JWT with role="EMPLOYEE" and valid user_id  
 **When** the dependency validates the JWT  
-**Then** request proceeds (passes validation); user is authenticated as Employee with identity scoped to their user_id
+**Then** request proceeds (passes validation); user is authenticated as Employee with identity context ready for hard-scoping
+
+---
+
+#### **CRITICAL: Employee Hard-Scoping at Repository Layer (FR-14 Enforcement)**
+
+**GIVEN** an authenticated EMPLOYEE session for user_id=casey@example.com  
+**WHEN** that session calls `GET /api/assignments` (listing assignments)  
+**THEN** the repository layer **hard-scopes the query** by employee_id, returning **only** assignments where `assignment.employee_id == casey`
+
+**AND** this hard-scoping happens at the **repository layer**, not at the service or controller layer — the query itself contains the WHERE clause, making it impossible for an overlooked permission check to leak data
+
+---
+
+**GIVEN** an EMPLOYEE session for user_id=casey  
+**WHEN** that session calls `GET /api/assignments?employee_id=morgan` (attempting to override the scoping)  
+**THEN** the repository layer **ignores the request parameter** `?employee_id=morgan` and still applies the hard-scoped filter `WHERE employee_id = casey`
+
+**AND** the response returns only casey's assignments (not morgan's), regardless of what `?employee_id` was requested
+
+**AND** no error message is returned (silent filtering, not "invalid parameter" — to avoid leaking the scoping mechanism)
+
+---
+
+**GIVEN** an EMPLOYEE session for user_id=casey  
+**WHEN** that session calls `GET /api/content` (listing content)  
+**THEN** the repository layer **joins through assignments** and returns only content matched to casey's assignments
+
+**AND** if casey attempts SQL injection like `?employee_id=morgan UNION SELECT ...`, the query still returns only casey's data (parameterized query + hard-scoped WHERE prevent injection)
+
+---
+
+**GIVEN** an EMPLOYEE session for user_id=casey  
+**WHEN** that session calls `GET /api/assignments/{assignment_id}/progress/drill-down` for an assignment NOT owned by casey (e.g., assignment belongs to morgan)  
+**THEN** endpoint returns **403 Forbidden** with error: "You do not have access to this assignment" (session identity check at controller layer before repository call)
+
+**AND** no data structure or timing information is leaked that could reveal whether the assignment exists
+
+---
+
+#### **HR_ADMIN Sessions (Role-Based Access Control)**
+
+**AND** for HR_ADMIN sessions, role is verified at the dependency layer, but **data access filters are applied by the downstream service layer** (not hard-scoped by user_id):
+- HR_ADMIN can list all assignments, all employees, all content (org-wide scope)
+- No hard-scoping by HR_ADMIN identity — HR Admins have full read access to all assignments and coaching data
+
+---
+
+#### **Session Propagation Through Stack**
+
+**AND** the validated (role, user_id) is passed through the entire stack:
+- FastAPI dependency → request context
+- Route handler → service layer
+- Service layer → repository layer
+- Repository layer → SQL query builder (WHERE clauses enforce hard-scoping)
+
+**AND** if any layer attempts to override or bypass the scoping (e.g., a service layer method calls `query.filter(employee_id=different_id)`), the hard-scoped WHERE clause at the repository layer still applies (defense in depth)
 
 ---
 
@@ -571,32 +636,154 @@ So that relevant (but not exact-tag-matched) content is surfaced for a Skill.
 
 ---
 
-### Story 2.5: Content Discovery List — Employee View (Assigned Skills, Grouped by Status)
+### Story 2.5: Content Discovery — Single Assignment Card View
 
 As an **Employee**,
-I want to see all my assigned Skills with their recommended Content, grouped by watch status,
-So that I know what I need to learn and what I've already started.
+I want to see my assigned Skill with the AI-recommended Content prominently displayed and ready to watch,
+So that I can start learning immediately with minimal friction.
 
 **Acceptance Criteria:**
 
-**Given** I am authenticated as an Employee and have multiple assigned Skills  
-**When** I navigate to Content Discovery  
+#### **Page Entry & Context**
+
+**Given** I am authenticated as an Employee  
+**When** I navigate to Content Discovery or click a skill assignment link  
 **Then** I see:
-- A list of my assigned Skills (scoped to my identity via session)
-- Each Skill has its recommended Content and status (In Progress / To Start)
-- Summary counts at the top: "Total: 5 | In Progress: 2 | To Start: 3"
-- Grouped sections: **In Progress** (with Continue Watching card if applicable) and **To Start**
+- Page URL: `/assignments/:id/content` (parameterized by assignment ID)
+- Page loads the specific **Assignment Card** (one Skill + one recommended Content item)
+- Header shows: Logo, navigation (Assignments, Continue Watching), user menu
 
-**And** there is NO search box, filter control, or ability to browse other Content — strictly my assignments
+---
 
-**And** for each Content item:
-- Title, type (Video / Document / Website), source
-- For videos: duration and current watch position (if any)
-- A play/open button to start or resume
+#### **Assignment Card Display (UX Spec 02.1-content-discovery.md)**
 
-**And** if a Skill has no matched Content yet, the row shows "No recommended content yet for this skill. [Contact Rita]"
+**Given** the Content Discovery page loads  
+**When** the assignment data has been fetched  
+**Then** I see an **Assignment Card** containing:
 
-**And** if I have no assignments, the view shows "Nothing in progress right now. [View your assignments]"
+**Card Header:**
+- Skill name + Status badge
+- Text: "[Skill Name] - Assigned today by Rita"
+- Status: "Assigned · Awaiting first watch"
+
+**Recommended Content Section:**
+- Label: "Recommended Content"
+- Content Thumbnail (image from video)
+- Content Title: "[Video Title]"
+- Source Badge: "YouTube"
+- Approval Provenance: "✓ Approved" (per UX spec line 84, 110)
+- Duration: "[X] minutes"
+- Brief Description: Learning outcome description (plain text, not transcript)
+
+**Actions:**
+- Primary button: [▶ Play] — launches video player at 0:00
+- Secondary link: "View alternatives" — hidden by default, available for edge cases
+- Thumbnail itself is also clickable and launches player
+
+---
+
+#### **Page States (Per UX Spec)**
+
+**Loaded State (Happy Path):**
+- Full card with thumbnail, title, approval badge, play button
+- Actions: Play, View alternatives
+
+**Loading State:**
+- Skeleton card placeholder in place of content
+- Header remains interactive
+- Wait for data
+
+**Empty State (No Matching Content):**
+- Card displays: "No recommended content yet for this skill. [Contact Rita]"
+- No thumbnail, no play button
+- Contact link triggers: "Questions about this skill? Contact Rita"
+
+**Error State:**
+- Player area shows: "This video couldn't be loaded. [Try again] · [View alternatives]"
+- [Try again] retries video load
+- [View alternatives] shows other options
+
+---
+
+#### **Interactions (Per UX Spec 02.1)**
+
+**Click Play Button or Thumbnail:**
+- Player launches immediately
+- Video starts at 0:00 (or resume position if previously watched)
+- Exit to video player page (handled by Story 4.0 YouTube Adapter)
+
+**Hover "✓ Approved" Badge:**
+- Tooltip appears: "This content was reviewed and approved by Rita before being recommended to you"
+- Reinforces trust in the recommendation
+
+**Click "View Alternatives":**
+- Secondary content search/browse interface appears (out of scope for this story; can be fast-follow)
+- Employee can choose different content or return to recommended default
+
+**Click Navigation:**
+- Logo → `/dashboard` (or `/assignments` depending on role)
+- "Assignments" nav → `/assignments` (list all assignments for this Employee)
+- "Continue Watching" nav → `/continue-watching` (list videos in progress)
+
+**Click Sign Out:**
+- Session cleared, redirect to `/login`
+
+---
+
+#### **Watch-Position Capture (Technical Detail)**
+
+**Given** I start watching the video  
+**When** the video player is actively playing  
+**Then** in the background:
+- Player adapter samples position every 5–10 seconds
+- Samples are batched and POSTed to `POST /api/assignments/{assignment_id}/progress`
+- Request includes: `{ watch_position, event_time, video_url }`
+
+**And** when I close the tab or browser:
+- `sendBeacon` API flushes the last known position to the backend
+- Rita's dashboard updates within 30 seconds (FR-11)
+
+**And** next time I return to this assignment:
+- Video resumes at exact last-watched position (FR-6, E4.S6)
+
+---
+
+#### **Content Rules (Per UX Spec 02.1)**
+
+- ✅ Always show exactly one curated recommendation per assignment (never search results)
+- ✅ Always label as "Recommended Content," not "Search Results"
+- ✅ Always include approval provenance ("✓ Approved")
+- ✅ Brief description is learning-outcome focused, not transcript snippet
+- ✅ No search box on this page (Casey should never search)
+- ✅ Never show raw YouTube search results
+
+---
+
+#### **Performance & Accessibility**
+
+- Page + video player loads in under 3 seconds (NFR-L2)
+- Responsive: desktop-primary; video player scales to viewport width
+- Thumbnail has alt text: "[Video title] - [Duration]"
+- All buttons/links have descriptive labels
+- Approval badge tooltip is keyboard-accessible
+- User menu dropdown is keyboard-navigable
+- Video player supports keyboard controls (Space, arrow keys, etc.)
+
+---
+
+#### **Test Cases**
+
+- ✅ Page loads with assignment ID; displays correct Skill + Content
+- ✅ Play button launches player at 0:00
+- ✅ Thumbnail click also launches player
+- ✅ "View alternatives" link available but hidden (for future use)
+- ✅ Approval badge shows tooltip on hover + keyboard focus
+- ✅ Page load time < 3 seconds
+- ✅ Empty state renders when no content matched
+- ✅ Error state renders on video load failure
+- ✅ Watch capture begins automatically during playback
+- ✅ sendBeacon fires on tab close
+- ✅ Resume position fetched on next visit
 
 ---
 
@@ -711,43 +898,208 @@ So that HR Admins can assign Skills to known Employees.
 
 As an **HR Admin**,
 I want to open an assignment modal, select an Employee and Skill, and confirm,
-So that I can create new assignments quickly.
+So that I can create new assignments quickly with auto-linked AI-recommended content.
 
 **Acceptance Criteria:**
+
+#### **Modal Entry (UX Spec 03.1-skill-assignment-flow.md)**
 
 **Given** I am authenticated as an HR Admin on the Assignment Dashboard  
 **When** I click `[+ New Assignment]`  
 **Then** a modal opens with:
+- Title: "Assign a New Skill"
+- Progress indicator: "Step 1 of 3"
+- Close button [X]
 
-**Step 1 — Employee Select:**
-- Dropdown/searchable list of all Employees
-- Search by name or email
-- Single selection
+---
 
-**And Step 2 — Skill Select:**
-- Dropdown/searchable list of all Skills
-- Search by name or description
-- Single selection
+#### **Step 1: Select Employee (Per UX Spec 03.1)**
 
-**And** if the selected (Employee, Skill) pair is already assigned, the modal displays:
-- "This skill is already assigned to {Employee}. [View] or [Assign Again]"
-- Choosing [View] goes to that Assignment's row on the dashboard
-- Choosing [Assign Again] creates a second intentional assignment (allowed per FR-1)
+**When** the modal shows Step 1  
+**Then** I see:
+- Section title: "Who should learn this?"
+- Dropdown/searchable input: "Select employee or search..."
+- Actions: [Continue to Skill Selection] button, [Cancel] button
 
-**And Step 3 — Content Review:**
-- Display the AI-recommended Content for the selected Skill (if any exists)
-- Show: Content title, type, description, duration (for video)
-- Text: "The system has recommended this content for {Skill name}. You can review it below."
-- "Proceed with this content" or "[Choose Different Content]" or "[Assign without content]"
+**Given** I interact with the employee dropdown  
+**When** I type or click  
+**Then**:
+- Dropdown shows searchable list of all Employees
+- Results auto-filter as I type (search by name or email)
+- Each result shows: Employee name + role (optional)
+- Example: "Casey the Continuer · Individual Contributor"
 
-**And** if no Content matches, skip to confirmation with text: "No approved content found yet for this skill. [Proceed] or [Assign without content]"
+**Given** I select an employee and click [Continue to Skill Selection]  
+**When** validation passes  
+**Then**:
+- Employee is selected (highlight/confirm)
+- Modal advances to Step 2
+- Progress indicator updates: "Step 2 of 3"
 
-**And Step 4 — Confirmation:**
-- Summary: "{Employee name} will be assigned {Skill name}"
-- If content: "+ Recommended content: {Content title}"
-- [Confirm] or [Cancel]
+---
 
-**And** the entire flow completes in under 2 minutes for a typical assignment (NFR-L3 feedback target)
+#### **Step 2: Select Skill (Per UX Spec 03.1)**
+
+**When** Step 2 displays  
+**Then** I see:
+- Section title: "What skill?"
+- Dropdown/searchable input: "Search for a skill or select from recommended..."
+- Actions: [Review Content] button, [Cancel] button
+
+**Given** I interact with the skill dropdown  
+**When** I type or click  
+**Then**:
+- Dropdown shows list of recommended skills (pre-populated)
+- Results auto-filter as I type (search by name or description)
+- Examples shown: "Data Visualization Fundamentals," "Python Basics," "Advanced SQL"
+
+**Given** I select a skill and click [Review Content]  
+**When** validation passes and content recommendation is fetched  
+**Then**:
+- Skill is selected (highlight/confirm)
+- Backend queries content matching for this skill
+- Modal advances to Step 3
+- Progress indicator updates: "Step 3 of 3"
+
+---
+
+#### **Step 3: Review AI-Recommended Content (Per UX Spec 03.1)**
+
+**When** Step 3 displays  
+**Then** I see:
+- Section title: "Recommended Learning Content"
+- Label: "We've found the best match for this skill:"
+
+**Content Display (Auto-Populated, Per UX Spec):**
+- Thumbnail image (from video/content)
+- Content Title: "[Video Title]"
+- Source Badge: "YouTube"
+- Duration: "[X] minutes"
+- Approval Provenance: **"✓ Approved"** (per UX spec lines 90, 121, 249)
+- Brief Description: Learning outcome description (plain text)
+
+**Content Actions:**
+- [View on YouTube] link (opens content in new tab for preview)
+- [Choose Different Content] link (shows alternatives — optional, out of scope for MVP)
+
+**Assignment Summary (Read-Only):**
+- "Employee: {Employee name}"
+- "Skill: {Skill name}"
+- "Content: {Content title} (Approved)"
+- "Assignment Date: Today"
+- "Status: Will be 'Assigned · Awaiting first watch'"
+
+**Primary Action:**
+- [Assign] button — completes the assignment
+- [Cancel] button — discards assignment, returns to dashboard
+
+---
+
+#### **Edge Cases**
+
+**If (Employee, Skill) pair already assigned:**
+- Modal displays: "This skill is already assigned to {Employee}. [View] or [Assign Again]"
+- [View] navigates to that Assignment's dashboard row
+- [Assign Again] allows creating second intentional assignment (per FR-1)
+
+**If no Content matches the Skill:**
+- Step 3 shows: "No approved content found yet for this skill."
+- Offer two options: [Choose Different Content] or [Assign without content]
+- [Assign] button is still enabled (Assignment can proceed without pre-matched content)
+
+**If Content lookup fails:**
+- Inline error message under content section: "Couldn't load content recommendation. [Retry]"
+- [Retry] re-fetches content
+
+---
+
+#### **Page States (Per UX Spec 03.1)**
+
+| State | When | Display | Actions |
+|-------|------|---------|---------|
+| **Step 1: Employee selection** | Modal just opened | Employee dropdown active; Step 2/3 disabled | Select, Cancel |
+| **Step 2: Skill selection** | Employee selected | Skill dropdown active; Step 3 disabled | Select, Cancel |
+| **Step 3: Content review** | Skill selected, content auto-linked | Recommended content + summary shown; [Assign] enabled | Assign, choose content, Cancel |
+| **Loading** | Employee list, skill list, or content recommendation being fetched | Placeholder/skeleton in affected field; Cancel available | Wait, Cancel |
+| **Empty — No content match** | Skill selected but no approved content found | Step 3 shows "No approved content found yet" message | Assign without content, choose different, Cancel |
+| **Error** | Dropdown/content lookup fails | Inline error: "Couldn't load [employees/skills/content]. [Retry]" | Retry, Cancel |
+
+---
+
+#### **Form Validation & Buttons**
+
+- Employee: **required** — Step 1 [Continue] disabled until selected
+- Skill: **required** — Step 2 [Review Content] disabled until selected
+- Content: **auto-selected** — not user-modifiable in primary flow (pre-matched by backend)
+- All steps remain **cancelable** via [Cancel] button or modal close [X]
+
+---
+
+#### **Approval Provenance (Per UX Spec & PRD)**
+
+**Important:** The "✓ Approved" badge shown in Step 3 represents:
+- Per PRD §5 Non-Goals: "Not a content-approval workflow in MVP"
+- Per UX spec line 316: "Always pair content with approval provenance ('✓ Approved')"
+- **Interpretation:** Content is AI-recommended (not filtered by human approval gate in MVP). Badge indicates: "This content was auto-matched by the system for relevance to the skill."
+- **Future:** If post-pilot feedback surfaces quality issues, implement approval QA gate (E2.S7 fast-follow)
+
+---
+
+#### **Interactions (Per UX Spec 03.1)**
+
+1. **Interaction 1: Open Assignment Form**
+   - Rita clicks [+ New Assignment] on dashboard
+   - Modal opens showing Step 1: Select Employee
+   - **UX moment:** Linear, simple flow with clear next step
+
+2. **Interaction 2: Select Employee**
+   - Rita clicks employee dropdown, types "Casey", selects from list
+   - Rita clicks [Continue to Skill Selection]
+   - Form advances to Step 2
+
+3. **Interaction 3: Select Skill**
+   - Rita sees skill search field with recommended skills
+   - Rita types "Python" or selects "Python Basics"
+   - Rita clicks [Review Content]
+   - Form advances to Step 3, content auto-fetched
+
+4. **Interaction 4: Review AI-Recommended Content**
+   - Rita sees: Thumbnail, title, "✓ Approved" badge, duration, description
+   - System auto-matched content (Rita didn't manually search)
+   - **UX moment:** Reduces assignment time to < 2 minutes; all content already linked
+
+5. **Interaction 5: Confirm Assignment**
+   - Rita reviews summary: Employee, Skill, Content (Approved)
+   - Rita clicks [Assign]
+   - Assignment created, modal closes, returns to dashboard
+   - Exit: Navigate to 03.2 Assignment Confirmation & Auto-Update
+
+---
+
+#### **Performance & Accessibility (Per UX Spec)**
+
+- Form completes in under 2 minutes (NFR-L3 feedback target)
+- Form is keyboard navigable (Tab through fields/buttons)
+- Dropdowns support keyboard selection (arrow keys, Enter)
+- Progress indicator clearly shows current step
+- Error messages announced to screen readers
+- Close button [X] is large and accessible
+
+---
+
+#### **Test Cases**
+
+- ✅ Modal opens with Step 1: Employee Select
+- ✅ Employee dropdown filters by name/email
+- ✅ Skill dropdown filters by name/description  
+- ✅ Content auto-fetches when skill selected
+- ✅ Content shows: thumbnail, title, "✓ Approved" badge, duration, description
+- ✅ [Assign] creates assignment within 2 minutes
+- ✅ Cancel at any step leaves no orphaned record
+- ✅ Already-assigned skill shows "duplicate" prompt
+- ✅ No content match shows "No approved content" message
+- ✅ Error states show retry option
+- ✅ Keyboard navigation works end-to-end
 
 ---
 
@@ -946,24 +1298,113 @@ So that a spoofed or forged position (e.g., jumping to 100% instantly) is reject
 ### Story 4.5: Event-Time Ordering: Conditional Write (Skip Stale Writes)
 
 As a **developer**,
-I want to order watch-progress writes by event timestamp, not by position value,
-So that a stale out-of-order write doesn't regress progress while a real rewind still applies.
+I want to order watch-progress writes by event timestamp, not by position value, using atomic database operations,
+So that a stale out-of-order write doesn't regress progress while a real rewind still applies — even under concurrent write scenarios (FR-7, NFR-DI1).
 
 **Acceptance Criteria:**
 
-**Given** a watch-progress write for an Assignment  
-**When** the `progress.record_watch_progress()` method is called  
-**Then** it applies this logic:
-- **Read current:** Fetch the stored `skill_progress` row (if any)
-- **Compare timestamps:** If stored `event_time` >= incoming `event_time`, skip the write and return success silently (AR-5 conditional write rule)
-- **Accept newer:** If incoming `event_time` > stored `event_time`, persist the new position, marking it as the new canonical position
+#### **Conditional Write Logic (Timestamp-Based Ordering)**
 
-**And** this behavior correctly handles:
-- **Out-of-order arrival:** Two-tab scenario where tab 1 watches to 50% at T=10s, tab 2 sends a 40% update at T=8s — the 40% is dropped (stale), 50% at T=10s stands
-- **Legitimate rewind:** Employee scrubs back to 20% within the same session (new event_time T=11s > stored T=10s) — the rewind is accepted and stored as the new position
-- **Concurrent writes:** Multiple rapid requests come in; only the newest event_time wins; no race condition where a faster-arriving older write overwrites a slower-arriving newer one
+**GIVEN** a watch-progress POST request for an assignment  
+**WHEN** the `progress/` service calls `record_watch_progress(assignment_id, watch_position, event_time, ...)`  
+**THEN** it applies this logic:
+- **Read current:** Fetch the stored `skill_progress` row for this assignment_id (if it exists)
+- **Compare timestamps:** Compare incoming `event_time` to stored `event_time`
+  - If incoming `event_time` <= stored `event_time`: skip write, return success silently (stale write, don't persist)
+  - If incoming `event_time` > stored `event_time`: proceed to atomic write (new event is newer, accept it)
 
-**And** the write is atomic (single UPDATE statement with WHERE clause on event_time comparison)
+**AND** this comparison **happens at the SQL layer**, not in Python, to ensure atomicity under concurrent requests
+
+---
+
+#### **Atomic SQL Implementation (CRITICAL)**
+
+**GIVEN** incoming watch-progress data (assignment_id, watch_position, event_time)  
+**WHEN** the repository layer executes the write  
+**THEN** it uses an atomic **SQL UPDATE with a WHERE clause on event_time**, not a separate Python read-compare-write sequence:
+
+```sql
+UPDATE skill_progress 
+SET watch_position = %s,
+    event_time = %s,
+    updated_at = NOW(),
+    verified = %s
+WHERE assignment_id = %s 
+  AND (event_time IS NULL OR event_time < %s)
+RETURNING watch_position, event_time, verified;
+```
+
+**AND** the query binds parameters safely (no string interpolation)
+
+**AND** the driver returns the number of rows affected:
+- 0 rows updated = stale write (stored event_time >= incoming), return silent success
+- 1 row updated = newer write accepted, return success with new values
+
+**AND** this is a **single round-trip to the database**, not a separate SELECT followed by INSERT/UPDATE (defense against race conditions)
+
+---
+
+#### **Behavior Under Scenarios**
+
+**SCENARIO 1: Out-of-Order Arrival (Two Tabs)**
+
+**GIVEN** Tab 1 watches to 50% and sends event_time=2026-07-09T14:10:00Z at real time 14:10  
+**GIVEN** Tab 2 watches to 40% and sends event_time=2026-07-09T14:08:00Z at real time 14:12 (delayed network)  
+**WHEN** both requests arrive at the database  
+**THEN**:
+- First request (50%, T=14:10:00) executes: WHERE (event_time IS NULL OR event_time < 14:10:00) → matches, updates row, returns 1 row affected
+- Second request (40%, T=14:08:00) executes: WHERE (event_time IS NULL OR event_time < 14:08:00) → does NOT match (14:10:00 is newer), 0 rows affected, returns silent success
+- Stored value remains 50% (correct, stale write rejected)
+
+---
+
+**SCENARIO 2: Legitimate Rewind**
+
+**GIVEN** Employee watches to 50% at event_time=2026-07-09T14:10:00Z  
+**GIVEN** Employee scrubs back to 20% within the same session at event_time=2026-07-09T14:11:00Z (newer timestamp)  
+**WHEN** the rewind update is sent  
+**THEN**:
+- UPDATE executes: WHERE (event_time < 14:11:00) → matches (14:10:00 < 14:11:00), updates row to watch_position=20%, event_time=14:11:00, returns 1 row affected
+- Stored value is now 20% (correct, rewind accepted because timestamp is newer)
+
+---
+
+**SCENARIO 3: Concurrent Rapid Writes (Race Condition Prevention)**
+
+**GIVEN** Three concurrent requests all arrive at the database within 100ms:
+- Request A: position=60%, event_time=14:10:00 (arrives T=0ms)
+- Request B: position=50%, event_time=14:09:00 (arrives T=50ms, older than A)
+- Request C: position=65%, event_time=14:10:30 (arrives T=100ms, newest)  
+**WHEN** all three UPDATE statements execute concurrently  
+**THEN**:
+- First to lock: Request A updates row (event_time was NULL), WHERE succeeds, returns 1
+- Next: Request B checks WHERE (event_time < 14:09:00) → fails (14:10:00 is stored now), returns 0, no update
+- Last: Request C checks WHERE (event_time < 14:10:30) → succeeds (14:10:00 < 14:10:30), updates row, returns 1
+- Final stored value: position=65%, event_time=14:10:30 (correct, newest wins)
+
+**AND** no race window where an older write could overwrite a newer one (atomic WHERE clause prevents it)
+
+---
+
+#### **Error Handling & Observability**
+
+**AND** the repository method logs:
+- On stale write (0 rows): `{ assignment_id, incoming_event_time, stored_event_time, status: 'skipped_stale' }`
+- On newer write (1 row): `{ assignment_id, event_time, watch_position, verified, status: 'updated' }`
+- On unexpected result (0 or >1 rows in error): `{ error: 'unexpected_row_count', actual, expected: 1 }`
+
+**AND** the service layer treats both success and stale-skip uniformly: return 201 Created with the current state (no error response for stale writes — silent skipping per AR-5)
+
+---
+
+#### **Testing Requirements**
+
+**AND** this story is not considered done until these test cases pass:
+- ✅ Out-of-order writes (older event_time after newer): stale write rejected
+- ✅ Rewind within session (newer event_time, lower position): accepted
+- ✅ Concurrent rapid writes: only newest event_time persists
+- ✅ No race condition from separate SELECT + UPDATE: atomic WHERE clause only
+- ✅ Silent stale-write success (no 409 Conflict, no error): return 201 with current state
 
 ---
 
@@ -1081,68 +1522,90 @@ So that I can verify the signal and trust (or question) the Status badge.
 
 **Acceptance Criteria:**
 
-**Given** I click "[View Details]" on a dashboard row  
-**When** the modal opens  
+#### **CRITICAL FIX: Row-Level Entry Point (Fixing Prototype Regression)**
+
+**Given** I am viewing the Assignment Dashboard with one or more assignments  
+**When** I look at any row  
+**Then** I see a "[View Details]" button in the Actions column (or a drill-down icon, never a debug URL parameter)
+
+**And** when I click "[View Details]"  
+**Then** the Provenance Drill-Down modal opens immediately
+
+**And** this entry point is **always visible and functional on every row**, not conditionally hidden or only accessible via debug query parameters (fixing the known prototype regression where this button was deleted)
+
+---
+
+#### **Modal Content & Display**
+
+**Given** the drill-down modal opens  
+**When** it loads  
 **Then** I see:
 
-**Assignment Header:**
+**Assignment Header (always visible):**
 - Employee name
 - Skill name
-- Status badge (same as grid, for context)
+- Status badge (same styling as grid row, for context)
 
-**Provenance Section (FR-9):**
-- Label: one of **Verified**, **Self-reported**, **Needs Attention**, **HR Override**
-- **Never color-only** — always paired with text or icon (WCAG 2.1 AA, NFR-A2)
+**Provenance Section (FR-9) — Always Present:**
+- **Provenance Label:** one of **Verified**, **Self-reported**, **Needs Attention**, **HR Override**
+- **Label Display:** Text label + visual indicator (icon or badge), never color-only (WCAG 2.1 AA, NFR-A2)
 
-**Raw Signal (varies by Provenance):**
+**Raw Signal Display (varies by Provenance):**
 
-If **Verified** (auto-captured from video):
+**IF Provenance = Verified (auto-captured from video):**
+- "✓ Verified via video playback"
 - "Watch Progress: 73% (completion)"
 - "Last Updated: 2 hours ago"
-- "Verified via video playback" (text confirmation)
 
-If **Self-reported** (non-video):
+**IF Provenance = Self-reported (non-video, ≤7 days old):**
+- "📝 Self-reported"
 - "Status: In Progress"
 - "Last Updated: 5 days ago"
 - "Self-reported by {Employee name} on {date}"
-- If over 7 days stale, add: "⚠ This status is stale (not updated in 14 days). Consider reaching out to {Employee}."
 
-If **Needs Attention** (stale self-reported, >7 days):
-- Same as Self-reported, but with red/warning styling
-- Text: "This status hasn't been updated in 14 days. Flagged for follow-up."
+**IF Provenance = Needs Attention (stale self-reported, >7 days old):**
+- "⚠️ Needs Attention" (warning icon + text label, not color-only)
+- "Status: In Progress"
+- "Last Updated: 14 days ago"
+- **Plain-language freshness:** "This status hasn't been updated in 14 days. Consider reaching out to {Employee} to confirm."
+- "Self-reported by {Employee name} on {date}"
 
-If **HR Override** (manually confirmed by HR):
+**IF Provenance = HR Override (manually confirmed by HR):**
+- "🔒 HR Override"
 - "Override Status: Completed"
 - "Overridden by: {HR Admin name}"
-- "Override Reason: {optional text, if provided}"
 - "Overridden at: {timestamp}"
-- "Underlying Signal: {watch % or self-report status}" (to show the override did not erase the original signal)
+- "Reason: {optional text, if provided}" (or "No reason provided" if empty)
+- **Underlying Signal (always shown, never erased):** "Original signal: Watch Progress 45% (Verified)" OR "Original signal: Self-reported · Not Started"
 
-**Data Confidence Statement (all):**
-- Freshness stated in plain language: "Not updated in 14 days" (not "stale since 2026-06-25")
+**Data Confidence Statement (all Provenance types):**
+- Freshness always stated in **plain language**, never as a date string
+  - ❌ Bad: "stale_since: 2026-06-25"
+  - ✅ Good: "Not updated in 14 days"
 
 **Actions:**
-- If Self-reported and over 7 days: "[Send Reminder Email]" button (tentative; can be a fast-follow)
-- If HR_ADMIN and row is not already overridden: "[Mark as Ready]" button → Story 5.5 (HR Override)
-- "[Close]" button
+- If Provenance = Self-reported AND over 7 days old: "[Send Reminder Email]" button (future; can be post-MVP)
+- If Provenance ≠ HR Override: "[Mark as Ready]" button → triggers Story 5.5 (HR Override creation)
+- If Provenance = HR Override: "[Reverse Override]" button → triggers Story 5.5b (HR Override reversal)
+- "[Close]" button (or Escape key)
 
-**And** this modal is reachable from every row, no exceptions (UX-DR16, fixing the prototype regression noted in Story 3.5)
+---
 
-**ACCESS CONTROL TESTS (AD-2 Coaching-Only Boundary):**
+#### **ACCESS CONTROL TESTS (AD-2 Coaching-Only Boundary)**
 
 **GIVEN** an EMPLOYEE session (not HR_ADMIN)  
 **WHEN** attempting to call `GET /api/assignments/{assignment_id}/progress/drill-down`  
-**THEN** endpoint returns **403 Forbidden** with error: "Employee role cannot access drill-down data" (not 200 OK, never 404)
+**THEN** endpoint returns **403 Forbidden** with error: "Employee role cannot access drill-down data" (never 200 OK, never 404)
 
 **GIVEN** an HR_ADMIN session  
 **WHEN** calling `GET /api/assignments/{assignment_id}/progress/drill-down` for an assignment they manage  
-**THEN** endpoint returns 200 OK with drill-down data (Provenance Label + raw signal)
+**THEN** endpoint returns 200 OK with drill-down data (full Provenance Label + raw signal)
 
 **GIVEN** any authenticated session (EMPLOYEE or HR_ADMIN)  
-**WHEN** searching for alternative endpoints: `/api/progress/export`, `/api/progress/history`, `/api/progress/bulk-read`  
-**THEN** all return **405 Method Not Allowed** or **404 Not Found** — no bulk/export/history path exists (only single-row drill-down)
+**WHEN** searching for alternative data-access endpoints: `/api/progress/export`, `/api/progress/history`, `/api/progress/bulk-read`, `/api/progress/raw`  
+**THEN** all return **405 Method Not Allowed** or **404 Not Found** — no bulk/export/history access (only single-row drill-down via `/api/assignments/{assignment_id}/progress/drill-down`)
 
-**AND** this AC is passed only if no alternative data-access paths have been added. Only the single-row drill-down `GET /api/assignments/{assignment_id}/progress/drill-down` exists (AD-2 enforces read boundary).
+**AND** no undocumented endpoints exist for exporting, filtering, or bulk-reading watch-progress data (AD-2 enforces read boundary at service layer)
 
 ---
 
@@ -1237,7 +1700,127 @@ So that I can use the dashboard even when auto-captured data doesn't reflect my 
 
 ---
 
-### Story 5.6: Accessibility & Real-Time Announcements
+### Story 5.5b: HR Override Reversal — Undo Manual Confirmation
+
+As an **HR Admin**,
+I want to reverse/remove an HR Override I previously set,
+So that an Assignment returns to being based on its underlying signal (video progress or self-reported status).
+
+**Acceptance Criteria:**
+
+#### **Reversal Button Visibility (In Drill-Down Modal)**
+
+**Given** I have an assignment with an **active HR Override**  
+**When** I click "[View Details]" to open the Provenance Drill-Down (E5.S2)  
+**Then** I see:
+- Current Provenance Label: "🔒 HR Override"
+- Current override details: "Status: Completed" (or whatever override status is set)
+- "Overridden by: {HR Admin name}"
+- "Overridden at: {timestamp}"
+- "[Reverse Override]" button (red/warning styling, prominently displayed)
+
+**And** if the assignment has **NO active override**:
+- "[Reverse Override]" button is hidden
+- "[Mark as Ready]" button is visible instead (E5.S5)
+
+---
+
+#### **Reversal Confirmation Flow**
+
+**Given** I click [Reverse Override]  
+**When** confirmation modal appears  
+**Then** I see:
+- Confirmation question: "Remove this HR Override?"
+- Current override summary: "Status: Completed (set by Rita on 2026-07-09)"
+- Underlying signal that will take effect: "In Progress · Video progress: 65%" (or "Not Started · No signal" if no underlying data)
+- Buttons: [Remove Override] (red/confirm) and [Cancel]
+
+**Given** I click [Cancel]  
+**When** the confirmation modal closes  
+**Then**:
+- No changes made
+- Return to Provenance Drill-Down modal
+- Override remains active
+
+**Given** I click [Remove Override]  
+**When** the backend processes the request  
+**Then**:
+- `POST /api/assignments/{assignment_id}/override { action: 'unset' }`
+- Backend sets `assignment_overrides.active = false`
+- Drill-down modal updates immediately to show underlying signal
+- Success toast appears: "Override removed. Status now based on video progress."
+- Modal closes or refreshes to show new state
+
+---
+
+#### **Post-Reversal Display (Drill-Down Updated)**
+
+**Given** override has been removed  
+**When** I re-open the Provenance Drill-Down  
+**Then** the modal displays:
+- **New Provenance Label:** Based on underlying signal
+  - If video progress exists: "✓ Verified" + "Watch Progress: 65%"
+  - If only self-report: "📝 Self-reported" + self-report status
+  - If no signal at all: "Not Started" + no Provenance label
+- "[Mark as Ready]" button is NOW visible (can set override again if needed)
+- "[Reverse Override]" button is HIDDEN (no active override)
+- Dashboard row Status updates to reflect new underlying signal
+- Last Updated timestamp is current (shows reversal just happened)
+
+---
+
+#### **State Management During Reversal**
+
+**Given** reversal is in progress  
+**When** a new Watch Progress update arrives simultaneously (race condition)  
+**Then**:
+- Reversal still completes (override is removed)
+- Fresh Watch Progress persists to `skill_progress` table
+- Drill-down shows newest Watch Progress (override no longer shadowing it)
+- No data loss, no inconsistent state
+- Status reflects both: "In Progress · Verified" (from fresh watch data)
+
+---
+
+#### **Access Control**
+
+**Given** an EMPLOYEE session (not HR_ADMIN)  
+**WHEN** attempting to call `POST /api/assignments/{id}/override { action: 'unset' }`  
+**THEN** endpoint returns **403 Forbidden** with error: "Only HR Admins can manage overrides"
+
+**AND** Employees cannot see override details in the drill-down (if they had access)
+
+---
+
+#### **Dashboard Integration**
+
+**Given** an override is reversed  
+**WHEN** the dashboard refreshes (polling interval)  
+**THEN**:
+- Row Status badge updates to new underlying signal
+- Example: "Completed" (override) → "In Progress (65%)" (underlying Verified)
+- Row Provenance hint updates (if visible; per OQ11 may be drill-down only)
+- "Last Updated" timestamp reflects the reversal
+
+---
+
+#### **Test Cases**
+
+- ✅ Active override shows [Reverse Override] button in drill-down
+- ✅ No override hides [Reverse Override] button (shows [Mark as Ready] instead)
+- ✅ Click [Reverse Override] → confirmation modal appears
+- ✅ Confirmation modal shows current override + underlying signal
+- ✅ Click [Cancel] → no changes, drill-down remains open
+- ✅ Click [Remove Override] → POST request sent, override removed
+- ✅ After reversal → drill-down shows underlying signal (Verified or Self-reported)
+- ✅ Dashboard row updates within 30 seconds (NFR-L5)
+- ✅ Concurrent Watch Progress during reversal → no data loss
+- ✅ EMPLOYEE cannot call reversal endpoint → 403 Forbidden
+- ✅ Success toast displayed after reversal
+
+---
+
+## Story 5.6: Accessibility & Real-Time Announcements
 
 As a **developer**,
 I want to ensure the dashboard is fully keyboard-operable and announces dynamic updates,
