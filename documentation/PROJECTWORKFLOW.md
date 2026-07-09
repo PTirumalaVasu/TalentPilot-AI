@@ -1578,3 +1578,90 @@ The cross-session scope memory gained the authentication Must-have addition (see
 ---
 
 No other files were created or modified during this phase beyond what's listed above.
+
+---
+---
+
+# Architecture Phase — Skills, Agents, and Files
+
+## Agents Called
+
+### Winston — System Architect (`bmad-agent-architect`)
+**Purpose:** Acts as the persistent facilitation persona for the architecture phase — a pragmatic systems architect archetype channeling Martin Fowler's practicality and Werner Vogels's cloud-scale realism, turning product requirements and UX into technical architecture that ships successfully while favoring boring technology, developer productivity, and trade-offs over verdicts.
+
+**Why it was called:** The user explicitly invoked `/bmad-agent-architect` to start this phase in this persona.
+
+**What it did specifically in this session:**
+- Resolved its own customization (icon, communication style, principles).
+- Loaded BMM module config for user name, language, output paths.
+- Presented two-option menu (`CA` Create Architecture, `IR` Implementation Readiness Check).
+- Dispatched into `bmad-architecture` once user selected `CA`.
+- Remained "in character" throughout the conversation.
+
+**One subagent spawned during drafting:**
+- **Architecture Drafter** (general-purpose agent) — ran Fast Path drafting: logged every decision to memlog first, then distilled complete ARCHITECTURE-SPINE.md.
+
+**Three parallel subagents spawned during Reviewer Gate:**
+1. **Rubric Walker** — judged spine against good-spine checklist
+2. **Web Research Verifier** — verified every decision was web-researched rather than asserted from training data
+3. **Adversarial Divergence Hunter** — attacked spine by constructing incompatible units
+
+---
+
+## Skills Used
+
+### 1. bmad-architecture
+**Purpose:** Produces an architecture spine — a consistency contract fixing only the invariants keeping independently-built units from diverging.
+
+**Why it was called:** Selected from Winston's menu (`CA`). User selected **Fast Path** (draft with assumptions, then review/correct) over Coaching Path.
+
+**Sequence:** Activated workflow, loaded project context (PRD + technical research), spawned drafter subagent to log 18 ADs and distill ARCHITECTURE-SPINE.md, ran reviewer gate (3 parallel subagents), fixed 4 critical findings (AD-19 through AD-22), finalized spine, updated project-context.md.
+
+---
+
+## Key Architectural Outputs
+
+**Paradigm:** Three-Tier Web with CQRS-lite
+
+**Module Structure:** Five domain modules (auth, assignments, content_discovery, watch_progress, dashboard) with clear table ownership
+
+**Critical Rules:**
+- AD-4: Event-timestamp conditional writes
+- AD-10: Server-side anti-spoofing
+- AD-19: Single source of truth for Status/Provenance computation
+- AD-5: Coaching-only enforcement at data layer
+
+**Launch Blockers:** Deployment target undecided, YouTube ToS compliance unverified, content seed size undefined, employee roster source TBD
+
+---
+
+## Files Created
+
+All under: `_bmad-output/planning-artifacts/architecture/architecture-TalentPilot-AI-2026-07-09/`
+
+1. **ARCHITECTURE-SPINE.md** — 22 ADs, 3 mermaid diagrams, locked stack, DB schema, deferred items, open questions
+2. **.memlog.md** — 23 entries (18 ADs, 4 fixes, 1 finalization event)
+3-5. **reviews/** subfolder — three reviewer reports (Rubric Walker, Web Research Verifier, Adversarial Divergence Hunter)
+
+---
+
+## Session Notes
+
+**Fast Path delivered efficiently.** Drafted, reviewed by 3 subagents, fixed all critical findings, finalized in one session.
+
+**Reviewer Gate caught real divergences.** Three critical holes (Status/Provenance computation, SSE race, JWT NULL semantics) surfaced and fixed (AD-19, AD-20, AD-21).
+
+**YouTube ToS flagged as risk.** Embedded HR training use unverified against YouTube API ToS — legal review recommended.
+
+**Why this matters:** Binding contract lets 4 features be built independently while staying architecturally coherent.
+
+---
+
+## Files Modified
+
+- **`_bmad-output/project-context.md`** — added Technology Stack section, Critical Implementation Rules, detailed Architecture Phase summary
+- **`documentation/PROJECTWORKFLOW.md`** — this section
+
+---
+
+No other files created or modified during this phase.

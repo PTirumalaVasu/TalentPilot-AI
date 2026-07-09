@@ -32,11 +32,25 @@ This file must always reflect the latest state of the project. **No significant 
 
 ## Technology Stack & Versions
 
-_Documented after discovery phase_
+**Locked via Architecture Spine (2026-07-09):**
+- **Backend:** Python 3.12+ / FastAPI, async SQLAlchemy 2.0 + asyncpg
+- **Frontend:** React + TypeScript + Vite SPA, shadcn/ui + Tailwind, React Hook Form + Zod
+- **Database:** PostgreSQL + pgvector extension
+- **Auth:** JWT in HTTP-only/Secure/SameSite cookie
+- **Video:** YouTube IFrame API (polling-based, Adapter-wrapped for future provider swaps)
+- **Embeddings:** OpenAI `text-embedding-3-small` (1536 dimensions)
+- **Deployment:** Single-server MVP (VM/container unspecified—Open Question 7)
 
 ## Critical Implementation Rules
 
-_Language, framework, testing, and code quality rules: documented after architecture/code exist — none in this repo yet._
+**Architecture Decisions (from Architecture Spine 2026-07-09):**
+- **AD-3: Data Ownership** — Five domain modules with clear table ownership: `auth` owns `users`, `assignments` owns `assignments`, `content_discovery` owns `content_catalog`, `watch_progress` owns `skill_progress`, `dashboard` reads all but writes to none. Cross-module communication via service interfaces only, never direct table access.
+- **AD-4: Event-Timestamp Conditional Writes** — Watch progress updates ordered by event timestamp, never by position magnitude. Accept write only if `incoming_event_timestamp > stored_event_timestamp`. Prevents out-of-order writes while allowing legitimate rewinds.
+- **AD-5: Coaching-Only Enforcement at Data Layer** — Raw watch progress accessible only for dashboard aggregation (Status/Provenance) and resume (last position). No export endpoints, no drill-down history APIs shaped for performance evaluation. Enforced server-side on every request, not UI-level hiding.
+- **AD-10: Server-Side Anti-Spoofing** — Validate watch progress writes: (1) session owns Assignment, (2) advance rate ≤ 1.2x real-time, (3) no instantaneous 0→100% completion. "Verified" provenance only for writes passing all checks.
+- **AD-19: Single Source of Truth for Status/Provenance** — Status (Not Started/In Progress/Completed) and Provenance (Verified/Self-reported/Needs Attention/HR Override) computed ONLY by `dashboard` module. `watch_progress` writes raw position/timestamp only. `assignments` stores `hr_override` flag only. Prevents computation divergence across modules.
+- **AD-20: JWT employee_id Semantics** — HR Admin tokens: `employee_id: null`, Employee tokens: `employee_id: "<uuid>"`. SQL queries for Employees filter `WHERE employee_id = $1`, HR queries never filter by employee_id. No implicit NULL comparisons.
+- **AD-21: SSE Event Payloads** — Real-time dashboard updates carry full pre-computed row data, not just trigger-to-re-query. Eliminates read-after-write races.
 
 ### Development Workflow Rules
 
@@ -96,3 +110,17 @@ _Language, framework, testing, and code quality rules: documented after architec
   - **Open Question 9 marked partially resolved, not closed:** access-gate/session-scoping behavior is now spec'd and prototype-validated, but production credential provisioning (locally-provisioned accounts vs. company SSO) and Employee-roster sourcing remain genuinely undefined — the prototype's hardcoded demo-account list answers neither. Must be resolved before FR-1 (which depends on selecting a known Employee) can be built against a real roster.
   - Also added: a **Session** Glossary entry, an Authentication & Session Gate bullet in MVP Scope §6.1, an Assumptions Index (§12) entry tracing FR-13/FR-14 back to the prototype validation, and an `addendum.md` note (Prototype Implementation Notes) summarizing the auth backfill and its one found-and-fixed bug — explicitly flagged as a prototype-only concern (a `login.html`/`prototype-api.js` script-loading gap), not a production architecture issue.
   - **This closes the loop this project's own scope memory flagged earlier the same day:** authentication was confirmed as an MVP must-have (not a fast-follow) via `AskUserQuestion`, run through the full WDS Product Evolution loop (Trigger Map context → scenario → spec → prototype code → acceptance test), and is now reflected at the requirements layer (PRD) as well as the prototype layer — no artifact in the pipeline still treats it as an unscoped gap.
+- **Architecture Spine finalized** (`_bmad-output/planning-artifacts/architecture/architecture-TalentPilot-AI-2026-07-09/ARCHITECTURE-SPINE.md`, 2026-07-09) — 22 Architecture Decisions (ADs) covering paradigm (Three-Tier Web with CQRS-lite), module boundaries, data ownership, write integrity, real-time updates (SSE), security (JWT, anti-spoofing), deployment (single-server MVP), and testing strategy. Key structural decisions:
+  - **Paradigm:** Three-Tier Web with CQRS-lite—read paths (dashboard aggregation) optimized separately from write paths (conditional watch-progress updates).
+  - **Module boundaries (AD-2):** Five domain modules—`auth`, `assignments`, `content_discovery`, `watch_progress`, `dashboard`—each owning its tables with cross-module communication via service interfaces only.
+  - **Write integrity (AD-4, AD-10):** Event-timestamp conditional writes prevent race conditions; server-side anti-spoofing validates advance rate ≤ 1.2x real-time before marking "Verified."
+  - **Coaching-only enforcement (AD-5):** Access control at data layer—raw watch progress never exposed via performance-evaluation-shaped APIs.
+  - **Real-time (AD-6, AD-21):** SSE for dashboard updates carrying full pre-computed row data (not trigger-to-re-query), 30-second latency target.
+  - **Video integration (AD-7):** YouTube IFrame API wrapped in Adapter pattern for future provider swaps (Vimeo).
+  - **Vector search (AD-8):** pgvector in PostgreSQL (not dedicated vector DB), filter-then-rank pattern with `text-embedding-3-small`.
+  - **Computation divergence prevention (AD-19):** Status/Provenance computed ONLY by `dashboard` module—single source of truth eliminates module disagreement risk.
+  - **JWT semantics (AD-20):** HR Admin tokens use `employee_id: null`, Employee tokens use `employee_id: "<uuid>"`—explicit NULL handling prevents SQL comparison bugs.
+  - **Operations deferred (AD-22):** MVP launches with minimal ops (stdout logging, manual pg_dump, no tracing/metrics/rate-limiting beyond YouTube quota)—structured observability deferred to post-pilot.
+  - **Reviewer gate findings addressed:** Three critical divergences found and fixed—Status/Provenance computation (AD-19), JWT NULL semantics (AD-20), SSE read-after-write races (AD-21). One YouTube ToS compliance risk flagged (internal HR training use unverified against YouTube API Services ToS Section 4)—recommend legal review or provider switch before launch.
+  - **Open Questions flagged for implementation:** Deployment target undecided (blocks 2026-07-13 launch), employee roster source (local vs. SSO), session TTL policy, content ingestion seed size (~50-100 videos assumption unconfirmed), HR Override UX not designed (FR-12 has no prototype), Status/Provenance split may reintroduce trust ambiguity (PRD Open Question 11 remains unresolved at architecture layer).
+  - Full spine at `_bmad-output/planning-artifacts/architecture/architecture-TalentPilot-AI-2026-07-09/ARCHITECTURE-SPINE.md`, memlog at `.memlog.md` in same folder, reviewer gate outputs at `reviews/` subfolder.
