@@ -8,14 +8,7 @@ from sentence_transformers import SentenceTransformer
 
 from app.auth.models import Account
 from app.assignments.models import Employee, Skill
-
-
-# Seed IDs (fixed for consistency across runs)
-RITA_ID = uuid.UUID("550e8400-e29b-41d4-a716-446655440001")
-CASEY_ID = uuid.UUID("550e8400-e29b-41d4-a716-446655440002")
-MORGAN_ID = uuid.UUID("550e8400-e29b-41d4-a716-446655440003")
-JORDAN_ID = uuid.UUID("550e8400-e29b-41d4-a716-446655440004")
-SAM_ID = uuid.UUID("550e8400-e29b-41d4-a716-446655440005")
+from app.core.seed_ids import CASEY_ID, JORDAN_ID, MORGAN_ID, RITA_ID, SAM_ID
 
 SKILL_DATA_VIZ_ID = uuid.UUID("660e8400-e29b-41d4-a716-446655440001")
 SKILL_SALESFORCE_ID = uuid.UUID("660e8400-e29b-41d4-a716-446655440002")

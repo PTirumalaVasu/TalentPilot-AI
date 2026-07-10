@@ -100,3 +100,17 @@ def get_current_user(
     current_user = CurrentUser(role=role, user_id=user_id)
     request.state.current_user = current_user
     return current_user
+
+
+def require_hr_admin(current_user: CurrentUser = Depends(get_current_user)) -> CurrentUser:
+    """Reusable HR-Admin-only gate for mutation-capable endpoints/services (Story
+    3.1 AC4). Composes on get_current_user rather than re-validating the session
+    itself, so a missing/invalid session still surfaces get_current_user's 401."""
+    if current_user.role != Role.HR_ADMIN:
+        logger.warning("Rejected request: role %r is not HR_ADMIN", current_user.role)
+        raise AppException(
+            status.HTTP_403_FORBIDDEN,
+            error_code="FORBIDDEN_NOT_HR_ADMIN",
+            message="This action requires an HR Admin session",
+        )
+    return current_user
