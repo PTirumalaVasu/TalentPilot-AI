@@ -5,10 +5,16 @@ from pathlib import Path
 
 BACKEND_APP_DIR = Path(__file__).resolve().parent.parent / "app"
 FORBIDDEN_SYMBOLS = ("run_ingestion_job", "search_videos")
+# youtube_client is ingestion-only end to end (no router has any legitimate
+# reason to import it), so banning the whole module is correct there. Unlike
+# youtube_client, app.content.service also holds legitimate read-only
+# functions real routes need (e.g. match_content_for_skill, Story 3.4) --
+# banning the entire module import would false-positive on those, so
+# ingestion-from-service is caught via FORBIDDEN_SYMBOLS (which also blocks
+# an aliased `from app.content.service import run_ingestion_job as _rij`)
+# instead of a blanket import-source ban.
 FORBIDDEN_IMPORT_SOURCES = (
-    "app.content.service",
     "app.content.youtube_client",
-    "app.content import service",
     "app.content import youtube_client",
 )
 

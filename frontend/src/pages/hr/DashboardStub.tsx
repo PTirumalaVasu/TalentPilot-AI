@@ -1,11 +1,14 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { logout } from '@/lib/api/authApi';
+import { AssignmentModal } from '@/features/assignments/AssignmentModal';
 
 export function DashboardStub() {
   const { signOut } = useAuth();
   const navigate = useNavigate();
+  const [assignmentModalOpen, setAssignmentModalOpen] = useState(false);
 
   async function handleSignOut() {
     try {
@@ -24,14 +27,18 @@ export function DashboardStub() {
     <div className="mx-auto max-w-2xl p-8">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold">HR Dashboard</h1>
-        <Button variant="outline" onClick={handleSignOut}>
-          Sign Out
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={() => setAssignmentModalOpen(true)}>+ New Assignment</Button>
+          <Button variant="outline" onClick={handleSignOut}>
+            Sign Out
+          </Button>
+        </div>
       </div>
       <p className="text-slate-500">
         Coming in Epic 5 (Readiness Dashboard). This is a placeholder landing page for the
         HR_ADMIN role, built by Story 1.8 so the login flow has somewhere real to redirect to.
       </p>
+      <AssignmentModal open={assignmentModalOpen} onClose={() => setAssignmentModalOpen(false)} />
     </div>
   );
 }

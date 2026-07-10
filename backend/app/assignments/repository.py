@@ -2,10 +2,10 @@
 import uuid
 
 from fastapi import status
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.assignments.models import Assignment
+from app.assignments.models import Assignment, Employee, Skill
 from app.auth.schemas import CurrentUser, Role
 from app.core.errors import AppException
 
@@ -24,6 +24,30 @@ def _parse_user_id(current_user: CurrentUser) -> uuid.UUID:
             error_code="INVALID_USER_ID",
             message="Session user_id is not a valid identifier",
         ) from exc
+
+
+async def list_employees(session: AsyncSession, *, search: str | None = None) -> list[Employee]:
+    """Read-only employee directory listing — not scoped by caller identity;
+    any authenticated session (EMPLOYEE or HR_ADMIN) can see the roster. This
+    is distinct from Assignment reads, which Story 1.3/1.5's hard-scoping
+    guidance governs; the employee directory itself has no such requirement."""
+    stmt = select(Employee)
+    if search:
+        pattern = f"%{search}%"
+        stmt = stmt.where(or_(Employee.name.ilike(pattern), Employee.email.ilike(pattern)))
+    result = await session.execute(stmt)
+    return list(result.scalars().all())
+
+
+async def list_skills(session: AsyncSession, *, search: str | None = None) -> list[Skill]:
+    """Read-only skill directory listing for the assignment modal's Step 2
+    (Skill) combobox — no scoping (skills aren't employee-owned data)."""
+    stmt = select(Skill)
+    if search:
+        pattern = f"%{search}%"
+        stmt = stmt.where(or_(Skill.name.ilike(pattern), Skill.description.ilike(pattern)))
+    result = await session.execute(stmt)
+    return list(result.scalars().all())
 
 
 async def create_assignment(
