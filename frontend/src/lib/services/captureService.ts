@@ -91,6 +91,7 @@ export class WatchProgressCaptureService {
   // Story 4-3: Tab-close flush via sendBeacon
   private isUnloadingPage: boolean = false;
   private beaconSent: Set<string> = new Set(); // Track sent beacons to prevent duplicates per AC8
+  private listenersSetup: boolean = false; // Guard against duplicate listener registration
   // Stored references for listener cleanup (Story 4-3 AC1)
   private onVisibilityChange = () => this._onVisibilityChange();
   private onBeforeUnload = () => this._onBeforeUnload();
@@ -355,10 +356,16 @@ export class WatchProgressCaptureService {
 
   /**
    * Story 4-3 AC1: Set up visibility and unload event listeners.
-   * Listens to visibilitychange (tab hidden) and beforeunload (page unload).
-   * Uses deduplication flag to prevent duplicate beacons.
+   * Listens to beforeunload (page unload) and unload (cleanup).
+   * Guard prevents duplicate registration if setup called multiple times.
    */
   private setupUnloadListeners(): void {
+    // Guard against duplicate listener registration (each call should only register once)
+    if (this.listenersSetup) {
+      return;
+    }
+    this.listenersSetup = true;
+
     try {
       document.addEventListener('visibilitychange', this.onVisibilityChange);
       window.addEventListener('beforeunload', this.onBeforeUnload);
@@ -370,17 +377,15 @@ export class WatchProgressCaptureService {
 
   /**
    * Story 4-3 AC1: Handle visibility change events.
-   * Only sends beacon on transition to hidden state, not on show (to prevent excessive flushes).
-   * AC8: Deduplication — if already unloading (beforeunload fired), skip.
+   * AC8: Only send beacon on true unload (beforeunload), not on visibility change alone.
+   * This prevents duplicate beacons when both visibilitychange and beforeunload fire.
+   * Visibility change to hidden is often temporary (tab switch); beforeunload is true unload.
    */
   private _onVisibilityChange(): void {
-    // AC8: Prevent duplicate beacons if beforeunload already fired
-    if (this.isUnloadingPage || document.visibilityState !== 'hidden') {
-      return;
-    }
-
-    // Story 4-3 AC1: Flush beacon for all queued assignments
-    this._flushViaBeacon();
+    // Don't send beacon on visibilitychange - wait for beforeunload which is true unload
+    // This prevents race condition where visibilitychange sends with isUnloadingPage=false,
+    // then beforeunload sends with isUnloadingPage=true, resulting in two beacons
+    return;
   }
 
   /**
@@ -395,10 +400,13 @@ export class WatchProgressCaptureService {
 
   /**
    * Story 4-3 AC1: Handle final unload event.
-   * Cleans up event listeners and resets state.
+   * Cleans up event listeners and resets state after unload completes.
    */
   private _onUnload(): void {
     this.removeUnloadListeners();
+    // Clear deduplication tracking after unload sequence completes
+    this.beaconSent.clear();
+    this.isUnloadingPage = false;
   }
 
   /**
@@ -444,11 +452,15 @@ export class WatchProgressCaptureService {
 
       try {
         // AC3: Get current position from adapter if possible, fall back to queued sample
+        // AC3: Position must be clamped to valid range [0, duration]
         let position = sample.watchPosition;
         try {
           const adapterPosition = this.adapter.position();
-          if (adapterPosition > 0) {
-            position = adapterPosition; // Prefer live adapter position
+          // Validate position is a finite number and use if valid, prefer live adapter position
+          if (typeof adapterPosition === 'number' && Number.isFinite(adapterPosition) && adapterPosition >= 0) {
+            // Clamp to valid range (0 to duration)
+            const duration = this.adapter.duration();
+            position = Math.min(adapterPosition, duration > 0 ? duration : adapterPosition);
           }
         } catch (err) {
           // AC5: Graceful degradation if adapter unavailable
@@ -460,7 +472,14 @@ export class WatchProgressCaptureService {
 
         // AC2: Call sendBeacon on adapter
         // AC9: Include video URL from sample (from config)
-        this.adapter.sendBeacon(position, sample.eventTime);
+        // AC4: Fire-and-forget - catch Promise rejection to prevent unhandled rejection warning
+        void this.adapter.sendBeacon(position, sample.eventTime).catch((err) => {
+          // Beacon is best-effort; rejection is not critical but log for diagnostics
+          console.debug('WatchProgressCaptureService: Beacon send failed (best-effort)', {
+            assignment_id: assignmentId,
+            error: (err as Error).message,
+          });
+        });
 
         console.debug('WatchProgressCaptureService: Beacon sent', {
           assignment_id: assignmentId,
@@ -509,6 +528,7 @@ export class WatchProgressCaptureService {
     this.removeUnloadListeners(); // Story 4-3: AC1 cleanup
     this.beaconSent.clear(); // Story 4-3: AC8 clear dedup tracking
     this.isUnloadingPage = false; // Story 4-3: AC8 reset state
+    this.listenersSetup = false; // Story 4-3: Allow re-setup if service re-initialized
   }
 }
 

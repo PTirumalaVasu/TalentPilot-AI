@@ -361,7 +361,7 @@ describe('WatchProgressCaptureService - Story 4-3: Tab-Close Flush', () => {
       }
     });
 
-    // Create mock adapter with sendBeacon
+    // Create mock adapter with sendBeacon (must return Promise for fire-and-forget semantics)
     mockAdapter = {
       position: vi.fn(() => 50),
       duration: vi.fn(() => 300),
@@ -369,7 +369,7 @@ describe('WatchProgressCaptureService - Story 4-3: Tab-Close Flush', () => {
         if (!eventHandlers[event]) eventHandlers[event] = [];
         eventHandlers[event].push(handler);
       }),
-      sendBeacon: vi.fn(),
+      sendBeacon: vi.fn().mockResolvedValue(undefined), // Returns Promise<void>
     };
 
     vi.mocked(axios).post = vi.fn().mockResolvedValue({
@@ -415,7 +415,7 @@ describe('WatchProgressCaptureService - Story 4-3: Tab-Close Flush', () => {
 
   // ===== AC2: sendBeacon API Usage Tests =====
 
-  it('should call adapter.sendBeacon on visibilitychange to hidden (AC2, AC3)', () => {
+  it('should NOT send beacon on visibilitychange alone (AC8 deduplication)', () => {
     const emitTimeupdate = eventHandlers['timeupdate'][0];
     emitTimeupdate();
 
@@ -430,7 +430,8 @@ describe('WatchProgressCaptureService - Story 4-3: Tab-Close Flush', () => {
       listener.call(document);
     });
 
-    expect(mockAdapter.sendBeacon).toHaveBeenCalledWith(50, expect.stringMatching(/^\d{4}-\d{2}-\d{2}/));
+    // Should NOT send beacon on visibility change to prevent race condition with beforeunload
+    expect(mockAdapter.sendBeacon).not.toHaveBeenCalled();
   });
 
   it('should call adapter.sendBeacon on beforeunload (AC2, AC3)', () => {
@@ -542,7 +543,7 @@ describe('WatchProgressCaptureService - Story 4-3: Tab-Close Flush', () => {
 
   // ===== AC8: Event Timing & Race Condition Tests =====
 
-  it('should not send duplicate beacons on rapid events (AC8)', () => {
+  it('should only send beacon on beforeunload, not on visibilitychange (AC8)', () => {
     const emitTimeupdate = eventHandlers['timeupdate'][0];
     emitTimeupdate();
 
@@ -561,11 +562,11 @@ describe('WatchProgressCaptureService - Story 4-3: Tab-Close Flush', () => {
       listener.call(window);
     });
 
-    // Should only call sendBeacon once per assignment (deduplication)
-    expect((mockAdapter.sendBeacon as any).mock.calls.length).toBeLessThanOrEqual(2);
+    // Should only call sendBeacon once (from beforeunload), not from visibilitychange
+    expect((mockAdapter.sendBeacon as any).mock.calls.length).toBe(1);
   });
 
-  it('should only send beacon on true unload, not on tab show (AC8)', () => {
+  it('should not send beacon on visibility transitions (AC8)', () => {
     const emitTimeupdate = eventHandlers['timeupdate'][0];
     emitTimeupdate();
 
@@ -580,7 +581,8 @@ describe('WatchProgressCaptureService - Story 4-3: Tab-Close Flush', () => {
       listener.call(document);
     });
 
-    const callsAfterHidden = (mockAdapter.sendBeacon as any).mock.calls.length;
+    // visibilitychange alone should NOT send beacon
+    expect((mockAdapter.sendBeacon as any).mock.calls.length).toBe(0);
 
     // Simulate tab shown again
     Object.defineProperty(document, 'visibilityState', {
@@ -593,8 +595,8 @@ describe('WatchProgressCaptureService - Story 4-3: Tab-Close Flush', () => {
       listener.call(document);
     });
 
-    // Should not send another beacon just from becoming visible
-    expect((mockAdapter.sendBeacon as any).mock.calls.length).toBe(callsAfterHidden);
+    // Still no beacon from visibility transitions alone
+    expect((mockAdapter.sendBeacon as any).mock.calls.length).toBe(0);
   });
 
   // ===== AC12: Performance Regression Tests =====
