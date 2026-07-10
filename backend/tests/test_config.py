@@ -33,3 +33,15 @@ def test_cookie_settings_defaults(monkeypatch):
 
     assert settings.SESSION_COOKIE_NAME == "access_token"
     assert settings.COOKIE_SECURE is True
+
+
+def test_youtube_api_key_defaults_to_none_app_boots_without_it(monkeypatch):
+    """AC7: the app must boot with no YOUTUBE_API_KEY configured -- only the
+    ingestion CLI needs this key, not request-serving."""
+    monkeypatch.setenv("DATABASE_URL", "postgresql+asyncpg://u:p@localhost:5432/db")
+    monkeypatch.setenv("JWT_SECRET", "test-secret")
+    monkeypatch.delenv("YOUTUBE_API_KEY", raising=False)
+
+    settings = load_settings(_env_file=None)
+
+    assert settings.YOUTUBE_API_KEY is None

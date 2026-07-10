@@ -39,3 +39,20 @@ class EmbeddingOutput(BaseModel):
 
     embedding: list[float]
     text: str  # Echo back for verification
+
+
+class ManualContentCreate(BaseModel):
+    """Input schema for manual content seeding via the CLI (Story 2.3, AC5).
+    Bypasses youtube_client entirely -- no YouTube API call is ever made
+    for this path. `source` is pinned to "MANUAL" (not caller-configurable):
+    manual_seed_content always writes content_metadata=None, so a row
+    claiming source="YOUTUBE" here would have no video_id and be invisible
+    to ingest_content_for_skill's de-dup check, risking a future duplicate
+    insert of the same video by a real ingestion run."""
+
+    skill_id: UUID
+    title: str
+    url: str
+    type: Literal["VIDEO", "DOCUMENT", "WEBSITE"]
+    description: str | None = None
+    source: Literal["MANUAL"] = "MANUAL"

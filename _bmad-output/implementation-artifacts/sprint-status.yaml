@@ -106,7 +106,7 @@ development_status:
   epic-2: in-progress
   2-1-content-catalog-data-model-and-schema: review
   2-2-embedding-model-integration-sentence-transformers: done
-  2-3-batch-content-ingestion-job-youtube-search: backlog
+  2-3-batch-content-ingestion-job-youtube-search: done
   2-4-semantic-content-matching-filter-then-rank: backlog
   2-5-content-discovery-single-assignment-card-view: backlog
   2-6-empty-and-error-states-for-content-discovery: backlog

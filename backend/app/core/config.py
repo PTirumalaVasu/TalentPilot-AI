@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     ALLOWED_ORIGINS: str = "http://localhost:5173"
     SESSION_COOKIE_NAME: str = "access_token"
     COOKIE_SECURE: bool = True
+    YOUTUBE_API_KEY: str | None = None
 
     @property
     def allowed_origins_list(self) -> list[str]:
