@@ -1,12 +1,14 @@
 """Repository layer for the progress module. Only this module's own code may query its tables."""
 import logging
 from datetime import datetime, timezone
+from typing import Optional
 from uuid import UUID, uuid4
 
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
 
-from app.assignments.models import SkillProgress
+from app.assignments.models import Assignment, SkillProgress
 
 logger = logging.getLogger(__name__)
 
@@ -146,6 +148,7 @@ class ProgressRepository:
         watch_position: int,
         event_time: datetime,
         verified: bool,
+        existing: Optional[SkillProgress] = None,
     ) -> SkillProgress:
         """
         Initialize a new progress record OR update if stale write scenario applies.
@@ -158,11 +161,13 @@ class ProgressRepository:
             watch_position: Position in seconds
             event_time: ISO-8601 timestamp when position was observed (client time)
             verified: True if passed server-side anti-spoofing checks
+            existing: Optional pre-fetched progress record (avoids redundant query if provided)
 
         Returns:
             SkillProgress: The created or updated progress record
         """
-        existing = await ProgressRepository.get_progress_for_assignment(session, assignment_id)
+        if existing is None:
+            existing = await ProgressRepository.get_progress_for_assignment(session, assignment_id)
 
         if existing is None:
             return await ProgressRepository.create_watch_progress(
@@ -172,3 +177,24 @@ class ProgressRepository:
             return await ProgressRepository.record_watch_progress(
                 session, assignment_id, watch_position, event_time, verified
             )
+
+    @staticmethod
+    async def get_assignment_for_progress(session: AsyncSession, assignment_id: UUID) -> Assignment | None:
+        """
+        Retrieve assignment with content metadata (for anti-spoofing validation).
+
+        Fetches assignment with eager-loaded content and skill relationships.
+
+        Args:
+            session: AsyncSession for database operations
+            assignment_id: UUID of the assignment
+
+        Returns:
+            Assignment with content and skill loaded, or None if not found
+        """
+        result = await session.execute(
+            select(Assignment)
+            .where(Assignment.id == assignment_id)
+            .options(joinedload(Assignment.content), joinedload(Assignment.skill))
+        )
+        return result.unique().scalar_one_or_none()
