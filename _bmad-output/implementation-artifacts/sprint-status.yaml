@@ -70,6 +70,12 @@ last_updated: 2026-07-10
 # story 3-1 re-reviewed 2026-07-10 (bmad-code-review, user-requested independent 2nd pass): found and fixed a severe gap the first pass missed -- create_assignment never committed, core/db.py::get_db() had no commit-on-success logic at all, every created Assignment would have silently vanished once a route used it. Fixed get_db() now (zero risk, no callers yet) to commit-on-success/rollback-on-exception, establishing the app-wide commit convention. Also fixed unguarded uuid.UUID(current_user.user_id) parsing, a vacuous test assertion, a missing test case. 137/137 tests passing; status remains done
 # story 3-3 re-reviewed 2026-07-10 (bmad-code-review, user-requested independent 2nd pass): found 2 real patches -- idempotency test's destructive DELETE against the shared dev DB could crash with uncaught IntegrityError if any row ever FK-references a demo employee (now skips cleanly instead); _DEMO_EMPLOYEE_IDS was hardcoded, reintroducing the exact stale-list gap just fixed for _DEMO_ACCOUNTS (now derived). 137/137 tests passing; status remains done
 # story 4-1 story file created 2026-07-10 (bmad-create-story): Comprehensive BMad Method context file generated; status -> ready-for-dev → done (already implemented)
+# story 1-8 (login screen UI) added to epics.md 2026-07-10 (user-requested gap check): no frontend login story existed anywhere; frontend/ has no routing/styling/rendered-React-app yet despite Story 4.0's dependencies being installed. Story 1-8 marked ready-for-dev 2026-07-10 (bmad-create-story).
+# story 1-8 dev started 2026-07-10 (bmad-dev-story), status -> in-progress
+# story 1-8 implemented 2026-07-10 (bmad-dev-story): frontend app-shell (react-router-dom, Tailwind v4, hand-rolled shadcn-style primitives, RHF+Zod), real /login wired to Stories 1.2-1.6 backend, protected-route guard + axios 401 interceptor, Sign Out, HR/Employee stub pages, Story 4.0 demo migrated to /dev/video-player-demo. 17 new tests, 49/49 passing, tsc clean, build succeeds, live end-to-end verified against real uvicorn+Vite. status -> review
+# story 1-8 code review completed 2026-07-10 (bmad-code-review): 1 decision resolved (react-router-dom v7 accepted+documented, not downgraded), 10 patches applied (Form-error-text primitive, real end-to-end 401-interceptor test, sign-out try/catch, deep-link return-to-origin wiring, dead vite.config.ts test block removed, 401 message fallback, VideoPlayerDemo listener leak fixed, ContentDiscoveryStub test added, email/password trim), 4 deferred, 9 dismissed; 53/53 tests passing, tsc clean, build succeeds; status -> done. epic-1 all 8 stories now done -> epic-1 done.
+# story 1-8 live manual verification 2026-07-10 (user-requested): ran the real stack (docker+postgres, uvicorn, vite) and drove the login flow with a headless browser end-to-end. Caught a real regression in the review's own "deep-link return-to-origin wiring" patch above -- worked in unit tests, broke live (AuthProvider-above-BrowserRouter re-render race sent the next login to the previous session's page regardless of role). Reverted that one patch (Login.tsx no longer reads location.state.from; role-default redirect only), re-verified 53/53 tests + tsc + build clean, re-ran the live browser script: all 8 checks passing. status remains done (fix, not a status change).
+# epic-1 retrospective completed 2026-07-10 (bmad-retrospective, first retro for this project): reviewed all 8 stories + deferred-work.md + architecture + PRD. Key findings: every code review this epic found something real (healthy pattern); Story 1.8 shipped most of its life with no confirmed-reachable browser, which is the root cause behind today's live-testing catch; dependency versions repeatedly drifted ahead of spec (Zod v4, Tailwind v4, react-router-dom v7). 3 action items recorded (prototype-fidelity check for UI stories, live-browser smoke pass for auth/routing stories, document dependency version deviations at install time). No blocking prep for epic-2; binding context carried forward (Story 1.3's repository hard-scoping guidance applies to whichever epic-2 story adds the first real content route; Story 2.5 is the first to apply the new prototype-fidelity check). No significant discoveries requiring an epic-2 re-plan. Full doc: epic-1-retro-2026-07-10.md. epic-1-retrospective -> done.
 # story 4-2 story file created 2026-07-10 (bmad-create-story): Ultimate BMad Method context analysis completed -- comprehensive 400-line developer guide covering AC1-AC10, client-side capture service architecture, batching/retry logic, integration with Story 4-0 adapter, tab-close hook setup, AC inheritance from Story 4-1, architecture compliance (AD-5, AD-9, AD-6), full testing strategy, edge cases, TDD implementation plan, success criteria
 # story 4-2 implemented and tested 2026-07-10 (bmad-dev-story): WatchProgressCaptureService fully implemented with 100% AC coverage (AC1-AC8), 15 test cases covering all scenarios (AC1-AC8 scenarios + error paths), 36/36 tests passing; TypeScript types (common.ts, progress.ts interfaces) complete; service architecture per AD-9 adapter pattern, AC4 exponential backoff on network errors, AC5 verified flag handling, AC6 sendBeacon hook ready for Story 4-3; backward compatibility export for existing imports; status -> review
 # story 4-2 code review completed 2026-07-10 (bmad-code-review): Adversarial review (Blind Hunter, Edge Case Hunter, Acceptance Auditor) identified 29+ findings across critical/high/medium severity. All 7 critical/high bugs fixed: (1) queue loss on 422, (2) AC7 video URL sourcing inconsistency, (3) unbounded queue growth on failures, (4) race condition during in-flight POST, (5) 4xx error handling too permissive, (6) missing config validation, (7) AC8 success logging. All 3 AC violations resolved: AC2/AC3 inconsistency, AC7 URL source, AC8 logging. Added clock skew guard. Full test suite: 36/36 passing, zero regressions. Status -> done
@@ -79,7 +85,7 @@ tracking_system: file-system
 story_location: _bmad-output/implementation-artifacts
 
 development_status:
-  epic-1: in-progress
+  epic-1: done
   1-1-project-structure-and-core-dependencies: done
   1-2-jwt-token-generation-and-session-model: done
   1-3-role-and-identity-scoping-on-every-request: done
@@ -87,7 +93,8 @@ development_status:
   1-5-sign-out-and-session-invalidation: done
   1-6-protected-endpoint-gate-no-flash-of-protected-content: done
   1-7-database-schema-initialization-and-migration: done
-  epic-1-retrospective: optional
+  1-8-login-screen-ui: done
+  epic-1-retrospective: done
 
   epic-2: in-progress
   2-1-content-catalog-data-model-and-schema: review
@@ -126,3 +133,17 @@ development_status:
   5-5b-hr-override-reversal-undo-manual-confirmation: backlog
   5-6-accessibility-and-real-time-announcements: backlog
   epic-5-retrospective: optional
+
+action_items:
+  - epic: 1
+    action: "UI stories must be visually validated against their matching HTML prototype (where one exists) before being marked done -- not just functionally/test correct. First applies to Story 2.5 (02.1-Content-Discovery.html)."
+    owner: "Amelia (dev-story workflow)"
+    status: open
+  - epic: 1
+    action: "Auth/routing-adjacent frontend stories get a real live-browser smoke pass before being marked done, not just unit tests -- a mocked-navigate unit test has now passed twice in this project while the real router timing broke live."
+    owner: "Amelia (dev-story workflow)"
+    status: open
+  - epic: 1
+    action: "Document any dependency installed at a newer major version than the architecture spine specifies, at implementation time -- not caught retroactively in review. Matches the pattern already used for the Zod v4 deviation."
+    owner: "Amelia (dev-story workflow)"
+    status: open

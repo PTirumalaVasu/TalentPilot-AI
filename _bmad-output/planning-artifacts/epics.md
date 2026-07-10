@@ -637,6 +637,48 @@ See migration logs in: _logs/migration.log
 
 ---
 
+### Story 1.8: Login Screen UI (Frontend)
+
+As an **HR Admin or Employee**,
+I want a real login screen that authenticates against the backend session gate,
+So that I can reach my role-appropriate area of the application through the actual production auth flow, not a prototype mock.
+
+**Acceptance Criteria:**
+
+**Given** `frontend/` currently has no routing, no styling framework, and no rendered React app at all (only the Story 4.0 video-player component and its adapters, plus a hand-written vanilla-JS demo `index.html` — `react`/`react-dom` are installed but nothing mounts them)  
+**When** this story is implemented  
+**Then** the frontend gains a minimal app shell: `react-router-dom` for routing, Tailwind CSS + shadcn/ui installed and configured (per architecture AR-18, not yet present in `frontend/package.json`), and a real `index.html` → `main.tsx` → `App.tsx` entry point that actually renders React
+
+**And** the existing Story 4.0 demo page (manual YouTube player harness) is preserved and reachable at a dedicated route (e.g. `/dev/video-player-demo`), not silently deleted, since it is a working, reviewed, tested artifact from a `done` story
+
+**Given** I navigate to `/login`  
+**When** the page renders  
+**Then** I see an email + password form built with React Hook Form + Zod for client-side validation (AR-18)
+
+**Given** I am on `/login` and submit valid credentials  
+**When** the form submits  
+**Then** it calls `POST /api/auth/login` (axios, `withCredentials: true` so the HttpOnly session cookie is accepted) with `{ email, password }`
+
+**And** on a `200` response (`{ role, user_id }`), I am redirected to the role-appropriate entry point: `HR_ADMIN` → HR Dashboard route (stub placeholder acceptable — Epic 5 builds the real page), `EMPLOYEE` → Content Discovery route (stub placeholder acceptable — Epic 2 builds the real page)
+
+**Given** I submit invalid credentials  
+**When** the backend returns `401` (`{status: "error", code: "HTTP_ERROR", message: "Email or password incorrect", timestamp}`, per Story 1.4)  
+**Then** the form shows "Email or password incorrect" without indicating which field was wrong — the exact backend message, not a re-worded client-side one
+
+**Given** any route other than `/login`  
+**When** a request to a protected backend endpoint returns `401` (Story 1.6's router-level gate)  
+**Then** a protected-route wrapper redirects to `/login` before any protected content paints — no flash of protected content, mirroring Story 1.6's guarantee on the frontend side
+
+**Given** I am on a protected route with a valid session  
+**When** I click "Sign Out"  
+**Then** the frontend calls `POST /api/auth/logout` (204, clears the cookie per Story 1.5) and redirects to `/login`
+
+**And** using the browser back button afterward does not show protected content — the protected-route wrapper re-checks auth state on every navigation, it does not cache a "logged in" flag past a 401
+
+**And** none of this reuses or adapts the static, prototype-only `login.html`/`shared/auth.js` mock under `_bmad-output/E-Development/*/` (`sessionStorage`-based, no backend at all) — that was explicitly scoped as a prototype-only fixture (`_bmad-output/evolution/scenarios/authentication-login-gate.md`); this story is the real, production-facing implementation wired to the actual Story 1.2–1.6 backend
+
+---
+
 ## EPIC 2: Content Catalog, Semantic Matching & Discovery
 
 **Epic Goal:** Build the content catalog foundation with semantic embedding-based matching, batch ingestion from YouTube, and the Employee-scoped discovery list view.
