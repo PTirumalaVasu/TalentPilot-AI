@@ -42,7 +42,13 @@ async def list_content_by_skill(
         List of ContentCatalog ORM instances (empty list if no matches)
     """
     result = await db.execute(
-        select(ContentCatalog).where(ContentCatalog.skill_id == skill_id)
+        select(ContentCatalog)
+        .where(ContentCatalog.skill_id == skill_id)
+        # Deterministic order: real "best match" ranking now lives in
+        # find_best_matching_content() below (Story 2.4); this listing is
+        # still used as-is by list_content_for_skill()/ingestion de-dup, so
+        # keep it stable across identical requests regardless.
+        .order_by(ContentCatalog.ingested_at, ContentCatalog.id)
     )
     return list(result.scalars().all())
 

@@ -16,6 +16,23 @@ class AssignmentStatus(str, Enum):
     COMPLETED = "COMPLETED"
 
 
+class EmployeeResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    name: str
+    email: str
+    role: str
+
+
+class SkillResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    name: str
+    description: str | None
+
+
 class CreateAssignmentRequest(BaseModel):
     # extra="forbid": AC3's "status/provenance are never client-supplied" must
     # be an enforced contract, not just an omission from this field list.
@@ -23,6 +40,10 @@ class CreateAssignmentRequest(BaseModel):
 
     employee_id: uuid.UUID
     skill_id: uuid.UUID
+    # Optional: the AI-matched content id from Step 3's content review
+    # (Story 3.4). None when no content matched or [Assign without content]
+    # was used (AC6) — never required.
+    content_id: uuid.UUID | None = None
 
 
 class AssignmentResponse(BaseModel):
