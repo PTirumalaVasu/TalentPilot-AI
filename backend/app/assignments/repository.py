@@ -1,11 +1,29 @@
 """Repository layer for the assignments module. Only this module's own code may query its tables."""
 import uuid
 
+from fastapi import status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.assignments.models import Assignment
 from app.auth.schemas import CurrentUser, Role
+from app.core.errors import AppException
+
+
+def _parse_user_id(current_user: CurrentUser) -> uuid.UUID:
+    """CurrentUser.user_id is only guaranteed non-empty (auth/service.py) —
+    not guaranteed UUID-shaped. Today's mock accounts always issue real
+    Employee UUIDs (Story 3.1 code-review fix, core/seed_ids.py), but nothing
+    upstream enforces that for a future non-mock auth source. Fail as a clean
+    400 here rather than an uncaught ValueError -> generic 500."""
+    try:
+        return uuid.UUID(current_user.user_id)
+    except (ValueError, AttributeError, TypeError) as exc:
+        raise AppException(
+            status.HTTP_400_BAD_REQUEST,
+            error_code="INVALID_USER_ID",
+            message="Session user_id is not a valid identifier",
+        ) from exc
 
 
 async def create_assignment(
@@ -34,7 +52,9 @@ async def find_existing_assignment(
     session: AsyncSession, *, employee_id: uuid.UUID, skill_id: uuid.UUID
 ) -> list[Assignment]:
     """Returns all existing Assignment rows for (employee_id, skill_id), for
-    duplicate-detection (Story 3.4) — does not enforce uniqueness."""
+    duplicate-detection (Story 3.4) — does not enforce uniqueness. Unordered:
+    do not treat result[0] as "the" existing assignment (AC2 permits multiple
+    intentional re-assignments of the same pair)."""
     result = await session.execute(
         select(Assignment).where(Assignment.employee_id == employee_id, Assignment.skill_id == skill_id)
     )
@@ -55,7 +75,7 @@ async def list_assignments_for_employee(
     stmt = select(Assignment)
 
     if current_user.role == Role.EMPLOYEE:
-        stmt = stmt.where(Assignment.employee_id == uuid.UUID(current_user.user_id))
+        stmt = stmt.where(Assignment.employee_id == _parse_user_id(current_user))
     elif requested_employee_id is not None:
         stmt = stmt.where(Assignment.employee_id == requested_employee_id)
 

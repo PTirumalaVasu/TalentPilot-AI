@@ -11,5 +11,14 @@ Base = declarative_base()
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
+    """Request-scoped session: commits on successful completion of the route
+    handler, rolls back if the handler raises. Establishes the app-wide
+    commit convention — individual repository/service functions should flush,
+    not commit, and rely on this to persist the transaction."""
     async with async_session_factory() as session:
-        yield session
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
