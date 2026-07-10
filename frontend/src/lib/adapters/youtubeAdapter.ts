@@ -128,6 +128,17 @@ export class YouTubeAdapter implements PlayerAdapter {
       payload.append('watch_position', String(position));
       payload.append('event_time', eventTime);
 
+      // AD-5: Include video URL for server-side anti-spoofing validation
+      try {
+        const videoUrl = this.player?.getVideoUrl?.();
+        if (videoUrl) {
+          payload.append('video_url', videoUrl);
+        }
+      } catch (err) {
+        // Video URL not available, continue without it (not critical)
+        console.debug('YouTubeAdapter: Could not retrieve video URL for beacon');
+      }
+
       const success = navigator.sendBeacon(endpoint, payload);
       if (!success) {
         console.warn('YouTubeAdapter: sendBeacon returned false (queue full?), data may not be sent');
