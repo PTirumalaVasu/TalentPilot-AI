@@ -20,7 +20,7 @@ from app.assignments.models import (  # noqa: F401
 from app.core.db import Base
 from app.core.seeds import run_seeds
 
-os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://talentpilot:talentpilot@localhost:5432/talentpilot")
+os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://talentpilot:sails123@localhost:5433/talentpilot")
 os.environ.setdefault("JWT_SECRET", "test-secret-do-not-use-in-production")
 
 
@@ -37,20 +37,10 @@ def _clear_revoked_tokens():
     yield
     auth_service._revoked_tokens.clear()
 
-@pytest.fixture(scope="session")
-def event_loop():
-    """Create event loop for async tests."""
-    import asyncio
-
-    loop = asyncio.get_event_loop_policy().new_event_loop()
-    yield loop
-    loop.close()
-
-
-@pytest.fixture(scope="session")
+@pytest.fixture
 async def test_engine():
     """Create test database engine."""
-    test_url = "postgresql+asyncpg://talentpilot:talentpilot@localhost:5432/talentpilot"
+    test_url = "postgresql+asyncpg://talentpilot:sails123@localhost:5433/talentpilot"
 
     engine = create_async_engine(test_url, echo=False)
 
