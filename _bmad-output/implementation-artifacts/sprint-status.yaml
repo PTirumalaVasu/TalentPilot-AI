@@ -123,7 +123,7 @@ development_status:
   4-0-youtube-iframe-adapter-abstraction-layer-for-player-events: done
   4-1-skill-progress-data-model-and-watch-position-storage: done
   4-2-watch-position-capture-and-periodic-posting: done
-  4-3-tab-close-flush-via-sendbeacon-reliability: review
+  4-3-tab-close-flush-via-sendbeacon-reliability: done
   4-4-server-side-anti-spoofing-validate-position-advances: backlog
   4-5-resume-position-retrieval-and-exact-point-playback: backlog
   4-6-continue-watching-card-empty-and-loaded-states: backlog
