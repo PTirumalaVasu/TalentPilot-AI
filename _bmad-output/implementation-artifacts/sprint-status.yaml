@@ -47,6 +47,12 @@ last_updated: 2026-07-09
 # stories 1-2/1-3/1-4 completed and merged to main via PR #27 2026-07-09; story 1-5 marked ready-for-dev 2026-07-09 (bmad-create-story)
 # story 1-5 implemented 2026-07-09 (bmad-dev-story), status -> review
 # story 1-5 code review completed 2026-07-09 (bmad-code-review): 3 patches applied, 1 decision deferred, 4 total deferred, 5 dismissed; status -> done
+# story 1-6 marked ready-for-dev 2026-07-09 (bmad-create-story)
+# story 1-6 dev started 2026-07-09 (bmad-dev-story), status -> in-progress
+# story 1-6 implemented 2026-07-09 (bmad-dev-story): 10 new tests (test_protected_router_gate.py), 75 passed/16 deselected full suite, zero regressions; status -> review
+# story 1-6 code review completed 2026-07-09 (bmad-code-review): 3 patches applied (test-only), 2 deferred, 8 dismissed; status -> done
+# story 1-7 retroactive story file created 2026-07-09 (bmad-agent-dev): work was implemented/merged via PR #28 (2026-07-09) bypassing create-story, sprint-status left stale at backlog; corrected now. Live migration re-verified this session (fresh Docker Postgres, alembic upgrade head fixed and run for real, seeds run, 91/91 tests passing incl. 16 previously-blocked live-DB tests); status -> review
+# story 1-7 code review completed 2026-07-09 (bmad-code-review): 6 patches applied, 5 deferred, 3 dismissed; 91/91 tests passing after patches; status -> done
 # story 1-7 database migration completed 2026-07-09 (bmad-agent-dev): 7 tables, 5 skills with embeddings seeded, status -> done
 # story 2-1 marked ready-for-dev 2026-07-09 (bmad-create-story); epic-2 auto-transitioned to in-progress
 # story 2-1 implemented 2026-07-10 (bmad-dev-story): Pydantic schemas, repository layer, service layer, 16 tests passing, status -> review
@@ -62,7 +68,7 @@ development_status:
   1-3-role-and-identity-scoping-on-every-request: done
   1-4-login-endpoint-and-credential-store-mock-for-mvp: done
   1-5-sign-out-and-session-invalidation: done
-  1-6-protected-endpoint-gate-no-flash-of-protected-content: backlog
+  1-6-protected-endpoint-gate-no-flash-of-protected-content: done
   1-7-database-schema-initialization-and-migration: done
   epic-1-retrospective: optional
 
