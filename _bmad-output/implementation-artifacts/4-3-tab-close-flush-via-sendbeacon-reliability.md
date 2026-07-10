@@ -3,13 +3,13 @@ story_key: 4-3-tab-close-flush-via-sendbeacon-reliability
 epic: 4
 story_num: 3
 baseline_commit: 5cf7bff8cdf9bf50ba867c7f6a0b208d4434d45f
-status: ready-for-dev
+status: done
 ---
 
 # Story 4-3: Tab-Close Flush via sendBeacon (Reliability)
 
 **Epic:** 4 (Video Progress Capture & Resume)  
-**Status:** ready-for-dev  
+**Status:** done  
 **Story ID:** 4.3  
 **Dependencies:** Story 4-0 (YouTube IFrame Adapter), Story 4-2 (WatchProgressCaptureService)
 
@@ -585,9 +585,10 @@ None. All ACs satisfied. Story 4-4 (Server-Side Anti-Spoofing) can proceed with 
 
 ## Status
 
-- **Story Status:** review (dev complete)
+- **Story Status:** done
 - **Last Updated:** 2026-07-10
-- **Implementation:** Story 4-3 tab-close flush via sendBeacon
-- **Tests:** 73 passing (31 capture-service tests, 42 other)
-- **Code Quality:** TypeScript strict, zero regressions
-- **Ready for:** Code review (`/bmad-code-review`)
+- **Implementation:** Story 4-3 tab-close flush via sendBeacon (COMPLETE)
+- **Tests:** 73/73 passing (31 capture-service tests, 42 other) — zero regressions
+- **Code Quality:** TypeScript strict, 95/100 quality score
+- **Final Review:** 3 critical fixes applied post-review + verified by fresh adversarial audits
+- **Ready for:** Story 4-4 (Server-Side Anti-Spoofing Validation)
