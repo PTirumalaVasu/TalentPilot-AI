@@ -39,7 +39,19 @@ def _clear_revoked_tokens():
 
 @pytest.fixture
 async def test_engine():
-    """Create test database engine."""
+    """Create test database engine.
+
+    WARNING: this runs Base.metadata.create_all()/drop_all() against the REAL
+    settings.DATABASE_URL (same DB as Docker Compose's dev Postgres), not an
+    isolated test database. drop_all() at teardown wipes EVERY table in the
+    app, not just ones a given test touched, and desyncs alembic_version
+    (it keeps claiming revision 001 is applied after the tables it describes
+    are gone -- recovery requires dropping alembic_version and re-running
+    `alembic upgrade head`). Do not add new tests depending on this fixture
+    (or db_session below, which depends on it) until this is fixed to use a
+    genuinely separate test DB or per-test row-level cleanup instead of a
+    blanket drop_all(). See deferred-work.md ("dev-story of
+    3-3-employee-master-data-and-seed") for full diagnosis."""
     test_url = "postgresql+asyncpg://talentpilot:sails123@localhost:5433/talentpilot"
 
     engine = create_async_engine(test_url, echo=False)

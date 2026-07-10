@@ -1,9 +1,7 @@
 """Service layer for the assignments module. Cross-module callers must go through here (AD-1)."""
-import uuid
-
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.assignments.repository import create_assignment
+from app.assignments.repository import _parse_user_id, create_assignment
 from app.assignments.schemas import AssignmentResponse, AssignmentStatus, CreateAssignmentRequest
 from app.auth.schemas import CurrentUser
 from app.auth.service import require_hr_admin
@@ -24,7 +22,7 @@ async def create_assignment_service(
         employee_id=request.employee_id,
         skill_id=request.skill_id,
         content_id=None,
-        assigned_by=uuid.UUID(current_user.user_id),
+        assigned_by=_parse_user_id(current_user),
     )
 
     return AssignmentResponse(

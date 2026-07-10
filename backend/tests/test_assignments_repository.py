@@ -185,4 +185,27 @@ async def test_hr_admin_scoped_list_can_filter_by_requested_employee_id():
 
         results = await list_assignments_for_employee(session, current_user=hr_user, requested_employee_id=CASEY_ID)
 
+        # any(...) first: all() over an empty list is vacuously True and
+        # wouldn't catch a filter that incorrectly returns zero rows.
+        assert any(a.employee_id == CASEY_ID for a in results)
         assert all(a.employee_id == CASEY_ID for a in results)
+
+
+async def test_employee_scoped_list_returns_own_rows_with_no_requested_employee_id():
+    """Default-usage case (no spoofing attempt): requested_employee_id isn't
+    even passed. Distinct from test_employee_scoped_list_ignores_spoofed_employee_id,
+    which only covers the override-supplied path."""
+    async with _seeded_session() as session:
+        await create_assignment(
+            session, employee_id=CASEY_ID, skill_id=SKILL_DATA_VIZ_ID, content_id=None, assigned_by=RITA_ID
+        )
+        await create_assignment(
+            session, employee_id=MORGAN_ID, skill_id=SKILL_DATA_VIZ_ID, content_id=None, assigned_by=RITA_ID
+        )
+
+        casey_user = CurrentUser(role=Role.EMPLOYEE, user_id=str(CASEY_ID))
+
+        results = await list_assignments_for_employee(session, current_user=casey_user)
+
+        assert any(a.employee_id == CASEY_ID for a in results)
+        assert not any(a.employee_id == MORGAN_ID for a in results)

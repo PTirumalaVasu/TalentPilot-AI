@@ -2377,6 +2377,121 @@ Session log entry documenting the Story 2.1 implementation phase.
 
 ---
 
+# Epic 1 Implementation Cycle (Stories 1.1–1.8) & Retrospective — Skills, Agents, and Files
+
+**Date range:** 2026-07-09 to 2026-07-10
+**Status:** Epic 1 complete (8/8 stories `done`), retrospective complete; Story 2.1 (Epic 2) also created and implemented in this window, code review still pending
+
+## Overview
+
+This phase covers the actual build of Epic 1 (Authentication & Session Gate) — the first epic to reach real code — plus its retrospective. Unlike the planning-phase sections above, this phase is a **repeating three-skill cycle** run once per story: `bmad-create-story` (spec the story with full context) → `bmad-dev-story` (implement it, TDD-first) → `bmad-code-review` (adversarial multi-layer review, patch/defer/dismiss triage). The cycle ran nine times (Stories 1.1–1.8, plus Story 2.1 which is mid-cycle as of this writing), followed by a single `bmad-retrospective` run once all eight Epic 1 stories reached `done`. Rather than repeat near-identical prose nine times, each skill is described once generically, with a per-invocation table underneath and prose only where an invocation did something genuinely unusual.
+
+## Agents Called
+
+- **Amelia — Senior Software Engineer (`bmad-agent-dev`)** — invoked explicitly (not just the bare `bmad-dev-story`/`bmad-create-story` skills) for Story 1.7's retroactive documentation and live database migration, since that work had originally been done directly through the Amelia persona bypassing `create-story` entirely. Every other story's `create-story`/`dev-story` runs used the bare skills without the persona wrapper — the project-context.md log consistently cites `bmad-dev-story`/`bmad-create-story`, not `bmad-agent-dev`, for those.
+- **Amelia (Developer), John (Product Manager), Winston (System Architect), Murat (Test Architect)** — voiced in character (party-mode style, matching the pattern already established in the Design Thinking phase above) as the facilitation team for the Epic 1 retrospective. Roster resolved via `resolve_config.py --key agents` against `_bmad/config.toml`; TalentPilot participated directly as Project Lead throughout, including a mid-session redirect (adding a new standing rule: UI stories must be checked against generated prototypes before being marked `done`) that became Action Item 1.
+- **No persona was invoked for any individual `create-story`/`dev-story`/`code-review` run** — these ran as bare skills within the main conversation loop, consistent with how `bmad-domain-research` ran undressed earlier in the project.
+
+## Skills Used
+
+### 1. `bmad-create-story`
+
+**Purpose:** Produces a dedicated story file carrying full implementation context — Acceptance Criteria, Dev Notes, Previous Story Intelligence pulled forward from earlier stories, Architecture Compliance mapping, and a Git Intelligence summary — so a later `dev-story` run (possibly in a different session/context) has everything it needs without re-deriving it from the epic file or architecture spine.
+
+**Invocations in this phase:**
+
+| Story | Date | Output file | Notable scope note |
+|---|---|---|---|
+| 1.1 | 2026-07-09 | `1-1-project-structure-and-core-dependencies.md` | First story of the project; no Previous Story Intelligence to pull forward |
+| 1.2 | 2026-07-09 | `1-2-jwt-token-generation-and-session-model.md` | Deliberately scoped to cookie-mechanism only — JWT creation itself was already built in 1.1 |
+| 1.3 | 2026-07-09 | `1-3-role-and-identity-scoping-on-every-request.md` | Identified and documented an epic-forward-dependency split (dependency-layer validation buildable now; repository-layer hard-scoping deferred as binding guidance for Epic 2/3) |
+| 1.4 | 2026-07-09 | `1-4-login-endpoint-and-credential-store-mock-for-mvp.md` | Scoped the credential store as a plain in-memory dict, explicitly not DB-backed, since Story 1.7 (schema) hadn't run yet |
+| 1.5 | 2026-07-09 | `1-5-sign-out-and-session-invalidation.md` | Authored the server-side in-memory revoked-token-set design directly into the story, since stateless JWTs can't otherwise satisfy the epic's "reject even before natural expiry" requirement |
+| 1.6 | 2026-07-09 | `1-6-protected-endpoint-gate-no-flash-of-protected-content.md` | Caught and corrected its own initial wrong assumption about FastAPI's `include_router()` dependency-inheritance timing via a throwaway verification script before finalizing the story |
+| 1.7 | 2026-07-09 (retroactive) | `1-7-database-schema-initialization-and-migration.md` | **Not created via this skill at the time** — work was implemented directly through `bmad-agent-dev` (PR #28), bypassing `create-story` entirely; the story file was written retroactively after the fact to document what had already shipped |
+| 1.8 | 2026-07-10 | `1-8-login-screen-ui.md` | Added to `epics.md` as a brand-new Story 1.8 first (Epic 1 had shipped a complete backend with zero UI for 7 stories) — this run both extended the epic definition and created the story file in the same pass |
+| 2.1 | 2026-07-09 | `2-1-content-catalog-data-model-and-schema.md` | First Epic 2 story; scoped tightly to schemas/repository/service layer only, no HTTP routes |
+
+### 2. `bmad-dev-story`
+
+**Purpose:** Implements a story file end-to-end following TDD discipline (red → green, tests written before code), verifies against every Acceptance Criterion, and records what actually happened — including any environment gotchas, wrong assumptions caught mid-implementation, and deviations from the story's original plan — back into the story file's Dev Agent Record.
+
+**Invocations in this phase:**
+
+| Story | Date | Tests added | Notable finding during implementation |
+|---|---|---|---|
+| 1.1 | 2026-07-09 | 8/8 passing | This machine's only available Python is 3.14 (spec assumed 3.12/3.13) — several pinned packages had no `cp314` wheel; worked around by installing newest `cp314`-compatible versions within the same major/API lines |
+| 1.2 | 2026-07-09 | +6 (19/19) | Two self-inflicted test bugs caught during TDD — both asserted against `settings`' *default*, when the process-wide singleton actually loads `backend/.env`'s deliberately-overridden value |
+| 1.3 | 2026-07-09 | +8 (30/30) | Two edge cases (missing `role` claim, `EMPLOYEE` token with `user_id=None`) needed hand-crafted JWTs via raw `pyjwt.encode()`, since `create_access_token()`'s own signature can't produce those malformed shapes |
+| 1.4 | 2026-07-09 | +9 (42/42) | Live-verified via `curl` against a running server, not just tests — confirmed exact `Set-Cookie` attributes and that wrong-password/unknown-email produce byte-identical responses |
+| 1.5 | 2026-07-09 | +6 (51/51) | A test helper's reliance on httpx's automatic cookie jar silently failed to resend a `Secure`-flagged cookie over the plain-`http://test` transport tests use — root-caused with a standalone debug script, fixed by extracting/re-setting the token explicitly |
+| 1.6 | 2026-07-09 | +10 (75 passed / 16 deselected) | Found `backend/.venv` was missing three packages (`pgvector`, `sentence-transformers`, `alembic`) that had been in `requirements.txt` since Story 1.7 but never actually installed — silent until pytest tried to collect |
+| 1.7 | 2026-07-09 (via `bmad-agent-dev`) | 91/91 (16 previously-blocked live-DB tests unblocked) | Docker was reachable for the first time this project; used it to run `alembic upgrade head` for real (previously only `metadata.create_all()` had ever actually executed) — found and fixed a stale hardcoded DB URL in `alembic.ini` and a Postgres double-`CREATE TYPE` enum bug in the process |
+| 1.8 | 2026-07-10 | +17 (49/49) | `frontend/index.html` confirmed to not be a real React app at all before this story (Story 4.0 left it as vanilla-JS); Tailwind v4 installed instead of the assumed v3, requiring the CSS-first `@import`/`@config` model instead of a JS config file |
+| 2.1 | 2026-07-10 | +16 (16/16) | Used a Pydantic `Field(alias=...)` + `populate_by_name=True` pattern to bridge the ORM's `content_metadata` (reserved-attribute workaround) to the schema's public `metadata` field |
+
+### 3. `bmad-code-review`
+
+**Purpose:** Adversarially reviews a story's diff through parallel independent layers before it's allowed to reach `done` — **Blind Hunter** (`bmad-review-adversarial-general`, a general cynical-review pass) and **Edge Case Hunter** (`bmad-review-edge-case-hunter`, exhaustive branch/boundary enumeration) always run; an **Acceptance Auditor** (an inline prompt, not a separate skill, checking the diff against the spec's literal Acceptance Criteria) additionally runs whenever a spec file is available. Findings are triaged into `patch` (fixed), `defer` (logged to `deferred-work.md`, not blocking), or `dismiss` (verified as noise/false-positive, not just argued away).
+
+**How the three layers actually run (confirmed directly in this session, for Story 1.8's review):** each layer is a separate `general-purpose` subagent spawned via the Agent tool with no prior conversation context, which then invokes its named skill (`bmad-review-adversarial-general` / `bmad-review-edge-case-hunter`) via the Skill tool internally and reports findings back. The Acceptance Auditor ran the same way but without invoking a further skill, since it's a plain prompt-driven audit against the story file and diff.
+
+**Invocations in this phase:**
+
+| Story | Date | Patch / Defer / Dismiss | Real bugs found |
+|---|---|---|---|
+| 1.1 | 2026-07-09 | 6 / 4 / 7 | CORS origins hardcoded instead of env-driven; unhandled exceptions were silently unlogged |
+| 1.2 | 2026-07-09 | 3 / 5 / 10 | None severity-blocking — cookie `Max-Age`/`Path` test coverage gaps closed |
+| 1.3 | 2026-07-09 | 5 / — / — | **Real bug:** an `HR_ADMIN` JWT with no `user_id` claim crashed with an unhandled 500 instead of a clean 400 — the null-check had only been wired for `EMPLOYEE`, and a completion note claiming this was "intentional, asymmetric by design" was retracted as simply wrong once review disproved it |
+| 1.4 | 2026-07-09 | 4 deferred, rest patched | **Real bug:** `Rita@Sails.example.com` (different case) failed login even with the correct password — `find_account` did a raw case-sensitive lookup; fixed with `.strip().lower()` normalization |
+| 1.2/1.3/1.4 consolidated | 2026-07-09 | 2 new items | User-requested cross-story consistency pass on top of the three per-story reviews already done — found zero new bugs and zero cross-story drift; most value was in *confirming* the individual reviews held up, not finding anything new |
+| 1.5 | 2026-07-09 | 3 / 4 / 5 | **Real correctness gap, deliberately accepted, not fixed:** same-wall-clock-second logins mint byte-identical JWTs (no `jti`, whole-second precision), so signing out one session can silently revoke a concurrent sibling — accepted as an MVP limitation given the fix would require touching `core/security.py` against this story's own "don't touch" scope note |
+| 1.6 | 2026-07-09 | 3 (test-only) / 2 / 8 | No production-code changes needed — all three patches hardened the test suite itself |
+| 1.7 | 2026-07-09 | 6 / 5 / 3 | Verified empirically (via a literal `%` in a URL-encoded password) that `env.py` broke `ConfigParser` interpolation before the escape fix; confirmed the fix round-trips correctly |
+| 1.8 | 2026-07-10 | 10 / 4 / 9 (+1 decision resolved) | See "Story 1.8 code review + live verification" below — this is the most eventful review in the epic |
+| 2.1 | — | Not yet run | Story is at `review` status in sprint-status as of this document; code review has not been executed yet |
+
+**Story 1.8 code review + live verification (2026-07-10) — the most consequential run in this phase:**
+
+This review found two genuine spec gaps beyond what either adversarial layer alone caught: AC1 named five shared UI primitives but only four existed (`Form-error-text` was missing, with error markup hand-duplicated three times inconsistently instead); and Task 6's explicit requirement for an end-to-end 401→interceptor→redirect test was never actually implemented, only two separate unit-level tests that never touched the real chain together. It also found a real correctness bug (sign-out had no `try`/`catch` around its `logout()` call, so a failed request could strand the user in a false-authenticated state) and raised one `decision-needed` item (`react-router-dom` installed at v7 against the spec's v6.x, resolved by the user as "keep v7, document it," mirroring an existing Zod v4 precedent).
+
+**What happened after this review is where it gets unusual for this document:** at the user's explicit request ("how to run frontend and backend and db and see and test manually"), the story's own patches were then driven live — Docker Desktop was started (it wasn't running), Postgres brought up via `docker compose`, the FastAPI backend and Vite frontend launched, and the whole login flow driven end-to-end with a Playwright script (installed ad hoc in the scratchpad directory, since neither `chromium-cli` nor a project-specific run-skill existed). This live pass caught a real regression **in one of the review's own just-applied patches**: the `location.state.from` deep-link-return-to-origin wiring passed its own new unit test but broke live, because `AuthProvider` sits above `BrowserRouter` in `App.tsx`, letting `RequireAuth`'s own reactive redirect race the sign-out handler's explicit navigation and stamp stale `state` onto the `/login` history entry. The fix was to revert that one patch rather than chase the timing race further, since it had been a low-severity nice-to-have to begin with. Both the story file and `deferred-work.md`-adjacent logs were corrected to reflect the revert rather than leaving the original "fixed" claim standing.
+
+### 4. `bmad-retrospective`
+
+**Purpose:** Post-epic review — extracts patterns across every story's Dev Notes/review outcomes, checks the previous epic's retro commitments for follow-through (none existed here, since this was the first retrospective), previews the next epic's dependencies on the epic just closed, and closes with concrete action items plus a readiness assessment before green-lighting the next epic.
+
+**Invocation:**
+
+| Epic | Date | Output files | Key outcome |
+|---|---|---|---|
+| Epic 1 | 2026-07-10 | `epic-1-retro-2026-07-10.md`; `sprint-status.yaml` (`epic-1-retrospective` → `done`, 3 `action_items` entries added) | 3 action items adopted: (1) UI stories checked against generated prototypes before `done`, prompted directly by TalentPilot mid-retro; (2) auth/routing frontend stories get a real live-browser smoke pass before `done`, prompted by the Story 1.8 live-testing catch above; (3) dependency version deviations from the architecture spine documented at implementation time, not caught retroactively. No blocking preparation identified for Epic 2 — Story 1.3's repository-hard-scoping guidance and the new prototype-check rule both carry forward as binding context into specific future stories rather than a separate prep sprint. |
+
+Epic discovery for this run was non-trivial: sprint-status.yaml's naive "highest epic number with a `done` story" heuristic pointed at Epic 4 (only story 4.0 done, six stories still `backlog`) rather than Epic 1 (8/8 done, just closed out). This was flagged directly to TalentPilot rather than acted on blindly, and Epic 1 was confirmed as the correct target.
+
+## Files Created or Modified
+
+**Story files created** (`_bmad-output/implementation-artifacts/`): `1-1-project-structure-and-core-dependencies.md`, `1-2-jwt-token-generation-and-session-model.md`, `1-3-role-and-identity-scoping-on-every-request.md`, `1-4-login-endpoint-and-credential-store-mock-for-mvp.md`, `1-5-sign-out-and-session-invalidation.md`, `1-6-protected-endpoint-gate-no-flash-of-protected-content.md`, `1-7-database-schema-initialization-and-migration.md` (retroactive), `1-8-login-screen-ui.md`, `2-1-content-catalog-data-model-and-schema.md` — each carrying its own Tasks/Subtasks, Dev Agent Record, and (post-review) a `### Review Findings` subsection.
+
+**`_bmad-output/implementation-artifacts/deferred-work.md`** (created, then appended nine times) — the running technical-debt ledger; one `## Deferred from: code review of <story>` section per review, 33 total items logged across Epic 1 (31 from the eight per-story reviews + 2 from the consolidated 1.2/1.3/1.4 pass), all triaged with an explicit reason, never left as a bare bullet.
+
+**`_bmad-output/implementation-artifacts/sprint-status.yaml`** (modified repeatedly) — every `create-story`/`dev-story`/`code-review` run updated the relevant story's status (`backlog` → `ready-for-dev` → `in-progress` → `review` → `done`) and appended a dated log comment; the retrospective run added `epic-1-retrospective: done` and the `action_items:` block.
+
+**`_bmad-output/implementation-artifacts/epic-1-retro-2026-07-10.md`** (created) — the full retrospective document: epic summary, what went well/what slowed things down, the Story 1.8 live-testing discovery write-up, action items table, Epic 2 preparation notes, and readiness assessment.
+
+**`_bmad-output/project-context.md`** (appended to after nearly every invocation above, per its own "Mandatory Rule") — the single largest running log in the project; every story's create/implement/review cycle, every real bug found and how it was fixed, every deferred item's rationale, and today's live-testing catch and revert are all recorded here in far more granular prose than this summary — treat it as the authoritative detailed source for anything not fully spelled out in this section.
+
+**Actual source code** (not itemized file-by-file here — see `project-context.md` and each story's own Dev Agent Record for the complete list): the full `backend/app/{core,auth,assignments,content,progress,dashboard}/` module tree and its Alembic migration; the full `frontend/src/` app shell (`App.tsx`, `main.tsx`, routing, auth context, API client, UI primitives, pages, tests) built out across Stories 1.1 through 2.1 and today's fixes to `Login.tsx`, `DashboardStub.tsx`, `ContentDiscoveryStub.tsx`, `RequireAuth.tsx`, `RequireAuth.test.tsx`, `DashboardStub.test.tsx`, `vite.config.ts`, and the new `ContentDiscoveryStub.test.tsx` / `form-error-text.tsx`.
+
+## Session Notes
+
+**The create → dev → review cycle is genuinely load-bearing, not ceremony.** Every single one of the eight completed code reviews in this phase found something real, even after disciplined TDD — Story 1.3's HR_ADMIN crash and Story 1.4's case-sensitivity bug are the clearest examples of defects that shipped past a "tests green" implementation and were only caught by the adversarial review step.
+
+**Sessions correctly avoided rubber-stamping a developer's own reasoning.** Story 1.3's implementation-time claim that an asymmetric null-check was "intentional" was retracted, not defended, once review disproved it empirically — the story file itself was corrected rather than left with a stale justification standing.
+
+**Story 1.8 is the clearest illustration of this document's central theme: process discipline compounds.** `create-story` correctly scoped the story around a discovered gap (no login page existed after 7 backend-only stories); `dev-story` implemented it with TDD and caught real environment gotchas along the way (Tailwind v4, the `vite.config.ts`/`vitest.config.ts` split); `code-review` found two genuine spec gaps and a real bug that all three of TDD, `dev-story`, and a first pass of review had missed; and a final live-testing pass — run only because the user explicitly asked to see it working, not as a standard part of any BMAD skill — caught a regression in the review's own patch that no layer of automated testing could structurally have found. Each stage caught something the previous stage didn't.
+
+---
 # Story 2.2 Implementation Phase — Skills, Agents, and Files
 
 **Date:** 2026-07-10

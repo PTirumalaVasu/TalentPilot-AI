@@ -6,7 +6,7 @@ baseline_commit: HEAD
 # Story 4.0: YouTube IFrame Adapter — Abstraction Layer for Player Events
 
 **Epic:** 4 (Watch Progress & Continue Watching)  
-**Status:** ready-for-dev
+**Status:** done
 
 ---
 
