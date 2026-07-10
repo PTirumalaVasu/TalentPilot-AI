@@ -4,10 +4,10 @@ from datetime import datetime
 
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
-from sentence_transformers import SentenceTransformer
 
 from app.auth.models import Account
 from app.assignments.models import Employee, Skill
+from app.core.embedding import embed_text
 from app.core.seed_ids import CASEY_ID, JORDAN_ID, MORGAN_ID, RITA_ID, SAM_ID
 
 SKILL_DATA_VIZ_ID = uuid.UUID("660e8400-e29b-41d4-a716-446655440001")
@@ -68,9 +68,6 @@ async def seed_skills(session: AsyncSession) -> None:
     if existing.scalar():
         return
 
-    # Load the embedding model (small local model, ~200MB)
-    model = SentenceTransformer("all-MiniLM-L6-v2")
-
     skill_definitions = [
         (SKILL_DATA_VIZ_ID, "Data Visualization", "Creating charts, graphs, and visual representations of data"),
         (SKILL_SALESFORCE_ID, "Salesforce Admin", "Administering Salesforce CRM systems and user management"),
@@ -81,13 +78,13 @@ async def seed_skills(session: AsyncSession) -> None:
 
     skills = []
     for skill_id, name, description in skill_definitions:
-        embedding = model.encode(f"{name}: {description}").tolist()
+        vector = embed_text(f"{name}: {description}")
         skills.append(
             Skill(
                 id=skill_id,
                 name=name,
                 description=description,
-                embedding=embedding,
+                embedding=vector,
             )
         )
 

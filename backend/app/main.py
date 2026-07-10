@@ -1,3 +1,6 @@
+import asyncio
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 
@@ -5,11 +8,19 @@ from app.assignments.router import router as assignments_router
 from app.auth.router import router as auth_router
 from app.content.router import router as content_router
 from app.core.config import settings
+from app.core.embedding import load_embedding_model
 from app.core.errors import register_exception_handlers
 from app.dashboard.router import router as dashboard_router
 from app.progress.router import router as progress_router
 
-app = FastAPI(title="TalentPilot-AI")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await asyncio.to_thread(load_embedding_model)
+    yield
+
+
+app = FastAPI(title="TalentPilot-AI", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
