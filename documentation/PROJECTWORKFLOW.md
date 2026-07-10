@@ -2283,3 +2283,97 @@ Each with:
 
 ---
 
+# Story 2.1 Implementation Phase — Skills, Agents, and Files
+
+**Date:** 2026-07-09 → 2026-07-10
+**Status:** Story 2.1 (Content Catalog Data Model & Schema) implemented, status `review`; `epic-2` transitioned to `in-progress`
+
+## Overview
+
+Authored and implemented Story 2.1, the first story of Epic 2 (Content Catalog & Semantic Matching) and the foundation for the entire `content/` module. Story 1.7 had already created the `content_catalog` table (ORM model) as part of its database-consolidation pass, so this story's job was narrower: add the Pydantic schemas, repository layer, and service layer that Story 1.7 deliberately left out, and prove them with tests against the live Postgres instance. Work ran on the `Epic2-stories` branch and was merged to `main` via PR #32.
+
+## Agents Called
+
+None — both `bmad-create-story` and `bmad-dev-story` executed directly within the main conversation loop. Story authoring (reading `epics.md`, resolving scope against Story 1.7's existing `ContentCatalog` model, writing the story file) and TDD implementation (writing tests, writing code, running `pytest`, fixing fixture/config issues) were done without sub-agent delegation.
+
+## Skills Used
+
+### 1. bmad-create-story
+**Purpose:** Generate the dedicated story file for Story 2.1 with full context an implementer would need, and flip sprint tracking state.
+
+**Process:**
+- Read `_bmad-output/planning-artifacts/epics.md` for the Story 2.1 acceptance criteria (Epic 2, Story 1)
+- Cross-referenced Story 1.7 (`backend/app/assignments/models.py:55-76`) to confirm the `ContentCatalog` ORM model and `content_catalog` table already existed — scoped this story to schemas/repository/service only, explicitly excluding table (re)creation
+- Pulled forward architecture constraints from the spine: AD-1 (single-owner data modules — only `content/repository.py` may query `content_catalog`), AD-7 (content ingestion is batch-only, deferred to Story 2.3), AD-8 (module dependency direction)
+- Resolved the `metadata` / `content_metadata` naming quirk documented in Story 1.7 (SQLAlchemy reserved-attribute workaround) and carried the resolution into this story's Dev Notes
+- Wrote the story file with 5 acceptance criteria, 4 task groups, Dev Notes, Previous Story Intelligence (from Stories 1.1, 1.5, 1.7), and Architecture Compliance sections
+
+**Result:** `_bmad-output/implementation-artifacts/2-1-content-catalog-data-model-and-schema.md` created at status `ready-for-dev`; `epic-2` auto-transitioned `backlog` → `in-progress` (first story in the epic); sprint status and `project-context.md` updated with story-creation notes (2026-07-09).
+
+### 2. bmad-dev-story
+**Purpose:** Implement Story 2.1 end-to-end following TDD (red-green-refactor), against the story file's acceptance criteria.
+
+**Process:**
+- **Task 1 (Schemas):** Wrote `content/schemas.py` — `ContentResponse` (excludes the 384-dim `embedding` field by default, per the architecture's API-schema-must-not-leak-storage-shape convention), `ContentWithEmbedding` (adds `embedding`, for Story 2.3's ingestion debugging), `EmbeddingInput`/`EmbeddingOutput` (internal-only, for Story 2.2's embedding computation)
+- **Task 2 (Repository):** Wrote `content/repository.py` — `get_content_by_id`, `list_content_by_skill`, `create_content`, all async SQLAlchemy 2.0 patterns (`select()`, `scalar_one_or_none()`, `scalars().all()`), importing `ContentCatalog` from `app.assignments.models` per AD-1's "physical location ≠ logical ownership" rule
+- **Task 3 (Service):** Wrote `content/service.py` — `get_content`, `list_content_for_skill`, converting ORM → Pydantic via `.model_validate()`, establishing the only path other modules (assignments, dashboard) may use to reach content data
+- **Task 4 (Tests):** Wrote `test_content_schemas.py`, `test_content_repository.py`, `test_content_service.py` against the live Docker Postgres instance (port 5433), reusing Story 1.7's seeded skills
+- **Debugging encountered mid-implementation:**
+  - Pydantic raised a `ValidationError` reading `orm.metadata` (SQLAlchemy's reserved `MetaData` attribute) instead of `orm.content_metadata` — resolved with `Field(alias="content_metadata")` + `populate_by_name=True` in `ContentResponse.model_config`
+  - `conftest.py` still pointed at the pre-Story-1.7 DB credentials (port 5432, password `talentpilot`); corrected to port 5433 / password `sails123` to match `backend/.env`
+  - Session-scoped async fixtures were unstable under pytest-asyncio 1.4.0; changed `test_engine` to function scope and added `asyncio_mode = auto` + `asyncio_default_fixture_loop_scope = function` to `pytest.ini`
+  - Tests creating skills hit the `skills.name` UNIQUE constraint under repeated/parallel runs; switched to `f"Skill Name {uuid.uuid4().hex[:8]}"` naming
+
+**Result:** 16/16 tests passing (`pytest backend/tests/test_content_*.py -v`). Story 2.1 status `ready-for-dev` → `review`. No code-review pass has been run yet for this story (unlike Stories 1.5–1.7, which each got a follow-up `bmad-code-review` entry) — that remains an open next step before this story can move to `done`.
+
+## Files Created and Purpose of Each
+
+### 1. `_bmad-output/implementation-artifacts/2-1-content-catalog-data-model-and-schema.md` (created, 370 lines)
+The story file itself: acceptance criteria, scope notes, Dev Notes, Architecture Compliance, and — after implementation — the Dev Agent Record (implementation plan, completion notes, test results, file list, change log).
+
+### 2. `backend/app/content/schemas.py` (created, 44 lines)
+Pydantic schemas: `ContentResponse` (public, no embedding), `ContentWithEmbedding` (debug/admin, includes embedding), `EmbeddingInput`/`EmbeddingOutput` (internal, for Story 2.2).
+
+### 3. `backend/app/content/repository.py` (created, 59 lines)
+Repository layer — the sole code path permitted to query `content_catalog` (AD-1). `get_content_by_id`, `list_content_by_skill`, `create_content`.
+
+### 4. `backend/app/content/service.py` (created, 41 lines)
+Service layer — the cross-module contract for content data. `get_content`, `list_content_for_skill`, both returning Pydantic `ContentResponse` (never ORM) to callers.
+
+### 5. `backend/tests/test_content_schemas.py` (created, 143 lines)
+6 tests: embedding exclusion/inclusion, `EmbeddingInput`/`EmbeddingOutput` shape, `type`/`source` field validation.
+
+### 6. `backend/tests/test_content_repository.py` (created, 176 lines)
+5 tests: get-by-ID (hit and miss), list-by-skill (hit and empty), create-and-persist — all against the live Postgres instance.
+
+### 7. `backend/tests/test_content_service.py` (created, 171 lines)
+5 tests: service-level ORM → Pydantic conversion, none-for-nonexistent, empty-list-for-no-content, field-mapping spot-check.
+
+## Files Modified and Purpose of Each
+
+### 1. `backend/tests/conftest.py` (modified)
+Fixed hardcoded DB credentials (port 5432 → 5433, password `talentpilot` → `sails123`) to match Story 1.7's `backend/.env`; removed the session-scoped `event_loop` fixture and changed `test_engine` to function scope for pytest-asyncio 1.4.0 compatibility.
+
+### 2. `backend/pytest.ini` (modified)
+Added `asyncio_mode = auto` and `asyncio_default_fixture_loop_scope = function`.
+
+### 3. `_bmad-output/implementation-artifacts/sprint-status.yaml` (modified)
+`epic-2`: `backlog` → `in-progress`; `2-1-content-catalog-data-model-and-schema`: `backlog` → `ready-for-dev` → `review`. Two history comment lines appended documenting the create-story and dev-story transitions.
+
+### 4. `_bmad-output/project-context.md` (modified)
+Two entries appended: story-creation scoping decisions (embedding exclusion rationale, ORM-location-vs-repository-location resolution, no-router-endpoints-in-this-story call, live-DB test precedent) and post-implementation learnings (Pydantic field alias pattern, async fixture scope fix, DB credential fix, unique-constraint test pattern).
+
+### 5. `documentation/PROJECTWORKFLOW.md` (this file, appended to)
+Session log entry documenting the Story 2.1 implementation phase.
+
+## Session Notes
+
+- **Story 1.7's consolidation paid off immediately.** Because Story 1.7 had already pulled the `content_catalog` table definition forward (see the Entity Consolidation Phase above), Story 2.1 could focus purely on the module's schema/repository/service layering instead of also owning table DDL — exactly the decoupling the consolidation was meant to produce.
+- **AD-1 (single-owner data modules) was enforced in practice, not just stated.** Even though `ContentCatalog` physically lives in `assignments/models.py` (a SQLAlchemy circular-import workaround from Story 1.7), only `content/repository.py` imports and queries it in this story — the architecture spine's ownership rule survived a file-location wrinkle that could easily have been used as an excuse to bend it.
+- **The embedding-exclusion decision is a deliberate contract choice, not an oversight.** `ContentResponse` omits the 384-dim `embedding` array by default (≈1.5KB/record client-side dead weight); `ContentWithEmbedding` exists solely for Story 2.3's ingestion debugging. This traces directly to the architecture spine's "storage shape must not leak into the API contract" convention.
+- **No router endpoints were added in this story by design.** `content/service.py`'s two methods are internal-only for now; Stories 2.3 (batch ingestion) and 2.4 (semantic matching) will add the actual FastAPI routes that call into this service layer.
+- **This story is at `review`, not `done`.** Unlike Stories 1.5, 1.6, and 1.7, no `bmad-code-review` pass has been run against Story 2.1 yet. That is the expected next step before `epic-2`'s first story can be marked `done`.
+- **Next expected step:** Run `bmad-code-review` against Story 2.1, then `bmad-create-story` for Story 2.2 (Embedding Model Integration — sentence-transformers), which will consume the `EmbeddingInput`/`EmbeddingOutput` schemas already scaffolded here.
+
+---
+
