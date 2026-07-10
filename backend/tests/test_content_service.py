@@ -33,7 +33,7 @@ async def test_get_content_returns_pydantic_response(db_session: AsyncSession):
         content_metadata={"video_id": "service_test", "duration": 300},
     )
     db_session.add(content)
-    await db_session.commit()
+    await db_session.flush()
 
     # Test service method
     result = await get_content(db_session, content.id)
@@ -96,7 +96,7 @@ async def test_list_content_for_skill_returns_list_of_pydantic(
         content_metadata=None,
     )
     db_session.add_all([content1, content2])
-    await db_session.commit()
+    await db_session.flush()
 
     # Test service method
     results = await list_content_for_skill(db_session, skill.id)
@@ -125,7 +125,7 @@ async def test_list_content_for_skill_returns_empty_list(db_session: AsyncSessio
         embedding=[0.1] * 384,
     )
     db_session.add(skill)
-    await db_session.commit()
+    await db_session.flush()
 
     # Test service method
     results = await list_content_for_skill(db_session, skill.id)
@@ -157,7 +157,7 @@ async def test_service_orm_to_pydantic_field_mapping(db_session: AsyncSession):
         content_metadata={"video_id": "mapping_test", "duration": 1200, "views": 1000},
     )
     db_session.add(content)
-    await db_session.commit()
+    await db_session.flush()
 
     # Test service method
     result = await get_content(db_session, content.id)

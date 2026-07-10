@@ -3,6 +3,7 @@ import uuid
 from datetime import datetime, timezone
 
 import pytest
+from pydantic import ValidationError
 
 from app.content.schemas import (
     ContentResponse,
@@ -114,7 +115,7 @@ def test_content_response_type_field_validation():
     invalid_content = valid_content.copy()
     invalid_content["type"] = "INVALID_TYPE"
 
-    with pytest.raises(Exception):  # Pydantic validation error
+    with pytest.raises(ValidationError):
         ContentResponse.model_validate(invalid_content)
 
 
@@ -139,5 +140,5 @@ def test_content_response_source_field_validation():
     invalid_content = valid_content.copy()
     invalid_content["source"] = "VIMEO"
 
-    with pytest.raises(Exception):  # Pydantic validation error
+    with pytest.raises(ValidationError):
         ContentResponse.model_validate(invalid_content)

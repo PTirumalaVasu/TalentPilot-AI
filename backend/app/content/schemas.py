@@ -19,7 +19,7 @@ class ContentResponse(BaseModel):
     url: str
     source: Literal["YOUTUBE", "MANUAL"]
     ingested_at: datetime
-    metadata: dict[str, Any] | None = Field(alias="content_metadata")
+    metadata: dict[str, Any] | None = Field(default=None, alias="content_metadata")
 
 
 class ContentWithEmbedding(ContentResponse):
