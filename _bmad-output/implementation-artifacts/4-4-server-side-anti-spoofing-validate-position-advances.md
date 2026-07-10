@@ -3,7 +3,8 @@ story_key: 4-4-server-side-anti-spoofing-validate-position-advances
 epic: 4
 story_num: 4
 baseline_commit: 46834df
-status: review
+status: done
+completion_date: 2026-07-10
 ---
 
 # Story 4-4: Server-Side Anti-Spoofing — Validate Position Advances
