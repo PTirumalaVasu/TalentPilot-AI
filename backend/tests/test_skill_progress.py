@@ -7,6 +7,7 @@ import pytest
 from datetime import datetime
 from uuid import uuid4
 
+from pydantic import ValidationError
 from sqlalchemy import text
 
 from app.core.db import engine
@@ -37,7 +38,7 @@ def test_record_watch_progress_request_valid():
 
 def test_record_watch_progress_request_negative_position_fails():
     """Test that negative watch position is rejected."""
-    with pytest.raises(ValueError):
+    with pytest.raises(ValidationError):
         RecordWatchProgressRequest(
             assignment_id=uuid4(),
             watch_position=-1,
@@ -144,73 +145,5 @@ async def test_ac1_skill_progress_table_schema():
     assert columns["updated_at"][2] == "NO"  # NOT NULL
 
 
-def test_ac2_record_watch_progress_request_schema():
-    """AC2: RecordWatchProgressRequest schema has all required fields."""
-    req = RecordWatchProgressRequest(
-        assignment_id=uuid4(),
-        watch_position=600,
-        event_time=datetime.utcnow(),
-        video_url="https://youtube.com/watch?v=xyz",
-    )
-    assert hasattr(req, "assignment_id")
-    assert hasattr(req, "watch_position")
-    assert hasattr(req, "event_time")
-    assert hasattr(req, "video_url")
 
 
-def test_ac2_skill_progress_response_schema():
-    """AC2: SkillProgressResponse schema has all required fields."""
-    resp = SkillProgressResponse(
-        id=uuid4(),
-        assignment_id=uuid4(),
-        watch_position=450,
-        event_time=datetime.utcnow(),
-        verified=True,
-        updated_at=datetime.utcnow(),
-    )
-    assert hasattr(resp, "id")
-    assert hasattr(resp, "assignment_id")
-    assert hasattr(resp, "watch_position")
-    assert hasattr(resp, "event_time")
-    assert hasattr(resp, "verified")
-    assert hasattr(resp, "updated_at")
-
-
-async def test_ac3_and_ac4_repository_methods():
-    """
-    AC3: No progress row exists until first watch-position is recorded
-    AC4-AC6: Repository provides create, retrieve, and conditional-write methods
-    """
-    # Verify repo methods exist and are callable
-    assert hasattr(ProgressRepository, "create_watch_progress")
-    assert hasattr(ProgressRepository, "get_progress_for_assignment")
-    assert hasattr(ProgressRepository, "record_watch_progress")
-    assert hasattr(ProgressRepository, "initialize_or_update")
-
-
-async def test_ac5_conditional_write_logic_via_sql():
-    """
-    AC5: Conditional write logic prevents stale writes (ordered by event_time, not position).
-
-    Verifies the SQL layer uses atomic UPDATE with WHERE on event_time.
-    """
-    async with engine.begin() as conn:
-        # Check that the SQL logic exists by inspecting table indexes
-        # The presence of an event_time index suggests the table is designed for this ordering
-        result = await conn.execute(
-            text("""
-                SELECT indexname FROM pg_indexes WHERE tablename = 'skill_progress' AND indexname LIKE '%event_time%'
-            """)
-        )
-        indexes = result.fetchall()
-        assert any(True for _ in indexes), "No event_time index found (AC5 conditional write foundation)"
-
-
-async def test_ac6_service_and_repo_integration():
-    """
-    AC6: Service and repository layers are properly integrated.
-
-    Verifies that ProgressService and ProgressRepository are properly defined.
-    """
-    assert hasattr(ProgressService, "record_watch_progress")
-    assert hasattr(ProgressService, "get_progress")

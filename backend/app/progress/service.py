@@ -23,7 +23,7 @@ class ProgressService:
         """
         Record or update watch progress with event-time-ordered conditional write.
 
-        Delegates to ProgressRepository for atomic conditional-write logic.
+        Delegates to ProgressRepository.initialize_or_update() for atomic create-or-update logic.
 
         Args:
             session: AsyncSession for database operations
@@ -35,20 +35,10 @@ class ProgressService:
         Returns:
             SkillProgressResponse: The persisted (or updated) progress record
         """
-        # Try to update existing record with conditional write logic
-        existing = await ProgressRepository.get_progress_for_assignment(session, assignment_id)
-
-        if existing is None:
-            # First watch for this assignment - create new record
-            progress = await ProgressRepository.create_watch_progress(
-                session, assignment_id, watch_position, event_time, verified
-            )
-        else:
-            # Existing record - use conditional write (stale writes skipped at SQL layer)
-            progress = await ProgressRepository.record_watch_progress(
-                session, assignment_id, watch_position, event_time, verified
-            )
-
+        # Use atomic initialize-or-update: creates new record on first call, updates with conditional write on subsequent calls
+        progress = await ProgressRepository.initialize_or_update(
+            session, assignment_id, watch_position, event_time, verified
+        )
         await session.commit()
         return SkillProgressResponse.model_validate(progress)
 

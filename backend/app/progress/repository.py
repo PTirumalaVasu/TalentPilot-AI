@@ -1,6 +1,6 @@
 """Repository layer for the progress module. Only this module's own code may query its tables."""
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import UUID, uuid4
 
 from sqlalchemy import select, text
@@ -60,7 +60,7 @@ class ProgressRepository:
                 "assignment_id": assignment_id,
             },
         )
-        row = result.fetchone()
+        row = result.mappings().first()
 
         if row:
             # Newer write accepted
@@ -68,26 +68,24 @@ class ProgressRepository:
                 f"Updated skill_progress for {assignment_id}: position={watch_position}, "
                 f"event_time={event_time}, verified={verified}"
             )
-            # Convert tuple result back to dict for consistency
-            return SkillProgress(
-                id=row[0],
-                assignment_id=row[1],
-                watch_position=row[2],
-                event_time=row[3],
-                verified=row[4],
-                updated_at=row[5],
-            )
+            return SkillProgress(**row)
         else:
             # Stale write detected (0 rows affected)
             logger.debug(
                 f"Skipped stale write for {assignment_id}: incoming_event_time={event_time} "
                 f"(stored event_time is newer or equal)"
             )
-            # Fetch and return current stored record
+            # Fetch and return current stored record (may be None if called on first write)
             current = await session.execute(
                 select(SkillProgress).where(SkillProgress.assignment_id == assignment_id)
             )
-            stored = current.scalar_one()
+            stored = current.scalar_one_or_none()
+            if stored is None:
+                # Race condition: record was deleted between stale-write check and fetch.
+                # Create new record as fallback (idempotent).
+                return await ProgressRepository.create_watch_progress(
+                    session, assignment_id, watch_position, event_time, verified
+                )
             return stored
 
     @staticmethod
@@ -117,7 +115,7 @@ class ProgressRepository:
             watch_position=watch_position,
             event_time=event_time,
             verified=verified,
-            updated_at=datetime.utcnow(),
+            updated_at=datetime.now(timezone.utc),
         )
         session.add(progress)
         await session.flush()
