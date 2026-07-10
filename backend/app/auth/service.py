@@ -105,9 +105,20 @@ def get_current_user(
 def require_hr_admin(current_user: CurrentUser = Depends(get_current_user)) -> CurrentUser:
     """Reusable HR-Admin-only gate for mutation-capable endpoints/services (Story
     3.1 AC4). Composes on get_current_user rather than re-validating the session
-    itself, so a missing/invalid session still surfaces get_current_user's 401."""
+    itself, so a missing/invalid session still surfaces get_current_user's 401.
+
+    Called as a plain function from service-layer code today (e.g.
+    assignments/service.py::create_assignment_service), not via FastAPI's
+    Depends() graph — no route exists yet to wire it into (Story 3.1 AC7
+    deliberately adds none). Both call styles are valid since this is just a
+    normal Python function with a Depends()-default; if a future route also
+    adds Depends(require_hr_admin) at the router level, the check runs twice
+    per request (redundant, not harmful) — prefer wiring it once, at
+    whichever layer ends up owning the route."""
     if current_user.role != Role.HR_ADMIN:
-        logger.warning("Rejected request: role %r is not HR_ADMIN", current_user.role)
+        logger.warning(
+            "Rejected request: role %r is not HR_ADMIN (user_id=%r)", current_user.role, current_user.user_id
+        )
         raise AppException(
             status.HTTP_403_FORBIDDEN,
             error_code="FORBIDDEN_NOT_HR_ADMIN",

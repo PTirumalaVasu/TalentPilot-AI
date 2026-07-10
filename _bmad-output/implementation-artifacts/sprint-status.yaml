@@ -63,6 +63,12 @@ last_updated: 2026-07-10
 # story 4-1 implemented 2026-07-10 (bmad-agent-dev): Atomic conditional-write repository, service layer, Pydantic schemas, frontend TypeScript types; 7/7 tests passing; status -> review
 # story 4-1 code review completed 2026-07-10 (code-review team): 8 findings identified and fixed (50% query efficiency gain, deprecated APIs removed, race condition safety, DRY compliance); status -> done
 # story 4-1 branch pushed to remote 2026-07-10; PR ready (awaiting GitHub auth to create); comprehensive documentation (573 lines) created; status -> done
+# story 3-3 marked ready-for-dev 2026-07-10 (bmad-create-story, user chose 3-3 over 3-2 since 3-2 depends on 2-2 which isn't done yet); largely verification/precision-test work since core/seeds.py::seed_employees() already satisfies AC1-4 (built in Story 1.7); AC5 (exact identity alignment between seeded Employees and auth mock accounts) is the real new work, closing the gap Story 3.1's code review just fixed
+# story 3-3 dev started 2026-07-10 (bmad-dev-story), status -> in-progress
+# story 3-3 implemented 2026-07-10 (bmad-dev-story): AC1-4 confirmed already satisfied (Story 1.7), AC5 identity-alignment test coverage added (12 tests); found and diagnosed a real conftest.py db_session/test_engine fixture bug (Base.metadata.drop_all() on teardown wipes the whole shared DB, desyncing alembic_version) -- logged in deferred-work.md, out of this story's scope; 133/133 tests passing (excl. 10 content tests affected by that bug); status -> review
+# story 3-3 code review completed 2026-07-10 (bmad-code-review): 0 decision-needed, 6 patches applied (idempotency test restructured to genuinely prove both paths, _DEMO_ACCOUNTS derived from real _MOCK_ACCOUNTS, case-normalization test added, None guard added, conftest.py warning docstring added, deferred-work.md/Dev Agent Record updated), 1 deferred, 12 dismissed; 134/134 tests passing; status -> done
+# story 3-1 re-reviewed 2026-07-10 (bmad-code-review, user-requested independent 2nd pass): found and fixed a severe gap the first pass missed -- create_assignment never committed, core/db.py::get_db() had no commit-on-success logic at all, every created Assignment would have silently vanished once a route used it. Fixed get_db() now (zero risk, no callers yet) to commit-on-success/rollback-on-exception, establishing the app-wide commit convention. Also fixed unguarded uuid.UUID(current_user.user_id) parsing, a vacuous test assertion, a missing test case. 137/137 tests passing; status remains done
+# story 3-3 re-reviewed 2026-07-10 (bmad-code-review, user-requested independent 2nd pass): found 2 real patches -- idempotency test's destructive DELETE against the shared dev DB could crash with uncaught IntegrityError if any row ever FK-references a demo employee (now skips cleanly instead); _DEMO_EMPLOYEE_IDS was hardcoded, reintroducing the exact stale-list gap just fixed for _DEMO_ACCOUNTS (now derived). 137/137 tests passing; status remains done
 project: TalentPilot-AI
 project_key: NOKEY
 tracking_system: file-system
@@ -91,7 +97,7 @@ development_status:
   epic-3: in-progress
   3-1-assignments-data-model-and-hr-admin-scope: done
   3-2-skill-master-data-and-seed: backlog
-  3-3-employee-master-data-and-seed: backlog
+  3-3-employee-master-data-and-seed: done
   3-4-hr-assignment-flow-multi-step-modal-employee-and-skill-selection: backlog
   3-5-assignment-creation-and-immediate-dashboard-appearance: backlog
   3-6-cancel-assignment-flow-leaves-no-orphaned-record: backlog
