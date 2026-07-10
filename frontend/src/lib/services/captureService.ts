@@ -412,8 +412,13 @@ export class WatchProgressCaptureService {
   /**
    * Story 4-3 AC1: Remove unload event listeners.
    * Called during destroy and onUnload to prevent memory leaks.
+   * Guard: Only remove if listeners were actually set up (prevents concurrent removal race).
    */
   private removeUnloadListeners(): void {
+    if (!this.listenersSetup) {
+      return; // Listeners not set up, nothing to remove
+    }
+
     try {
       document.removeEventListener('visibilitychange', this.onVisibilityChange);
       window.removeEventListener('beforeunload', this.onBeforeUnload);
@@ -421,6 +426,8 @@ export class WatchProgressCaptureService {
     } catch (err) {
       console.warn('WatchProgressCaptureService: Failed to remove unload listeners', err);
     }
+
+    this.listenersSetup = false; // Mark as cleaned up
   }
 
   /**
@@ -434,6 +441,9 @@ export class WatchProgressCaptureService {
       return;
     }
 
+    // Capture unloading state at time of flush (immutable for this sequence)
+    const isUnloading = this.isUnloadingPage;
+
     // Group samples by assignment_id (AC7: multiple assignments)
     const samplesByAssignment: { [key: string]: ProgressQueueItem } = {};
     this.queue.forEach((sample) => {
@@ -443,7 +453,7 @@ export class WatchProgressCaptureService {
 
     // AC8: Send beacon for each assignment, but only once per unload sequence
     Object.entries(samplesByAssignment).forEach(([assignmentId, sample]) => {
-      const beaconKey = `${assignmentId}-${this.isUnloadingPage}`; // Dedup key
+      const beaconKey = `${assignmentId}-${isUnloading}`; // Dedup key (immutable snapshot)
       if (this.beaconSent.has(beaconKey)) {
         return; // Already sent this beacon
       }
@@ -485,7 +495,7 @@ export class WatchProgressCaptureService {
           assignment_id: assignmentId,
           position: position,
           event_time: sample.eventTime,
-          via_visibility_change: !this.isUnloadingPage,
+          via_unload: isUnloading,
         });
       } catch (err) {
         // AC5: Error handling — log but don't throw
@@ -510,7 +520,12 @@ export class WatchProgressCaptureService {
     }
 
     const latestSample = this.queue[this.queue.length - 1];
-    this.adapter.sendBeacon(latestSample.watchPosition, latestSample.eventTime);
+    void this.adapter.sendBeacon(latestSample.watchPosition, latestSample.eventTime).catch((err) => {
+      console.debug('WatchProgressCaptureService: Deprecated flushViaBeacon() sendBeacon failed', {
+        position: latestSample.watchPosition,
+        error: (err as Error).message,
+      });
+    });
   }
 
   /**
@@ -525,10 +540,9 @@ export class WatchProgressCaptureService {
     }
     this.queue = [];
     this.beaconFlushCallback = null;
-    this.removeUnloadListeners(); // Story 4-3: AC1 cleanup
+    this.removeUnloadListeners(); // Story 4-3: AC1 cleanup (idempotent, guards itself)
     this.beaconSent.clear(); // Story 4-3: AC8 clear dedup tracking
     this.isUnloadingPage = false; // Story 4-3: AC8 reset state
-    this.listenersSetup = false; // Story 4-3: Allow re-setup if service re-initialized
   }
 }
 

@@ -55,7 +55,7 @@ describe('WatchProgressCaptureService', () => {
         if (!eventHandlers[event]) eventHandlers[event] = [];
         eventHandlers[event].push(handler);
       }),
-      sendBeacon: vi.fn(),
+      sendBeacon: vi.fn().mockResolvedValue(undefined), // Returns Promise<void>
     };
 
     // Mock axios.post (AC5: handle responses)
