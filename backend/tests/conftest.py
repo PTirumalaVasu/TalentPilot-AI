@@ -4,9 +4,8 @@ from typing import AsyncGenerator
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
-from sqlalchemy import text
 
-# Import models to register them with Base before we use it
+# Import models to register them with SQLAlchemy's mapper registry before we use it
 # noqa: F401 - imported for side-effects
 from app.auth.models import Account  # noqa: F401
 from app.assignments.models import (  # noqa: F401
@@ -17,7 +16,6 @@ from app.assignments.models import (  # noqa: F401
     SkillProgress,
     AssignmentOverride,
 )
-from app.core.db import Base
 from app.core.seeds import run_seeds
 
 os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://talentpilot:sails123@localhost:5433/talentpilot")
@@ -39,40 +37,34 @@ def _clear_revoked_tokens():
 
 @pytest.fixture
 async def test_engine():
-    """Create test database engine.
+    """Create test database engine, connected to the already-migrated database.
 
-    WARNING: this runs Base.metadata.create_all()/drop_all() against the REAL
-    settings.DATABASE_URL (same DB as Docker Compose's dev Postgres), not an
-    isolated test database. drop_all() at teardown wipes EVERY table in the
-    app, not just ones a given test touched, and desyncs alembic_version
-    (it keeps claiming revision 001 is applied after the tables it describes
-    are gone -- recovery requires dropping alembic_version and re-running
-    `alembic upgrade head`). Do not add new tests depending on this fixture
-    (or db_session below, which depends on it) until this is fixed to use a
-    genuinely separate test DB or per-test row-level cleanup instead of a
-    blanket drop_all(). See deferred-work.md ("dev-story of
-    3-3-employee-master-data-and-seed") for full diagnosis."""
+    Does NOT run Base.metadata.create_all()/drop_all() -- the schema is
+    already owned and provisioned by Alembic (Story 1.7). This fixture
+    previously ran create_all()/drop_all() against the REAL
+    settings.DATABASE_URL (same DB as Docker Compose's dev Postgres), which
+    wiped EVERY table in the app on every single test's teardown once the
+    fixture's scope moved from session to function. See deferred-work.md
+    ("code review of 2-1-content-catalog-data-model-and-schema") for the
+    full diagnosis. Test isolation is provided entirely by db_session's
+    rollback below -- callers must use flush(), not commit(), to keep
+    changes rollback-able."""
     test_url = "postgresql+asyncpg://talentpilot:sails123@localhost:5433/talentpilot"
 
     engine = create_async_engine(test_url, echo=False)
 
-    # Create all tables
-    async with engine.begin() as conn:
-        await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
-        await conn.run_sync(Base.metadata.create_all)
-
     yield engine
-
-    # Clean up
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
 
     await engine.dispose()
 
 
 @pytest.fixture
 async def db_session(test_engine) -> AsyncGenerator[AsyncSession, None]:
-    """Create database session for each test."""
+    """Create database session for each test.
+
+    Tests must use `await db_session.flush()`, not `.commit()`, for any rows
+    they add -- the rollback below is what keeps them from persisting into
+    the shared dev database."""
     async_session_factory = async_sessionmaker(test_engine, class_=AsyncSession, expire_on_commit=False)
 
     async with async_session_factory() as session:

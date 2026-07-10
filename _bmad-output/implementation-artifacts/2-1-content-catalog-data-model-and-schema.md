@@ -4,7 +4,7 @@ baseline_commit: adf1c2a
 
 # Story 2.1: Content Catalog Data Model & Schema
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -136,7 +136,18 @@ so that content records can be stored and matched to Skills.
   - [x] `tests/test_content_repository.py`: test `create_content` persists and returns ORM
   - [x] `tests/test_content_service.py`: test service layer ORM → Pydantic conversion
   - [x] Use existing database connection from `conftest.py` (Story 1.7 already set up async session fixture)
-  - [x] Use existing seed data (Story 1.7 seeded 5 skills with embeddings)
+  - [ ] ~~Use existing seed data (Story 1.7 seeded 5 skills with embeddings)~~ — **correction (code review):** tests actually create fresh, randomly-named `Skill` rows per test rather than referencing the pre-seeded skills. Functionally fine (tests pass, no coupling to seed-data drift), but this checkbox was inaccurately marked done.
+
+### Review Findings
+
+- [x] [Review][Patch] `test_engine`'s scope change (session→function) plus unchanged `Base.metadata.create_all()`/`drop_all()` against the real shared `settings.DATABASE_URL` wiped the entire dev database after every single test using `db_session` — 3 independent review layers converged on this, and it was already confirmed live by 3 downstream stories (2.2, 2.4, 3.3) that each hit the wipe and logged it in `deferred-work.md` as "CRITICAL, blocks the full test suite." [backend/tests/conftest.py] **Resolved (user decision):** dropped `create_all`/`drop_all` entirely (schema is already provisioned by Alembic per Story 1.7); test isolation now relies on `db_session`'s existing `await session.rollback()`, matching the pattern every other live-DB test file in this codebase already uses. `test_content_repository.py`/`test_content_service.py` updated to `flush()` instead of `commit()` so their rows are actually rollback-able.
+- [x] [Review][Patch] `ContentResponse.metadata` is typed `Optional` but has no `default=None` on its `Field(alias=...)`, making it a *required* field in Pydantic v2 despite the type hint (verified empirically against the installed pydantic 2.13) [backend/app/content/schemas.py:22] — fixed, `default=None` added.
+- [x] [Review][Patch] `test_content_response_type_field_validation`/`test_content_response_source_field_validation` assert the overly broad `pytest.raises(Exception)` instead of `pydantic.ValidationError` for invalid enum values [backend/tests/test_content_schemas.py] — fixed.
+- [x] [Review][Patch] Dead import: `datetime, timezone` imported but never used [backend/tests/test_content_repository.py:3] — fixed, import removed.
+- [x] [Review][Patch] Task 4 checklist and Testing Requirements both claim tests "use existing seed data (Story 1.7 seeded 5 skills)" — every test instead creates a fresh randomly-named `Skill`; none reference the pre-seeded skills. Functionally harmless, but the completion record is inaccurate. — corrected below.
+- [x] [Review][Defer] `list_content_by_skill` has no `LIMIT`/pagination or explicit `ORDER BY` [backend/app/content/repository.py] — deferred, pre-existing gap, not reachable until a router endpoint exposes it (Story 2.4/2.5)
+- [x] [Review][Defer] `create_content` takes a bare `dict` with no request-side validation schema [backend/app/content/repository.py] — deferred, not reachable today (no caller/route yet); Story 2.3's batch-ingestion job should define validated input before wiring this up
+- [x] [Review][Defer] The `Literal["...", "WEBSITE"]` branch is never exercised end-to-end by any test (only VIDEO/DOCUMENT are used) [backend/tests/test_content_schemas.py, test_content_repository.py, test_content_service.py] — deferred, minor coverage gap, satisfies AC5's literal "spot-check" bar as written
 
 ## Dev Notes
 
@@ -368,3 +379,8 @@ All acceptance criteria satisfied. Story ready for review.
 ## Change Log
 
 - 2026-07-10: Story 2.1 implemented - Pydantic schemas, repository layer, service layer, 16 tests all passing
+- 2026-07-10: `bmad-code-review` (3 parallel adversarial layers — Blind Hunter, Edge Case Hunter, Acceptance Auditor) run against the merge-commit diff (`1ecf196..0134487`, PR #32). 1 decision-needed (resolved), 4 patches applied, 3 deferred (`deferred-work.md`), ~11 dismissed as noise or explicitly spec-sanctioned.
+  - **Critical fix**: `conftest.py`'s `test_engine` fixture no longer runs `Base.metadata.create_all()`/`drop_all()` against the real shared `DATABASE_URL` — this had been silently wiping the entire dev database after every test since this story's scope change from session- to function-scoped, already independently confirmed live and blocked-on by Stories 2.2/2.4/3.3. Test isolation now relies entirely on `db_session`'s existing rollback; `test_content_repository.py`/`test_content_service.py` switched from `.commit()` to `.flush()` accordingly.
+  - **Also fixed**: `ContentResponse.metadata` now has `default=None` (was silently required despite its `Optional` type — verified empirically against pydantic 2.13); the two enum-validation tests now assert `pydantic.ValidationError` instead of bare `Exception`; a dead `datetime, timezone` import removed from `test_content_repository.py`; the story's own Task 4 checklist corrected (tests don't actually use Story 1.7's seed data, contrary to the checked-off claim).
+  - **Verified**: full content-module suite (16/16) re-passing in 1.18s (down from 37.22s, confirming the DB-wipe fix), seed data (5 employees/5 skills) and all 7 tables intact after the run, full backend suite 177/179 passing — the 2 failures (`test_skill_progress.py`) are the pre-existing, already-documented cross-test-file `engine`-pool corruption bug (both pass 100% in isolation), unrelated to this review's changes.
+  - Status → `done`.

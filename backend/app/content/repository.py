@@ -6,6 +6,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.assignments.models import ContentCatalog, Skill
 
+# Cosine similarity a Content match must clear to be recommended (Story 2.4,
+# AD-7). Plain module constant, not a Settings field -- mirrors
+# core/embedding.py's MODEL_NAME/EMBEDDING_DIM (no other module-tunable
+# numeric constant is env-configurable either).
+SIMILARITY_THRESHOLD = 0.7
+
 
 async def get_content_by_id(
     db: AsyncSession, content_id: UUID
@@ -58,6 +64,51 @@ async def create_content(db: AsyncSession, content_data: dict) -> ContentCatalog
     return content
 
 
+async def get_skill_embedding(db: AsyncSession, skill_id: UUID) -> list[float] | None:
+    """Read a Skill's embedding for matching (Story 2.4).
+
+    No `skills/` module/service exists yet (Story 3.2 is still backlog), so
+    this reads `Skill` directly from `app.assignments.models` -- the same
+    physical-location/logical-ownership split already established for
+    `ContentCatalog` above. Read-only, single-column; writes to `skills`
+    remain out of scope here.
+
+    Returns:
+        The embedding as a plain list[float], or None if the Skill doesn't exist.
+    """
+    result = await db.execute(select(Skill.embedding).where(Skill.id == skill_id))
+    embedding = result.scalar_one_or_none()
+    return embedding.tolist() if embedding is not None else None
+
+
+async def find_best_matching_content(
+    db: AsyncSession,
+    skill_id: UUID,
+    skill_embedding: list[float],
+    threshold: float = SIMILARITY_THRESHOLD,
+) -> ContentCatalog | None:
+    """Filter-then-rank Content for a Skill (Story 2.4, AD-7).
+
+    Pre-filters to the given skill_id, ranks by pgvector cosine distance
+    (computed once and reused for the WHERE/ORDER BY clauses below), and
+    returns only the single top match if it clears `threshold` similarity.
+    `ContentCatalog.id` is an explicit tie-break so ties resolve
+    deterministically (AC6) rather than by incidental row-fetch order.
+
+    Returns:
+        The best-matching ContentCatalog ORM instance, or None if no
+        Content for this skill clears the threshold (including when the
+        skill has zero Content rows at all).
+    """
+    distance = ContentCatalog.embedding.cosine_distance(skill_embedding)
+    stmt = (
+        select(ContentCatalog)
+        .where(ContentCatalog.skill_id == skill_id, distance < (1 - threshold))
+        .order_by(distance.asc(), ContentCatalog.id.asc())
+        .limit(1)
+    )
+    result = await db.execute(stmt)
+    return result.scalar_one_or_none()
 async def list_all_skills(db: AsyncSession) -> list[Skill]:
     """Read-only enumeration of all Skills, needed by the ingestion job to
     know what to search YouTube for.

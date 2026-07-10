@@ -1,6 +1,5 @@
 """Tests for content repository layer (AD-1 single-owner enforcement)."""
 import uuid
-from datetime import datetime, timezone
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -38,7 +37,7 @@ async def test_get_content_by_id_returns_orm_instance(db_session: AsyncSession):
         content_metadata={"video_id": "test123", "duration": 600},
     )
     db_session.add(content)
-    await db_session.commit()
+    await db_session.flush()
 
     # Test repository method
     result = await get_content_by_id(db_session, content.id)
@@ -98,7 +97,7 @@ async def test_list_content_by_skill_returns_list_of_orm(db_session: AsyncSessio
         content_metadata=None,
     )
     db_session.add_all([content1, content2])
-    await db_session.commit()
+    await db_session.flush()
 
     # Test repository method
     results = await list_content_by_skill(db_session, skill.id)
@@ -125,7 +124,7 @@ async def test_list_content_by_skill_returns_empty_for_skill_with_no_content(
         embedding=[0.1] * 384,
     )
     db_session.add(skill)
-    await db_session.commit()
+    await db_session.flush()
 
     # Test repository method
     results = await list_content_by_skill(db_session, skill.id)
@@ -144,7 +143,7 @@ async def test_create_content_persists_and_returns_orm(db_session: AsyncSession)
         embedding=[0.1] * 384,
     )
     db_session.add(skill)
-    await db_session.commit()
+    await db_session.flush()
 
     # Prepare content data
     content_data = {
