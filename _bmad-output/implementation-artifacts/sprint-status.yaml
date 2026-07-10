@@ -1,5 +1,5 @@
 # generated: 2026-07-09
-# last_updated: 2026-07-09
+# last_updated: 2026-07-10
 # project: TalentPilot-AI
 # project_key: NOKEY
 # tracking_system: file-system
@@ -69,6 +69,7 @@ last_updated: 2026-07-10
 # story 3-3 code review completed 2026-07-10 (bmad-code-review): 0 decision-needed, 6 patches applied (idempotency test restructured to genuinely prove both paths, _DEMO_ACCOUNTS derived from real _MOCK_ACCOUNTS, case-normalization test added, None guard added, conftest.py warning docstring added, deferred-work.md/Dev Agent Record updated), 1 deferred, 12 dismissed; 134/134 tests passing; status -> done
 # story 3-1 re-reviewed 2026-07-10 (bmad-code-review, user-requested independent 2nd pass): found and fixed a severe gap the first pass missed -- create_assignment never committed, core/db.py::get_db() had no commit-on-success logic at all, every created Assignment would have silently vanished once a route used it. Fixed get_db() now (zero risk, no callers yet) to commit-on-success/rollback-on-exception, establishing the app-wide commit convention. Also fixed unguarded uuid.UUID(current_user.user_id) parsing, a vacuous test assertion, a missing test case. 137/137 tests passing; status remains done
 # story 3-3 re-reviewed 2026-07-10 (bmad-code-review, user-requested independent 2nd pass): found 2 real patches -- idempotency test's destructive DELETE against the shared dev DB could crash with uncaught IntegrityError if any row ever FK-references a demo employee (now skips cleanly instead); _DEMO_EMPLOYEE_IDS was hardcoded, reintroducing the exact stale-list gap just fixed for _DEMO_ACCOUNTS (now derived). 137/137 tests passing; status remains done
+# story 4-1 story file created 2026-07-10 (bmad-create-story): Comprehensive BMad Method context file generated; status -> ready-for-dev → done (already implemented)
 project: TalentPilot-AI
 project_key: NOKEY
 tracking_system: file-system
