@@ -87,10 +87,9 @@ development_status:
   3-6-cancel-assignment-flow-leaves-no-orphaned-record: backlog
   epic-3-retrospective: optional
 
-  epic-4: backlog
-  4-0-youtube-iframe-adapter-abstraction-layer-for-player-events: backlog
+  epic-4: in-progress
+  4-0-youtube-iframe-adapter-abstraction-layer-for-player-events: done
   4-1-skill-progress-data-model-and-watch-position-storage: backlog
-  4-2-watch-position-capture-and-periodic-posting-from-client: backlog
   4-3-tab-close-flush-via-sendbeacon-reliability: backlog
   4-4-server-side-anti-spoofing-validate-position-advances: backlog
   4-5-event-time-ordering-conditional-write-skip-stale-writes: backlog
