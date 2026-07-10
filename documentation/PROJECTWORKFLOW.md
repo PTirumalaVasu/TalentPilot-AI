@@ -2377,3 +2377,109 @@ Session log entry documenting the Story 2.1 implementation phase.
 
 ---
 
+# Story 2.2 Implementation Phase — Skills, Agents, and Files
+
+**Date:** 2026-07-10
+**Status:** Story 2.2 (Embedding Model Integration — Sentence-Transformers) implemented and code-reviewed, status `done`; `epic-2` remains `in-progress`
+
+## Overview
+
+No story file existed for Story 2.2 despite Story 2.1 already sitting at `review` — `sprint-status.yaml` had left `2-2-embedding-model-integration-sentence-transformers` at `backlog`. Authored the story file fresh from `epics.md`, implemented it end-to-end via TDD, then ran a full adversarial code review and applied all resulting patches in the same session. The story's job: extract a shared, reusable `embed_text()` utility out of the ad hoc `SentenceTransformer` instantiation Story 1.7 had inlined directly into `core/seeds.py`, wire it into a new FastAPI startup hook, and refactor `seeds.py` to use it — with no frontend/UI surface, since this is a pure backend primitive with no HTTP endpoint (confirmed via Story 2.1's own Dev Notes that the `EmbeddingInput`/`EmbeddingOutput` schemas it feeds are "internal-only, not exposed via any router endpoint"). Work was done directly on the `Story-2.2` branch (already checked out at session start, tracking `origin/Story-2.2`, no divergent commits yet).
+
+## Agents Called
+
+None — `bmad-create-story`, `bmad-dev-story`, and `bmad-code-review` all executed within the main conversation loop for authoring, TDD implementation, and initial review triage. The **code-review workflow's three adversarial layers (Blind Hunter, Edge Case Hunter, Acceptance Auditor) were run as three parallel background subagents**, each given the raw diff (and, for the Acceptance Auditor, the story file) with no shared context between them — this is the one part of the session that used sub-agent delegation, by the `bmad-code-review` skill's own design (independent, non-collaborating adversarial passes).
+
+## Skills Used
+
+### 1. bmad-create-story
+**Purpose:** Generate the dedicated story file for Story 2.2, since none existed despite `epics.md` defining it as the very next story after 2.1 in Epic 2's sequence.
+
+**Process:**
+- Read `_bmad-output/planning-artifacts/epics.md` (Epic 2, Story 2.2 — including its unusually detailed "ERROR HANDLING & DIAGNOSTICS" acceptance-criteria section)
+- Read Story 2.1's own file to find the already-scaffolded-but-unused `EmbeddingInput`/`EmbeddingOutput` schemas in `content/schemas.py`, explicitly earmarked for this story
+- Read `backend/app/core/seeds.py` to find the existing ad hoc `SentenceTransformer("all-MiniLM-L6-v2")` instantiation inside `seed_skills()` — the thing this story needed to promote into a shared utility rather than duplicate
+- Read the architecture spine's AD-8 (module dependency direction) to justify placing the new utility in `core/`, not `content/` — the embedding primitive has no skill/content awareness, and `core/seeds.py` (which cannot depend on `content/`) already needed it
+- Read `backend/app/main.py` and `backend/app/core/errors.py` to confirm no existing FastAPI `lifespan` or non-standard logging pattern this story would need to reconcile with
+- Wrote the story file with 6 acceptance criteria (including the epic's own detailed error-handling AC), 5 task groups, Dev Notes explaining the lazy-singleton-plus-eager-trigger design and the `core/` vs `content/` placement decision, Previous Story Intelligence (from Stories 2.1, 1.7, 1.1), and Architecture Compliance sections
+
+**Result:** `_bmad-output/implementation-artifacts/2-2-embedding-model-integration-sentence-transformers.md` created at status `ready-for-dev`; sprint status updated with a story-creation history comment (2026-07-10).
+
+### 2. bmad-dev-story
+**Purpose:** Implement Story 2.2 end-to-end following TDD (red-green-refactor).
+
+**Process:**
+- **Task 1+2 (embedding.py + error handling):** Wrote `backend/tests/test_embedding.py` first against a not-yet-existing `app.core.embedding` module, confirmed RED (`ImportError`). Implemented `core/embedding.py`: a module-level lazy-singleton `_get_model()`, `load_embedding_model()` eager trigger, `embed_text(text) -> list[float]` with output-shape validation, and fail-fast error logging split into network/download vs. corrupted-cache vs. wrong-shape categories. Confirmed GREEN (7/7).
+- **Task 3 (lifespan):** Added the app's first FastAPI `lifespan` async context manager to `backend/app/main.py`, calling `load_embedding_model()` before `yield`, wired via `FastAPI(..., lifespan=lifespan)`. Added a regression test driving `app.router.lifespan_context(app)` directly and asserting the module-level cache was populated afterward.
+- **Task 4 (seeds.py refactor):** Replaced `seeds.py`'s inline `SentenceTransformer` instantiation with `from app.core.embedding import embed_text`. Live-verified against Docker Postgres (port 5433): ran `alembic upgrade head` + a one-off `run_seeds()` script, confirmed all 5 skills got valid 384-dim vectors via `vector_dims(embedding)`, then ran `test_database_schema.py`'s existing seed tests (16/16 passing) to prove no behavior change.
+- **Task 5 (tests):** All test writing was done inline with Tasks 1-3 per TDD.
+- **Debugging encountered mid-implementation:**
+  - This session's Docker Postgres volume started completely empty (`alembic_version` had no rows, despite the container showing hours of uptime) — required running `alembic upgrade head` and a manual seed pass before any live-DB test could pass
+  - Running the full suite together (`pytest tests/`) reproduced the already-documented, pre-existing cross-test-file `asyncpg` connection-pool corruption bug (`deferred-work.md`, originally logged during Stories 1.7/3.1: "any second module-scoped-loop test file sharing the pooled `engine` singleton corrupts it") — verified via `git stash` that this reproduces identically against the unmodified baseline, confirming it was not a regression introduced by this story
+  - A stale `alembic_version` row pointing at `head` while the schema itself had been dropped (by `test_content_repository.py`/`test_content_service.py`'s `test_engine` fixture, which calls `Base.metadata.drop_all()` at teardown) made `alembic upgrade head` silently a no-op on the first retry attempt — resolved with `DROP SCHEMA public CASCADE; CREATE SCHEMA public;` before re-migrating
+
+**Result:** 8/8 new tests passing initially; full suite 123/123 passing (23 deselected: the pre-existing, already-documented cross-file live-DB conflict, not a regression). Story status `ready-for-dev` → `review`.
+
+### 3. bmad-code-review
+**Purpose:** Run adversarial review against Story 2.2's diff (vs. its `baseline_commit`) before marking it `done`.
+
+**Process:**
+- Diff target resolved via Tier 1 (user named the story file explicitly): baseline = the story's `baseline_commit: fa59624` frontmatter value, which equals current `HEAD` — so the full diff was the uncommitted working tree (~288 reviewable lines across 2 new files, 2 modified files)
+- Launched **Blind Hunter**, **Edge Case Hunter**, and **Acceptance Auditor** as three parallel background subagents, each with zero shared context, each given the diff (Acceptance Auditor additionally given the story file + told to read the real on-disk files directly rather than trust the diff alone)
+- Normalized, deduplicated, and severity-rated the returned findings; read the actual source at each finding's location before rating (per the workflow's "read the code before rating" rule)
+- Routed 7 findings to `patch` (unambiguous fixes), 1 to `defer` (out of this story's scope, binding guidance for Story 2.3/2.4), 0 to `decision_needed`, and dismissed ~14 as noise/false-positives/already-covered-by-spec
+- User selected "Apply every patch" — all 7 applied without per-finding confirmation
+
+**Key findings, empirically verified before being trusted (not just reasoned about):**
+- `requests.exceptions.ConnectionError`/`HfHubHTTPError`/`LocalEntryNotFoundError` are all `OSError` subclasses (confirmed via `__mro__` inspection in a throwaway script) — the original `except OSError` / `except Exception` ordering meant a genuine network failure would be caught by the OSError branch and logged with the wrong "corrupted cache, delete and retry" message instead of the network-failure diagnostic AC5 requires
+- The lazy singleton's unlocked check-then-set was not just a theoretical race — a throwaway concurrency script confirmed it both double-loads the model *and* can crash with a real PyTorch `NotImplementedError` ("Cannot copy out of meta tensor") under concurrent first access
+- AC5's "wrong output shape fails at startup" was not actually implemented — `load_embedding_model()` only instantiated the model, never called `.encode()`, so a dimension mismatch would only surface on the first real `embed_text()` call, not at boot
+
+**Result:** All 7 patches applied (see Files Modified below for specifics); 1 item deferred to `deferred-work.md`. Full suite re-verified: 128/128 passing (up from 123 — 5 net new tests replacing/augmenting the original 8). Story status `review` → `done`; sprint status and `project-context.md` both updated with the review outcome.
+
+## Files Created and Purpose of Each
+
+### 1. `_bmad-output/implementation-artifacts/2-2-embedding-model-integration-sentence-transformers.md` (created, 332 lines)
+The story file: 6 acceptance criteria (including the epic's detailed error-handling/diagnostics section), scope notes, Dev Notes, Architecture Compliance, Review Findings subsection, and — after implementation and review — the full Dev Agent Record (implementation plan, completion notes, pre- and post-review test results, file list, change log).
+
+### 2. `backend/app/core/embedding.py` (created, 96 lines post-patches)
+The shared embedding utility: `MODEL_NAME`/`EMBEDDING_DIM` constants, a `threading.Lock`-guarded lazy-singleton `_get_model()`, `load_embedding_model()` (now performs a real shape-validated inference call, not just instantiation), and `embed_text(text) -> list[float]` with output-shape validation and three-category fail-fast error handling (network/download via specific exception types, corrupted cache via generic `OSError`, wrong-shape via `RuntimeError`).
+
+### 3. `backend/tests/test_embedding.py` (created, 207 lines post-patches)
+13 tests: 384-dim shape, determinism, lazy-load-without-explicit-load, singleton-reuse via monkeypatched `__init__` counting, <100ms warm latency, network-failure-specific message assertion, HF-hub-error-routed-to-network-category assertion, corrupted-cache-specific message assertion, wrong-shape `RuntimeError`, wrong-shape-fails-at-startup regression guard, concurrent-first-access-loads-once regression guard (using a `time.sleep` inside a monkeypatched `__init__` to widen the race window), a permanent AC4 regression guard (greps every `router.py` for `embed_text`), and an app-lifespan-startup-warms-model test driving `app.router.lifespan_context(app)` directly.
+
+## Files Modified and Purpose of Each
+
+### 1. `backend/app/main.py` (modified)
+Added the app's first FastAPI `lifespan` async context manager, calling `load_embedding_model()` before `yield` (wrapped in `asyncio.to_thread` post-review so the multi-second synchronous model load doesn't block the event loop during startup). All 5 pre-existing router includes, CORS middleware, exception handler registration, and the `GET /` health check are byte-for-byte unchanged.
+
+### 2. `backend/app/core/seeds.py` (modified)
+`seed_skills()` now calls the shared `embed_text()` instead of instantiating its own `SentenceTransformer`; removed the now-dead direct import. No change to idempotency logic or seed data — live-verified against Docker Postgres both before and after the code-review patches.
+
+### 3. `backend/requirements.txt` (modified)
+Pinned `huggingface-hub==0.36.2` and `requests==2.34.2` — previously unpinned transitive dependencies of `sentence-transformers`, now imported directly in `embedding.py` for exception-type dispatch (`HfHubHTTPError`, `LocalEntryNotFoundError`, `ConnectionError`), so pinned per this codebase's convention of pinning every direct import.
+
+### 4. `_bmad-output/implementation-artifacts/sprint-status.yaml` (modified)
+`2-2-embedding-model-integration-sentence-transformers`: `backlog` → `ready-for-dev` → `in-progress` → `review` → `done`. Four history comment lines appended documenting story creation, implementation, and code-review transitions.
+
+### 5. `_bmad-output/implementation-artifacts/deferred-work.md` (modified)
+One new entry appended: no truncation/length handling for text exceeding the embedding model's max sequence length (~256 tokens) — not a live bug today (only caller is short skill names), binding guidance for Story 2.3 (batch ingestion) and Story 2.4 (semantic matching), whose Content descriptions are far more likely to exceed it.
+
+### 6. `_bmad-output/project-context.md` (modified)
+Two entries appended: story-creation-and-implementation summary (module placement rationale, lazy-singleton-plus-eager-trigger design, live-DB verification workaround, re-confirmation of the pre-existing cross-test-file DB bug) and post-code-review summary (the two empirically-confirmed real bugs — error-category mislabeling and the concurrency crash risk — plus the AC5 startup-shape-check gap and the other four patches).
+
+### 7. `documentation/PROJECTWORKFLOW.md` (this file, appended to)
+Session log entry documenting the Story 2.2 implementation-and-review phase.
+
+## Session Notes
+
+- **The story-creation gap was structural, not accidental.** Story 2.1 had already reached `review` status while `2-2-...` sat at `backlog` in `sprint-status.yaml` with no story file at all — the same "epic sequence outran story creation" pattern seen earlier with Story 1.7 (retroactively documented after being implemented via `bmad-agent-dev` directly). This time it was caught before implementation started, by running `bmad-create-story` first rather than assuming a file existed.
+- **The AD-8 module-placement decision (`core/`, not `content/`) held up under review scrutiny.** None of the three adversarial layers challenged putting `embed_text` in `core/embedding.py` — the reasoning (the embedding primitive has zero skill/content awareness, and `core/seeds.py` already needed it before this story existed) was accepted as sound architecture, not just asserted.
+- **The lazy-singleton-plus-eager-trigger design was the right shape, but shipped without a concurrency guard.** The pattern itself (satisfying both "loads once at app startup" and "works when called directly from scripts/tests" without two separate code paths) survived review intact — but the *missing lock* around it was the single most consequential finding, escalated from a "theoretical race" to a "confirmed real crash risk" only because it was empirically reproduced with a throwaway script rather than argued about in the abstract.
+- **Empirical verification caught two review findings that reasoning alone would have missed or mis-rated.** The `OSError`-subclass exception-hierarchy issue and the concurrent-double-load crash were both first spotted by pattern-matching (a reviewer noticing "this looks like it could be a problem"), but only became `high`/`medium`-severity `patch` items — rather than speculative `low`-severity noise — once actually reproduced against the real library versions installed in this environment.
+- **The pre-existing cross-test-file live-DB bug was re-confirmed, not re-litigated.** Both the dev-story and code-review passes independently hit the same `test_database_schema.py`/`test_skill_progress.py` failure pattern already logged in `deferred-work.md` since Stories 1.7/3.1, and both independently verified (via `git stash` to the baseline commit) that it was not caused by this story's changes — avoiding the trap of either ignoring a real pre-existing issue or wrongly treating it as a regression to fix.
+- **This story went from `backlog` to `done` in a single session**, unlike Story 2.1 which was left at `review` pending a separate code-review pass. All three phases — create-story, dev-story, code-review — ran back-to-back with the user's explicit go-ahead at each stage.
+- **Next expected step:** `bmad-create-story` for Story 2.3 (Batch Content Ingestion Job — YouTube Search), which will be the first story to actually call `embed_text()` from a live ingestion pipeline rather than a one-time seed script — and the first to potentially hit the deferred truncation/length-handling gap logged above, since YouTube video descriptions are far more likely to exceed the model's ~256-token limit than short skill names.
+
+---
+

@@ -63,6 +63,9 @@ last_updated: 2026-07-10
 # story 4-1 implemented 2026-07-10 (bmad-agent-dev): Atomic conditional-write repository, service layer, Pydantic schemas, frontend TypeScript types; 7/7 tests passing; status -> review
 # story 4-1 code review completed 2026-07-10 (code-review team): 8 findings identified and fixed (50% query efficiency gain, deprecated APIs removed, race condition safety, DRY compliance); status -> done
 # story 4-1 branch pushed to remote 2026-07-10; PR ready (awaiting GitHub auth to create); comprehensive documentation (573 lines) created; status -> done
+# story 2-2 marked ready-for-dev 2026-07-10 (bmad-create-story): core/embedding.py utility (embed_text, lazy singleton + eager lifespan warm-up), refactors core/seeds.py's inline SentenceTransformer usage to the shared function; no frontend/UI surface (internal-only, no router endpoint)
+# story 2-2 implemented 2026-07-10 (bmad-dev-story): core/embedding.py (lazy singleton + eager lifespan warm-up + fail-fast error handling), main.py lifespan hook, core/seeds.py refactored to shared embed_text(); 8 new tests passing; full suite 123/123 (23 deselected: pre-existing cross-file live-DB test-isolation bug from deferred-work.md, verified unrelated to this story via git stash comparison against baseline); status -> review
+# story 2-2 code review completed 2026-07-10 (bmad-code-review): 3 parallel adversarial layers, 0 decision-needed, 7 patches applied (AC5 startup-shape-check gap, network/corrupted-cache error mislabeling via OSError subclass overlap, missing concurrency lock around lazy singleton, wrong HF cache-deletion path, missing AC4 regression guard, blocking event loop during lifespan startup, weak failure-path test assertions), 1 deferred (text-length truncation for Story 2.3/2.4), ~14 dismissed; 128/128 passing (up from 123), zero regressions; status -> done
 project: TalentPilot-AI
 project_key: NOKEY
 tracking_system: file-system
@@ -81,7 +84,7 @@ development_status:
 
   epic-2: in-progress
   2-1-content-catalog-data-model-and-schema: review
-  2-2-embedding-model-integration-sentence-transformers: backlog
+  2-2-embedding-model-integration-sentence-transformers: done
   2-3-batch-content-ingestion-job-youtube-search: backlog
   2-4-semantic-content-matching-filter-then-rank: backlog
   2-5-content-discovery-single-assignment-card-view: backlog
