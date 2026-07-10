@@ -7,6 +7,7 @@ from httpx import ASGITransport, AsyncClient
 from app.auth.service import get_current_token_payload
 from app.core.config import settings
 from app.core.errors import register_exception_handlers
+from app.core.seed_ids import MORGAN_ID
 from app.main import app
 
 
@@ -137,4 +138,4 @@ async def test_logging_in_again_after_logout_issues_a_working_new_session():
         fresh_client.cookies.set(settings.SESSION_COOKIE_NAME, new_token)
         response = await fresh_client.get("/protected")
         assert response.status_code == 200
-        assert response.json()["user_id"] == "morgan"
+        assert response.json()["user_id"] == str(MORGAN_ID)

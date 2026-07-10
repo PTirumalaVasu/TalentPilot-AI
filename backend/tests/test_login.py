@@ -2,6 +2,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from app.core.config import settings
+from app.core.seed_ids import CASEY_ID, JORDAN_ID, MORGAN_ID, RITA_ID, SAM_ID
 from app.main import app
 
 
@@ -13,11 +14,11 @@ def _client() -> AsyncClient:
 @pytest.mark.parametrize(
     ("email", "expected_role", "expected_user_id"),
     [
-        ("rita@sails.example.com", "HR_ADMIN", "rita"),
-        ("casey@sails.example.com", "EMPLOYEE", "casey"),
-        ("morgan@sails.example.com", "EMPLOYEE", "morgan"),
-        ("jordan@sails.example.com", "EMPLOYEE", "jordan"),
-        ("sam@sails.example.com", "EMPLOYEE", "sam"),
+        ("rita@sails.example.com", "HR_ADMIN", str(RITA_ID)),
+        ("casey@sails.example.com", "EMPLOYEE", str(CASEY_ID)),
+        ("morgan@sails.example.com", "EMPLOYEE", str(MORGAN_ID)),
+        ("jordan@sails.example.com", "EMPLOYEE", str(JORDAN_ID)),
+        ("sam@sails.example.com", "EMPLOYEE", str(SAM_ID)),
     ],
 )
 async def test_login_succeeds_for_each_demo_account(email, expected_role, expected_user_id):
