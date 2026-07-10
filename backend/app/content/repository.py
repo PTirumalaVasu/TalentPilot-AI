@@ -4,7 +4,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.assignments.models import ContentCatalog
+from app.assignments.models import ContentCatalog, Skill
 
 
 async def get_content_by_id(
@@ -56,3 +56,17 @@ async def create_content(db: AsyncSession, content_data: dict) -> ContentCatalog
     await db.flush()
     await db.refresh(content)
     return content
+
+
+async def list_all_skills(db: AsyncSession) -> list[Skill]:
+    """Read-only enumeration of all Skills, needed by the ingestion job to
+    know what to search YouTube for.
+
+    NOTE: `skills` is not in AD-1's "Binds" list -- no module has an
+    established owning repository for it yet (Epic 3's Skill Master Data
+    story is still backlog). This is a deliberate, narrow, documented
+    exception, not a precedent for other cross-table reads. Migrate this
+    call to a real Service API once one exists (Story 2.3 Scope Note 2).
+    """
+    result = await db.execute(select(Skill))
+    return list(result.scalars().all())
