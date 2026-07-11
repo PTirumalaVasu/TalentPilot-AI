@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useImperativeHandle, forwardRef } from "react";
 import { dashboardApi } from "../../lib/api/dashboardApi";
 import { DashboardResponse, AssignmentRow } from "../../types/dashboard";
 import { DashboardRow } from "./DashboardRow";
@@ -18,24 +18,33 @@ interface DashboardPageProps {
   onNewAssignment: () => void;
 }
 
-export function DashboardPage({ onNewAssignment }: DashboardPageProps) {
-  const [state, setState] = useState<DashboardState>({
-    assignments: [],
-    loading: true,
-    error: null,
-    page: 1,
-    pageSize: 50,
-    totalCount: 0,
-    requestId: 0,
-  });
+export interface DashboardPageHandle {
+  refreshGrid: () => void;
+}
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchDashboard();
-    }, 150);
+export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>(
+  function DashboardPageComponent({ onNewAssignment }, ref) {
+    const [state, setState] = useState<DashboardState>({
+      assignments: [],
+      loading: true,
+      error: null,
+      page: 1,
+      pageSize: 50,
+      totalCount: 0,
+      requestId: 0,
+    });
 
-    return () => clearTimeout(timer);
-  }, [state.page, state.pageSize]);
+    useImperativeHandle(ref, () => ({
+      refreshGrid: () => fetchDashboard(),
+    }));
+
+    useEffect(() => {
+      const timer = setTimeout(() => {
+        fetchDashboard();
+      }, 150);
+
+      return () => clearTimeout(timer);
+    }, [state.page, state.pageSize]);
 
   async function fetchDashboard() {
     const currentRequestId = state.requestId + 1;
@@ -205,4 +214,5 @@ export function DashboardPage({ onNewAssignment }: DashboardPageProps) {
       <p className="text-center text-xs text-gray-400 mt-8">App v0.1.0</p>
     </div>
   );
-}
+  }
+);
