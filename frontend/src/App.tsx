@@ -2,7 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AuthProvider } from '@/lib/auth/AuthContext';
 import { RequireAuth } from '@/lib/auth/RequireAuth';
 import { Login } from '@/pages/Login';
-import { DashboardStub } from '@/pages/hr/DashboardStub';
+import { Dashboard } from '@/pages/hr/Dashboard';
 import { ContentDiscoveryStub } from '@/pages/employee/ContentDiscoveryStub';
 import { VideoPlayerDemo } from '@/pages/dev/VideoPlayerDemo';
 
@@ -16,7 +16,7 @@ export function App() {
             path="/hr/dashboard"
             element={
               <RequireAuth>
-                <DashboardStub />
+                <Dashboard />
               </RequireAuth>
             }
           />

@@ -4,9 +4,11 @@ import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.assignments.repository import (
+    AssignmentPage,
     _parse_user_id,
     create_assignment,
     find_existing_assignment,
+    list_assignments_for_hr,
     list_employees,
     list_skills,
 )
@@ -19,6 +21,22 @@ from app.assignments.schemas import (
 )
 from app.auth.schemas import CurrentUser
 from app.auth.service import require_hr_admin
+
+
+class AssignmentsService:
+    """Service-layer wrapper for assignments business logic."""
+
+    @staticmethod
+    async def list_assignments_for_hr(
+        session: AsyncSession,
+        hr_admin_id: uuid.UUID,
+        page: int = 1,
+        page_size: int = 50,
+    ) -> AssignmentPage:
+        """Fetch paginated assignments for an HR Admin (cross-module API per AD-1)."""
+        return await list_assignments_for_hr(
+            session, hr_admin_id=hr_admin_id, page=page, page_size=page_size
+        )
 
 
 async def list_employees_service(session: AsyncSession, *, search: str | None = None) -> list[EmployeeResponse]:
