@@ -1,4 +1,4 @@
-/**HR Admin Dashboard page with navigation (Story 5-1)."""
+/** HR Admin Dashboard page with navigation (Story 5-1). */
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
