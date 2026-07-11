@@ -7,6 +7,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.assignments.models import Assignment
+from app.assignments.schemas import AssignmentStatus
 from app.auth.schemas import CurrentUser
 from app.progress.antiflow import run_all_validations
 from app.progress.models import SkillProgress
@@ -161,3 +162,45 @@ class ProgressService:
 
         # Return stored position (exact, no approximation)
         return SkillProgressResponseResume.model_validate(progress)
+
+    @staticmethod
+    def derive_dashboard_status_and_percent(
+        watch_seconds: int, duration_seconds: object | None
+    ) -> tuple[AssignmentStatus, int]:
+        """Pure Status/percent derivation for the HR dashboard list (Story 3.5's
+        dashboard expansion, AD-3: `progress/` is the sole derivation
+        authority). No DB access — callers pass in a `SkillProgress.watch_position`
+        (0 if no progress row exists yet) and the linked content's duration
+        (via `ProgressRepository.get_video_duration`, None if no content or no
+        duration metadata).
+
+        - No duration known: 0 watch → Not Started; any watch → In Progress
+          at an indeterminate 0% (no total to compute a percentage against).
+        - Known duration: percent = watch/duration, clamped to [0, 100].
+          100% → Completed, >0% → In Progress, 0% → Not Started.
+
+        `duration_seconds` is typed loosely (not `int | None`) on purpose:
+        `content_metadata` is a raw, unvalidated JSON column, and real rows
+        in this dev DB (Story 2.3's YouTube ingestion) store `duration` as
+        an ISO-8601 string (e.g. `"PT10M0S"`), not seconds-as-int like
+        manually-seeded content does — a pre-existing shape inconsistency
+        already flagged in deferred-work.md, not something to silently
+        assume away. Anything that isn't cleanly int-coercible (including
+        ISO-8601 strings — not parsed here, that's separate follow-up work)
+        is treated as an unknown duration rather than raising.
+        """
+        try:
+            duration_seconds = int(duration_seconds) if duration_seconds is not None else None
+        except (TypeError, ValueError):
+            duration_seconds = None
+
+        if not duration_seconds or duration_seconds <= 0:
+            status = AssignmentStatus.IN_PROGRESS if watch_seconds > 0 else AssignmentStatus.NOT_STARTED
+            return (status, 0)
+
+        percent = min(100, round((watch_seconds / duration_seconds) * 100))
+        if percent >= 100:
+            return (AssignmentStatus.COMPLETED, 100)
+        if percent > 0:
+            return (AssignmentStatus.IN_PROGRESS, percent)
+        return (AssignmentStatus.NOT_STARTED, 0)
