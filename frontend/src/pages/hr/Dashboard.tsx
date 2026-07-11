@@ -1,7 +1,6 @@
 /** HR Admin Dashboard page with navigation (Story 5-1). */
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { logout } from "@/lib/api/authApi";
 import { AssignmentModal } from "@/features/assignments/AssignmentModal";
@@ -11,14 +10,14 @@ export function Dashboard() {
   const { signOut } = useAuth();
   const navigate = useNavigate();
   const [assignmentModalOpen, setAssignmentModalOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   async function handleSignOut() {
     try {
       await logout();
     } catch {
-      // Best-effort server-side revocation: if the request fails (network
-      // error, 5xx), the user's intent to sign out is still honored
-      // client-side below, matching AC6's guarantee.
+      // Best-effort server-side revocation
     } finally {
       signOut();
       navigate("/login", { replace: true });
@@ -26,34 +25,55 @@ export function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header/Navigation */}
-      <header className="bg-white border-b">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold">TalentPilot</h1>
-            <nav className="text-sm text-gray-600 ml-6">
-              <span className="font-medium text-gray-900">Dashboard</span>
-            </nav>
+    <div className="min-h-screen bg-gray-50 font-sans">
+      {/* Header */}
+      <header className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-8">
+          <div className="flex items-center gap-2 font-bold text-lg text-gray-900">
+            TalentPilot-AI
           </div>
-          <div className="flex items-center gap-2">
-            <Button onClick={() => setAssignmentModalOpen(true)}>+ New Assignment</Button>
-            <Button variant="outline" onClick={handleSignOut}>
-              Sign Out
-            </Button>
-          </div>
+          <nav className="flex gap-6 text-sm">
+            <a href="#" className="text-blue-600 font-medium border-b-2 border-blue-600 pb-3 -mb-3">Dashboard</a>
+            <a href="#" className="text-gray-600 hover:text-gray-900 pb-3 -mb-3 transition-colors">Assignments</a>
+          </nav>
+        </div>
+        <div className="relative">
+          <button
+            onClick={() => setUserMenuOpen(!userMenuOpen)}
+            className="flex items-center gap-2 text-sm text-gray-700"
+          >
+            <span className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-medium">R</span>
+            Rita
+          </button>
+          {userMenuOpen && (
+            <div className="absolute right-0 mt-2 w-40 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+              <button
+                onClick={() => {
+                  setUserMenuOpen(false);
+                  handleSignOut();
+                }}
+                className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg"
+              >
+                Sign Out
+              </button>
+            </div>
+          )}
         </div>
       </header>
 
       {/* Main content */}
-      <main className="py-6">
-        <DashboardPage />
+      <main className="px-6 pb-12">
+        <DashboardPage key={refreshKey} onNewAssignment={() => setAssignmentModalOpen(true)} />
       </main>
 
       {/* Assignment Modal */}
       <AssignmentModal
         open={assignmentModalOpen}
         onClose={() => setAssignmentModalOpen(false)}
+        onAssigned={() => {
+          setAssignmentModalOpen(false);
+          setRefreshKey((prev) => prev + 1);
+        }}
       />
     </div>
   );

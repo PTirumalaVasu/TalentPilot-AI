@@ -1,6 +1,3 @@
-/**
- * HR Admin's Assignment Dashboard Page (Story 5-1).
- */
 import { useEffect, useState } from "react";
 import { dashboardApi } from "../../lib/api/dashboardApi";
 import { DashboardResponse, AssignmentRow } from "../../types/dashboard";
@@ -17,7 +14,11 @@ interface DashboardState {
   requestId: number;
 }
 
-export function DashboardPage() {
+interface DashboardPageProps {
+  onNewAssignment: () => void;
+}
+
+export function DashboardPage({ onNewAssignment }: DashboardPageProps) {
   const [state, setState] = useState<DashboardState>({
     assignments: [],
     loading: true,
@@ -28,7 +29,6 @@ export function DashboardPage() {
     requestId: 0,
   });
 
-  // Fetch dashboard data when page changes (with debounce/cancellation)
   useEffect(() => {
     const timer = setTimeout(() => {
       fetchDashboard();
@@ -62,15 +62,10 @@ export function DashboardPage() {
           return prev;
         }
 
-        const message = err instanceof Error ? err.message : "Failed to load dashboard";
+        const message = err instanceof Error ? err.message : "Couldn't load assignments.";
         return { ...prev, error: message, loading: false };
       });
     }
-  }
-
-  function handleViewDetails(assignmentId: string) {
-    // Story 5.2 will handle drill-down modal
-    console.log("View details for assignment:", assignmentId);
   }
 
   function handleRetry() {
@@ -86,122 +81,128 @@ export function DashboardPage() {
     }
   }
 
-  // AC7: Loading state
+  // Loading state
   if (state.loading && state.assignments.length === 0) {
     return (
-      <div className="container mx-auto p-4">
-        <div className="text-center py-12">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-          <p className="mt-2 text-gray-600">Loading assignments...</p>
+      <div>
+        <div className="py-3 flex items-center justify-between">
+          <button
+            onClick={onNewAssignment}
+            className="bg-blue-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            + New Assignment
+          </button>
+        </div>
+        <div className="bg-white rounded-lg shadow-sm p-4 space-y-3">
+          <div className="h-6 bg-gray-100 rounded animate-pulse w-full"></div>
+          <div className="h-6 bg-gray-100 rounded animate-pulse w-full"></div>
+          <div className="h-6 bg-gray-100 rounded animate-pulse w-full"></div>
+          <div className="h-6 bg-gray-100 rounded animate-pulse w-full"></div>
         </div>
       </div>
     );
   }
 
-  // AC8: Error state
+  // Error state
   if (state.error) {
     return (
-      <div className="container mx-auto p-4">
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <p className="text-red-700">{state.error}</p>
-          <Button onClick={handleRetry} className="mt-2" variant="outline">
+      <div>
+        <div className="py-3 flex items-center justify-between">
+          <button
+            onClick={onNewAssignment}
+            className="bg-blue-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            + New Assignment
+          </button>
+        </div>
+        <div className="text-center py-12 border-2 border-dashed border-red-200 rounded-lg text-red-600">
+          {state.error}
+          <button onClick={handleRetry} className="underline font-medium ml-1">
             Retry
-          </Button>
+          </button>
         </div>
       </div>
     );
   }
 
-  // AC6: Empty state
+  // Empty state
   if (state.assignments.length === 0 && !state.loading) {
     return (
-      <div className="container mx-auto p-4">
-        <div className="text-center py-12">
-          <h2 className="text-xl font-semibold mb-2">No assignments yet</h2>
-          <p className="text-gray-600 mb-4">
-            Create your first skill assignment to get started
-          </p>
-          <Button>+ New Assignment</Button>
+      <div>
+        <div className="py-3 flex items-center justify-between">
+          <button
+            onClick={onNewAssignment}
+            className="bg-blue-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            + New Assignment
+          </button>
+        </div>
+        <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-lg text-gray-500">
+          No assignments yet — click <strong>+ New Assignment</strong> to get started
         </div>
       </div>
     );
   }
 
-  // AC5: Calculate total pages
   const totalPages = Math.ceil(state.totalCount / state.pageSize);
 
   return (
-    <div className="container mx-auto p-4">
-      <div className="mb-6 flex justify-between items-center">
-        <h1 className="text-2xl font-bold">Assignment Dashboard</h1>
-        <Button>+ New Assignment</Button>
+    <div>
+      {/* Toolbar */}
+      <div className="py-3 flex items-center justify-between">
+        <button
+          onClick={onNewAssignment}
+          className="bg-blue-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+        >
+          + New Assignment
+        </button>
       </div>
 
-      <div className="bg-white rounded-lg border overflow-x-auto">
-        <table className="w-full" role="table">
-          <thead>
-            <tr className="border-b bg-gray-50">
-              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900" aria-label="Employee Name column">
-                Employee Name
-              </th>
-              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900" aria-label="Skill Name column">
-                Skill Name
-              </th>
-              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900" aria-label="Status column">
-                Status
-              </th>
-              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900" aria-label="Last Updated column">
-                Last Updated
-              </th>
-              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900" aria-label="Actions column">
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {state.assignments.map((row) => (
-              <DashboardRow
-                key={row.assignment_id}
-                row={row}
-                onViewDetails={handleViewDetails}
-              />
-            ))}
-          </tbody>
-        </table>
+      {/* Title and Summary */}
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-2xl font-black text-gray-900">Skill Assignments</h2>
+        <span className="text-sm text-gray-500">Total: {state.totalCount} assignment{state.totalCount !== 1 ? 's' : ''}</span>
       </div>
-      <div className="mt-6 flex justify-between items-center">
-        <div className="text-sm text-gray-600">
-          Page {state.page} of {totalPages} (Total: {state.totalCount} assignments)
-        </div>
-        <div className="flex gap-2">
-          <Button
-            onClick={() => handlePageChange(state.page - 1)}
-            disabled={state.page === 1}
-            variant="outline"
-          >
-            Previous
-          </Button>
-          <div className="flex items-center gap-2">
-            <input
-              type="number"
-              min="1"
-              max={totalPages}
-              value={state.page}
-              onChange={(e) => handlePageChange(Math.max(1, parseInt(e.target.value) || 1))}
-              className="w-12 px-2 py-1 border rounded text-center"
-              aria-label={`Go to page, current page ${state.page} of ${totalPages}`}
-            />
-            <span className="text-sm text-gray-600">of {totalPages}</span>
-          </div>
-          <Button
-            onClick={() => handlePageChange(state.page + 1)}
-            disabled={state.page >= totalPages}
-            variant="outline"
-          >
-            Next
-          </Button>
-        </div>
+
+      {/* Table */}
+      <table className="w-full border-collapse text-sm bg-white rounded-lg overflow-hidden shadow-sm">
+        <thead>
+          <tr className="border-b border-gray-200 text-left text-gray-500">
+            <th className="px-4 py-3 font-medium">Employee</th>
+            <th className="px-4 py-3 font-medium">Assigned Skill</th>
+            <th className="px-4 py-3 font-medium">Status</th>
+            <th className="px-4 py-3 font-medium">Progress</th>
+          </tr>
+        </thead>
+        <tbody>
+          {state.assignments.map((row) => (
+            <DashboardRow key={row.assignment_id} row={row} />
+          ))}
+        </tbody>
+      </table>
+
+      {/* Pagination */}
+      <div className="flex items-center justify-center gap-2 mt-4 text-sm">
+        <button
+          onClick={() => handlePageChange(state.page - 1)}
+          disabled={state.page === 1}
+          className="px-3 py-1 rounded border border-gray-200 text-gray-400 disabled:cursor-not-allowed hover:border-gray-300 disabled:hover:border-gray-200"
+        >
+          Previous
+        </button>
+        <button className="px-3 py-1 rounded border border-blue-600 bg-blue-50 text-blue-700 font-medium">
+          {state.page}
+        </button>
+        <button
+          onClick={() => handlePageChange(state.page + 1)}
+          disabled={state.page >= totalPages}
+          className="px-3 py-1 rounded border border-gray-200 text-gray-400 disabled:cursor-not-allowed hover:border-gray-300 disabled:hover:border-gray-200"
+        >
+          Next
+        </button>
       </div>
+
+      <p className="text-center text-xs text-gray-400 mt-8">App v0.1.0</p>
     </div>
   );
 }
