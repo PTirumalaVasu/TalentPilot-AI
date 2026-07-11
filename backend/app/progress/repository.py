@@ -8,7 +8,7 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
-from app.assignments.models import Assignment, SkillProgress
+from app.assignments.models import Assignment, AssignmentOverride, SkillProgress
 
 logger = logging.getLogger(__name__)
 
@@ -285,3 +285,87 @@ class ProgressRepository:
             ProgressRepository._build_assignment_query(assignment_id, employee_id)
         )
         return result.unique().scalar_one_or_none()
+
+    @staticmethod
+    async def get_active_override_for_assignment(
+        session: AsyncSession, assignment_id: UUID
+    ) -> AssignmentOverride | None:
+        """
+        Fetch the active HR override for an assignment, if any (AD-4).
+
+        Returns the most recent active override record where active=true.
+
+        Args:
+            session: AsyncSession for database operations
+            assignment_id: UUID of the assignment
+
+        Returns:
+            AssignmentOverride if active override exists, None otherwise
+        """
+        result = await session.execute(
+            select(AssignmentOverride)
+            .where(AssignmentOverride.assignment_id == assignment_id, AssignmentOverride.active == True)
+            .order_by(AssignmentOverride.set_at.desc())
+            .limit(1)
+        )
+        return result.scalar_one_or_none()
+
+    @staticmethod
+    async def get_progress_for_assignments(
+        session: AsyncSession, assignment_ids: list[UUID]
+    ) -> list[SkillProgress]:
+        """
+        Batch-fetch all progress records for multiple assignments (prevents N+1).
+
+        Args:
+            session: AsyncSession for database operations
+            assignment_ids: List of assignment UUIDs
+
+        Returns:
+            List of SkillProgress records (may be fewer than input IDs if no progress for some)
+        """
+        if not assignment_ids:
+            return []
+
+        result = await session.execute(
+            select(SkillProgress).where(SkillProgress.assignment_id.in_(assignment_ids))
+        )
+        return list(result.scalars().all())
+
+    @staticmethod
+    async def get_active_overrides_for_assignments(
+        session: AsyncSession, assignment_ids: list[UUID]
+    ) -> list[AssignmentOverride]:
+        """
+        Batch-fetch all active override records for multiple assignments (prevents N+1).
+
+        Args:
+            session: AsyncSession for database operations
+            assignment_ids: List of assignment UUIDs
+
+        Returns:
+            List of AssignmentOverride records where active=true (one per assignment, most recent)
+        """
+        if not assignment_ids:
+            return []
+
+        from sqlalchemy import and_
+
+        result = await session.execute(
+            select(AssignmentOverride)
+            .where(
+                and_(
+                    AssignmentOverride.assignment_id.in_(assignment_ids),
+                    AssignmentOverride.active == True,
+                )
+            )
+            .order_by(AssignmentOverride.assignment_id, AssignmentOverride.set_at.desc())
+        )
+        overrides = list(result.scalars().all())
+
+        deduped = {}
+        for override in overrides:
+            if override.assignment_id not in deduped:
+                deduped[override.assignment_id] = override
+
+        return list(deduped.values())
