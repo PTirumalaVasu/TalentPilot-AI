@@ -2598,3 +2598,282 @@ Session log entry documenting the Story 2.2 implementation-and-review phase.
 
 ---
 
+# Story 2.3 Implementation Phase — Skills, Agents, and Files
+
+**Date:** 2026-07-10
+**Status:** Story 2.3 (Batch Content Ingestion Job — YouTube Search) implemented and code-reviewed, status `done`; `epic-2` remains `in-progress`. `YOUTUBE_API_KEY` subsequently configured and the ingestion job live-verified against the real YouTube API in a follow-up exchange the same session.
+
+## Overview
+
+No story file existed for Story 2.3 despite Story 2.2 already being `done` — `sprint-status.yaml` had `2-3-batch-content-ingestion-job-youtube-search` at `backlog`, and the current branch (`Story2.3`, already checked out) was identical to `main`. Authored the story file fresh from `epics.md`, implemented it end-to-end via TDD, ran a full adversarial code review and applied all resulting patches, then — in a later part of the same session — configured a real `YOUTUBE_API_KEY` and live-verified the ingestion CLI against YouTube's actual API. The story's job: build a batch job that searches YouTube for videos matching each Skill, fetches durations, computes embeddings, de-duplicates against already-ingested videos, and stores them — respecting YouTube's ~100 calls/day `search.list` quota via the API's own signal rather than a local counter — plus a manual-seed CLI path that never touches YouTube at all. Explicitly out of scope: any real cron/APScheduler wiring (job logic + a manual trigger only).
+
+## Agents Called
+
+None for story creation or implementation — `bmad-create-story` and `bmad-dev-story` both executed within the main conversation loop. The **code-review workflow's three adversarial layers (Blind Hunter, Edge Case Hunter, Acceptance Auditor) were run as three parallel background subagents**, each given the diff with no shared context between them, per the `bmad-code-review` skill's own design. This is the only sub-agent delegation in this story's workflow.
+
+## Skills Used
+
+### 1. bmad-create-story
+**Purpose:** Generate the dedicated story file for Story 2.3, since none existed despite `epics.md` defining it as the next story in Epic 2's sequence after 2.2.
+
+**Process:**
+- Read `_bmad-output/planning-artifacts/epics.md` (Epic 2, Story 2.3's AC text) and the architecture spine's AD-1 (single-owner data modules — confirmed `skills` is *not* in AD-1's "Binds" list, meaning no module owns a repository for it yet) and AD-7 (content ingestion is batch-only; matching is filter-then-rank with a threshold)
+- Read Story 2.2's own file for its Dev Notes/deferred items — specifically the explicit "no truncation/length handling for text exceeding the embedding model's ~256-token limit... binding guidance for Story 2.3/2.4" item, which this story needed to close
+- Read `backend/app/content/{schemas,models,repository,service,router}.py` and `backend/app/core/{seeds,seed_ids,config}.py` to find the existing `EmbeddingInput`/`EmbeddingOutput` schemas (unused, earmarked for this story), the existing `ContentCatalog`/`Skill` ORM models, and the established `Settings`/`load_settings()` fail-fast config pattern
+- Read the YouTube-quota research already in this codebase (`technical-rag-and-vector-database-approach...research-2026-07-08.md`) confirming `search.list`'s dedicated ~100/day bucket is separate from `videos.list`'s much larger one — this became the basis for the story's quota-detection design (trust the API's real 403 signal, never a local counter)
+- Wrote the story file with 7 acceptance criteria, 8 scope notes (including the deliberate, narrow, documented AD-1 exception for `list_all_skills`, and the deliberate CLI-not-admin-endpoint choice for manual seeding), 8 task groups, Dev Notes, and Architecture Compliance sections
+
+**Result:** `_bmad-output/implementation-artifacts/2-3-batch-content-ingestion-job-youtube-search.md` created at status `ready-for-dev`; sprint status updated (`backlog` → `ready-for-dev`).
+
+### 2. bmad-dev-story
+**Purpose:** Implement Story 2.3 end-to-end following TDD (red-green-refactor), task by task.
+
+**Process:**
+- **Task 1 (`youtube_client.py`):** Wrote `test_youtube_client.py` first (5 tests, all mocking `requests.get` — no real network calls) against a not-yet-existing module, confirmed RED. Implemented `search_videos`/`get_video_durations` with `QuotaExceededError` raised only on a 403 `quotaExceeded` body from `search.list`, never from `videos.list`. Confirmed GREEN.
+- **Tasks 2-3 (repository/schemas):** Added `list_all_skills` (documented AD-1 exception) and `ManualContentCreate` — small, no dedicated red-green cycle needed beyond the tests already covering the larger service-layer flows.
+- **Task 4 (`service.py`):** `_build_embedding_text` (1000-char truncation, closing Story 2.2's deferred item), `ingest_content_for_skill`, `run_ingestion_job` (quota-exhaustion-aware, per-skill failure isolation), `manual_seed_content`. Wrote `test_content_ingestion.py` (8 tests, live-DB via `conftest.py`'s `db_session` fixture) alongside.
+- **Task 5 (`cli.py`):** `python -m app.content.cli {ingest,seed}` argparse entrypoint. Wrote `test_content_cli.py` (2 tests) alongside.
+- **Task 6 (AD-7 regression guard):** `test_content_ad7_regression_guard.py`, mirroring Story 2.2's `test_no_router_file_calls_embed_text_directly` pattern — greps every `router.py`/`main.py` for `run_ingestion_job`/`search_videos`.
+- **Task 7 (`core/config.py`):** Added optional `YOUTUBE_API_KEY: str | None = None` plus a matching test confirming the app boots fine with it unset.
+- **Debugging encountered mid-implementation:** hit the already-documented `conftest.py`/`db_session` `drop_all()` landmine (`deferred-work.md`, from Story 3.3's review) — an earlier content-module test run in the same session had wiped the dev DB down to just `alembic_version`. Recovered via the established `DROP SCHEMA public CASCADE; CREATE SCHEMA public;` → `alembic upgrade head` → re-seed procedure, then re-verified the excluded-file pattern (main suite 143/143, content-module files together in isolation 18/18, the two pre-existing cross-file conflict files independently 16/16 and 7/7) before restoring the DB to a clean state as the session's final action.
+
+**Result:** 16 new tests passing across 4 new test files; full suite 143/143 (main run) + 18/18 (content-module isolation) + 16/16 and 7/7 (pre-existing exclusions, re-confirmed unrelated). Story status `ready-for-dev` → `review`.
+
+### 3. bmad-code-review
+**Purpose:** Run adversarial review against Story 2.3's diff (vs. its `baseline_commit`) before marking it `done`.
+
+**Process:**
+- Diff target resolved via Tier 1/3 (user confirmed running review right after implementation, matching the one `review`-status story): constructed from uncommitted changes against `baseline_commit: abebe3b`, explicitly excluding an unrelated `frontend/package-lock.json` lockfile diff picked up incidentally in the working tree — ~1005 diff lines across 13 files (7 modified, 6 new)
+- Launched **Blind Hunter**, **Edge Case Hunter**, and **Acceptance Auditor** as three parallel background subagents, each with zero shared context, each given the diff (Acceptance Auditor additionally given the story file and told to read the real on-disk files directly)
+- Two of the three layers (Blind Hunter and Acceptance Auditor) **independently converged on the same critical bug** — a missing `db.rollback()` that could cascade one Skill's failure into the whole batch run — while Edge Case Hunter separately found a related double-counting bug in the same code path
+- Normalized, deduplicated, and severity-rated the returned findings by reading the actual source at each location; routed 1 finding to `decision_needed`, 7 to `patch`, 7 to `defer`, and dismissed 4 as noise/duplicates
+- User resolved the one decision-needed item (pin `ManualContentCreate.source` to always `"MANUAL"`, closing an invisible-duplicate-risk gap) and selected "Apply every patch" for the remaining 7 (now 8 with the resolved decision)
+
+**Key findings, verified against the actual code before being trusted (not just reasoned about):**
+- The missing-rollback bug: read `run_ingestion_job`'s except branches directly and confirmed neither called `db.rollback()`, meaning a mid-skill DB failure would leave the shared session aborted and poison every subsequent skill's queries
+- **Fixing that bug surfaced a second, real bug during patch verification — not predicted by any reviewer:** `db.rollback()` expires every ORM object bound to the shared session, so the *next* loop iteration's access to `skill.name`/`skill.id` on an already-expired object raised `sqlalchemy.exc.MissingGreenlet` (an out-of-greenlet async attribute reload). Caught only by re-running this story's own test suite after applying the review's patch, then fixed by changing `ingest_content_for_skill`'s signature to take plain `skill_id`/`skill_name` values instead of a live ORM object, and pre-extracting `(id, name)` tuples before the loop starts
+- The `skipped_due_to_quota` double-count: traced the `except QuotaExceededError` branch's `extend()` call plus the loop's continued iteration and top-of-loop guard to confirm the same names would be appended twice for a 3+-skill run where quota exhausted before the last skill
+
+**Result:** 1 decision resolved, 8 patches applied (see Files Modified below), 7 items deferred to `deferred-work.md`, 4 dismissed. Full suite re-verified after patches: 143/143 (main run, same exclusion pattern) + 18/18 (content-module isolation) + 16/16 and 7/7 (pre-existing exclusions). Story status `review` → `done`; sprint status and `project-context.md` both updated with the review outcome.
+
+## Live YouTube API Verification (Follow-Up, Same Session)
+
+**Purpose:** Confirm the ingestion job actually works against YouTube's real API, not just mocked tests, after the user asked whether `YOUTUBE_API_KEY` was configured.
+
+**Process:**
+- Confirmed the key was unconfigured in both `backend/.env` and `backend/.env.example` (the placeholder from this story's own implementation was blank)
+- User supplied a real YouTube Data API v3 key; added it to `backend/.env` after an explicit check-in on git-tracking risk (the file is tracked in git, not gitignored — user chose to leave tracking as-is and add the key directly)
+- Ran `python -m app.content.cli ingest --skill-id <Python Programming's UUID>` against the live API: found and saved 3 real videos with correct titles, real ISO-8601 durations, thumbnails, and 384-dim embeddings
+- Ran the same command a second time: correctly inserted zero new rows, confirming de-duplication works against real API responses, not just test doubles
+- Ran `python -m app.content.cli seed ...` live: confirmed the review's pinned-`source="MANUAL"` patch holds in practice, not just in a unit test
+- Confirmed the no-API-key guard via its existing unit test (`test_ingest_command_exits_nonzero_without_youtube_api_key`) rather than re-deriving it live with a fragile subprocess script
+- Cleaned up all 4 real rows the live test inserted, per user's explicit choice, leaving the dev DB unchanged from before the test
+
+**Result:** Live end-to-end confirmation that ingestion, de-duplication, and manual seeding all work correctly against the real YouTube API and a real database — not just mocked unit tests. No code changes; this was verification only.
+
+## Files Created and Purpose of Each
+
+### 1. `_bmad-output/implementation-artifacts/2-3-batch-content-ingestion-job-youtube-search.md` (created)
+The story file: 7 acceptance criteria, 8 scope notes, 8 task groups, Dev Notes, Architecture Compliance — and, after implementation and review, the full Dev Agent Record (implementation plan, completion notes, pre- and post-review test results, Review Findings subsection with all 8 patches marked resolved, file list, change log).
+
+### 2. `backend/app/content/youtube_client.py` (created)
+The YouTube Data API v3 REST wrapper: `QuotaExceededError`, `search_videos` (raises it only on a 403 `quotaExceeded` body), `get_video_durations` (never raises it — different quota bucket). Post-review: status-code checked before `.json()` parsing, `None`/missing `videoId` results skipped rather than propagated.
+
+### 3. `backend/app/content/cli.py` (created)
+The manual trigger entrypoint: `python -m app.content.cli {ingest,seed}`. Post-review: `--source` flag removed from `seed` (schema now pins it to `MANUAL`).
+
+### 4. `backend/tests/test_youtube_client.py`, `test_content_ingestion.py`, `test_content_cli.py`, `test_content_ad7_regression_guard.py` (created)
+16 new tests total covering the YouTube client's response parsing/error handling, the ingestion job's de-dup/quota/failure-isolation behavior, the CLI's argument wiring and API-key gate, and a permanent grep-based regression guard against this job ever being called from a live route (hardened post-review to also catch aliased-import call sites).
+
+## Files Modified and Purpose of Each
+
+### 1. `backend/app/content/service.py` (modified)
+Added `_build_embedding_text`, `ingest_content_for_skill`, `run_ingestion_job`, `manual_seed_content`. Post-review: `db.rollback()` added to both failure branches; `ingest_content_for_skill`'s signature changed from taking a live `Skill` object to plain `skill_id`/`skill_name` values (closing the `MissingGreenlet` bug the rollback fix itself introduced); `run_ingestion_job` now validates `api_key` itself before doing any work; `MAX_RESULTS_PER_SKILL` constant used instead of a duplicated literal; `break` added after the quota-exhaustion branch's `extend()` to stop the double-count.
+
+### 2. `backend/app/content/repository.py` (modified)
+Added `list_all_skills` — a documented, narrow exception to AD-1's single-owner rule, since no module owns a `skills` repository yet.
+
+### 3. `backend/app/content/schemas.py` (modified)
+Added `ManualContentCreate`. Post-review: `source` field pinned to `Literal["MANUAL"]` (was configurable `YOUTUBE`/`MANUAL`), closing a gap where a manually-seeded row falsely marked `YOUTUBE` would be invisible to future de-dup checks.
+
+### 4. `backend/app/core/config.py` (modified)
+Added `YOUTUBE_API_KEY: str | None = None` — optional, doesn't break `load_settings()`'s existing fail-fast behavior for apps with no YouTube key configured.
+
+### 5. `backend/.env.example` (modified)
+Documented `YOUTUBE_API_KEY=` placeholder with a one-line explanation.
+
+### 6. `backend/.env` (modified, follow-up)
+Real `YOUTUBE_API_KEY` value added by the user, for the live verification pass. Not part of the story's own implementation — a separate, later action in the same session.
+
+### 7. `backend/tests/test_config.py` (modified)
+Added a test confirming `YOUTUBE_API_KEY` defaults to `None` and the app boots fine without it (AC7).
+
+### 8. `_bmad-output/implementation-artifacts/sprint-status.yaml` (modified)
+`2-3-batch-content-ingestion-job-youtube-search`: `backlog` → `ready-for-dev` → `in-progress` → `review` → `done`.
+
+### 9. `_bmad-output/implementation-artifacts/deferred-work.md` (modified)
+7 new entries appended: TOCTOU race in Python-side de-dup (no DB unique constraint); truncation logged at debug level (limited operator visibility); no retry/backoff for transient YouTube failures; `ManualContentCreate.skill_id` has no existence check; `--skill-id` silently drops unmatched UUIDs; quota-retry date computed from UTC not Pacific Time; `list_all_skills`'s AD-1 exception has no issue-tracking reference.
+
+### 10. `_bmad-output/project-context.md` (modified)
+Two entries appended: story-creation-and-implementation summary (quota-detection design, the documented AD-1 exception, the deliberate no-scheduler scope cut) and post-code-review summary (the missing-rollback bug two layers independently found, the follow-on `MissingGreenlet` bug the fix itself introduced, the pinned-source decision, and the full patch/defer list).
+
+### 11. `documentation/ImplementationStepsForStory2-3.md` (created, separately requested)
+A standalone brief explanation of the implementation, issues faced, and root causes — written for a less technical audience than this file, per a separate user request in the same session.
+
+### 12. `documentation/PROJECTWORKFLOW.md` (this file, appended to)
+Session log entry documenting the Story 2.3 implementation-and-review phase, plus the follow-up live YouTube API verification.
+
+## Session Notes
+
+- **The critical rollback bug was caught by cross-layer convergence, not a single sharp-eyed reviewer.** Blind Hunter and Acceptance Auditor independently flagged the same missing `db.rollback()` from different angles (one framed it as a session-poisoning risk, the other as an AC4 failure-isolation violation) — the kind of finding that's easy to dismiss as "just one reviewer's opinion" when it comes from a single layer, but much harder to wave away when two non-collaborating adversarial passes land on the identical root cause independently.
+- **Fixing a real bug introduced a second real bug — and the second one was caught by re-running tests, not by re-reviewing.** Adding the rollback call was the correct fix for the first bug, but it had a side effect (ORM attribute expiry) that broke a different assumption baked into the surrounding loop. This is a concrete instance of "the fix for finding A can introduce finding B" — the discipline of re-running the full test suite after every patch, not just trusting that a patch is safe because it's small and obviously correct, is what caught it here.
+- **The quota-detection design (trust the API's own signal, never a local counter) held up under review scrutiny.** None of the three adversarial layers challenged the decision to detect quota exhaustion via YouTube's real 403 response rather than tracking call counts locally — the reasoning (a local counter can't survive process restarts or drift out of sync with Google's actual enforcement) was accepted as sound, not just asserted.
+- **The live YouTube API verification happened in a separate exchange from the original code-review cycle**, prompted by the user asking a status question ("is YOUTUBE_API_KEY configured?") rather than a planned next step — but it exercised exactly the code paths (search, de-dup, manual seed, no-key guard) the mocked tests had already covered, this time against the real external dependency. No new code changes came out of it; it was purely a confidence-building verification pass, with explicit user check-ins before touching the tracked `.env` file and before cleaning up the resulting live data.
+- **This story closed the exact deferred item Story 2.2 had named it as the binding target for** — the ~256-token truncation gap Story 2.2's review explicitly flagged as "binding guidance for Story 2.3/2.4" was closed here via `_build_embedding_text`'s 1000-character budget, not silently dropped or re-deferred again.
+
+---
+
+# Story 2.5 Implementation Phase — Skills, Agents, and Files
+
+**Date:** 2026-07-10 to 2026-07-11
+**Status:** Story 2.5 (Content Discovery — Multi-Assignment Grid View) implemented and code-reviewed, status `done`; `epic-2` remains `in-progress` (5/6 stories done, only Story 2.6 backlog)
+
+## Overview
+
+Sprint status had Story 2.5 at `backlog` under the key `2-5-content-discovery-single-assignment-card-view`. Before authoring the story, a read of `epics.md`'s own Story 2.5 text surfaced a real documentation defect: a same-day-as-Story-2.4's-predecessors "tier-2 fix" (2026-07-09) had rewritten it into a "Single Assignment Card View," citing UX spec `02.1-content-discovery.md` as its source — but that UX spec doc is itself the stale, pre-pivot artifact the earlier Implementation Readiness Report had already flagged as reproducing decisions the PRD and shipped prototype had since reversed. The PRD's own FR-4 (confirmed the same day, 2026-07-09, "the intended scope") and the actual shipped prototype (`02.1-Content-Discovery.html`) both describe a **multi-assignment grid** instead — Total/In Progress/To Start summary stats, two grouped sections, one card per assignment. User decision: correct `epics.md` back to the FR-4/prototype grid model before writing the story, not build against the stale text. The story key was renamed to `2-5-content-discovery-multi-assignment-grid-view` to match the corrected scope. The full cycle then ran: `bmad-create-story` → `bmad-dev-story` → `bmad-code-review`, all within the main conversation loop (Amelia persona active throughout, activated at session start via `bmad-agent-dev`).
+
+## Agents Called
+
+- **Amelia — Senior Software Engineer (`bmad-agent-dev`)** — activated at the start of the session as the persistent persona; every subsequent skill call (`bmad-create-story`, `bmad-dev-story`, `bmad-code-review`) ran with Amelia's icon/communication style carried through, consistent with the established pattern of the persona wrapping bare skills rather than a separate invocation per skill.
+- **Three parallel background subagents for code review** — Blind Hunter (invoking `bmad-review-adversarial-general`), Edge Case Hunter (invoking `bmad-review-edge-case-hunter`), and an Acceptance Auditor (a plain prompt-driven audit against the story file and diff, no further skill invoked) — each spawned with zero shared context, per `bmad-code-review`'s own design. This is the only sub-agent delegation in this story's workflow.
+- **One additional fresh-context general-purpose subagent**, run during `bmad-create-story` itself (before `dev-story`), specifically to validate the newly authored story file against `bmad-create-story`'s own quality checklist and the actual current codebase — catching issues before implementation started rather than after.
+
+## Skills Used
+
+### 1. `bmad-create-story`
+
+**Purpose:** Produce a dedicated story file carrying full implementation context for Story 2.5, since the existing `epics.md` text needed correcting first.
+
+**Process:**
+- Corrected `epics.md`'s Story 2.5 section and its frontmatter tracking note (the "tier-2 fix" description) back to the multi-assignment grid model, with an explicit inline note explaining why the prior rewrite was itself wrong.
+- Read the PRD (`prd.md` §4.2, FR-4), the shipped prototype (`02.1-Content-Discovery.html`), the UX scenario doc, the Architecture Spine (AD-1, AD-2, AD-3, AD-6, AD-8), and the existing `assignments/`, `content/`, `progress/`, `dashboard/` module code (repository, service, schemas, router files) to ground every scope note and task in real, current code rather than assumption.
+- Identified and wrote in eight Scope Notes covering: the stale-epics.md correction itself; the fact that no `GET /api/assignments` route existed yet despite Story 1.3 forward-referencing it; that `Assignment.content_id` is always `NULL` today (Story 3.4/3.5 still `backlog`), so Content must be resolved live via Story 2.4's `match_content_for_skill`; that no Status/Provenance derivation function exists yet (Story 5.1 owns the full version) and this story needed only a narrow seed of it; that the frontend's watch-progress-capture service has been POSTing to a route that returns 404 since Stories 4.2/4.3 shipped (a pre-existing Epic 4 gap, not this story's to fix); that `watch_position` is stored in seconds, not a percentage, making percent-watched a best-effort display concern; and an explicit non-goal (no "Try again" retry CTA on video load failure).
+- **A fresh-context general-purpose subagent was spawned to validate the drafted story file** against `bmad-create-story`'s own checklist and the real codebase before handing it to `dev-story`. It caught three real defects: (1) the draft let `HR_ADMIN` sessions through to the new endpoint, which would have looped a coaching-shaped `progress` read across an unrestricted, org-wide assignment set — a real AD-2 violation; (2) the draft's example code called a bare `progress.service.get_progress(...)`, but `progress/service.py` is 100% class-based (`ProgressService` with `@staticmethod`s) — following the snippet literally would raise `ImportError`; (3) the draft's new `derive_status` helper was written as a bare function, inconsistent with that same class convention. All three were fixed in the story file before implementation began.
+
+**Result:** `_bmad-output/implementation-artifacts/2-5-content-discovery-multi-assignment-grid-view.md` created at status `ready-for-dev`; sprint status key renamed and updated (`2-5-content-discovery-single-assignment-card-view: backlog` → `2-5-content-discovery-multi-assignment-grid-view: ready-for-dev`).
+
+### 2. `bmad-dev-story`
+
+**Purpose:** Implement Story 2.5 end-to-end following TDD, task by task, then live-verify the result in a real browser per the Epic 1 retrospective's own standing action item (UI stories must be checked against generated prototypes before being marked `done`).
+
+**Process:**
+- **Task 1 (repository):** Added `selectinload(Assignment.skill)` to the existing `list_assignments_for_employee` query — required to avoid the exact `MissingGreenlet` async-lazy-load bug Story 2.3's code review had already found and fixed once in this codebase.
+- **Task 2 (`progress/service.py`):** Added `ProgressService.derive_status` as a new staticmethod on the existing class. Implemented duration-aware (`derive_status(watch_position, duration_seconds=None)`), deviating from the story's own draft single-argument signature — a naive 0/1-99/100 percentage-style bucketing of `watch_position` would have been wrong by construction, since that column is stored in seconds, not a percentage. Caught and fixed during implementation itself, before any test was written against the wrong behavior.
+- **Task 3 (`assignments/schemas.py` + `service.py`):** Added `AssignmentContentItem`/`MyAssignmentsResponse` schemas and `list_my_assignments`, composing `content.service.match_content_for_skill` (Story 2.4) and `ProgressService.get_progress` (Story 4.1) per assignment, gated to EMPLOYEE-only sessions (`403 FORBIDDEN_NOT_EMPLOYEE` for HR_ADMIN) per the create-story validation pass's finding.
+- **Task 4 (`assignments/router.py`):** Added the first real route on this router — `GET ""` (not `GET "/"`, to avoid an unnecessary FastAPI trailing-slash 307 redirect, caught live via `curl` before the frontend integration pass and fixed on the spot).
+- **Task 5 (backend tests):** New `test_content_discovery.py`, private-engine pattern (never the shared `conftest.py` fixture, per this codebase's still-unfixed `drop_all()` landmine) — 6 tests covering the EMPLOYEE-only gate, hard-scoping, content composition (matched/unmatched), status/group derivation, and summary-count consistency. All passed on first run.
+- **Tasks 6-9 (frontend):** New `assignmentsApi.ts`, `duration.ts` (best-effort ISO-8601 duration parsing), `types/assignments.ts`, `AssignmentCard.tsx`, a real `ContentDiscovery.tsx` page (replacing Story 1.8's placeholder stub at the same `/employee/content` route), and a thin `AssignmentWatch.tsx` wrapper mounting the existing `<VideoPlayer>` (Story 4.0) at a new `/assignments/:assignmentId/watch` route. 12 new frontend tests across two new test files, all passed on first run.
+- **Live browser verification (Playwright, installed ad hoc for this session):** brought up the real Docker Postgres, `uvicorn`, and Vite dev server, logged in as the seeded Employee "Casey," and drove the actual grid through every state. This caught two real bugs no test suite had found: (1) `content/schemas.py`'s `ContentResponse.metadata` field used a plain Pydantic `alias="content_metadata"`, which affects serialization as well as validation — every real HTTP response was leaking the DB-internal column name instead of the schema's own documented public field name `metadata`, dormant since Story 2.1 because `content/router.py` had zero routes until this story's route became its first-ever real HTTP response; fixed via `validation_alias` instead of a shared `alias`. (2) A never-started assignment's card showed a misleading "0% watched" instead of "Not started yet" — the percent-computation helper correctly returns `0` (not `null`) whenever a duration is known, but the card blindly rendered it without checking whether any watching had actually happened; fixed by gating the progress display on `watch_position > 0`.
+- **Live fixture-data hygiene incident, root-caused and fixed mid-session:** an early live-verification script created a real `Assignment` row via `session.commit()` (not rollback) directly against the shared dev database, which transiently broke two unrelated tests' exact-count assertions. Root-caused via the failing assertions' diffs, cleaned up the specific rows (deleting the child `skill_progress` row before the parent `Assignment`, per the FK), then re-ran the full suite to confirm clean before finalizing.
+
+**Result:** 6 new backend tests (179 total passing), 12 new frontend tests (83 total passing), zero regressions in either suite. `tsc --noEmit` confirmed to show only 4 pre-existing errors (unrelated `VideoPlayer.tsx`/`VideoPlayerDemo.tsx` issues from Story 4.2/4.3, verified present on the baseline commit via `git stash` before any of this story's own changes); `vite build` (the actual bundler, bypassing the `tsc &&` gate) confirmed to succeed cleanly. Story status `ready-for-dev` → `review`.
+
+### 3. `bmad-code-review`
+
+**Purpose:** Adversarially review Story 2.5's diff against its `baseline_commit` before allowing it to reach `done`.
+
+**Process:**
+- Diff constructed against the story file's own `baseline_commit: b02a1fa`, scoped to `backend/app`, `frontend/src`, and `backend/tests` (excluding documentation-only changes to `epics.md`/`sprint-status.yaml`/`project-context.md`) — 1286 diff lines across 22 files, well under the chunking threshold.
+- Launched **Blind Hunter**, **Edge Case Hunter**, and **Acceptance Auditor** as three parallel background subagents, each with zero shared context, each given the diff and the story file for reference.
+- Normalized 21 raw findings across the three layers into 13 unique issues, verified each against the actual current code (not just the diff hunk) before assigning severity — confirming several findings as real (a missing AC4 field, a missing test-coverage branch, a genuine keyboard-accessibility bug, an unmount-safety gap) and dismissing others as unreachable-in-practice or already independently verified during dev-story (a "deleted Skill" scenario with no code path that could ever delete one; a double-`Depends` pattern that matches this codebase's existing convention; the `ContentResponse.metadata` fix's blast radius, already checked against every other caller).
+- Routed findings: 1 `decision_needed`, 4 `patch`, 6 `defer`, 8 `dismiss`.
+- Presented the one decision-needed item to the user directly (AC6's empty-state bracketed text has no real link, unlike its AC5/AC7 siblings) — resolved as "keep as static text," since this page already IS the assignments view with no separate destination to link to.
+- User selected "apply every patch now" for the remaining 4; all 4 were applied and re-verified against the full regression suite.
+
+**Key findings, verified against the actual code before being trusted:**
+- **Real AC violation:** AC4 explicitly lists `content.description` among required card fields, but the frontend never rendered it anywhere despite the field flowing correctly from the backend — confirmed via a direct grep of the component finding zero occurrences.
+- **Real test-coverage gap the story's own checklist had wrongly claimed was closed:** Task 5 explicitly required proving `watch_position=100 → COMPLETED` and the deliberate "COMPLETED folds into the IN_PROGRESS grid group" decision, and was checked `[x]` — but neither the backend nor frontend test suite ever exercised `COMPLETED` at all, confirmed by grepping both test files for the literal string.
+- **Real keyboard-accessibility bug:** the per-card "Contact Rita" link (shown when no Content is matched) was nested inside a `role="button"` Card whose own `onKeyDown` called `preventDefault()` on every Enter/Space keydown unconditionally — since keydown bubbles from the focused link to the ancestor Card, this silently suppressed the link's own default mailto-navigation before it could fire.
+- **Real unmount-safety gap:** `handleRetry` in the error state duplicated the mount-effect's fetch logic but omitted its `cancelled` guard, risking a `setState` call after unmount if a user retried then navigated away before the retry resolved.
+
+**Fixes applied:**
+- `AssignmentCard.tsx` now renders `item.content.description` (line-clamped) when present.
+- Added `test_completed_status_folds_into_in_progress_group` (backend) and a matching frontend assertion on the ✓ Completed badge rendering under the In Progress section.
+- `AssignmentCard.tsx`'s `onKeyDown` now checks `e.target !== e.currentTarget` and returns early for events that didn't originate on the Card itself — the standard fix for this "interactive element nested in a custom-role container" bug class — plus a regression test dispatching a real `KeyboardEvent` directly at the link.
+- `ContentDiscovery.tsx`'s `handleRetry` now bumps a `reloadToken` state value that the existing guarded `useEffect` depends on, consolidating into one fetch/guard implementation instead of two that could drift out of sync.
+
+**Result:** 1 decision resolved, 4 patches applied, 6 deferred to `deferred-work.md`, 8 dismissed. Full suite re-verified after patches: 180/180 backend, 85/85 frontend, zero regressions. `tsc --noEmit`/`vite build` re-confirmed unchanged from the pre-patch state. Story status `review` → `done`; sprint status and `project-context.md` both updated with the review outcome.
+
+## Files Created and Purpose of Each
+
+### 1. `_bmad-output/implementation-artifacts/2-5-content-discovery-multi-assignment-grid-view.md` (created)
+The story file: 8 scope notes, 10 acceptance criteria, 9 task groups, Dev Notes (including a dedicated AD-8 compliance argument for the cross-module composition), Architecture Compliance, and — after implementation and review — the full Dev Agent Record, a `### Review Findings` subsection with all patches marked resolved, file list, and change log.
+
+### 2. `backend/tests/test_content_discovery.py` (created)
+Private-engine-pattern live-DB tests for `list_my_assignments` — 7 tests covering the EMPLOYEE-only gate/403, hard-scoping, content composition (matched and unmatched), status/group derivation including the `COMPLETED` path added post-review, and summary-count consistency.
+
+### 3. `frontend/src/lib/api/assignmentsApi.ts`, `frontend/src/types/assignments.ts` (created)
+The frontend API client (`listMyAssignments()`, reusing the existing shared `apiClient`) and TypeScript types mirroring the new backend response schemas exactly.
+
+### 4. `frontend/src/lib/utils/duration.ts` (created)
+Best-effort ISO-8601 duration parsing (`parseIso8601DurationSeconds`, `formatDurationMinutes`, `computePercentWatched`) for the card's duration/progress display — display-only, never a backend concern.
+
+### 5. `frontend/src/components/AssignmentCard.tsx` (created)
+The per-assignment card component: status badge (icon + text, never color-only), thumbnail/no-preview fallback, title/source/duration/description, "✓ Approved" provenance label, progress bar or "Not started yet," and the per-card empty state ("No recommended content yet... Contact Rita"). Post-review: description rendering added, keyboard-activation bug fixed.
+
+### 6. `frontend/src/pages/employee/ContentDiscovery.tsx` (created, replacing the deleted `ContentDiscoveryStub.tsx`)
+The real Content Discovery page at the existing `/employee/content` route: loading/loaded/page-empty/page-error states, summary stats, two grouped sections (In Progress / To Start), Sign Out. Post-review: `handleRetry` consolidated into the guarded `useEffect` via a `reloadToken`.
+
+### 7. `frontend/src/pages/employee/AssignmentWatch.tsx` (created)
+A thin wrapper page at the new `/assignments/:assignmentId/watch` route, mounting the existing `<VideoPlayer>` with `videoUrl`/`startSeconds` received via router state from the card click — redirects back to Content Discovery if that state is missing (direct navigation/refresh).
+
+### 8. `frontend/src/tests/ContentDiscovery.test.tsx`, `frontend/src/tests/AssignmentWatch.test.tsx` (created, replacing the deleted `ContentDiscoveryStub.test.tsx`)
+12 tests total (post-review: 14) covering every page state, card interactions (click/keyboard activation), the watch-route navigation contract, the redirect-on-missing-state behavior, and (added post-review) the `COMPLETED` badge path and the nested-link keyboard-activation fix.
+
+## Files Modified and Purpose of Each
+
+### 1. `backend/app/assignments/repository.py` (modified)
+Added `selectinload(Assignment.skill)` to `list_assignments_for_employee`'s existing query — eager-loading only, no change to its hard-scoping logic.
+
+### 2. `backend/app/assignments/schemas.py` (modified)
+Added `AssignmentContentItem`, `MyAssignmentsResponse`.
+
+### 3. `backend/app/assignments/service.py` (modified)
+Added `list_my_assignments` (EMPLOYEE-only gate, composes `content`/`progress` service calls, assembles counts from the built list) and `_parse_iso8601_duration_seconds`.
+
+### 4. `backend/app/assignments/router.py` (modified)
+Added the router's first real route, `GET ""`, mounted at `/api/assignments`.
+
+### 5. `backend/app/progress/service.py` (modified)
+Added `ProgressService.derive_status` — the narrow, duration-aware Status-only seed of AD-3's single-derivation-authority rule.
+
+### 6. `backend/app/content/schemas.py` (modified)
+Fixed a real, previously-undetected bug found during live verification: `ContentResponse.metadata`'s plain `alias="content_metadata"` was leaking the DB-internal column name over every real HTTP response — changed to `validation_alias` (input-only), leaving serialization at the schema's intended public name `metadata`. Dormant since Story 2.1; this story's route was the first time this schema was ever actually serialized over real HTTP.
+
+### 7. `frontend/src/App.tsx` (modified)
+Swapped `ContentDiscoveryStub` for the real `ContentDiscovery`; added the new `/assignments/:assignmentId/watch` route.
+
+### 8. `_bmad-output/planning-artifacts/epics.md` (modified)
+Story 2.5's section rewritten back to the multi-assignment grid model (correcting the 2026-07-09 "tier-2 fix" that had wrongly reverted it to a single-card model citing a stale UX spec doc); the frontmatter's `highPriorityFixesApplied` tracking note updated to flag the supersession.
+
+### 9. `_bmad-output/implementation-artifacts/sprint-status.yaml` (modified)
+Story key renamed `2-5-content-discovery-single-assignment-card-view` → `2-5-content-discovery-multi-assignment-grid-view`; status progressed `backlog` → `ready-for-dev` → `in-progress` → `review` → `done`, each transition logged as a dated comment.
+
+### 10. `_bmad-output/implementation-artifacts/deferred-work.md` (modified)
+New `## Deferred from: code review of story-2-5-content-discovery-multi-assignment-grid-view (2026-07-11)` section appended — 6 items: MANUAL-source content's permanently-unreachable `COMPLETED` status; an empty-string `videoUrl` edge case in the watch-route type guard; an `assignmentId`-undefined-with-valid-state edge case; no memoization/batching of the per-assignment content/progress lookups; a non-string-`duration` `TypeError` risk; no floor-at-0 guard on a hypothetical negative `watch_position`.
+
+### 11. `_bmad-output/project-context.md` (modified)
+Two entries appended, per the project's own mandatory-update rule: the story-creation-and-implementation summary (the epics.md correction, the AD-2 gate rationale, the two live-verification bug catches) and the code-review summary (the coverage-gap lesson, the AC4 gap, the keyboard-accessibility bug pattern worth watching for elsewhere in this codebase, and the resolved decision).
+
+### 12. `documentation/PROJECTWORKFLOW.md` (this file, appended to)
+Session log entry documenting the Story 2.5 create-story/dev-story/code-review cycle.
+
+## Session Notes
+
+- **A documentation defect was caught and fixed before it could propagate into code.** `epics.md`'s own Story 2.5 text had drifted stale from a same-day "fix" that cited an already-flagged-stale source document — this is the second time in this project a downstream artifact was found citing an upstream document that itself needed correcting first (the first being the Implementation Readiness Report's own FR-4/FR-8 staleness finding this session's correction directly resolved). Worth remembering as a standing pattern: a "fix" applied to a planning document is not automatically more current than the document it's fixing, if its own citation chain terminates in something stale.
+- **The pre-implementation story-validation subagent caught real architecture and API-correctness defects before any code was written**, not after. The AD-2 violation in particular — letting HR_ADMIN reach a coaching-shaped per-assignment progress read across an unrestricted, org-wide assignment set — is exactly the class of finding that's cheaper to catch in a story file than in a diff; had it shipped, code review would have caught it too, but only after real code needed to be re-written.
+- **The code review process caught a checked-but-unproven task box**, echoing a pattern already logged once before in this project's Story 3.2 review: Task 5 explicitly required `COMPLETED`-path test coverage, the box was checked `[x]`, but no test on either side of the stack ever exercised that branch. A checked box is not proof of coverage — this is the second time this exact review-quality lesson has surfaced in this project, worth treating as a standing habit rather than a one-off catch.
+- **Live browser verification once again caught what static analysis and unit tests structurally could not** — both real bugs found during `dev-story`'s own live-verification pass (the `ContentResponse.metadata` serialization leak and the misleading "0% watched" display) were invisible to `tsc`, `pytest`, and `vitest` alike, since both are runtime-serialization/runtime-rendering behaviors that only manifest when the actual HTTP response or actual DOM is inspected. This is now the second story in this project (after Story 1.8's live-testing catch) where a live pass, not automated tooling, surfaced the most consequential defect.
+- **A live-verification script's own side effect (a committed, not rolled-back, database row) transiently broke two unrelated tests mid-session** — caught and root-caused via the failing assertions themselves rather than assumed to be a real regression, then cleaned up before the session's final state was confirmed clean. A reminder that live-verification fixtures need the same cleanup discipline as test fixtures when the shared dev database is the only Postgres instance available.
+
+---

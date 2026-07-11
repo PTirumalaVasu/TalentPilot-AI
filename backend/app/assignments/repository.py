@@ -2,7 +2,7 @@
 import uuid
 
 from fastapi import status
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -97,7 +97,7 @@ async def list_assignments_for_employee(
     ignoring any requested_employee_id override. HR_ADMIN sessions are
     unrestricted; requested_employee_id acts as a real filter for them, not a
     spoof-defense."""
-    stmt = select(Assignment)
+    stmt = select(Assignment).options(selectinload(Assignment.skill))
 
     if current_user.role == Role.EMPLOYEE:
         stmt = stmt.where(Assignment.employee_id == _parse_user_id(current_user))
@@ -133,3 +133,51 @@ async def list_assignments_for_dashboard(session: AsyncSession) -> list[Assignme
     )
     result = await session.execute(stmt)
     return list(result.scalars().all())
+
+
+class AssignmentPage:
+    """Paginated assignment list response."""
+
+    def __init__(self, assignments: list[Assignment], total_count: int):
+        self.assignments = assignments
+        self.total_count = total_count
+
+
+async def list_assignments_for_hr(
+    session: AsyncSession,
+    *,
+    hr_admin_id: uuid.UUID,
+    page: int = 1,
+    page_size: int = 50,
+) -> AssignmentPage:
+    """Fetch all Assignments created by an HR Admin with pagination.
+
+    Returns assignments sorted by assigned_at DESC (newest first).
+    Joins with Employee and Skill for eager loading of relationships.
+    """
+    from sqlalchemy import desc
+    from sqlalchemy.orm import selectinload
+
+    # Count total assignments for this HR Admin
+    count_stmt = select(func.count(Assignment.id)).where(Assignment.assigned_by == hr_admin_id)
+    count_result = await session.execute(count_stmt)
+    total_count = count_result.scalar() or 0
+
+    # Fetch paginated assignments with eager-loaded relationships
+    stmt = (
+        select(Assignment)
+        .where(Assignment.assigned_by == hr_admin_id)
+        .order_by(desc(Assignment.assigned_at))
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .options(
+            selectinload(Assignment.employee),
+            selectinload(Assignment.skill),
+            selectinload(Assignment.content),
+        )
+    )
+
+    result = await session.execute(stmt)
+    assignments = list(result.scalars().all())
+
+    return AssignmentPage(assignments=assignments, total_count=total_count)

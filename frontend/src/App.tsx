@@ -3,6 +3,9 @@ import { AuthProvider } from '@/lib/auth/AuthContext';
 import { RequireAuth } from '@/lib/auth/RequireAuth';
 import { Login } from '@/pages/Login';
 import { DashboardStub } from '@/pages/hr/DashboardStub';
+import { ContentDiscovery } from '@/pages/employee/ContentDiscovery';
+import { AssignmentWatch } from '@/pages/employee/AssignmentWatch';
+import { Dashboard } from '@/pages/hr/Dashboard';
 import { ContentDiscoveryStub } from '@/pages/employee/ContentDiscoveryStub';
 import { VideoPlayerDemo } from '@/pages/dev/VideoPlayerDemo';
 
@@ -16,7 +19,7 @@ export function App() {
             path="/hr/dashboard"
             element={
               <RequireAuth>
-                <DashboardStub />
+                <Dashboard />
               </RequireAuth>
             }
           />
@@ -24,7 +27,15 @@ export function App() {
             path="/employee/content"
             element={
               <RequireAuth>
-                <ContentDiscoveryStub />
+                <ContentDiscovery />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/assignments/:assignmentId/watch"
+            element={
+              <RequireAuth>
+                <AssignmentWatch />
               </RequireAuth>
             }
           />
