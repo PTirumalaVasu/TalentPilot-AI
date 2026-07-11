@@ -59,10 +59,14 @@ async def duplicate_check_route(
     return await duplicate_check_service(session, current_user=current_user, employee_id=employee_id, skill_id=skill_id)
 
 
-@router.get("/list")
-async def list_assignments_route() -> dict:
-    """Test endpoint."""
-    return {"test": "data"}
+@router.get("/employee-assignments")
+async def list_employee_assignments_route(
+    current_user: CurrentUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+) -> MyAssignmentsResponse:
+    """Fetch current EMPLOYEE's assignments with progress counts (Story 2.5).
+    EMPLOYEE-only — returns 403 for HR_ADMIN role."""
+    return await list_my_assignments(session, current_user=current_user)
 
 
 @router.post("", response_model=AssignmentResponse, status_code=status.HTTP_201_CREATED)
