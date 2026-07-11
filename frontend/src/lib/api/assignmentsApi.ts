@@ -86,6 +86,6 @@ export async function createAssignment(
 }
 
 export async function listMyAssignments(): Promise<MyAssignmentsResponse> {
-  const response = await apiClient.get<MyAssignmentsResponse>('/api/assignments/my-assignments');
+  const response = await apiClient.get<MyAssignmentsResponse>('/api/assignments/list');
   return response.data;
 }
