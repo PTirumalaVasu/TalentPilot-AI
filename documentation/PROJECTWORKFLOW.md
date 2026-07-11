@@ -2877,3 +2877,126 @@ Session log entry documenting the Story 2.5 create-story/dev-story/code-review c
 - **A live-verification script's own side effect (a committed, not rolled-back, database row) transiently broke two unrelated tests mid-session** — caught and root-caused via the failing assertions themselves rather than assumed to be a real regression, then cleaned up before the session's final state was confirmed clean. A reminder that live-verification fixtures need the same cleanup discipline as test fixtures when the shared dev database is the only Postgres instance available.
 
 ---
+
+# Story 2.6 Implementation Phase — Skills, Agents, and Files
+
+**Date:** 2026-07-11
+**Status:** Story 2.6 (Empty & Error States for Content Discovery) implemented and code-reviewed across two independent rounds, status `done`. All 6 stories under `epic-2` (2-1 through 2-6) are now `done`; `epic-2`'s own top-level status field in `sprint-status.yaml` remains `in-progress` — the manual epic-status transition to `done` has not yet been performed.
+
+## Overview
+
+Sprint status had Story 2.6 at `backlog`. Before writing any code, direct inspection of the current source (not the epic's own title text) found that four of the story's five acceptance-criteria states were already built and already tested as side effects of Story 2.5 and Story 4.6 — so the story was scoped down to a verification pass for those four, not a rebuild. The one real gap was `VideoPlayer.tsx`'s video-load-failure handling, a thread Story 2.5's own Scope Notes had explicitly deferred and no later story had picked up. Story authoring also surfaced a critical, unrelated, pre-existing build-breaking bug (a bad `main`-merge had left `assignmentsApi.ts` syntactically broken) and scoped its fix as a blocking prerequisite task. The full cycle then ran: `bmad-create-story` → `bmad-dev-story` → `bmad-code-review` (round 1) → a user-requested independent `bmad-code-review` (round 2) — all within the main conversation loop, Amelia persona active throughout (activated at session start via `bmad-agent-dev`).
+
+## Agents Called
+
+- **Amelia — Senior Software Engineer (`bmad-agent-dev`)** — activated at the start of the session as the persistent persona; every subsequent skill call (`bmad-create-story`, `bmad-dev-story`, both `bmad-code-review` rounds) ran with Amelia's icon/communication style carried through, consistent with this project's established pattern of the persona wrapping bare skills rather than a separate invocation per skill.
+- **Three parallel background subagents per code-review round (six total across both rounds)** — Blind Hunter (invoking `bmad-review-adversarial-general`), Edge Case Hunter (invoking `bmad-review-edge-case-hunter`), and an Acceptance Auditor (a plain prompt-driven audit against the story file and diff, no further skill invoked), each spawned with zero shared context, per `bmad-code-review`'s own design. Round 2's three subagents were explicitly instructed not to assume Round 1's fixes were correct, matching this project's established re-review pattern (first used for Story 3.4).
+- **No pre-implementation story-validation subagent was spawned this time** (contrast with Story 2.5) — the story file's scope was instead validated inline during `bmad-create-story` itself, via direct source inspection (globs, greps, and targeted file reads) rather than a delegated fresh-context pass.
+
+## Skills Used
+
+### 1. `bmad-create-story`
+
+**Purpose:** Produce a dedicated story file for Story 2.6, since the epic's own AC text needed independent verification against the current codebase before any implementation guidance could be trusted.
+
+**Process:**
+- Read the epic's Story 2.6 text (5 AC states), then directly inspected `frontend/src/pages/employee/ContentDiscovery.tsx`, `frontend/src/components/AssignmentCard.tsx`, and `frontend/src/components/ContinueWatchingCard.tsx` against their respective test files — found 4 of the 5 states already built and already tested (side effects of Story 2.5's own AC5-AC7 and Story 4.6's AC1), with copy matching the epic text exactly.
+- Read `frontend/src/components/VideoPlayer.tsx` and confirmed via glob that no `VideoPlayer.test.tsx` existed anywhere in the repo — the one real gap: a bare, un-retriable error string, explicitly deferred by Story 2.5's own Scope Note 8 and never picked up since.
+- **Found a critical, unrelated, pre-existing build-breaking bug while establishing baseline state**: ran `npx tsc --noEmit` before writing any scope notes and found `frontend/src/lib/api/assignmentsApi.ts` was syntactically broken — a bad `main`-merge (`1b3d8b8`) had left `createAssignment`'s function body missing its closing brace, nesting `listMyAssignments` illegally inside it. `npm run build` was fully broken, invisible to `vitest` only because both consuming test files mock the module wholesale. Scoped as a blocking Task 0, done first.
+- Wrote 4 Scope Notes documenting all of the above with exact file:line references, so the dev-story phase would spend its effort on the one real gap instead of re-verifying or rebuilding the four already-correct states.
+
+**Result:** `_bmad-output/implementation-artifacts/2-6-empty-and-error-states-for-content-discovery.md` created at status `ready-for-dev`; `sprint-status.yaml` updated (`2-6-empty-and-error-states-for-content-discovery: backlog` → `ready-for-dev`).
+
+### 2. `bmad-dev-story`
+
+**Purpose:** Implement Story 2.6 end-to-end following TDD, task by task.
+
+**Process:**
+- **Task 0 (blocking prerequisite):** Fixed `assignmentsApi.ts`'s merge-corrupted `createAssignment`/`listMyAssignments`. Fixing it unmasked (not introduced — confirmed via `git stash`/`git stash pop` against the baseline commit) 25 further pre-existing `tsc` errors that had been silently hidden behind that one fatal parse failure the whole time. Logged to `deferred-work.md` rather than fixed (out of this story's scope, the same bug class first flagged in Story 3.4); `vite build` used as the practical build-verification proxy in the meantime, per Story 2.5's established precedent for this exact situation.
+- **Task 1 (verification pass, AC1/AC2/AC4/AC5):** Re-ran the existing tests for the four already-built states — zero drift found, zero code changes made.
+- **Tasks 2-3 (`VideoPlayer.tsx`, the real new work, AC3/AC6):** Built via TDD — wrote `VideoPlayer.test.tsx` first against the pre-implementation component, confirmed 4 of 5 new tests failed for the right reasons (no `role="alert"`, no retry button, generic copy), then implemented the literal "This video couldn't be loaded." copy, `role="alert"`, and a `handleRetry` function, confirmed all 5 tests green. **A real bug was caught by the test suite itself, not by reasoning about the code**: the first draft of `handleRetry` didn't reset `playerRef.current` before calling `initPlayer()` again, so the retry silently no-op'd against `initPlayer`'s own re-entry guard — the retry test failed until the reset was added.
+- **Task 4 (regression pass):** `npx vitest run` 153/153 passing (148 baseline + 5 new), `tsc --noEmit` unchanged at 25 pre-existing errors (one line-shifted, not new), `vite build` clean.
+
+**Result:** Story status `ready-for-dev` → `review`.
+
+### 3. `bmad-code-review` — Round 1
+
+**Purpose:** Adversarially review Story 2.6's diff against its `baseline_commit` before allowing it to reach `done`.
+
+**Process:**
+- Diff constructed against uncommitted working-tree changes against the story's `baseline_commit: af9e12a` — 6 files, ~304 lines, well under the chunking threshold. New/modified files marked with `git add -N` so untracked new files (`VideoPlayer.test.tsx`) were included in the reviewed diff, not silently skipped.
+- **Caught and fixed a review-process hazard before dispatching subagents**: reading the raw diff surfaced an unrelated, unintended byte-level corruption in a pre-existing comment (an invalid Windows-1252 em-dash byte the Edit tool's read/write cycle had normalized into a Unicode replacement character) — fixed to plain ASCII before the diff was regenerated and handed to reviewers, so it wouldn't read as unexplained noise.
+- Launched **Blind Hunter**, **Edge Case Hunter**, and **Acceptance Auditor** as three parallel background subagents, each with zero shared context.
+- Normalized findings, read the actual source at each finding's location before assigning severity (not rating from the diff hunk alone) — confirming several as real (no per-attempt race guard on the new retry flow, the retry never destroyed the real `YT.Player` instance, a likely-detached-DOM-node risk on retry, `role="alert"` nesting an interactive button, two real test-coverage gaps, a documentation-ledger accuracy issue) and dismissing others as review-process artifacts (a "duplicate paragraph" finding traced back to how the diff had been pasted into a subagent's own prompt, not a real file defect) or already-covered by existing project conventions.
+- Routed findings: 0 `decision_needed`, 8 `patch`, 1 `defer`, 6 `dismiss`. User selected "apply every patch now"; all 8 were applied and re-verified against the full regression suite.
+
+**Key findings, verified against the actual code before being trusted:**
+- **Real correctness gap:** no per-attempt token/mounted guard on the new retry flow — a stale async `onReady`/`onError` from an abandoned attempt could overwrite state for a newer attempt or fire after unmount.
+- **Real resource-leak risk:** `handleRetry` never called the real `YT.Player`'s own `.destroy()` before discarding it — confirmed by reading `YouTubeAdapter.destroy()`/`CaptureService.destroy()`'s actual implementations, neither of which touches the underlying player object.
+- **Real DOM-correctness risk:** the YouTube IFrame API replaces its container element with a generated `<iframe>`, so reusing the same ref across retry attempts risked attaching a new player into an already-detached node — an established safe pattern (fresh child element per attempt) already existed elsewhere in this codebase (`VideoPlayerDemo.tsx`).
+- **Real a11y deviation:** `role="alert"` wrapped both the message text and the interactive "Try again" button, nesting a focusable control inside a live region — a deviation from this project's own established convention (`AssignmentModal.tsx`'s content-lookup error).
+- **Real test-coverage gaps:** no test asserted the `onError` prop callback still fired on failure, and no test covered the third of three failure paths (`onPlayerReady_Internal`'s own construction failure) — despite the task checklist claiming full coverage.
+
+**Fixes applied:** `attemptIdRef`/`isMountedRef` guard added; `handleRetry` now calls `playerRef.current.destroy()`; `iframeRef` replaced with a stable `containerRef` plus a fresh child element per attempt; `role="alert"` scoped to the message text only, the button moved to a sibling; 2 new tests added; `deferred-work.md`'s prose breakdown corrected; error copy deduplicated behind an exported `VIDEO_LOAD_FAILURE_MESSAGE` constant.
+
+**Result:** 155/155 frontend tests passing (up from 153), `tsc --noEmit` unchanged at 25 pre-existing errors, `vite build` clean. Story status `review` → `done`, committed by the user as `391bf59`.
+
+### 4. `bmad-code-review` — Round 2 (user-requested independent re-review)
+
+**Purpose:** Independently re-review the already-patched, already-committed diff, with the three subagents explicitly instructed not to assume Round 1's fixes were correct — matching this project's established re-review pattern.
+
+**Process:**
+- Diff constructed against the committed range `af9e12a..391bf59` — 7 files, 763 lines.
+- Launched three **fresh** Blind Hunter / Edge Case Hunter / Acceptance Auditor subagents, explicitly briefed that Round 1 findings had supposedly already been fixed and instructed to verify adversarially rather than trust that.
+- **Blind Hunter found a critical regression Round 1's own fix had introduced**, and proved it empirically rather than theoretically: it wrote and ran a throwaway probe test mounting `<VideoPlayer>` inside `<React.StrictMode>` (the exact mode `main.tsx` actually renders the real app under) and directly reproduced the bug, then self-deleted the probe file as part of its own investigation.
+- A second subagent (Acceptance Auditor), running concurrently against the same live working directory, briefly saw that probe file mid-existence and flagged it as an "undisclosed file" — resolved after the fact as a review-process artifact (confirmed the file no longer existed and `tsc` was back to its normal 25-error count), not a real code defect.
+- Routed findings: 0 `decision_needed`, 6 `patch`, 3 `defer`, 4 `dismiss`. User selected "apply every patch now."
+
+**Key finding, verified via genuine red→green regression testing, not just reading the fix:**
+- **Critical: Round 1's own `playerRef.current.destroy()` patch broke the app under React StrictMode.** The unmount cleanup destroyed `captureServiceRef`/`adapterRef`/`playerRef` but never *nulled* the refs afterward. Under StrictMode's dev-mode mount→unmount→remount cycle, the remount's `initPlayer()` guard saw the stale, already-destroyed `playerRef` and silently no-op'd — the watch-progress capture pipeline died permanently while the UI kept claiming "Capture service active." Invisible to every one of Round 1's 7 tests, since none rendered under `StrictMode` or exercised unmount at all.
+- Five smaller findings: `handleRetry`'s and the unmount cleanup's teardown steps weren't exception-safe (one throwing `.destroy()` call could permanently disable retry); this story's own Round 1 review checklist had gone stale, contradicting `deferred-work.md`'s parallel (and correct) entry about a listener-ordering fix; the per-retry DOM element id wasn't unique across attempts; a retry-count test didn't actually verify a third construction attempt occurred despite its name implying it did; a code comment overclaimed how closely a fix matched an existing pattern elsewhere in the codebase.
+
+**Fixes applied:** Extracted a shared, exception-safe `destroyPlayerResources()` helper (destroys *and nulls* all four refs, each independently try/catch-wrapped) used by both the unmount cleanup and `handleRetry`; added `isMountedRef.current` check to `handleRetry`; corrected the stale Round 1 checklist line in place; made the per-attempt DOM id unique; strengthened the retry-count test assertion; narrowed the overclaiming comment. **Added a permanent regression test rendering under `<StrictMode>`, and verified it the same way this project has repeatedly required for high-risk fixes**: temporarily removed the ref-nulling fix, confirmed the new test failed for the exact right reason (`PlayerCtor` called once instead of twice), then restored the fix and confirmed the test passed.
+
+**Result:** 156/156 frontend tests passing (up from 155), `tsc --noEmit` unchanged at 25 pre-existing errors, `vite build` clean. Story status remains `done`.
+
+## Files Created and Purpose of Each
+
+### 1. `_bmad-output/implementation-artifacts/2-6-empty-and-error-states-for-content-discovery.md` (created)
+The story file: 4 scope notes, 6 acceptance criteria, 5 task groups (including the blocking Task 0), Dev Notes, Architecture Compliance — and, after implementation and both review rounds, the full Dev Agent Record, two `### Review Findings` subsections (one per round, all patches marked resolved), file list, and change log.
+
+### 2. `frontend/src/components/VideoPlayer.test.tsx` (created)
+The first-ever test file for `VideoPlayer.tsx` (Story 4.0, previously untested). 8 tests after both review rounds: literal-copy/role="alert" rendering, the `onError` prop callback, retry clearing and re-attempting construction (twice, proving genuine re-attempts not a UI-only toggle), a synchronous construction failure, an adapter/capture-service construction failure, a happy-path no-error assertion, and a permanent `<StrictMode>` regression test proving the round-2 fix.
+
+### 3. `documentation/ImplementationStepsForStory2-6.md` (created, this session, prior request)
+A standalone implementation summary following the established `ImplementationStepsForStoryX-Y.md` pattern (matching `ImplementationStepsForStory2-5.md`'s structure) — executive summary, what was implemented, issues faced and fixes across both review rounds, test verification, deferred items, references.
+
+## Files Modified and Purpose of Each
+
+### 1. `frontend/src/lib/api/assignmentsApi.ts` (modified)
+Task 0's fix: closed `createAssignment`'s function body properly, restoring `listMyAssignments` as a valid top-level export; separately, a stray mojibake byte in an unrelated comment was corrected to plain ASCII during Round 1's review-context preparation.
+
+### 2. `frontend/src/components/VideoPlayer.tsx` (modified)
+The story's core work: exported `VIDEO_LOAD_FAILURE_MESSAGE` constant; `containerRef` (stable outer container) replacing the old `iframeRef`, with a fresh per-attempt child element created inside `initPlayer`; `attemptIdRef`/`isMountedRef` guards on every async callback; a shared `destroyPlayerResources()` helper (destroys and nulls all four refs, exception-safe); `handleRetry` rewritten around that helper; the error UI rebuilt with scoped `role="alert"` and a "Try again" button.
+
+### 3. `_bmad-output/implementation-artifacts/deferred-work.md` (modified)
+Two new sections appended: the 25 newly-unmasked pre-existing `tsc` errors (with a corrected, arithmetic-checked breakdown after Round 2's Acceptance Auditor caught a prose inaccuracy in the first version), and a Round 2 entry noting the listener-ordering item originally logged there was fixed as a byproduct, not left open.
+
+### 4. `_bmad-output/implementation-artifacts/sprint-status.yaml` (modified)
+Status progressed `backlog` → `ready-for-dev` → `in-progress` → `review` → `done`, each transition (including both review rounds) logged as a dated comment; `last_updated` field updated at each step.
+
+### 5. `_bmad-output/project-context.md` (modified)
+Four entries appended, per the project's own mandatory-update rule: story creation, implementation, Round 1 review, and Round 2 review — the last one explicitly framing the StrictMode regression as a repeatable project lesson ("a fix's own regression test suite can systematically miss an entire execution mode the real app actually runs under").
+
+### 6. `documentation/PROJECTWORKFLOW.md` (this file, appended to)
+This section.
+
+## Session Notes
+
+- **A code-review *fix* introduced a new, more severe bug than any of the issues it was patching — and it was only caught because a second review round was explicitly instructed not to trust the first round's own patches.** This is a sharper version of a pattern already logged twice before in this project (Story 3.4's "fix introduces a new bug," Story 3.5's repeated-guard-pattern lesson): here, the fix's own 7-test suite passed cleanly and gave false confidence, because none of those tests exercised the one execution mode (`React.StrictMode`) the real app actually renders under. Worth treating as a standing question for future fixes touching component lifecycle/cleanup: "does this fix's test suite exercise unmount, and does it exercise StrictMode?"
+- **A reviewing subagent reproduced a suspected bug empirically instead of stopping at a plausible-sounding theory** — it wrote and ran a real probe test rather than asserting "this looks like it could happen." This produced a materially stronger finding (a reproduced failure with an exact call-count mismatch) than a purely code-reading-based finding would have, and the fix that followed was verified the same way: red confirmed before the fix, green confirmed after.
+- **Two review subagents running concurrently against the same live working directory produced a transient false-positive finding** (an "undisclosed file") because one subagent's own throwaway test artifact was visible mid-existence to another. Resolved by checking the actual current state rather than trusting either subagent's snapshot in isolation — worth remembering that concurrent background subagents sharing a working tree can observe each other's transient scratch state, which is not itself evidence of anything in the tracked codebase.
+- **Story authoring's direct source inspection (globs, greps, targeted reads) correctly predicted the story's real scope before any code was written** — 4 of 5 acceptance-criteria states needed zero changes, exactly as scoped, and the one real gap (`VideoPlayer.tsx`) turned out to be a genuinely bigger gap than the epic's own one-line AC text suggested (zero test coverage, not just missing copy). This is the same "verify against the actual codebase, not the epic's title" discipline that caught Story 2.5's stale-epics.md problem, applied here to a scoping question instead of a citation-chain problem.
+- **A merge-corruption bug found during story authoring, unrelated to this story's own stated scope, blocked the entire project's build** and was fixed as a blocking Task 0 rather than deferred — but fixing it revealed a second, deeper problem (25 further pre-existing `tsc` errors that had been silently hidden behind the first bug's fatal parse failure), which was correctly *not* also fixed in this story, since it was a pre-existing, unrelated, 3-story-old gap. Knowing which newly-surfaced problems to fix versus log-and-defer, in the same session, is a judgment call this project has now exercised several times (Story 2.5's `ContentResponse.metadata` fix vs. this story's `deferred-work.md` logging) with consistent reasoning: fix what's blocking the current story's own work; log what's merely now-visible but pre-existing and out of scope.
+
+---
