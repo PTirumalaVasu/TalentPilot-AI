@@ -39,18 +39,44 @@ export interface RecordWatchProgressRequest {
 }
 
 /**
- * Response with persisted watch progress record.
+ * Response with persisted watch progress record (POST endpoint).
  *
- * Returned from the backend after a successful progress update or resume position retrieval.
- * Includes server-side verification and timing information.
- *
- * Story 4-5: Resume Position Retrieval
- * - On first view (no progress recorded), id/event_time/updated_at may be null
- * - watch_position will be 0 on first view or out-of-bounds fallback
- * - verified will be false on first view
+ * Returned from the backend after a successful progress update.
+ * All fields are present (no nulls).
  */
 export interface SkillProgressResponse {
-  /** Progress record ID (internal, for reference only; null on first view) */
+  /** Progress record ID */
+  id: UUID;
+
+  /** Assignment ID (keyed reference) */
+  assignment_id: UUID;
+
+  /** Current watch position in seconds */
+  watch_position: number;
+
+  /** Event timestamp (client time of observation). */
+  event_time: string; // ISO-8601 timestamp
+
+  /** True if the update passed server-side anti-spoofing checks. */
+  verified: boolean;
+
+  /** Server time when the record was persisted */
+  updated_at: string; // ISO-8601 timestamp
+}
+
+/**
+ * Response for resume position retrieval (GET endpoint).
+ *
+ * Returned from the backend for GET /api/assignments/{assignment_id}/progress.
+ * May represent the first view (no progress recorded yet) where id/event_time/updated_at are null.
+ *
+ * Story 4-5: Resume Position Retrieval
+ * - On first view (no progress recorded), id/event_time/updated_at are null
+ * - watch_position will be 0 on first view
+ * - verified will be false on first view
+ */
+export interface SkillProgressResponseResume {
+  /** Progress record ID (null on first view) */
   id: UUID | null;
 
   /** Assignment ID (keyed reference) */
@@ -61,30 +87,17 @@ export interface SkillProgressResponse {
 
   /**
    * Event timestamp (client time of observation).
-   *
-   * Preserved from the request; used for conditional-write logic and
-   * ordering writes by event_time rather than position.
-   *
    * Null if this is the first view (no progress recorded yet).
    */
   event_time: string | null; // ISO-8601 timestamp or null
 
   /**
    * True if the update passed server-side anti-spoofing checks.
-   *
-   * Anti-spoofing validates:
-   * - Position within bounds (0 <= pos <= duration)
-   * - Position advances at realistic rate (prevents instant jumps to 100%)
-   * - Session tied to assignment (prevents cross-employee spoofing)
-   * - Event time is recent (within 5 minutes, tolerating clock skew)
-   *
-   * If any check fails, verified=false but the write still persists for debugging.
-   *
    * False on first view (no progress recorded yet).
    */
   verified: boolean;
 
-  /** Server time when the record was persisted (for UI display, "last updated"); null on first view */
+  /** Server time when the record was persisted (null on first view) */
   updated_at: string | null; // ISO-8601 timestamp or null
 }
 
