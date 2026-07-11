@@ -28,13 +28,15 @@ class AssignmentStatus(str, Enum):
 class ProvenanceLabel(str, Enum):
     """Provenance axis (AD-3: a conceptually separate axis from AssignmentStatus,
     intended to never be merged into one display value — see CAUTION below for
-    a real gap in that guarantee). Story 5.3 defines this enum and derives
+    a real gap in that guarantee). Story 5.3 defined this enum and derives
     NOT_STARTED/SELF_REPORTED/NEEDS_ATTENTION from self-reported staleness
-    (see progress/service.py::derive_self_reported_provenance). VERIFIED
-    (Story 5.2, video-signal case) and HR_OVERRIDE (Story 5.5,
-    AssignmentOverride-backed case) are intentionally not yet members here —
-    add them to this same enum when those stories build their derivations,
-    rather than introducing a second, competing Provenance type.
+    (see progress/service.py::derive_self_reported_provenance). Story 5.2 adds
+    VERIFIED (video-signal case, see progress/service.py::get_provenance_detail).
+    HR_OVERRIDE (Story 5.5, AssignmentOverride-backed case) is intentionally
+    not yet a member here — Story 5.2's HR-Override display branch keys off
+    AssignmentOverride.active directly rather than adding a member for a
+    record type this story only reads, never creates; add HR_OVERRIDE when
+    Story 5.5 builds the create/reverse mutation path.
 
     CAUTION: NOT_STARTED shares its literal value with AssignmentStatus.NOT_STARTED
     above — as a `str, Enum`, this member compares equal and hashes equal to
@@ -46,6 +48,7 @@ class ProvenanceLabel(str, Enum):
     NOT_STARTED = "NOT_STARTED"
     SELF_REPORTED = "SELF_REPORTED"
     NEEDS_ATTENTION = "NEEDS_ATTENTION"
+    VERIFIED = "VERIFIED"
 
 
 class EmployeeResponse(BaseModel):
@@ -146,3 +149,45 @@ class MyAssignmentsResponse(BaseModel):
     in_progress_count: int
     to_start_count: int
     assignments: list[AssignmentContentItem]
+
+
+class DrillDownResponse(BaseModel):
+    """Response for GET /api/assignments/{assignment_id}/progress/drill-down
+    (Story 5.2, HR_ADMIN-only). Flat shape with optional fields rather than a
+    discriminated union -- the frontend renders conditionally per `provenance`
+    (mirrors this codebase's existing style, e.g. SkillProgressResponseResume's
+    nullable-fields approach). `status`/`provenance`/`last_updated` come from
+    the same `ProgressService.get_provenance_detail` call the dashboard grid
+    uses (AR-3), so a row's grid badge and its drill-down detail can never
+    disagree on Status or Provenance -- the actual AR-3 consolidation goal.
+
+    CAUTION: this guarantee does NOT extend to `status_percentage` specifically.
+    The dashboard grid (`AssignmentRowResponse.status_percentage`) nulls it
+    unless `status == "In Progress"` (Story 5.1's own display convention);
+    this endpoint passes `get_provenance_detail`'s raw percentage through
+    unguarded, since AC4 requires the Verified branch to always show "Watch
+    Progress: {pct}%" (including 100% for Completed). A Completed/Verified
+    assignment can therefore legitimately show `status_percentage: null` on
+    the grid and `100` here for the same assignment -- by design, not drift
+    (code review finding, Story 5-2)."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    assignment_id: uuid.UUID
+    employee_name: str
+    skill_name: str
+    status: AssignmentStatus
+    status_percentage: int | None
+    provenance: Literal["Not Started", "Verified", "Self-reported", "Needs Attention", "HR Override"]
+    last_updated: datetime
+
+    # HR Override case only (provenance == "HR Override")
+    override_set_by_name: str | None = None
+    override_reason: str | None = None
+    override_set_at: datetime | None = None
+
+    # Populated only alongside an active HR Override -- the non-override
+    # signal that would otherwise apply (AR-4: never erased by the override).
+    underlying_provenance: Literal["Not Started", "Verified", "Self-reported", "Needs Attention"] | None = None
+    underlying_status: AssignmentStatus | None = None
+    underlying_status_percentage: int | None = None

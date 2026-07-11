@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,13 +10,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.assignments.models import AssignmentOverride
 from app.assignments.service import AssignmentsService
 from app.dashboard.schemas import DashboardResponse, AssignmentRowResponse
-from app.progress.service import ProgressService
+from app.progress.service import STATUS_DISPLAY, ProgressService
 from app.progress.models import SkillProgress
 
 logger = logging.getLogger(__name__)
-
-# 7-day staleness threshold for Needs Attention flag (AD-3)
-SELF_REPORT_STALENESS_THRESHOLD_DAYS = 7
 
 
 class DashboardService:
@@ -128,70 +125,23 @@ class DashboardService:
         """
         Compute Status, Provenance, percentage, and last_updated from pre-fetched data.
 
-        Implements AD-3 single derivation authority.
+        Implements AD-3/AR-3 single derivation authority — delegates entirely to
+        `ProgressService.get_provenance_detail` (Story 5.2) rather than
+        recomputing this independently, which is what this method used to do
+        before Story 5.2's consolidation (see that story's Finding 3: the
+        duplication risked the grid's badge and the drill-down modal silently
+        showing different Provenance for the same assignment).
 
         Args:
             assignment: The Assignment record
             progress: Optional SkillProgress record
-            override: Optional AssignmentOverride record
-            video_duration: Optional video duration in seconds (from content metadata). Falls back to 3600 if not provided.
+            override: Optional AssignmentOverride record (must have set_by_user eager-loaded)
+            video_duration: Optional video duration in seconds (from content metadata)
 
         Returns:
             Tuple of (status_str, provenance_str, percentage_or_none, last_updated_datetime)
         """
-        # If active override exists, use it (takes precedence)
-        if override and override.active:
-            status = override.override_status or "Completed"
-            provenance = "HR Override"
-            last_updated = override.set_at
-            percentage = None
-            return status, provenance, percentage, last_updated
-
-        # No active override; derive from watch progress
-        if progress:
-            # Compute percentage from video duration (with fallback to 3600 if unavailable)
-            estimated_percentage = 0
-            if progress.watch_position:
-                # Ensure duration is positive; use max(1, ...) to prevent division by zero and negative durations
-                duration = max(1, video_duration) if video_duration else 3600
-                estimated_percentage = min(100, int((progress.watch_position / duration) * 100))
-            else:
-                estimated_percentage = 0
-
-            # Determine status from percentage
-            if estimated_percentage == 0:
-                status = "Not Started"
-            elif estimated_percentage >= 100:
-                status = "Completed"
-            else:
-                status = "In Progress"
-
-            # Determine provenance from verified flag and staleness
-            if progress.verified:
-                provenance = "Verified"
-            else:
-                now = datetime.now(timezone.utc)
-                staleness_threshold = timedelta(days=SELF_REPORT_STALENESS_THRESHOLD_DAYS)
-
-                event_time = progress.event_time
-                if event_time:
-                    if event_time.tzinfo is None:
-                        event_time = event_time.replace(tzinfo=timezone.utc)
-
-                    if (now - event_time) > staleness_threshold:
-                        provenance = "Needs Attention"
-                    else:
-                        provenance = "Self-reported"
-                else:
-                    provenance = "Self-reported"
-
-            last_updated = progress.updated_at
-            return status, provenance, estimated_percentage if status == "In Progress" else None, last_updated
-
-        # No progress, no override → Not Started
-        status = "Not Started"
-        provenance = "Self-reported"
-        last_updated = assignment.assigned_at
-        percentage = None
-
-        return status, provenance, percentage, last_updated
+        detail = ProgressService.get_provenance_detail(assignment, progress, override, video_duration)
+        status = STATUS_DISPLAY[detail.status]
+        percentage = detail.percentage if status == "In Progress" else None
+        return status, detail.provenance, percentage, detail.last_updated
