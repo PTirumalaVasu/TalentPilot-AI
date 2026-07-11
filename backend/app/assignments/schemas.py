@@ -9,11 +9,40 @@ from pydantic import BaseModel, ConfigDict
 class AssignmentStatus(str, Enum):
     """Mirrors the existing `status_enum` Postgres type (assignments/models.py's
     AssignmentOverride.override_status) — reused rather than defining a second
-    enum, per Story 1.7's DuplicateObjectError lesson."""
+    enum, per Story 1.7's DuplicateObjectError lesson.
+
+    CAUTION: shares the literal value "NOT_STARTED" with ProvenanceLabel.NOT_STARTED
+    below. Because both are `str, Enum`, they compare equal and hash equal
+    across the two types (`AssignmentStatus.NOT_STARTED == ProvenanceLabel.NOT_STARTED`
+    is `True`) — never rely on `==`/set/dict membership to distinguish which
+    axis a value came from; check the type explicitly instead."""
 
     NOT_STARTED = "NOT_STARTED"
     IN_PROGRESS = "IN_PROGRESS"
     COMPLETED = "COMPLETED"
+
+
+class ProvenanceLabel(str, Enum):
+    """Provenance axis (AD-3: a conceptually separate axis from AssignmentStatus,
+    intended to never be merged into one display value — see CAUTION below for
+    a real gap in that guarantee). Story 5.3 defines this enum and derives
+    NOT_STARTED/SELF_REPORTED/NEEDS_ATTENTION from self-reported staleness
+    (see progress/service.py::derive_self_reported_provenance). VERIFIED
+    (Story 5.2, video-signal case) and HR_OVERRIDE (Story 5.5,
+    AssignmentOverride-backed case) are intentionally not yet members here —
+    add them to this same enum when those stories build their derivations,
+    rather than introducing a second, competing Provenance type.
+
+    CAUTION: NOT_STARTED shares its literal value with AssignmentStatus.NOT_STARTED
+    above — as a `str, Enum`, this member compares equal and hashes equal to
+    that one across the two types. The type system does not enforce the
+    "orthogonal, never merged" intent by itself; a naive `==`/set/dict check
+    mixing the two enums would silently conflate them (confirmed via direct
+    Python check, code review of Story 5.3, 2026-07-11)."""
+
+    NOT_STARTED = "NOT_STARTED"
+    SELF_REPORTED = "SELF_REPORTED"
+    NEEDS_ATTENTION = "NEEDS_ATTENTION"
 
 
 class EmployeeResponse(BaseModel):
