@@ -15,6 +15,11 @@ export interface VideoPlayerProps {
   onError?: (err: Error) => void;
 }
 
+// User-facing copy for a failed video load (Story 2.6 AC3). Exported so the
+// test file asserts against this constant instead of a second hardcoded
+// copy of the string that could silently drift out of sync.
+export const VIDEO_LOAD_FAILURE_MESSAGE = "This video couldn't be loaded.";
+
 /**
  * Extract YouTube video ID from URL or accept raw ID
  */
@@ -36,16 +41,35 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   onPlayerReady,
   onError,
 }) => {
-  const iframeRef = useRef<HTMLDivElement>(null);
+  // Stable outer container, always owned by React -- never passed directly
+  // to YT.Player (see initPlayer). YouTube's IFrame API replaces whatever
+  // element it's given with a generated <iframe>, so reusing the same node
+  // across retry attempts would mean attaching a new player into an
+  // already-detached element (Story 2.6 review finding). Each attempt
+  // instead gets a fresh child element appended into this stable container,
+  // matching the pattern already established in VideoPlayerDemo.tsx's
+  // loadPlayer().
+  const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
   const adapterRef = useRef<YouTubeAdapter | null>(null);
   const captureServiceRef = useRef<CaptureService | null>(null);
   const [isReady, setIsReady] = useState(false);
+  // Holds the raw diagnostic message (e.g. "Video not found (removed or
+  // private)") for console logging only -- the UI always shows the literal
+  // VIDEO_LOAD_FAILURE_MESSAGE below, never this string (Story 2.6).
   const [error, setError] = useState<string | null>(null);
 
   const cleanupListenersRef = useRef<(() => void) | null>(null);
+  // Bumped on every initPlayer() call (first load + every retry). Captured
+  // by each attempt's onReady/onError closures so a stale callback from an
+  // attempt superseded by a later retry can't overwrite newer state
+  // (Story 2.6 review finding).
+  const attemptIdRef = useRef(0);
+  const isMountedRef = useRef(true);
 
   useEffect(() => {
+    isMountedRef.current = true;
+
     // Load YouTube IFrame API if not already loaded
     if (!window.YT) {
       const tag = document.createElement('script');
@@ -60,6 +84,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
 
     return () => {
+      isMountedRef.current = false;
       // Cleanup event listeners
       if (cleanupListenersRef.current) {
         cleanupListenersRef.current();
@@ -72,16 +97,27 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       if (adapterRef.current) {
         adapterRef.current.destroy();
       }
+      if (playerRef.current && typeof playerRef.current.destroy === 'function') {
+        playerRef.current.destroy();
+      }
     };
   }, []);
 
   const initPlayer = () => {
-    if (!iframeRef.current || playerRef.current) return;
+    if (!containerRef.current || playerRef.current) return;
+
+    const myAttempt = ++attemptIdRef.current;
+
+    // Fresh mount target for every attempt -- see containerRef's comment.
+    containerRef.current.innerHTML = '';
+    const playerHost = document.createElement('div');
+    playerHost.id = `youtube-player-${assignmentId}`;
+    containerRef.current.appendChild(playerHost);
 
     const videoId = extractYouTubeId(videoUrl);
 
     try {
-      playerRef.current = new window.YT.Player(iframeRef.current, {
+      playerRef.current = new window.YT.Player(playerHost, {
         width: '100%',
         height: 400,
         videoId,
@@ -94,18 +130,48 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
           start: Math.floor(startSeconds),
         },
         events: {
-          onReady: onPlayerReady_Internal,
-          onError: onPlayerError_Internal,
+          onReady: () => onPlayerReady_Internal(myAttempt),
+          onError: (event: any) => onPlayerError_Internal(event, myAttempt),
         },
       });
     } catch (err) {
+      if (!isMountedRef.current || myAttempt !== attemptIdRef.current) return;
       const errMsg = err instanceof Error ? err.message : String(err);
-      setError(`Failed to initialize player: ${errMsg}`);
+      console.error(`[VideoPlayer] Failed to initialize player: ${errMsg}`);
+      setError(errMsg);
       onError?.(new Error(errMsg));
     }
   };
 
-  const onPlayerReady_Internal = () => {
+  // Resets all player/adapter/capture-service state and re-attempts
+  // initialization from scratch (Story 2.6 AC3). The real YT.Player
+  // instance is destroyed (when it exposes .destroy -- the test mocks
+  // don't) before being discarded, matching the teardown already applied
+  // to adapterRef/captureServiceRef.
+  const handleRetry = () => {
+    if (cleanupListenersRef.current) {
+      cleanupListenersRef.current();
+      cleanupListenersRef.current = null;
+    }
+    if (captureServiceRef.current) {
+      captureServiceRef.current.destroy();
+      captureServiceRef.current = null;
+    }
+    if (adapterRef.current) {
+      adapterRef.current.destroy();
+      adapterRef.current = null;
+    }
+    if (playerRef.current && typeof playerRef.current.destroy === 'function') {
+      playerRef.current.destroy();
+    }
+    playerRef.current = null;
+    setIsReady(false);
+    setError(null);
+    initPlayer();
+  };
+
+  const onPlayerReady_Internal = (myAttempt: number) => {
+    if (!isMountedRef.current || myAttempt !== attemptIdRef.current) return;
     try {
       // Create adapter
       adapterRef.current = new YouTubeAdapter(playerRef.current, 7500);
@@ -134,25 +200,31 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       document.addEventListener('visibilitychange', handleVisibilityChange);
       window.addEventListener('beforeunload', handleBeforeUnload);
 
+      // Assigned before onPlayerReady?.() below, which may throw --
+      // otherwise these listeners would already be live with no recorded
+      // way to remove them (Story 2.6 review, fixed as a byproduct of the
+      // attempt-token restructuring).
+      cleanupListenersRef.current = () => {
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+        window.removeEventListener('beforeunload', handleBeforeUnload);
+      };
+
       setIsReady(true);
       onPlayerReady?.(adapterRef.current);
 
       // Store globally for sendBeacon endpoint (per-instance safe via assignment ID)
       (window as any).CURRENT_ASSIGNMENT_ID = assignmentId;
-
-      // Store cleanup function to be called in useEffect cleanup
-      cleanupListenersRef.current = () => {
-        document.removeEventListener('visibilitychange', handleVisibilityChange);
-        window.removeEventListener('beforeunload', handleBeforeUnload);
-      };
     } catch (err) {
+      if (!isMountedRef.current || myAttempt !== attemptIdRef.current) return;
       const errMsg = err instanceof Error ? err.message : String(err);
-      setError(`Failed to initialize adapter: ${errMsg}`);
+      console.error(`[VideoPlayer] Failed to initialize adapter: ${errMsg}`);
+      setError(errMsg);
       onError?.(new Error(errMsg));
     }
   };
 
-  const onPlayerError_Internal = (event: any) => {
+  const onPlayerError_Internal = (event: any, myAttempt: number) => {
+    if (!isMountedRef.current || myAttempt !== attemptIdRef.current) return;
     let errMsg = 'Unknown player error';
     if (event.data === 2) errMsg = 'Invalid parameter';
     else if (event.data === 5) errMsg = 'HTML5 player error';
@@ -160,6 +232,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     else if (event.data === 101 || event.data === 150)
       errMsg = 'Video cannot be played embedded';
 
+    console.error(`[VideoPlayer] Player error: ${errMsg}`);
     setError(errMsg);
     onError?.(new Error(errMsg));
   };
@@ -169,6 +242,10 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       {error && (
         <div
           style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '0.75rem',
             color: '#d32f2f',
             padding: '0.5rem',
             marginBottom: '0.5rem',
@@ -176,13 +253,29 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
             borderRadius: '4px',
           }}
         >
-          ⚠️ {error}
+          <p role="alert" style={{ margin: 0 }}>
+            ⚠️ {VIDEO_LOAD_FAILURE_MESSAGE}
+          </p>
+          <button
+            type="button"
+            onClick={handleRetry}
+            style={{
+              color: '#d32f2f',
+              border: '1px solid #d32f2f',
+              borderRadius: '4px',
+              background: 'transparent',
+              padding: '0.25rem 0.75rem',
+              cursor: 'pointer',
+              flexShrink: 0,
+            }}
+          >
+            Try again
+          </button>
         </div>
       )}
 
       <div
-        ref={iframeRef}
-        id={`youtube-player-${assignmentId}`}
+        ref={containerRef}
         style={{
           minHeight: '400px',
           backgroundColor: '#000',
