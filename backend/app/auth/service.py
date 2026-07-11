@@ -125,3 +125,18 @@ def require_hr_admin(current_user: CurrentUser = Depends(get_current_user)) -> C
             message="This action requires an HR Admin session",
         )
     return current_user
+
+
+def require_employee(current_user: CurrentUser = Depends(get_current_user)) -> CurrentUser:
+    """Reusable Employee-only gate for employee-scoped read operations (Story 4-5 AC1).
+    Follows the same composition pattern as require_hr_admin."""
+    if current_user.role != Role.EMPLOYEE:
+        logger.warning(
+            "Rejected request: role %r is not EMPLOYEE (user_id=%r)", current_user.role, current_user.user_id
+        )
+        raise AppException(
+            status.HTTP_403_FORBIDDEN,
+            error_code="FORBIDDEN_NOT_EMPLOYEE",
+            message="This action requires an Employee session",
+        )
+    return current_user

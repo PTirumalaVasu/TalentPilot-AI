@@ -1,0 +1,8 @@
+[
+  {
+    "file": "backend/app/progress/antiflow.py",
+    "line": 174,
+    "summary": "Unhandled TypeError when video_duration is a string type instead of integer",
+    "failure_scenario": "When ContentCatalog.content_metadata contains {\"duration\": \"3600\"} (string from JSON), and a prior watch record exists (second+ watch on same assignment): validate_position_bounds gracefully converts to int with try/except, but validate_rate_check performs raw division (video_duration / RATE_MULTIPLIER_LIMIT) at line 174, raising TypeError: unsupported operand type(s) for /: 'str' and 'int'. This crashes with 500 Internal Server Error instead of silently rejecting with verified=false, violating the 'silent rejection' pattern (AC5)."
+  }
+]
