@@ -1,0 +1,25 @@
+import { AssignmentRow } from "../../types/dashboard";
+import { StatusBadge } from "../../components/StatusBadge";
+
+interface DashboardRowProps {
+  row: AssignmentRow;
+}
+
+export function DashboardRow({ row }: DashboardRowProps) {
+  const progressPercent = row.status_percentage || 0;
+
+  return (
+    <tr className="border-b border-gray-100 hover:bg-gray-50">
+      <td className="px-4 py-3 text-gray-900">{row.employee_name}</td>
+      <td className="px-4 py-3 text-gray-700">{row.skill_name}</td>
+      <td className="px-4 py-3">
+        <StatusBadge status={row.status} percentage={row.status_percentage} />
+      </td>
+      <td className="px-4 py-3">
+        <div className="w-24 h-2 bg-gray-100 rounded-full overflow-hidden">
+          <div className="h-full bg-blue-600" style={{ width: `${progressPercent}%` }}></div>
+        </div>
+      </td>
+    </tr>
+  );
+}

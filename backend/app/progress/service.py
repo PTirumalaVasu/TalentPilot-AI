@@ -1,6 +1,6 @@
 """Service layer for the progress module. Cross-module callers must go through here (AD-1)."""
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import Literal
 from uuid import UUID
 
@@ -8,7 +8,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.assignments.models import Assignment
-from app.assignments.schemas import AssignmentStatus
+from app.assignments.schemas import AssignmentStatus, ProvenanceLabel
 from app.auth.schemas import CurrentUser
 from app.progress.antiflow import run_all_validations
 from app.progress.models import SkillProgress
@@ -16,6 +16,13 @@ from app.progress.repository import ProgressRepository
 from app.progress.schemas import SkillProgressResponse, SkillProgressResponseResume
 
 logger = logging.getLogger(__name__)
+
+# Story 5.3: locked PRD value (project-context.md — "sourced from the
+# original design-thinking success-metric proposal, not invented during PRD
+# authoring"). Module-level constant, not a Settings/.env field, mirroring
+# content/repository.py's SIMILARITY_THRESHOLD precedent (Story 2.4) — this
+# threshold has no legitimate per-environment override case.
+NEEDS_ATTENTION_STALENESS_DAYS = 7
 
 
 class ProgressService:
@@ -229,3 +236,65 @@ class ProgressService:
         if percent > 0:
             return (AssignmentStatus.IN_PROGRESS, percent)
         return (AssignmentStatus.NOT_STARTED, 0)
+
+    @staticmethod
+    def derive_self_reported_provenance(
+        last_update: datetime | None, *, now: datetime | None = None
+    ) -> ProvenanceLabel:
+        """Pure Provenance derivation for self-reported (non-video) signals
+        only (Story 5.3, AR-3: `progress/` is the sole derivation authority).
+        Sibling to `derive_dashboard_status_and_percent` (Story 3.5) — same
+        "pure function, no DB access, caller passes in already-fetched
+        values" pattern. Verified/video rows never call this; that axis is
+        Story 5.2's job.
+
+        `last_update` is the self-report's last-update timestamp (None if no
+        self-report record exists at all — e.g. an assignment with no video
+        progress and no self-report either). Must be timezone-aware (AR-10
+        mandates UTC specifically, but this function only enforces
+        tzinfo-not-None — Python's datetime subtraction already normalizes
+        any timezone-aware offset correctly, so a non-UTC-but-aware value
+        still compares correctly; it is simply outside this function's
+        documented input contract). A naive datetime raises rather than
+        silently miscomparing.
+
+        `now` is injectable for deterministic tests, defaulting to the real
+        current UTC time in production use; if passed explicitly it must
+        also be timezone-aware, for the same reason as `last_update`.
+
+        `last_update` after `now` (clock skew, forged/corrupt data) raises
+        rather than silently treating negative elapsed time as fresh.
+
+        Per AC1's literal wording ("> 7 days"), the threshold is a strict
+        inequality: exactly `NEEDS_ATTENTION_STALENESS_DAYS` days old is
+        still SELF_REPORTED, not yet NEEDS_ATTENTION.
+        """
+        if last_update is None:
+            return ProvenanceLabel.NOT_STARTED
+
+        if last_update.tzinfo is None:
+            raise ValueError(
+                "derive_self_reported_provenance() requires a timezone-aware "
+                "last_update (AR-10: all timestamps are ISO-8601 UTC); got a "
+                "naive datetime"
+            )
+
+        if now is not None and now.tzinfo is None:
+            raise ValueError(
+                "derive_self_reported_provenance() requires a timezone-aware "
+                "'now' when explicitly passed (AR-10: all timestamps are "
+                "ISO-8601 UTC); got a naive datetime"
+            )
+
+        now = now if now is not None else datetime.now(timezone.utc)
+
+        if last_update > now:
+            raise ValueError(
+                "derive_self_reported_provenance() received a last_update "
+                f"({last_update.isoformat()}) after 'now' ({now.isoformat()}) "
+                "— clock skew or corrupt data, not a valid staleness input"
+            )
+
+        if (now - last_update) > timedelta(days=NEEDS_ATTENTION_STALENESS_DAYS):
+            return ProvenanceLabel.NEEDS_ATTENTION
+        return ProvenanceLabel.SELF_REPORTED

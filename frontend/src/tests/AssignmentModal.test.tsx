@@ -53,6 +53,13 @@ async function goToStep3(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByRole('button', { name: /review content/i }));
 }
 
+// Dialog's backdrop is the dialog panel's parent element (the fixed
+// full-screen overlay div) -- clicking it (not the panel itself) is what
+// exercises Dialog's `event.target === event.currentTarget` mousedown check.
+function getBackdrop(): HTMLElement {
+  return screen.getByRole('dialog').parentElement as HTMLElement;
+}
+
 describe('AssignmentModal', () => {
   beforeEach(() => {
     vi.mocked(listEmployees).mockReset().mockResolvedValue([EMPLOYEE]);
@@ -396,6 +403,144 @@ describe('AssignmentModal', () => {
 
     expect(screen.getByRole('combobox', { name: /search for a skill/i })).toHaveValue('');
     expect(screen.getByRole('button', { name: /review content/i })).toBeDisabled();
+  });
+
+  // Dialog's backdrop-close listens on `mousedown` (event.target ===
+  // event.currentTarget check), not `click` — userEvent.pointer's
+  // '[MouseLeft]' sequence dispatches a real mousedown as part of its click
+  // simulation, which is what actually exercises Dialog's handler here.
+  it('closes without side effects when the backdrop is clicked on Step 1', async () => {
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    render(<AssignmentModal open onClose={onClose} />);
+
+    const backdrop = getBackdrop();
+    await user.pointer({ target: backdrop, keys: '[MouseLeft]' });
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(checkDuplicateAssignment).not.toHaveBeenCalled();
+    expect(matchContentForSkill).not.toHaveBeenCalled();
+    expect(createAssignment).not.toHaveBeenCalled();
+  });
+
+  it('closes without side effects when the backdrop is clicked on Step 3 (after the duplicate-check and content-match reads have already fired)', async () => {
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    render(<AssignmentModal open onClose={onClose} />);
+
+    await goToStep3(user);
+    expect(checkDuplicateAssignment).toHaveBeenCalledTimes(1);
+    expect(matchContentForSkill).toHaveBeenCalledTimes(1);
+
+    const backdrop = getBackdrop();
+    await user.pointer({ target: backdrop, keys: '[MouseLeft]' });
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+    // Not just "no new create" -- confirms closing doesn't silently
+    // re-trigger either read either (e.g. via a stray effect dependency).
+    expect(checkDuplicateAssignment).toHaveBeenCalledTimes(1);
+    expect(matchContentForSkill).toHaveBeenCalledTimes(1);
+    expect(createAssignment).not.toHaveBeenCalled();
+  });
+
+  it('closes without side effects when Escape is pressed on Step 1', async () => {
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    render(<AssignmentModal open onClose={onClose} />);
+
+    await user.keyboard('{Escape}');
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(checkDuplicateAssignment).not.toHaveBeenCalled();
+    expect(matchContentForSkill).not.toHaveBeenCalled();
+    expect(createAssignment).not.toHaveBeenCalled();
+  });
+
+  it('closes without side effects when Escape is pressed on Step 3 (after the duplicate-check and content-match reads have already fired)', async () => {
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    render(<AssignmentModal open onClose={onClose} />);
+
+    await goToStep3(user);
+    expect(checkDuplicateAssignment).toHaveBeenCalledTimes(1);
+    expect(matchContentForSkill).toHaveBeenCalledTimes(1);
+
+    await user.keyboard('{Escape}');
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(checkDuplicateAssignment).toHaveBeenCalledTimes(1);
+    expect(matchContentForSkill).toHaveBeenCalledTimes(1);
+    expect(createAssignment).not.toHaveBeenCalled();
+  });
+
+  it('ignores backdrop-click and Escape while an Assign request is in flight, then closes cleanly once it resolves', async () => {
+    type CreatedAssignment = Awaited<ReturnType<typeof createAssignment>>;
+    let resolveCreate!: (value: CreatedAssignment) => void;
+    vi.mocked(createAssignment).mockReturnValue(
+      new Promise<CreatedAssignment>((resolve) => {
+        resolveCreate = resolve;
+      })
+    );
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    render(<AssignmentModal open onClose={onClose} />);
+
+    await goToStep3(user);
+    await user.click(screen.getByRole('button', { name: /^assign$/i }));
+
+    // handleClose()'s `if (submitting || duplicateChecking) return;` guard
+    // is the only thing protecting backdrop/Escape here -- buttons are
+    // separately guarded via `disabled`, but backdrop/Escape bypass that
+    // entirely and go straight through handleClose().
+    const backdrop = getBackdrop();
+    await user.pointer({ target: backdrop, keys: '[MouseLeft]' });
+    await user.keyboard('{Escape}');
+    expect(onClose).not.toHaveBeenCalled();
+
+    resolveCreate({
+      id: 'assignment-1',
+      employee_id: EMPLOYEE.id,
+      skill_id: SKILL.id,
+      content_id: CONTENT.id,
+      assigned_at: '2026-01-01T00:00:00Z',
+      assigned_by: 'hr-1',
+      status: 'NOT_STARTED',
+      provenance: 'Assigned · Awaiting first watch',
+    });
+    await waitFor(() => expect(createAssignment).toHaveBeenCalledTimes(1));
+    // handleAssign's own success path calls handleClose() itself, so onClose
+    // fires once the in-flight request resolves -- not from the ignored
+    // backdrop/Escape attempts above.
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('ignores backdrop-click and Escape while a duplicate-check is in flight, then closes cleanly once it resolves', async () => {
+    let resolveDuplicateCheck!: (value: Awaited<ReturnType<typeof checkDuplicateAssignment>>) => void;
+    vi.mocked(checkDuplicateAssignment).mockReturnValue(
+      new Promise((resolve) => {
+        resolveDuplicateCheck = resolve;
+      })
+    );
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    render(<AssignmentModal open onClose={onClose} />);
+
+    await goToStep2(user);
+    await selectSkill(user);
+    await user.click(screen.getByRole('button', { name: /review content/i }));
+
+    const backdrop = getBackdrop();
+    await user.pointer({ target: backdrop, keys: '[MouseLeft]' });
+    await user.keyboard('{Escape}');
+    expect(onClose).not.toHaveBeenCalled();
+
+    resolveDuplicateCheck([]);
+    await waitFor(() => expect(matchContentForSkill).toHaveBeenCalledTimes(1));
+    // Resolving the duplicate-check just advances the modal to Step 3 (no
+    // auto-close) -- confirms the earlier backdrop/Escape attempts were
+    // genuinely no-ops, not merely queued.
+    expect(onClose).not.toHaveBeenCalled();
+    expect(await screen.findByText('Step 3 of 3')).toBeInTheDocument();
   });
 
   it('does not apply a stale content-fetch result after navigating Back from Step 3', async () => {

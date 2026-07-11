@@ -12,6 +12,7 @@ from app.core.embedding import load_embedding_model
 from app.core.errors import register_exception_handlers
 from app.dashboard.router import router as dashboard_router
 from app.progress.router import router as progress_router
+from app.progress.my_assignments import router as my_assignments_router
 
 
 @asynccontextmanager
@@ -34,6 +35,7 @@ register_exception_handlers(app)
 
 app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
 app.include_router(assignments_router, prefix="/api/assignments", tags=["assignments"])
+app.include_router(my_assignments_router, prefix="/api")
 app.include_router(content_router, prefix="/api/content", tags=["content"])
 app.include_router(progress_router, prefix="/api/progress", tags=["progress"])
 app.include_router(dashboard_router, prefix="/api/dashboard", tags=["dashboard"])
