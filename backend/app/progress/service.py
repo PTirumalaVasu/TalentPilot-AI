@@ -1,5 +1,6 @@
 """Service layer for the progress module. Cross-module callers must go through here (AD-1)."""
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,6 +12,30 @@ from app.progress.schemas import SkillProgressResponse
 
 class ProgressService:
     """Service layer for watch progress business logic."""
+
+    @staticmethod
+    def derive_status(
+        watch_position: int, duration_seconds: int | None = None
+    ) -> Literal["NOT_STARTED", "IN_PROGRESS", "COMPLETED"]:
+        """Narrow Status-only slice of AD-3's single-derivation-authority rule
+        (Story 2.5). Does not compute Provenance, self-report staleness, or HR
+        override -- Story 5.1 extends this method with those, it does not
+        duplicate it.
+
+        `watch_position` is stored in seconds (SkillProgress.watch_position),
+        not a percentage -- AD-3 defines Status from "Watch %", so COMPLETED
+        can only be derived when `duration_seconds` is known (e.g. from a
+        matched Content item's metadata). Without a known duration, any
+        watch_position > 0 is IN_PROGRESS -- never COMPLETED, since a raw
+        position in seconds carries no completion signal on its own (a
+        150-second position could be 5% or 95% through a video depending on
+        its length). Callers own resolving `duration_seconds`; this is pure
+        derivation logic with no DB access."""
+        if watch_position <= 0:
+            return "NOT_STARTED"
+        if duration_seconds is not None and duration_seconds > 0 and watch_position >= duration_seconds:
+            return "COMPLETED"
+        return "IN_PROGRESS"
 
     @staticmethod
     async def record_watch_progress(
