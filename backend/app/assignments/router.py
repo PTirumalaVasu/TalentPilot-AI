@@ -7,24 +7,28 @@ from app.assignments.schemas import (
     AssignmentResponse,
     CreateAssignmentRequest,
     EmployeeResponse,
+    MyAssignmentsResponse,
     SkillResponse,
 )
 from app.assignments.service import (
     create_assignment_service,
     duplicate_check_service,
     list_employees_service,
+    list_my_assignments,
     list_skills_service,
 )
 from app.auth.schemas import CurrentUser
 from app.auth.service import get_current_user
 from app.core.db import get_db
 
-router = APIRouter(dependencies=[Depends(get_current_user)])
+router = APIRouter(tags=["assignments"])
 
 
 @router.get("/employees", response_model=list[EmployeeResponse])
 async def list_employees_route(
-    search: str | None = None, session: AsyncSession = Depends(get_db)
+    search: str | None = None,
+    current_user: CurrentUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db)
 ) -> list[EmployeeResponse]:
     """Read-only employee directory for the assignment modal's Step 1
     (Employee) combobox — not scoped by caller identity (Story 3.4 AC2)."""
@@ -33,7 +37,9 @@ async def list_employees_route(
 
 @router.get("/skills", response_model=list[SkillResponse])
 async def list_skills_route(
-    search: str | None = None, session: AsyncSession = Depends(get_db)
+    search: str | None = None,
+    current_user: CurrentUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db)
 ) -> list[SkillResponse]:
     """Read-only skill directory for the assignment modal's Step 2 (Skill)
     combobox (Story 3.4 AC3)."""
@@ -51,6 +57,16 @@ async def duplicate_check_route(
     before Step 3 renders (Story 3.4 AC5). HR_ADMIN-only via
     duplicate_check_service's require_hr_admin gate (code-review fix)."""
     return await duplicate_check_service(session, current_user=current_user, employee_id=employee_id, skill_id=skill_id)
+
+
+@router.get("/my-assignments", response_model=MyAssignmentsResponse)
+async def list_my_assignments_route(
+    current_user: CurrentUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+) -> MyAssignmentsResponse:
+    """Fetch EMPLOYEE's assignments with progress counts (Story 2.5).
+    EMPLOYEE-only — returns 403 for HR_ADMIN role."""
+    return await list_my_assignments(session, current_user=current_user)
 
 
 @router.post("", response_model=AssignmentResponse, status_code=status.HTTP_201_CREATED)
