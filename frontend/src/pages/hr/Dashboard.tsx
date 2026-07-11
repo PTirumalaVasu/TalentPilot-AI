@@ -1,17 +1,17 @@
 /** HR Admin Dashboard page with navigation (Story 5-1). */
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { logout } from "@/lib/api/authApi";
 import { AssignmentModal } from "@/features/assignments/AssignmentModal";
-import { DashboardPage } from "@/features/dashboard/DashboardPage";
+import { DashboardPage, type DashboardPageHandle } from "@/features/dashboard/DashboardPage";
 
 export function Dashboard() {
   const { signOut } = useAuth();
   const navigate = useNavigate();
   const [assignmentModalOpen, setAssignmentModalOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const [refreshKey, setRefreshKey] = useState(0);
+  const dashboardRef = useRef<DashboardPageHandle>(null);
 
   async function handleSignOut() {
     try {
@@ -63,7 +63,7 @@ export function Dashboard() {
 
       {/* Main content */}
       <main className="px-6 pb-12">
-        <DashboardPage key={refreshKey} onNewAssignment={() => setAssignmentModalOpen(true)} />
+        <DashboardPage ref={dashboardRef} onNewAssignment={() => setAssignmentModalOpen(true)} />
       </main>
 
       {/* Assignment Modal */}
@@ -72,7 +72,7 @@ export function Dashboard() {
         onClose={() => setAssignmentModalOpen(false)}
         onAssigned={() => {
           setAssignmentModalOpen(false);
-          setRefreshKey((prev) => prev + 1);
+          dashboardRef.current?.refreshGrid();
         }}
       />
     </div>
