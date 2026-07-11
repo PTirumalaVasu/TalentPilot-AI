@@ -12,6 +12,7 @@ import {
   type Employee,
   type Skill,
   type ContentMatch,
+  type Assignment,
 } from '@/lib/api/assignmentsApi';
 
 const TITLE_ID = 'assignment-modal-title';
@@ -35,8 +36,14 @@ function formatSource(source: string): string {
 export interface AssignmentModalProps {
   open: boolean;
   onClose: () => void;
-  /** Called after a successful assignment creation, so the caller can refresh any list. */
-  onAssigned?: () => void;
+  /**
+   * Called after a successful assignment creation (Story 3.5) so the caller
+   * can refresh its list, show a toast, and highlight the new row. Receives
+   * the created Assignment plus the Employee/Skill display names already
+   * resolved locally here, so the caller doesn't need to re-fetch or
+   * re-derive them just to build the toast copy.
+   */
+  onAssigned?: (assignment: Assignment, employeeName: string, skillName: string) => void;
 }
 
 /**
@@ -223,8 +230,12 @@ export function AssignmentModal({ open, onClose, onAssigned }: AssignmentModalPr
     setSubmitting(true);
     setSubmitError(null);
     try {
-      await createAssignment(employeeId, skillId, content?.id ?? null);
-      onAssigned?.();
+      const created = await createAssignment(employeeId, skillId, content?.id ?? null);
+      // Single-word fallbacks (not "the employee"/"the skill") — the caller
+      // derives a toast "first name" via `.split(' ')[0]`, and a
+      // multi-word sentence fallback would produce broken copy like
+      // "assigned to the" (code review finding).
+      onAssigned?.(created, selectedEmployee?.name ?? 'Employee', selectedSkill?.name ?? 'Skill');
       handleClose();
     } catch {
       setSubmitError("Couldn't create the assignment. Please try again.");
