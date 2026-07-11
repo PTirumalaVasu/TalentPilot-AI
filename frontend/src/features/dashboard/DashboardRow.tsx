@@ -12,10 +12,20 @@ interface DashboardRowProps {
 }
 
 export function DashboardRow({ row, onViewDetails }: DashboardRowProps) {
-  // AC3: Format last_updated as relative time
-  const lastUpdatedRelative = formatDistanceToNow(new Date(row.last_updated), {
-    addSuffix: true,
-  });
+  // AC3: Format last_updated as relative time (with error handling for invalid timestamps)
+  let lastUpdatedRelative: string;
+  try {
+    const date = new Date(row.last_updated);
+    if (isNaN(date.getTime())) {
+      lastUpdatedRelative = "Unknown";
+    } else {
+      lastUpdatedRelative = formatDistanceToNow(date, {
+        addSuffix: true,
+      });
+    }
+  } catch (error) {
+    lastUpdatedRelative = "Unknown";
+  }
 
   return (
     <tr className="border-b hover:bg-gray-50">

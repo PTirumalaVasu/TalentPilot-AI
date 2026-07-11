@@ -33,11 +33,17 @@ export function StatusBadge({ status, percentage }: StatusBadgeProps) {
 
   const config = statusConfig[status];
 
-  // Build label with percentage for In Progress (AC2)
-  const label =
-    status === "In Progress" && percentage !== null && percentage !== undefined
-      ? `${status} (${percentage}%)`
-      : status;
+  // Build label with percentage for In Progress (AC2), with validation
+  // If percentage is 0, should show "Not Started" instead of "In Progress (0%)"
+  let label: string;
+  if (percentage === 0) {
+    // 0% watch position should display as "Not Started", not "In Progress (0%)"
+    label = "Not Started";
+  } else if (status === "In Progress" && percentage !== null && percentage !== undefined && percentage > 0) {
+    label = `${status} (${percentage}%)`;
+  } else {
+    label = status;
+  }
 
   return (
     <span

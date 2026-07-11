@@ -1,10 +1,13 @@
 """Service layer for the dashboard module (read-composition, no table ownership)."""
+from __future__ import annotations
+
 import logging
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.assignments.models import AssignmentOverride
 from app.assignments.service import AssignmentsService
 from app.dashboard.schemas import DashboardResponse, AssignmentRowResponse
 from app.progress.service import ProgressService
@@ -58,8 +61,20 @@ class DashboardService:
             # Derive Status & Provenance for each assignment (AD-3)
             progress = progress_map.get(assignment.id)
             override = override_map.get(assignment.id)
+
+            # Extract video duration from content metadata if available (coerce to int for safety)
+            video_duration = None
+            if assignment.content and assignment.content.content_metadata:
+                duration_raw = assignment.content.content_metadata.get("duration")
+                if duration_raw is not None:
+                    try:
+                        video_duration = int(duration_raw) if isinstance(duration_raw, (int, float, str)) else None
+                    except (ValueError, TypeError):
+                        video_duration = None
+                        logger.warning(f"Invalid video duration for assignment {assignment.id}: {duration_raw}")
+
             status, provenance, percentage, last_updated = DashboardService._compute_status_and_provenance_from_data(
-                assignment, progress, override
+                assignment, progress, override, video_duration=video_duration
             )
 
             employee_name = assignment.employee.name if assignment.employee else "Unknown"
@@ -108,12 +123,18 @@ class DashboardService:
 
     @staticmethod
     def _compute_status_and_provenance_from_data(
-        assignment, progress: "SkillProgress" | None, override: "AssignmentOverride" | None
+        assignment, progress: "SkillProgress" | None, override: "AssignmentOverride" | None, video_duration: int | None = None
     ) -> tuple[str, str, int | None, datetime]:
         """
         Compute Status, Provenance, percentage, and last_updated from pre-fetched data.
 
         Implements AD-3 single derivation authority.
+
+        Args:
+            assignment: The Assignment record
+            progress: Optional SkillProgress record
+            override: Optional AssignmentOverride record
+            video_duration: Optional video duration in seconds (from content metadata). Falls back to 3600 if not provided.
 
         Returns:
             Tuple of (status_str, provenance_str, percentage_or_none, last_updated_datetime)
@@ -128,12 +149,14 @@ class DashboardService:
 
         # No active override; derive from watch progress
         if progress:
-            # Compute percentage from video duration if available
+            # Compute percentage from video duration (with fallback to 3600 if unavailable)
             estimated_percentage = 0
-            if progress.watch_position and hasattr(progress, 'video_duration') and progress.video_duration:
-                estimated_percentage = min(100, int((progress.watch_position / progress.video_duration) * 100))
+            if progress.watch_position:
+                # Ensure duration is positive; use max(1, ...) to prevent division by zero and negative durations
+                duration = max(1, video_duration) if video_duration else 3600
+                estimated_percentage = min(100, int((progress.watch_position / duration) * 100))
             else:
-                estimated_percentage = min(100, int((progress.watch_position / 3600) * 100)) if progress.watch_position else 0
+                estimated_percentage = 0
 
             # Determine status from percentage
             if estimated_percentage == 0:

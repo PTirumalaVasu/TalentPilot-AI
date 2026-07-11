@@ -142,7 +142,11 @@ async def list_assignments_for_hr(
         .order_by(desc(Assignment.assigned_at))
         .offset((page - 1) * page_size)
         .limit(page_size)
-        .options(selectinload(Assignment.employee), selectinload(Assignment.skill))
+        .options(
+            selectinload(Assignment.employee),
+            selectinload(Assignment.skill),
+            selectinload(Assignment.content),
+        )
     )
 
     result = await session.execute(stmt)
