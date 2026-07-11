@@ -18,6 +18,7 @@ class StatusEnum(str, Enum):
 class ProvenanceEnum(str, Enum):
     """Signal provenance: what data backs the Status badge (AD-3)."""
 
+    NOT_STARTED = "Not Started"  # No signal at all yet (Story 5.2 consolidation)
     VERIFIED = "Verified"  # Auto-captured from video (verified watch progress)
     SELF_REPORTED = "Self-reported"  # Non-video data, ≤7 days old
     NEEDS_ATTENTION = "Needs Attention"  # Self-reported, >7 days stale
@@ -36,7 +37,7 @@ class AssignmentRowResponse(BaseModel):
     skill_name: str
     status: Literal["Not Started", "In Progress", "Completed"]
     status_percentage: int | None  # e.g., 45 for "In Progress (45%)"
-    provenance: Literal["Verified", "Self-reported", "Needs Attention", "HR Override"]
+    provenance: Literal["Not Started", "Verified", "Self-reported", "Needs Attention", "HR Override"]
     last_updated: datetime  # ISO-8601, server-side; frontend converts to relative
     assignment_created_at: datetime  # ISO-8601, for sorting/pagination
 

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { dashboardApi } from "../../lib/api/dashboardApi";
 import { DashboardResponse, AssignmentRow } from "../../types/dashboard";
 import { DashboardRow } from "./DashboardRow";
+import { ProvenanceDrillDownModal } from "./ProvenanceDrillDownModal";
 import { Button } from "../../components/ui/button";
 
 interface DashboardState {
@@ -28,6 +29,15 @@ export function DashboardPage({ onNewAssignment }: DashboardPageProps) {
     totalCount: 0,
     requestId: 0,
   });
+  const [selectedAssignmentId, setSelectedAssignmentId] = useState<string | null>(null);
+
+  function handleViewDetails(assignmentId: string) {
+    setSelectedAssignmentId(assignmentId);
+  }
+
+  function handleCloseDrillDown() {
+    setSelectedAssignmentId(null);
+  }
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -172,14 +182,21 @@ export function DashboardPage({ onNewAssignment }: DashboardPageProps) {
             <th className="px-4 py-3 font-medium">Assigned Skill</th>
             <th className="px-4 py-3 font-medium">Status</th>
             <th className="px-4 py-3 font-medium">Progress</th>
+            <th className="px-4 py-3 font-medium">Actions</th>
           </tr>
         </thead>
         <tbody>
           {state.assignments.map((row) => (
-            <DashboardRow key={row.assignment_id} row={row} />
+            <DashboardRow key={row.assignment_id} row={row} onViewDetails={handleViewDetails} />
           ))}
         </tbody>
       </table>
+
+      <ProvenanceDrillDownModal
+        assignmentId={selectedAssignmentId}
+        open={selectedAssignmentId !== null}
+        onClose={handleCloseDrillDown}
+      />
 
       {/* Pagination */}
       <div className="flex items-center justify-center gap-2 mt-4 text-sm">

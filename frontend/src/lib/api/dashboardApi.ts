@@ -1,6 +1,6 @@
 import { apiClient } from '@/lib/api/client';
 import type { AssignmentStatus } from '@/lib/api/assignmentsApi';
-import { DashboardResponse } from "../../types/dashboard";
+import { DashboardResponse, DrillDownResponse } from "../../types/dashboard";
 
 export interface DashboardAssignmentRow {
   id: string;
@@ -26,7 +26,15 @@ async function getDashboard(page: number = 1, pageSize: number = 50): Promise<Da
   return response.data;
 }
 
+async function getDrillDown(assignmentId: string): Promise<DrillDownResponse> {
+  const response = await apiClient.get<DrillDownResponse>(
+    `/api/assignments/${assignmentId}/progress/drill-down`
+  );
+  return response.data;
+}
+
 export const dashboardApi = {
   getDashboardAssignments,
   getDashboard,
+  getDrillDown,
 };
