@@ -38,7 +38,7 @@ export interface ContentMatch {
   ingested_at: string;
   // Matches the backend's actual wire key: ContentResponse's Pydantic field
   // is `metadata: ... = Field(alias="content_metadata")`, and FastAPI
-  // serializes by alias — confirmed via a live HTTP call, since a plain
+  // serializes by alias ï¿½ confirmed via a live HTTP call, since a plain
   // `metadata` key here would silently read as `undefined` against the
   // real API (code review round 2 finding).
   content_metadata: Record<string, unknown> | null;
@@ -82,7 +82,9 @@ export async function createAssignment(
     skill_id: skillId,
     content_id: contentId,
   });
-/** GET /api/assignments -- EMPLOYEE-only (backend/app/assignments/service.py::list_my_assignments). */
+  return response.data;
+}
+
 export async function listMyAssignments(): Promise<MyAssignmentsResponse> {
   const response = await apiClient.get<MyAssignmentsResponse>('/api/assignments');
   return response.data;
