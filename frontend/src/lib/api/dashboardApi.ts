@@ -14,14 +14,19 @@ export interface DashboardAssignmentRow {
   provenance: string;
 }
 
-export async function getDashboardAssignments(): Promise<DashboardAssignmentRow[]> {
+async function getDashboardAssignments(): Promise<DashboardAssignmentRow[]> {
   const response = await apiClient.get<DashboardAssignmentRow[]>('/api/dashboard/assignments');
   return response.data;
 }
 
-export async function getDashboard(page: number = 1, pageSize: number = 50): Promise<DashboardResponse> {
+async function getDashboard(page: number = 1, pageSize: number = 50): Promise<DashboardResponse> {
   const response = await apiClient.get<DashboardResponse>("/api/dashboard", {
     params: { page, page_size: pageSize },
   });
   return response.data;
 }
+
+export const dashboardApi = {
+  getDashboardAssignments,
+  getDashboard,
+};
