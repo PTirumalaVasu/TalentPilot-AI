@@ -46,9 +46,11 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   // element it's given with a generated <iframe>, so reusing the same node
   // across retry attempts would mean attaching a new player into an
   // already-detached element (Story 2.6 review finding). Each attempt
-  // instead gets a fresh child element appended into this stable container,
-  // matching the pattern already established in VideoPlayerDemo.tsx's
-  // loadPlayer().
+  // instead gets a fresh child element appended into this stable container
+  // -- the same DOM-recreation approach VideoPlayerDemo.tsx's loadPlayer()
+  // already uses (that component does not call .destroy() on the raw
+  // player object, so it is precedent for the DOM handling only, not for
+  // handleRetry's player teardown below).
   const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
   const adapterRef = useRef<YouTubeAdapter | null>(null);
@@ -66,6 +68,50 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   // (Story 2.6 review finding).
   const attemptIdRef = useRef(0);
   const isMountedRef = useRef(true);
+
+  // Destroys and nulls out every player/adapter/capture-service/listener
+  // ref, each independently exception-safe so one throwing .destroy() call
+  // doesn't block the rest. Used on both unmount and retry -- nulling (not
+  // just destroying) is critical: React StrictMode's dev-mode mount ->
+  // unmount -> remount cycle re-runs initPlayer(), whose own guard
+  // (`if (playerRef.current) return`) would otherwise see a stale
+  // already-destroyed player and silently no-op, permanently killing the
+  // capture pipeline while the UI keeps claiming it's active (Story 2.6
+  // round-2 review, reproduced empirically under StrictMode).
+  const destroyPlayerResources = () => {
+    if (cleanupListenersRef.current) {
+      try {
+        cleanupListenersRef.current();
+      } catch (err) {
+        console.error('[VideoPlayer] Error removing listeners during teardown:', err);
+      }
+      cleanupListenersRef.current = null;
+    }
+    if (captureServiceRef.current) {
+      try {
+        captureServiceRef.current.destroy();
+      } catch (err) {
+        console.error('[VideoPlayer] Error destroying capture service:', err);
+      }
+      captureServiceRef.current = null;
+    }
+    if (adapterRef.current) {
+      try {
+        adapterRef.current.destroy();
+      } catch (err) {
+        console.error('[VideoPlayer] Error destroying adapter:', err);
+      }
+      adapterRef.current = null;
+    }
+    if (playerRef.current && typeof playerRef.current.destroy === 'function') {
+      try {
+        playerRef.current.destroy();
+      } catch (err) {
+        console.error('[VideoPlayer] Error destroying player:', err);
+      }
+    }
+    playerRef.current = null;
+  };
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -85,21 +131,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
     return () => {
       isMountedRef.current = false;
-      // Cleanup event listeners
-      if (cleanupListenersRef.current) {
-        cleanupListenersRef.current();
-        cleanupListenersRef.current = null;
-      }
-      // Cleanup services
-      if (captureServiceRef.current) {
-        captureServiceRef.current.destroy();
-      }
-      if (adapterRef.current) {
-        adapterRef.current.destroy();
-      }
-      if (playerRef.current && typeof playerRef.current.destroy === 'function') {
-        playerRef.current.destroy();
-      }
+      destroyPlayerResources();
     };
   }, []);
 
@@ -109,9 +141,11 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     const myAttempt = ++attemptIdRef.current;
 
     // Fresh mount target for every attempt -- see containerRef's comment.
+    // The id includes the attempt number so it stays unique across
+    // retries, not just accidentally non-colliding via execution order.
     containerRef.current.innerHTML = '';
     const playerHost = document.createElement('div');
-    playerHost.id = `youtube-player-${assignmentId}`;
+    playerHost.id = `youtube-player-${assignmentId}-${myAttempt}`;
     containerRef.current.appendChild(playerHost);
 
     const videoId = extractYouTubeId(videoUrl);
@@ -144,27 +178,10 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   };
 
   // Resets all player/adapter/capture-service state and re-attempts
-  // initialization from scratch (Story 2.6 AC3). The real YT.Player
-  // instance is destroyed (when it exposes .destroy -- the test mocks
-  // don't) before being discarded, matching the teardown already applied
-  // to adapterRef/captureServiceRef.
+  // initialization from scratch (Story 2.6 AC3).
   const handleRetry = () => {
-    if (cleanupListenersRef.current) {
-      cleanupListenersRef.current();
-      cleanupListenersRef.current = null;
-    }
-    if (captureServiceRef.current) {
-      captureServiceRef.current.destroy();
-      captureServiceRef.current = null;
-    }
-    if (adapterRef.current) {
-      adapterRef.current.destroy();
-      adapterRef.current = null;
-    }
-    if (playerRef.current && typeof playerRef.current.destroy === 'function') {
-      playerRef.current.destroy();
-    }
-    playerRef.current = null;
+    if (!isMountedRef.current) return;
+    destroyPlayerResources();
     setIsReady(false);
     setError(null);
     initPlayer();

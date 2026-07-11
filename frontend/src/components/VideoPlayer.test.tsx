@@ -1,3 +1,4 @@
+import { StrictMode } from 'react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -85,18 +86,25 @@ describe('VideoPlayer — video load failure (Story 2.6 AC3)', () => {
     expect(PlayerCtor).toHaveBeenCalledTimes(2);
   });
 
-  it('a second failed retry re-renders the same error+retry state', async () => {
-    mockYTPlayer('error', 100);
+  it('a second failed retry re-renders the same error+retry state and genuinely re-attempts construction', async () => {
+    const PlayerCtor = mockYTPlayer('error', 100);
     const user = userEvent.setup();
 
     render(<VideoPlayer assignmentId="assign-1" videoUrl="dQw4w9WgXcQ" />);
 
     await screen.findByRole('alert');
     await user.click(screen.getByRole('button', { name: /try again/i }));
+    await screen.findByRole('alert');
+    expect(PlayerCtor).toHaveBeenCalledTimes(2);
+
+    await user.click(screen.getByRole('button', { name: /try again/i }));
 
     const alert = await screen.findByRole('alert');
     expect(alert).toHaveTextContent(VIDEO_LOAD_FAILURE_MESSAGE);
     expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument();
+    // Proves the second retry isn't a UI-only toggle -- it genuinely
+    // re-attempts player construction a third time (Story 2.6 round-2 review).
+    expect(PlayerCtor).toHaveBeenCalledTimes(3);
   });
 
   it('a synchronous construction failure (initPlayer\'s own try/catch) renders the same error+retry UI', async () => {
@@ -134,5 +142,26 @@ describe('VideoPlayer — video load failure (Story 2.6 AC3)', () => {
     await screen.findByText(/capture service active/i);
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /try again/i })).not.toBeInTheDocument();
+  });
+
+  it("correctly re-initializes after React.StrictMode's dev-mode mount->unmount->remount cycle", async () => {
+    const PlayerCtor = mockYTPlayer('ready');
+
+    render(
+      <StrictMode>
+        <VideoPlayer assignmentId="assign-1" videoUrl="dQw4w9WgXcQ" />
+      </StrictMode>
+    );
+
+    await screen.findByText(/capture service active/i);
+    // StrictMode double-invokes the mount effect (mount -> cleanup -> mount
+    // again) in dev, matching how main.tsx actually renders this app. Before
+    // the round-2 fix, the unmount cleanup destroyed but never nulled
+    // playerRef/adapterRef/captureServiceRef, so the second mount's
+    // initPlayer() guard saw a stale already-destroyed playerRef and
+    // silently no-op'd -- "Capture service active" kept rendering for an
+    // already-dead service. A second real construction proves the refs
+    // were correctly reset (Story 2.6 round-2 review).
+    expect(PlayerCtor).toHaveBeenCalledTimes(2);
   });
 });
