@@ -290,7 +290,15 @@ describe('AssignmentModal', () => {
     await user.click(screen.getByRole('button', { name: /^assign$/i }));
 
     await waitFor(() => expect(createAssignment).toHaveBeenCalledWith(EMPLOYEE.id, SKILL.id, CONTENT.id));
+    // Story 3.5: onAssigned must receive the created Assignment plus the
+    // already-resolved Employee/Skill display names, not just fire as a
+    // no-op signal — the dashboard's toast copy is built from these.
     expect(onAssigned).toHaveBeenCalledTimes(1);
+    expect(onAssigned).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'assignment-1', employee_id: EMPLOYEE.id, skill_id: SKILL.id }),
+      EMPLOYEE.name,
+      SKILL.name
+    );
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 

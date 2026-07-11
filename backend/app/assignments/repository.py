@@ -4,6 +4,7 @@ import uuid
 from fastapi import status
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.assignments.models import Assignment, Employee, Skill
 from app.auth.schemas import CurrentUser, Role
@@ -96,13 +97,40 @@ async def list_assignments_for_employee(
     ignoring any requested_employee_id override. HR_ADMIN sessions are
     unrestricted; requested_employee_id acts as a real filter for them, not a
     spoof-defense."""
-    stmt = select(Assignment)
+    stmt = select(Assignment).options(selectinload(Assignment.skill))
 
     if current_user.role == Role.EMPLOYEE:
         stmt = stmt.where(Assignment.employee_id == _parse_user_id(current_user))
     elif requested_employee_id is not None:
         stmt = stmt.where(Assignment.employee_id == requested_employee_id)
 
+    result = await session.execute(stmt)
+    return list(result.scalars().all())
+
+
+async def list_assignments_for_dashboard(session: AsyncSession) -> list[Assignment]:
+    """All Assignments org-wide with employee/skill/content/progress
+    eager-loaded, for the HR dashboard read (Story 3.5). Unlike
+    list_assignments_for_employee, this is unconditionally unrestricted here
+    — the HR-only gate lives in the service layer
+    (list_assignment_rows_for_dashboard_service), matching
+    duplicate_check_service's established pattern — since this function has
+    no other/future EMPLOYEE-facing caller to protect against.
+
+    `content`/`progress` are eager-loaded (not just `employee`/`skill`) so
+    the service layer can derive real per-row Status/Progress via
+    `ProgressService.derive_dashboard_status_and_percent` +
+    `ProgressRepository.get_video_duration` without N+1 queries."""
+    stmt = (
+        select(Assignment)
+        .options(
+            selectinload(Assignment.employee),
+            selectinload(Assignment.skill),
+            selectinload(Assignment.content),
+            selectinload(Assignment.progress),
+        )
+        .order_by(Assignment.assigned_at.desc())
+    )
     result = await session.execute(stmt)
     return list(result.scalars().all())
 

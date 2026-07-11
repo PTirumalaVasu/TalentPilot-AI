@@ -2,8 +2,11 @@
 import uuid
 from datetime import datetime
 from enum import Enum
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
+
+from app.content.schemas import ContentResponse
 
 
 class AssignmentStatus(str, Enum):
@@ -59,3 +62,58 @@ class AssignmentResponse(BaseModel):
     # Plain string, not an enum column: Provenance has no DB representation
     # anywhere in the schema (compute-on-read only, owned by progress/ per AD-3).
     provenance: str
+
+
+class DashboardAssignmentRow(BaseModel):
+    """A single Assignment row for the HR dashboard list (Story 3.5).
+
+    `status`/`progress_percent`/`provenance` are derived per-row from real
+    `skill_progress` data (via `ProgressService.derive_dashboard_status_and_percent`,
+    AD-3: `progress/` is the sole derivation authority) — not the earlier
+    hardcoded placeholder. Real per-assignment Status derivation was pulled
+    forward from Epic 5/Story 5.1 at the user's request to visually match
+    the WDS prototype's dashboard; this is still not the final grid (no
+    Provenance drill-down, no Needs-Attention staleness threshold, no live
+    10-15s auto-polling — those remain Story 5.2/5.3/5.4's job). Distinct
+    from AssignmentResponse because this is a display-oriented read model
+    (adds employee_name/skill_name/progress_percent), not a mutation-response
+    echo — AssignmentResponse intentionally carries only ids, matching what
+    Story 3.4's create/duplicate-check callers need.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    employee_id: uuid.UUID
+    employee_name: str
+    skill_id: uuid.UUID
+    skill_name: str
+    assigned_at: datetime
+    status: AssignmentStatus
+    progress_percent: int
+    provenance: str
+
+
+class AssignmentContentItem(BaseModel):
+    """One row in the Employee's own Content Discovery grid (Story 2.5, FR-4).
+    `content` is the live-matched recommendation (Story 2.4's
+    match_content_for_skill), not a join through Assignment.content_id --
+    that column is always NULL until Story 3.4/3.5 ship."""
+
+    assignment_id: uuid.UUID
+    skill_id: uuid.UUID
+    skill_name: str
+    content: ContentResponse | None
+    watch_position: int
+    status: Literal["NOT_STARTED", "IN_PROGRESS", "COMPLETED"]
+    group: Literal["TO_START", "IN_PROGRESS"]
+
+
+class MyAssignmentsResponse(BaseModel):
+    """Response for GET /api/assignments (Story 2.5, EMPLOYEE-only -- see
+    assignments/service.py::list_my_assignments)."""
+
+    total: int
+    in_progress_count: int
+    to_start_count: int
+    assignments: list[AssignmentContentItem]

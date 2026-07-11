@@ -19,7 +19,14 @@ class ContentResponse(BaseModel):
     url: str
     source: Literal["YOUTUBE", "MANUAL"]
     ingested_at: datetime
-    metadata: dict[str, Any] | None = Field(default=None, alias="content_metadata")
+    # validation_alias (not alias): accept the ORM's content_metadata attribute
+    # name on input, but serialize as "metadata" -- the intended public field
+    # name per this schema's own docstring/Story 2.1 Dev Notes. A plain
+    # `alias=` uses the same name for both validation AND serialization, which
+    # would leak the DB-internal name over HTTP via FastAPI's response_model
+    # (by_alias=True by default) -- invisible until this field's first real
+    # HTTP response (Story 2.5), since content/router.py had zero routes before.
+    metadata: dict[str, Any] | None = Field(default=None, validation_alias="content_metadata")
 
 
 class ContentWithEmbedding(ContentResponse):
