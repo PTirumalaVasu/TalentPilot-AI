@@ -7,7 +7,7 @@ criticalFixesApplied:
   - 'TIER 1: E5.S2, E1.S3, E4.S5 — Launch blockers fixed'
   - 'TIER 2: E2.S5, E3.S4, E5.S2, E5.S5b — All aligned to UX specs (no UX changes)'
 highPriorityFixesApplied:
-  - 'E2.S5: Rewritten as single-card Content Discovery (per UX spec 02.1)'
+  - 'E2.S5: Rewritten as single-card Content Discovery (per UX spec 02.1) — SUPERSEDED 2026-07-10: that UX spec doc was itself stale/pre-pivot; E2.S5 corrected again to the multi-assignment grid model (PRD FR-4 + shipped prototype), see the story section itself for detail'
   - 'E3.S4: Enhanced HR Assignment Flow with exact UX spec 03.1 copy/layout'
   - 'E5.S2: Needs Attention rendering now concrete (⚠️ icon, red-600, WCAG compliant)'
   - 'E5.S5b: NEW story created for HR Override Reversal with complete flow'
@@ -823,154 +823,94 @@ So that relevant (but not exact-tag-matched) content is surfaced for a Skill.
 
 ---
 
-### Story 2.5: Content Discovery — Single Assignment Card View
+### Story 2.5: Content Discovery — Multi-Assignment Grid View
+
+> **Correction (2026-07-10):** this story was previously rewritten (2026-07-09 tier-2 fix) as a "Single Assignment Card View" citing UX spec `02.1-content-discovery.md`. That rewrite was itself wrong: the cited UX spec doc is the **stale, pre-pivot** artifact — already flagged in the implementation-readiness report as documenting a model the actual PRD and shipped prototype had already moved past. The PRD's own FR-4 (confirmed same-day, 2026-07-09, explicitly "the intended scope") and the actual shipped prototype (`_bmad-output/E-Development/02-Caseys-Resume-and-Watch-Prototype/02.1-Content-Discovery.html`) both describe a **multi-assignment grid**, not a single card. This section is rewritten again to match those two authoritative, same-day sources — not the stale UX spec doc.
 
 As an **Employee**,
-I want to see my assigned Skill with the AI-recommended Content prominently displayed and ready to watch,
-So that I can start learning immediately with minimal friction.
+I want to see all my assigned Skills with their AI-recommended Content in one grouped list, without searching,
+So that I can start or continue learning immediately with minimal friction.
 
 **Acceptance Criteria:**
 
 #### **Page Entry & Context**
 
 **Given** I am authenticated as an Employee  
-**When** I navigate to Content Discovery or click a skill assignment link  
+**When** I navigate to Content Discovery  
 **Then** I see:
-- Page URL: `/assignments/:id/content` (parameterized by assignment ID)
-- Page loads the specific **Assignment Card** (one Skill + one recommended Content item)
+- Page URL: `/employee/content` (already the route Story 1.8 wired the post-login Employee redirect to — this story replaces `ContentDiscoveryStub` at that route, not a new URL)
 - Header shows: Logo, navigation (Assignments, Continue Watching), user menu
+- The page loads **all** of my own assigned Skills/Content — never another Employee's (FR-14 hard-scoping, enforced at the repository layer per Story 1.3's AC6 binding guidance)
 
 ---
 
-#### **Assignment Card Display (UX Spec 02.1-content-discovery.md)**
+#### **List Display (Per PRD FR-4 + shipped prototype)**
 
 **Given** the Content Discovery page loads  
-**When** the assignment data has been fetched  
-**Then** I see an **Assignment Card** containing:
+**When** my assignment data has been fetched  
+**Then** I see:
 
-**Card Header:**
-- Skill name + Status badge
-- Text: "[Skill Name] - Assigned today by Rita"
-- Status: "Assigned · Awaiting first watch"
+**Summary stats** (Total / In Progress / To Start counts across all my assignments)
 
-**Recommended Content Section:**
-- Label: "Recommended Content"
-- Content Thumbnail (image from video)
-- Content Title: "[Video Title]"
-- Source Badge: "YouTube"
-- Approval Provenance: "✓ Approved" (per UX spec line 84, 110)
-- Duration: "[X] minutes"
-- Brief Description: Learning outcome description (plain text, not transcript)
+**Two grouped sections**, each rendering one card per assignment:
+- **In Progress** — assignments with a recorded watch position greater than zero
+- **To Start** — assignments with no recorded watch position yet
+
+**Each assignment card shows:**
+- Skill name
+- Status badge (⊕ To Start / ⟳ In Progress)
+- Recommended Content: title, source ("YouTube"), duration, brief learning-outcome description
+- Approval provenance: "✓ Approved" (per PRD §4.1 — no real approval gate exists in v1; this is a fixed label, not data-driven)
+- Progress bar + "[X]% watched" when in progress
 
 **Actions:**
-- Primary button: [▶ Play] — launches video player at 0:00
-- Secondary link: "View alternatives" — hidden by default, available for edge cases
-- Thumbnail itself is also clickable and launches player
+- Clicking a card (or its thumbnail) launches the video player for that assignment, at 0:00 or the resume position if previously watched (FR-6)
 
 ---
 
-#### **Page States (Per UX Spec)**
+#### **Page States (Per FR-4 + UX-DR7/DR8)**
 
-**Loaded State (Happy Path):**
-- Full card with thumbnail, title, approval badge, play button
-- Actions: Play, View alternatives
+**Loaded (happy path):** grid renders with stats + grouped In Progress / To Start sections
 
-**Loading State:**
-- Skeleton card placeholder in place of content
-- Header remains interactive
-- Wait for data
+**Loading:** skeleton placeholders in place of cards; header remains interactive
 
-**Empty State (No Matching Content):**
-- Card displays: "No recommended content yet for this skill. [Contact Rita]"
-- No thumbnail, no play button
-- Contact link triggers: "Questions about this skill? Contact Rita"
+**Empty — no assignments at all:** "Nothing in progress right now. [View your assignments]" (UX-DR8) — distinct from the next state, not a shared generic empty view
 
-**Error State:**
-- Player area shows: "This video couldn't be loaded. [Try again] · [View alternatives]"
-- [Try again] retries video load
-- [View alternatives] shows other options
+**Empty — assignment(s) exist but no Content matched yet for a given Skill:** that specific card shows "No recommended content yet for this skill. [Contact Rita]" (UX-DR7) instead of a thumbnail/play control — a per-card state, not a page-level one, since other cards in the same grid may have matched Content
+
+**Error — API failure fetching the list:** a distinct page-level error state, never a blank grid (UX-DR9/AR-14)
 
 ---
 
-#### **Interactions (Per UX Spec 02.1)**
+#### **Content Rules (Per FR-4 + AD-7)**
 
-**Click Play Button or Thumbnail:**
-- Player launches immediately
-- Video starts at 0:00 (or resume position if previously watched)
-- Exit to video player page (handled by Story 4.0 YouTube Adapter)
-
-**Hover "✓ Approved" Badge:**
-- Tooltip appears: "This content was reviewed and approved by Rita before being recommended to you"
-- Reinforces trust in the recommendation
-
-**Click "View Alternatives":**
-- Secondary content search/browse interface appears (out of scope for this story; can be fast-follow)
-- Employee can choose different content or return to recommended default
-
-**Click Navigation:**
-- Logo → `/dashboard` (or `/assignments` depending on role)
-- "Assignments" nav → `/assignments` (list all assignments for this Employee)
-- "Continue Watching" nav → `/continue-watching` (list videos in progress)
-
-**Click Sign Out:**
-- Session cleared, redirect to `/login`
-
----
-
-#### **Watch-Position Capture (Technical Detail)**
-
-**Given** I start watching the video  
-**When** the video player is actively playing  
-**Then** in the background:
-- Player adapter samples position every 5–10 seconds
-- Samples are batched and POSTed to `POST /api/assignments/{assignment_id}/progress`
-- Request includes: `{ watch_position, event_time, video_url }`
-
-**And** when I close the tab or browser:
-- `sendBeacon` API flushes the last known position to the backend
-- Rita's dashboard updates within 30 seconds (FR-11)
-
-**And** next time I return to this assignment:
-- Video resumes at exact last-watched position (FR-6, E4.S6)
-
----
-
-#### **Content Rules (Per UX Spec 02.1)**
-
-- ✅ Always show exactly one curated recommendation per assignment (never search results)
-- ✅ Always label as "Recommended Content," not "Search Results"
-- ✅ Always include approval provenance ("✓ Approved")
-- ✅ Brief description is learning-outcome focused, not transcript snippet
-- ✅ No search box on this page (Casey should never search)
-- ✅ Never show raw YouTube search results
+- ✅ Always show exactly one curated recommendation per assigned Skill (never a list of candidates, never raw search results)
+- ✅ Always label as "Recommended," never "Search Results"
+- ✅ Always include the approval provenance label
+- ✅ Brief description is learning-outcome focused, not a transcript snippet
+- ✅ No search box anywhere on this page — strictly assignments-scoped (UX-DR21)
+- ✅ The list is scoped to the Employee's own assigned Skills only — never a browsable catalog, never another Employee's assignments (FR-4 consequence; Non-Goal §5/Open Question 12)
 
 ---
 
 #### **Performance & Accessibility**
 
-- Page + video player loads in under 3 seconds (NFR-L2)
-- Responsive: desktop-primary; video player scales to viewport width
-- Thumbnail has alt text: "[Video title] - [Duration]"
-- All buttons/links have descriptive labels
-- Approval badge tooltip is keyboard-accessible
-- User menu dropdown is keyboard-navigable
-- Video player supports keyboard controls (Space, arrow keys, etc.)
+- Page loads in under 3 seconds (NFR-L2)
+- Responsive: desktop-primary
+- Status badges never color-only — paired with icon + text (NFR-A2/UX-DR13)
+- All buttons/links have descriptive labels; thumbnail alt text includes video title + duration
 
 ---
 
 #### **Test Cases**
 
-- ✅ Page loads with assignment ID; displays correct Skill + Content
-- ✅ Play button launches player at 0:00
-- ✅ Thumbnail click also launches player
-- ✅ "View alternatives" link available but hidden (for future use)
-- ✅ Approval badge shows tooltip on hover + keyboard focus
+- ✅ Page loads; displays all of the authenticated Employee's own assignments, grouped In Progress / To Start, with correct summary counts
+- ✅ An Employee never sees another Employee's assignments, even via a manipulated request parameter (FR-14 hard-scoping)
+- ✅ Clicking a card/thumbnail launches the player at the correct position (0:00, or resume position if previously watched)
+- ✅ Page-level empty state renders when the Employee has zero assignments
+- ✅ Per-card empty state renders for an assignment whose Skill has no matched Content yet
+- ✅ Page-level error state renders on an API failure, not a blank grid
 - ✅ Page load time < 3 seconds
-- ✅ Empty state renders when no content matched
-- ✅ Error state renders on video load failure
-- ✅ Watch capture begins automatically during playback
-- ✅ sendBeacon fires on tab close
-- ✅ Resume position fetched on next visit
 
 ---
 

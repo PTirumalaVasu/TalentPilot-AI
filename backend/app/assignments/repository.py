@@ -97,7 +97,7 @@ async def list_assignments_for_employee(
     ignoring any requested_employee_id override. HR_ADMIN sessions are
     unrestricted; requested_employee_id acts as a real filter for them, not a
     spoof-defense."""
-    stmt = select(Assignment)
+    stmt = select(Assignment).options(selectinload(Assignment.skill))
 
     if current_user.role == Role.EMPLOYEE:
         stmt = stmt.where(Assignment.employee_id == _parse_user_id(current_user))
