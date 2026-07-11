@@ -1,21 +1,3 @@
-"""Service layer for the dashboard module. Cross-module callers must go through here (AD-1)."""
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.assignments.schemas import DashboardAssignmentRow
-from app.assignments.service import list_assignment_rows_for_dashboard_service
-from app.auth.schemas import CurrentUser
-
-
-async def get_dashboard_assignments_service(
-    session: AsyncSession, *, current_user: CurrentUser
-) -> list[DashboardAssignmentRow]:
-    """Thin orchestration seam (Story 3.5): today this only calls into
-    assignments/ for the placeholder row list. Story 5.1/5.2 will extend
-    this function to also compose real Status/Provenance from progress/ —
-    keep it thin, and do not move the HR-only gate or the Assignment query
-    itself out of assignments/service.py/repository.py when that happens
-    (AD-1: only assignments/ queries the Assignment table)."""
-    return await list_assignment_rows_for_dashboard_service(session, current_user=current_user)
 """Service layer for the dashboard module (read-composition, no table ownership)."""
 from __future__ import annotations
 
@@ -122,7 +104,7 @@ class DashboardService:
     @staticmethod
     async def _batch_load_progress(
         session: AsyncSession, assignment_ids: list[UUID]
-    ) -> dict[UUID, "SkillProgress"]:
+    ) -> dict[UUID, SkillProgress]:
         """Batch-load all progress records for assignments (prevents N+1)."""
         from app.progress.repository import ProgressRepository
 
@@ -132,7 +114,7 @@ class DashboardService:
     @staticmethod
     async def _batch_load_overrides(
         session: AsyncSession, assignment_ids: list[UUID]
-    ) -> dict[UUID, "AssignmentOverride"]:
+    ) -> dict[UUID, AssignmentOverride]:
         """Batch-load all active override records for assignments (prevents N+1)."""
         from app.progress.repository import ProgressRepository
 
@@ -141,7 +123,7 @@ class DashboardService:
 
     @staticmethod
     def _compute_status_and_provenance_from_data(
-        assignment, progress: "SkillProgress" | None, override: "AssignmentOverride" | None, video_duration: int | None = None
+        assignment, progress: SkillProgress | None, override: AssignmentOverride | None, video_duration: int | None = None
     ) -> tuple[str, str, int | None, datetime]:
         """
         Compute Status, Provenance, percentage, and last_updated from pre-fetched data.
@@ -213,4 +195,3 @@ class DashboardService:
         percentage = None
 
         return status, provenance, percentage, last_updated
-

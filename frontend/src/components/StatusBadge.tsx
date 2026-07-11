@@ -20,8 +20,8 @@ export function StatusBadge({ status, percentage }: StatusBadgeProps) {
       icon: "○",
     },
     "In Progress": {
-      bg: "bg-blue-100",
-      text: "text-blue-800",
+      bg: "bg-yellow-100",
+      text: "text-yellow-800",
       icon: "▶",
     },
     Completed: {
