@@ -31,9 +31,17 @@ const CONTENT = {
   url: 'https://youtube.com/watch?v=abc',
   source: 'YOUTUBE' as const,
   ingested_at: '2026-01-01T00:00:00Z',
-  // Matches the real backend's wire key (ContentResponse's Pydantic alias),
-  // not the frontend's old, incorrect `metadata` key (code review round 2).
-  content_metadata: { video_id: 'abc', duration: 300 },
+  // Matches the real backend's wire key -- confirmed via a live HTTP call
+  // (2026-07-12). The old `content_metadata` name here (and in the
+  // component/interface it was mocking) was stale from before Story 2.5's
+  // schema fix landed; this fixture was giving false confidence by mocking
+  // the same wrong key the component read, so the mismatch never failed.
+  // `duration` is a raw ISO-8601 string (e.g. "PT5M0S"), never a plain
+  // number -- matches ContentDiscovery.test.tsx's identical fixture shape
+  // and the real YouTube API response (code review finding: the old
+  // `duration: 300` here was mocking the same wrong numeric shape the
+  // component's old, also-wrong `typeof === 'number'` check expected).
+  metadata: { video_id: 'abc', duration: 'PT5M0S' },
 };
 
 async function goToStep2(user: ReturnType<typeof userEvent.setup>) {
