@@ -9,6 +9,7 @@ from app.assignments.schemas import (
     DrillDownResponse,
     EmployeeResponse,
     MyAssignmentsResponse,
+    SetOverrideRequest,
     SkillResponse,
 )
 from app.assignments.service import (
@@ -18,6 +19,7 @@ from app.assignments.service import (
     list_employees_service,
     list_my_assignments,
     list_skills_service,
+    set_override_service,
 )
 from app.auth.schemas import CurrentUser
 from app.auth.service import get_current_user
@@ -96,3 +98,20 @@ async def get_drill_down_route(
     with main.py's /api/progress mount — see this story's Dev Notes Finding 2
     for the live bug that causes."""
     return await get_drill_down_service(session, current_user=current_user, assignment_id=assignment_id)
+
+
+@router.post("/{assignment_id}/override", response_model=DrillDownResponse)
+async def set_override_route(
+    assignment_id: UUID,
+    request: SetOverrideRequest,
+    current_user: CurrentUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+) -> DrillDownResponse:
+    """Create or reverse an HR Override (Story 5.5/5.5b, FR-12) -- HR_ADMIN-only
+    via set_override_service's require_hr_admin gate, hard-scoped to
+    assignments the caller created. Registered here (not progress/router.py)
+    for the same double-prefix-avoidance reason as the drill-down route
+    above -- even though assignment_overrides is owned by progress/ (AD-1),
+    the mutation itself is delegated to ProgressService.set_override; this
+    route/service pairing is purely about avoiding the routing bug."""
+    return await set_override_service(session, current_user=current_user, assignment_id=assignment_id, request=request)

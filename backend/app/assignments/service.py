@@ -6,6 +6,7 @@ import uuid
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.assignments.models import Assignment
 from app.assignments.repository import (
     AssignmentPage,
     _parse_user_id,
@@ -27,6 +28,7 @@ from app.assignments.schemas import (
     DrillDownResponse,
     EmployeeResponse,
     MyAssignmentsResponse,
+    SetOverrideRequest,
     SkillResponse,
 )
 from app.auth.schemas import CurrentUser, Role
@@ -34,7 +36,7 @@ from app.auth.service import require_hr_admin
 from app.content.service import match_content_for_skill
 from app.core.errors import AppException
 from app.progress.repository import ProgressRepository
-from app.progress.service import ProgressService
+from app.progress.service import ProgressService, ProvenanceDetail
 
 
 class AssignmentsService:
@@ -136,6 +138,30 @@ async def duplicate_check_service(
     ]
 
 
+def _provenance_detail_to_drill_down_response(assignment: Assignment, detail: ProvenanceDetail) -> DrillDownResponse:
+    """Shared builder for DrillDownResponse from a ProvenanceDetail (AR-3) --
+    used by both the read-only drill-down GET (get_drill_down_service) and
+    the override mutation (set_override_service, Story 5.5), so the two
+    endpoints can never disagree on response shape for the same state."""
+    underlying = detail.underlying_signal
+
+    return DrillDownResponse(
+        assignment_id=assignment.id,
+        employee_name=assignment.employee.name if assignment.employee else "Unknown",
+        skill_name=assignment.skill.name if assignment.skill else "Unknown",
+        status=detail.status,
+        status_percentage=detail.percentage,
+        provenance=detail.provenance,
+        last_updated=detail.last_updated,
+        override_set_by_name=detail.override_set_by_name,
+        override_reason=detail.override_reason,
+        override_set_at=detail.override_set_at,
+        underlying_provenance=underlying.provenance if underlying else None,
+        underlying_status=underlying.status if underlying else None,
+        underlying_status_percentage=underlying.percentage if underlying else None,
+    )
+
+
 async def get_drill_down_service(
     session: AsyncSession, *, current_user: CurrentUser, assignment_id: uuid.UUID
 ) -> DrillDownResponse:
@@ -160,23 +186,38 @@ async def get_drill_down_service(
     video_duration = ProgressRepository.get_video_duration(assignment)
 
     detail = ProgressService.get_provenance_detail(assignment, progress, override, video_duration)
-    underlying = detail.underlying_signal
+    return _provenance_detail_to_drill_down_response(assignment, detail)
 
-    return DrillDownResponse(
-        assignment_id=assignment.id,
-        employee_name=assignment.employee.name if assignment.employee else "Unknown",
-        skill_name=assignment.skill.name if assignment.skill else "Unknown",
-        status=detail.status,
-        status_percentage=detail.percentage,
-        provenance=detail.provenance,
-        last_updated=detail.last_updated,
-        override_set_by_name=detail.override_set_by_name,
-        override_reason=detail.override_reason,
-        override_set_at=detail.override_set_at,
-        underlying_provenance=underlying.provenance if underlying else None,
-        underlying_status=underlying.status if underlying else None,
-        underlying_status_percentage=underlying.percentage if underlying else None,
+
+async def set_override_service(
+    session: AsyncSession, *, current_user: CurrentUser, assignment_id: uuid.UUID, request: SetOverrideRequest
+) -> DrillDownResponse:
+    """Create or reverse an HR Override (Story 5.5/5.5b, FR-12). HR_ADMIN-only,
+    hard-scoped to assignments the caller created -- identical scoping to
+    get_drill_down_service (same uniform 403 for not-found/not-owned, AC7).
+    The actual mutation is delegated to ProgressService.set_override()
+    (service-to-service, per AD-1) rather than reaching into
+    ProgressRepository directly here -- unlike get_drill_down_service's
+    existing read-side shortcut (a pre-existing, already-deferred AD-1 gap,
+    see deferred-work.md), this new write path does not repeat that pattern."""
+    require_hr_admin(current_user)
+
+    assignment = await get_assignment_scoped_to_hr_admin(
+        session, assignment_id=assignment_id, hr_admin_id=_parse_user_id(current_user)
     )
+    if assignment is None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No access to this assignment")
+
+    video_duration = ProgressRepository.get_video_duration(assignment)
+    detail = await ProgressService.set_override(
+        session,
+        assignment=assignment,
+        current_user=current_user,
+        action=request.action,
+        reason=request.reason,
+        video_duration=video_duration,
+    )
+    return _provenance_detail_to_drill_down_response(assignment, detail)
 
 
 async def list_assignment_rows_for_dashboard_service(

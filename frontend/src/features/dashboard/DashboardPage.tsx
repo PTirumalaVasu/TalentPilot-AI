@@ -4,6 +4,7 @@ import { DashboardResponse, AssignmentRow } from "../../types/dashboard";
 import { DashboardRow } from "./DashboardRow";
 import { ProvenanceDrillDownModal } from "./ProvenanceDrillDownModal";
 import { Button } from "../../components/ui/button";
+import { Toast } from "../../components/ui/toast";
 
 // AC1 (epics.md:1771-1774): poll every 10-15s. 12000ms picked as the
 // midpoint -- config constant, not a magic number, so it's easy to adjust
@@ -68,6 +69,8 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
     });
     const [selectedAssignmentId, setSelectedAssignmentId] = useState<string | null>(null);
     const [liveAnnouncement, setLiveAnnouncement] = useState("");
+    // Story 5.5: success toast after a Mark-as-Ready confirm.
+    const [toastMessage, setToastMessage] = useState<string | null>(null);
     const pollIntervalRef = useRef<number | null>(null);
     const isPollingRef = useRef(false);
 
@@ -222,11 +225,18 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
       </div>
     );
 
+    // Story 5.5: rendered alongside liveRegion in every branch below, since a
+    // Mark-as-Ready confirm can trigger fetchDashboard()'s brief
+    // loading-skeleton flash (Finding 1) immediately afterward -- the toast
+    // must survive that transition, not just the final loaded branch.
+    const toastElement = <Toast message={toastMessage} onDismiss={() => setToastMessage(null)} />;
+
     // Loading state
     if (state.loading && state.assignments.length === 0) {
       return (
         <div>
           {liveRegion}
+          {toastElement}
           <div className="py-3 flex items-center justify-between">
             <button
               onClick={onNewAssignment}
@@ -250,6 +260,7 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
       return (
         <div>
           {liveRegion}
+          {toastElement}
           <div className="py-3 flex items-center justify-between">
             <button
               onClick={onNewAssignment}
@@ -273,6 +284,7 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
       return (
         <div>
           {liveRegion}
+          {toastElement}
           <div className="py-3 flex items-center justify-between">
             <button
               onClick={onNewAssignment}
@@ -293,6 +305,7 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
     return (
       <div>
         {liveRegion}
+        {toastElement}
         {/* Toolbar */}
         <div className="py-3 flex items-center justify-between">
           <button
@@ -332,6 +345,10 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
           assignmentId={selectedAssignmentId}
           open={selectedAssignmentId !== null}
           onClose={handleCloseDrillDown}
+          onOverrideChanged={(message) => {
+            setToastMessage(message);
+            fetchDashboard();
+          }}
         />
 
         {/* Pagination */}

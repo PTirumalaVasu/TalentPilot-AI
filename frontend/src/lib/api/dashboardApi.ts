@@ -33,8 +33,26 @@ async function getDrillDown(assignmentId: string): Promise<DrillDownResponse> {
   return response.data;
 }
 
+/**
+ * Create or reverse an HR Override (Story 5.5/5.5b). Returns the same
+ * DrillDownResponse shape as getDrillDown so callers can replace their
+ * detail state directly from the response, no extra round-trip needed.
+ */
+async function setOverride(
+  assignmentId: string,
+  action: "set" | "unset",
+  reason?: string
+): Promise<DrillDownResponse> {
+  const response = await apiClient.post<DrillDownResponse>(
+    `/api/assignments/${assignmentId}/override`,
+    { action, reason }
+  );
+  return response.data;
+}
+
 export const dashboardApi = {
   getDashboardAssignments,
   getDashboard,
   getDrillDown,
+  setOverride,
 };

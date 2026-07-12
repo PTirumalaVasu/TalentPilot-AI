@@ -11,6 +11,7 @@ import type { DrillDownResponse } from "../../types/dashboard";
 vi.mock("../../lib/api/dashboardApi", () => ({
   dashboardApi: {
     getDrillDown: vi.fn(),
+    setOverride: vi.fn(),
   },
 }));
 
@@ -150,6 +151,113 @@ describe("ProvenanceDrillDownModal", () => {
     });
   });
 
+  it("Finding 3: a defensive blank-string override_reason still shows 'No reason provided', not a blank line", async () => {
+    vi.mocked(dashboardApi.getDrillDown).mockResolvedValue(
+      baseResponse({ provenance: "HR Override", status: "COMPLETED", override_reason: "" })
+    );
+    render(<ProvenanceDrillDownModal assignmentId="assign-1" open onClose={vi.fn()} />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Reason: No reason provided/)).toBeInTheDocument();
+    });
+  });
+
+  describe("Mark as Ready confirm flow (Story 5.5)", () => {
+    async function openConfirmView() {
+      vi.mocked(dashboardApi.getDrillDown).mockResolvedValue(baseResponse());
+      render(<ProvenanceDrillDownModal assignmentId="assign-1" open onClose={vi.fn()} />);
+      await waitFor(() => screen.getByRole("button", { name: "Mark as Ready" }));
+      await userEvent.click(screen.getByRole("button", { name: "Mark as Ready" }));
+    }
+
+    it("clicking Mark as Ready opens a confirm view with the employee/skill names and a Reason field", async () => {
+      await openConfirmView();
+
+      expect(
+        screen.getByRole("heading", { name: "Mark Casey the Continuer as Ready for Data Visualization?" })
+      ).toBeInTheDocument();
+      expect(screen.getByLabelText(/Reason \(optional\)/)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Confirm" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
+    });
+
+    it("Cancel returns to the detail view without calling setOverride", async () => {
+      await openConfirmView();
+
+      await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+      expect(screen.getByRole("button", { name: "Mark as Ready" })).toBeInTheDocument();
+      expect(dashboardApi.setOverride).not.toHaveBeenCalled();
+    });
+
+    it("Confirm calls setOverride with the trimmed reason, updates the view, and reports a success message via onOverrideChanged", async () => {
+      const onOverrideChanged = vi.fn();
+      vi.mocked(dashboardApi.getDrillDown).mockResolvedValue(baseResponse());
+      vi.mocked(dashboardApi.setOverride).mockResolvedValue(
+        baseResponse({
+          provenance: "HR Override",
+          status: "COMPLETED",
+          override_set_by_name: "Rita the Recommender",
+          override_reason: "Verified in call",
+          underlying_provenance: "Not Started",
+          underlying_status: "NOT_STARTED",
+        })
+      );
+      render(
+        <ProvenanceDrillDownModal
+          assignmentId="assign-1"
+          open
+          onClose={vi.fn()}
+          onOverrideChanged={onOverrideChanged}
+        />
+      );
+      await waitFor(() => screen.getByRole("button", { name: "Mark as Ready" }));
+      await userEvent.click(screen.getByRole("button", { name: "Mark as Ready" }));
+
+      await userEvent.type(screen.getByLabelText(/Reason \(optional\)/), "  Verified in call  ");
+      await userEvent.click(screen.getByRole("button", { name: "Confirm" }));
+
+      await waitFor(() => {
+        expect(dashboardApi.setOverride).toHaveBeenCalledWith("assign-1", "set", "Verified in call");
+      });
+      await waitFor(() => {
+        expect(screen.getByText(/Overridden by: Rita the Recommender/)).toBeInTheDocument();
+      });
+      // Confirm view closed, Mark as Ready is now absent (provenance is HR Override).
+      expect(screen.queryByRole("button", { name: "Mark as Ready" })).not.toBeInTheDocument();
+      expect(onOverrideChanged).toHaveBeenCalledWith(
+        "Casey the Continuer marked as Ready for Data Visualization."
+      );
+    });
+
+    it("an empty/whitespace-only reason is sent as undefined, not an empty string", async () => {
+      vi.mocked(dashboardApi.getDrillDown).mockResolvedValue(baseResponse());
+      vi.mocked(dashboardApi.setOverride).mockResolvedValue(baseResponse({ provenance: "HR Override" }));
+      await openConfirmView();
+
+      await userEvent.type(screen.getByLabelText(/Reason \(optional\)/), "   ");
+      await userEvent.click(screen.getByRole("button", { name: "Confirm" }));
+
+      await waitFor(() => {
+        expect(dashboardApi.setOverride).toHaveBeenCalledWith("assign-1", "set", undefined);
+      });
+    });
+
+    it("Confirm failure shows an error, stays in the confirm view, and keeps the typed reason", async () => {
+      vi.mocked(dashboardApi.setOverride).mockRejectedValueOnce(new Error("Server error"));
+      await openConfirmView();
+
+      await userEvent.type(screen.getByLabelText(/Reason \(optional\)/), "Verified in call");
+      await userEvent.click(screen.getByRole("button", { name: "Confirm" }));
+
+      await waitFor(() => {
+        expect(screen.getByText("Server error")).toBeInTheDocument();
+      });
+      expect(screen.getByRole("heading", { name: /Mark Casey the Continuer as Ready/ })).toBeInTheDocument();
+      expect(screen.getByLabelText(/Reason \(optional\)/)).toHaveValue("Verified in call");
+    });
+  });
+
   it("shows an error state with retry on fetch failure", async () => {
     vi.mocked(dashboardApi.getDrillDown).mockRejectedValueOnce(new Error("Network error"));
     render(<ProvenanceDrillDownModal assignmentId="assign-1" open onClose={vi.fn()} />);
@@ -166,33 +274,23 @@ describe("ProvenanceDrillDownModal", () => {
     });
   });
 
-  it("AC5: both Mark as Ready and Reverse Override are rendered simultaneously, on every provenance state (not one-or-the-other)", async () => {
+  it("Story 5.5: Mark as Ready is visible and enabled when Provenance is not HR Override; Reverse Override stays visible-but-disabled (Story 5.5b's job)", async () => {
     vi.mocked(dashboardApi.getDrillDown).mockResolvedValue(baseResponse());
     render(<ProvenanceDrillDownModal assignmentId="assign-1" open onClose={vi.fn()} />);
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /Available once HR Override is built/i })).toBeDisabled();
+      expect(screen.getByRole("button", { name: "Mark as Ready" })).toBeEnabled();
       expect(screen.getByRole("button", { name: /Available once HR Override reversal is built/i })).toBeDisabled();
     });
   });
 
-  it("AC5: both buttons still render simultaneously on an HR Override row", async () => {
+  it("Story 5.5/Finding 4: Mark as Ready is absent entirely on an HR Override row (mutually exclusive with Reverse Override)", async () => {
     vi.mocked(dashboardApi.getDrillDown).mockResolvedValue(baseResponse({ provenance: "HR Override" }));
     render(<ProvenanceDrillDownModal assignmentId="assign-1" open onClose={vi.fn()} />);
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /Available once HR Override is built/i })).toBeDisabled();
+      expect(screen.queryByRole("button", { name: "Mark as Ready" })).not.toBeInTheDocument();
       expect(screen.getByRole("button", { name: /Available once HR Override reversal is built/i })).toBeDisabled();
-    });
-  });
-
-  it("Mark as Ready is rendered disabled with an explanatory label", async () => {
-    vi.mocked(dashboardApi.getDrillDown).mockResolvedValue(baseResponse());
-    render(<ProvenanceDrillDownModal assignmentId="assign-1" open onClose={vi.fn()} />);
-
-    await waitFor(() => {
-      const button = screen.getByRole("button", { name: /Available once HR Override is built/i });
-      expect(button).toBeDisabled();
     });
   });
 

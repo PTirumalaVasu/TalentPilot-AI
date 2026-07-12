@@ -10,6 +10,8 @@ import * as dashboardApi from "../../lib/api/dashboardApi";
 vi.mock("../../lib/api/dashboardApi", () => ({
   dashboardApi: {
     getDashboard: vi.fn(),
+    getDrillDown: vi.fn(),
+    setOverride: vi.fn(),
   },
 }));
 
@@ -275,6 +277,84 @@ describe("DashboardPage", () => {
     expect(viewDetailsButtons.length).toBeGreaterThan(0);
     viewDetailsButtons.forEach((btn) => {
       expect(btn).not.toHaveAttribute("disabled");
+    });
+  });
+
+  it("Story 5.5: a successful Mark-as-Ready confirm shows a success toast and re-fetches the dashboard", async () => {
+    const mockData = {
+      assignments: [
+        {
+          assignment_id: "id-1",
+          employee_id: "emp-1",
+          employee_name: "Casey the Continuer",
+          skill_id: "skill-1",
+          skill_name: "Data Visualization",
+          status: "Not Started" as const,
+          status_percentage: null,
+          provenance: "Not Started" as const,
+          last_updated: new Date().toISOString(),
+          assignment_created_at: new Date().toISOString(),
+        },
+      ],
+      total_count: 1,
+      page: 1,
+      page_size: 50,
+    };
+
+    vi.mocked(dashboardApi.dashboardApi.getDashboard).mockResolvedValue(mockData);
+    vi.mocked(dashboardApi.dashboardApi.getDrillDown).mockResolvedValue({
+      assignment_id: "id-1",
+      employee_name: "Casey the Continuer",
+      skill_name: "Data Visualization",
+      status: "NOT_STARTED",
+      status_percentage: null,
+      provenance: "Not Started",
+      last_updated: new Date().toISOString(),
+      override_set_by_name: null,
+      override_reason: null,
+      override_set_at: null,
+      underlying_provenance: null,
+      underlying_status: null,
+      underlying_status_percentage: null,
+    });
+    vi.mocked(dashboardApi.dashboardApi.setOverride).mockResolvedValue({
+      assignment_id: "id-1",
+      employee_name: "Casey the Continuer",
+      skill_name: "Data Visualization",
+      status: "COMPLETED",
+      status_percentage: null,
+      provenance: "HR Override",
+      last_updated: new Date().toISOString(),
+      override_set_by_name: "Rita the Recommender",
+      override_reason: null,
+      override_set_at: new Date().toISOString(),
+      underlying_provenance: "Not Started",
+      underlying_status: "NOT_STARTED",
+      underlying_status_percentage: null,
+    });
+
+    render(<DashboardPage onNewAssignment={() => {}} />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Casey the Continuer")).toBeInTheDocument();
+    });
+    expect(dashboardApi.dashboardApi.getDashboard).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole("button", { name: /View Details/i }));
+
+    await waitFor(() => screen.getByRole("button", { name: "Mark as Ready" }));
+    fireEvent.click(screen.getByRole("button", { name: "Mark as Ready" }));
+
+    await waitFor(() => screen.getByRole("button", { name: "Confirm" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("Casey the Continuer marked as Ready for Data Visualization.")
+      ).toBeInTheDocument();
+    });
+    await waitFor(() => {
+      expect(dashboardApi.dashboardApi.getDashboard).toHaveBeenCalledTimes(2);
     });
   });
 });
