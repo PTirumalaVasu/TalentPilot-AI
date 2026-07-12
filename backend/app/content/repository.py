@@ -10,7 +10,12 @@ from app.assignments.models import ContentCatalog, Skill
 # AD-7). Plain module constant, not a Settings field -- mirrors
 # core/embedding.py's MODEL_NAME/EMBEDDING_DIM (no other module-tunable
 # numeric constant is env-configurable either).
-SIMILARITY_THRESHOLD = 0.7
+# Recalibrated from 0.7 -> 0.4 (2026-07-11): the original value was never
+# checked against real embed_text() output. Measured cosine similarity for
+# genuinely on-topic YouTube titles against their skill's embedding (e.g.
+# "Top 5 Data Visualizations..." vs the "Data Visualization" skill) landed at
+# 0.49-0.57 -- 0.7 silently rejected every real match ever ingested.
+SIMILARITY_THRESHOLD = 0.4
 
 
 async def get_content_by_id(
