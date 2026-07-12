@@ -3000,3 +3000,78 @@ This section.
 - **A merge-corruption bug found during story authoring, unrelated to this story's own stated scope, blocked the entire project's build** and was fixed as a blocking Task 0 rather than deferred — but fixing it revealed a second, deeper problem (25 further pre-existing `tsc` errors that had been silently hidden behind the first bug's fatal parse failure), which was correctly *not* also fixed in this story, since it was a pre-existing, unrelated, 3-story-old gap. Knowing which newly-surfaced problems to fix versus log-and-defer, in the same session, is a judgment call this project has now exercised several times (Story 2.5's `ContentResponse.metadata` fix vs. this story's `deferred-work.md` logging) with consistent reasoning: fix what's blocking the current story's own work; log what's merely now-visible but pre-existing and out of scope.
 
 ---
+
+# Post-Launch Bug Triage: Content Matching & Employee Dashboard — Skills, Agents, and Files
+
+**Date:** 2026-07-11 – 2026-07-12
+**Status:** Three real defects root-caused and fixed live against the running dev stack (content-match similarity threshold, empty `content_catalog`, and a missing-imports crash on the Employee dashboard endpoint); one reported symptom (empty Skill dropdown in the "Assign a New Skill" dialog) investigated and found to be a false alarm, not a code defect. Fix for the dashboard crash committed to a new branch (`feature/fix-assignments-missing-imports`, commit `d0a3562`), not pushed. Both `uvicorn` and `vite` dev servers were killed and restarted multiple times over the course of this session as part of verification and at explicit user request.
+
+## Overview
+
+Unlike the earlier phases in this document (which build planning/design artifacts), this session was live production-style bug triage against the already-implemented app, kicked off by the user manually exercising it via the HR Admin and Employee roles. Each report was root-caused the same way: reproduce via direct `curl` calls against the real backend (with real login cookies), inspect the real Postgres dev database directly (`docker exec ... psql`), and read the live `uvicorn` process's own traceback output — not by reading source in isolation first. Four things were investigated in sequence, each building on the last:
+
+1. **"Skill dropdown is empty" (HR Admin, Rita)** — investigated via a live authenticated `GET /api/assignments/skills` call, which returned 200 with 55 real skills. Concluded: not a backend bug; most likely a stale browser session from a server restart moments earlier. No code changed.
+2. **"Step 3 always shows 'No approved content found yet'"** — root-caused to two stacked issues: (a) `content_catalog` had zero rows tied to any real skill (only leftover test-run pollution), and (b) even after real YouTube content was ingested, `SIMILARITY_THRESHOLD = 0.7` in `backend/app/content/repository.py` was never calibrated against real embeddings and silently rejected every genuine match (measured real cosine similarities of 0.49–0.57 for on-topic videos). Fixed by running the real ingestion CLI and lowering the threshold to `0.4`, both confirmed live via direct API calls.
+3. **"Casey's (Employee) dashboard shows no data"** — invoked through `/bmad-agent-dev` (Amelia persona) → `bmad-quick-dev`'s one-shot route. Root-caused to `backend/app/assignments/service.py` missing two imports (`match_content_for_skill`, `AppException`) — leftover damage from the Story 2.6 merge's conflict resolution that also left duplicate/overlapping import blocks in the same file — crashing `GET /api/assignments/employee-assignments` with a 500 (`NameError`) for every Employee session. Fixed, adversarially reviewed, committed.
+4. **Server lifecycle management** — repeated kill/restart cycles for both dev servers, complicated by Windows-specific process quirks (see Session Notes).
+
+## Agents Called
+
+- **Amelia — Senior Software Engineer (`bmad-agent-dev`)** — activated when the user explicitly invoked `/bmad-agent-dev`, passing the Casey-dashboard bug report as the triggering argument. Its menu was skipped (per the skill's own activation rule) since the argument already named a clear intent, and dispatched straight into `bmad-quick-dev`. Persisted (💻 icon, "speaks in file paths and AC IDs" communication style, TDD principles) through the rest of that workflow.
+- **Blind Hunter (ad hoc subagent, `bmad-review-adversarial-general`)** — spawned via the `bmad-quick-dev` one-shot route's mandatory Review step, with zero prior conversation context, against only the changed file (`assignments/service.py`) plus enough surrounding context (`router.py`, `content/service.py`) to judge correctness. Ran the project's actual `pytest` suite itself (via `git stash` before/after comparison) rather than only reading the diff, and reported findings via the `ReportFindings` tool.
+- The Skill-dropdown investigation, the content-matching threshold fix, and all server restart operations were performed directly by the base assistant — no BMAD skill or persona was invoked for those (with one exception: the built-in `run` skill was invoked once, earlier in this session, in response to a plain "restart the UI and backend server" request, before it deferred to manual process management since no project-specific run skill existed).
+
+## Skills Used
+
+### 1. `bmad-quick-dev` (one-shot route)
+
+**Purpose:** Turn the Casey-dashboard bug report into a hardened, reviewed, committed fix — chosen over the plan-code-review route because the eventual root cause (two missing imports) had zero architectural ambiguity and a contained blast radius.
+
+**Process:**
+- **Step 1 (Clarify and Route):** Loaded `implementation_artifacts` (found no existing draft spec for this bug), confirmed intent from the user's own bug report (no clarifying questions needed), ran the version-control sanity check — found the working tree dirty (the still-uncommitted threshold fix from earlier in the session) and sitting directly on `main`, which conflicts with this project's own stated branch convention. Per the step's explicit HALT-and-ask instruction, this was surfaced to the user rather than assumed; the user chose to create a feature branch first (`feature/fix-assignments-missing-imports`, carrying the dirty threshold-fix file along). Routed to **one-shot** (zero architectural ambiguity, contained blast radius).
+- **Implement:** Consolidated `assignments/service.py`'s two duplicate/overlapping import blocks into one, added the two missing imports (`match_content_for_skill` from `app.content.service`, `AppException` from `app.core.errors`). No logic change.
+- **Review:** Blind Hunter subagent launched per above. Confirmed the fix itself correct (module imports cleanly, `pytest` failures caused by the `NameError` are resolved) but surfaced two real, pre-existing test failures — both traced to the backend test suite sharing the live dev database rather than an isolated test DB, so real interactive-session data (Casey's real Assignment, the real ingested content) violated fixture assumptions written when the DB was still empty.
+- **Classify:** 1 `patch` (already applied — the imports), 2 `defer` (the test/dev-DB conflation, logged with full detail rather than fixed, since proper test isolation is a known, repeatedly-logged, out-of-scope architectural gap), rest `reject` (an orphaned, unregistered dead-code stub router noticed by the reviewer — real but harmless noise).
+- **Generate Spec Trace, Commit, Present:** Wrote a `route: one-shot` spec file with a Suggested Review Order, committed both the import fix and the earlier threshold fix together (they were riding in the same working tree), opened the spec in VS Code, and presented the summary — offering to push/PR, not doing so unprompted.
+
+**Result:** `GET /api/assignments/employee-assignments` confirmed live (re-logged-in as Casey) to return `200` with her real assignment and matched video, was `500` before.
+
+### 2. Direct investigation (no skill invoked) — Skill dropdown, content-match threshold, server lifecycle
+
+Not a formal BMAD skill run, but substantial technical work followed a consistent method across all three:
+- **Skill dropdown:** logged in live as HR admin (`rita@sails.example.com`), called `GET /api/assignments/skills` directly — 200 OK, 55 real skills returned (including all 5 canonical ones). Compared against the Employee dropdown's identical pattern, reviewed the `Combobox` component for any hidden filter/limit (none found). Concluded the API/DB/component were all correct; most likely cause was a stale page after the immediately-preceding server restart. No file changed.
+- **Content-match threshold:** queried `content_catalog` directly via `docker exec talentpilot-ai-postgres-1 psql` — found 42 rows, zero tied to any of the 5 real skills (all test-run pollution). Ran `python -m app.content.cli ingest` for all 5 real skills (15 real YouTube videos ingested, using the already-configured `YOUTUBE_API_KEY`). Re-tested the match endpoint — still `null`. Computed raw pgvector cosine similarity directly in SQL (`s.embedding <=> c.embedding`) between the "Data Visualization" skill and its own freshly-ingested, genuinely on-topic videos — 0.49–0.57, well under the hardcoded `SIMILARITY_THRESHOLD = 0.7`. Asked the user how to proceed (rather than silently changing a previously-reviewed architectural constant) before lowering it to `0.4` and re-verifying all 5 skills live.
+- **Server lifecycle:** multiple full stop/start cycles for both `uvicorn` (`backend/app/main.py`) and `vite` (`frontend`), run as background Bash tasks. See Session Notes for the Windows-specific complications encountered.
+
+## Files Modified and Purpose of Each
+
+### 1. `backend/app/content/repository.py` (modified)
+`SIMILARITY_THRESHOLD` constant changed from `0.7` to `0.4` (with an inline comment recording the measured real-world similarity scores that motivated the change), so genuinely relevant ingested content actually clears the bar instead of being silently rejected.
+
+### 2. `backend/app/assignments/service.py` (modified)
+Consolidated two duplicate/overlapping import blocks (leftover Story 2.6 merge damage) into one; added the two imports (`match_content_for_skill`, `AppException`) that were missing entirely, fixing the `NameError` 500 on the Employee dashboard endpoint.
+
+### 3. `_bmad-output/implementation-artifacts/deferred-work.md` (modified)
+New section appended: `## Deferred from: fix of assignments/service.py missing imports (2026-07-12)` — documents the two backend tests broken by the shared test/dev-database conflation (real session data violating fixture assumptions), explicitly not caused by the import fix itself, with a recommendation to eventually give the suite a real isolated test database.
+
+### 4. `_bmad-output/implementation-artifacts/spec-fix-employee-dashboard-missing-imports.md` (created)
+The one-shot route's spec trace: Intent (Problem/Approach) and a Suggested Review Order pointing at the consolidated import block, both previously-broken call sites, the riding-along threshold change, and the deferred-work entry — so a human reviewer can click straight through the fix in dependency order.
+
+### 5. `documentation/PROJECTWORKFLOW.md` (this file, appended to)
+This section.
+
+## Database / Runtime Changes (not files, but real state changes worth recording)
+
+- **15 real Content rows ingested** into the live dev `content_catalog` table via `app.content.cli ingest` (3 real YouTube videos per real skill, for all 5 canonical skills) — previously that table held only leftover test-run pollution for the real skills' IDs.
+- **One real Assignment row exists for Casey** (Python Programming, with matched content), created through the actual HR Assignment modal during manual QA earlier in this session — this is the same row whose presence is now documented in `deferred-work.md` as the reason two backend tests broke.
+- No `sprint-status.yaml` changes — this work was a freeform bug-fix track, not tied to any specific epic story, so the one-shot route's sprint-sync step correctly no-op'd (`story_key` was never set).
+
+## Session Notes
+
+- **Live API + direct-DB verification found root causes that reading source code alone would not have** — the `SIMILARITY_THRESHOLD` miscalibration was only provable by computing real cosine-similarity scores against real embeddings (0.49–0.57 vs. a 0.7 bar), and the `assignments/service.py` `NameError` was only caught by actually triggering the endpoint and reading the live traceback, not by a code read (the missing imports were easy to miss visually inside two overlapping, near-duplicate import blocks).
+- **A architectural/tunable constant (`SIMILARITY_THRESHOLD`) was flagged to the user rather than silently changed**, even though the evidence for it being wrong was strong — consistent with this project's established pattern (see the Implementation Readiness / epics-staleness notes above) of treating reviewed design decisions as requiring a human sign-off to reverse, not just evidence that they're currently producing a bad outcome.
+- **Fixing one bug's root cause (real content now exists, threshold now realistic) organically broke two pre-existing tests**, by exposing a different, already-repeatedly-logged pre-existing gap: this backend test suite shares the live dev database instead of using an isolated one. This is the same failure class already named several times earlier in this document (`conftest.py` `drop_all()`, cross-file `asyncpg` pool corruption) — logged again here as a new manifestation (real seed/session data vs. fixture assumptions) rather than fixed, since real test isolation is a bigger, separately-scoped piece of work.
+- **Windows process management for the dev servers was messier than expected and cost several extra round-trips**: `npm run dev` spawns a child `vite` process that the harness's own `TaskStop` (which only signals the top-level `npm` process it launched) does not reach, repeatedly leaving a stale `node.exe` still listening on `5173` after a "successful" stop — caught each time by re-checking `netstat` after stopping and `taskkill /F`-ing the actual PID still bound to the port, not by trusting the stop command's own success message. Earlier in the session, a similar but unresolved mystery arose from a *pre-existing* backend process on port `8000` whose PID (`39068`) was consistently visible in `netstat`/traceback-adjacent tooling but invisible to every Windows process-enumeration method tried (`tasklist`, `Get-Process`, `Get-CimInstance`), even running elevated — most consistent with a WSL2/Docker-Desktop port-forwarding quirk; ultimately resolved by the user directly requesting both ports be killed outright rather than continuing to chase the specific PID.
+- **The very first reported symptom in this session ("Skill dropdown is empty") turned out not to be a code bug at all** — a useful reminder that "data exists in the table" (as directly observed by the user) doesn't rule out a client-side/session-staleness explanation, and that verifying the *exact* reported symptom live (same auth, same endpoint, same real data) before changing any code is what prevented an unnecessary code change here.
+
+---

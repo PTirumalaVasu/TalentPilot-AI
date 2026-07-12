@@ -13,30 +13,26 @@ from app.assignments.repository import (
     find_existing_assignment,
     get_assignment_scoped_to_hr_admin,
     list_assignments_for_dashboard,
+    list_assignments_for_employee,
     list_assignments_for_hr,
     list_employees,
     list_skills,
 )
 from app.assignments.schemas import (
+    AssignmentContentItem,
     AssignmentResponse,
     AssignmentStatus,
     CreateAssignmentRequest,
     DashboardAssignmentRow,
     DrillDownResponse,
     EmployeeResponse,
-    SkillResponse,
-)
-from app.auth.schemas import CurrentUser
-from app.assignments.repository import _parse_user_id, create_assignment, list_assignments_for_employee
-from app.assignments.schemas import (
-    AssignmentContentItem,
-    AssignmentResponse,
-    AssignmentStatus,
-    CreateAssignmentRequest,
     MyAssignmentsResponse,
+    SkillResponse,
 )
 from app.auth.schemas import CurrentUser, Role
 from app.auth.service import require_hr_admin
+from app.content.service import match_content_for_skill
+from app.core.errors import AppException
 from app.progress.repository import ProgressRepository
 from app.progress.service import ProgressService
 
