@@ -1,9 +1,15 @@
-import { useEffect, useState, useImperativeHandle, forwardRef } from "react";
+import { useEffect, useRef, useState, useImperativeHandle, forwardRef } from "react";
 import { dashboardApi } from "../../lib/api/dashboardApi";
 import { DashboardResponse, AssignmentRow } from "../../types/dashboard";
 import { DashboardRow } from "./DashboardRow";
 import { ProvenanceDrillDownModal } from "./ProvenanceDrillDownModal";
 import { Button } from "../../components/ui/button";
+
+// AC1 (epics.md:1771-1774): poll every 10-15s. 12000ms picked as the
+// midpoint -- config constant, not a magic number, so it's easy to adjust
+// (mirrors Story 5.3's NEEDS_ATTENTION_STALENESS_DAYS / Story 2.4's
+// SIMILARITY_THRESHOLD convention).
+const POLL_INTERVAL_MS = 12000;
 
 interface DashboardState {
   assignments: AssignmentRow[];
@@ -13,6 +19,32 @@ interface DashboardState {
   pageSize: number;
   totalCount: number;
   requestId: number;
+}
+
+// AC2/Finding 1: Status/Provenance/percentage changes matter for "did this
+// row change" (Subtask 2.3) -- last_updated is deliberately excluded since it
+// ticks forward on every poll once relative-time rendering exists, so
+// diffing it too would announce on every no-op poll.
+function diffAssignments(prev: AssignmentRow[], next: AssignmentRow[]): AssignmentRow[] {
+  const prevById = new Map(prev.map((row) => [row.assignment_id, row]));
+  return next.filter((row) => {
+    const before = prevById.get(row.assignment_id);
+    return (
+      !before ||
+      before.status !== row.status ||
+      before.provenance !== row.provenance ||
+      before.status_percentage !== row.status_percentage
+    );
+  });
+}
+
+// Story 5.6's own literal AC text (epics.md:1964) specifies this exact
+// wording for the same aria-live announcement -- matched here so Story 5.6
+// can verify/extend rather than rebuild it (see Story 5.4's Finding 3).
+function describeChanges(changes: AssignmentRow[]): string {
+  return changes
+    .map((row) => `${row.employee_name} ${row.skill_name} status updated to ${row.status}`)
+    .join(". ");
 }
 
 interface DashboardPageProps {
@@ -35,6 +67,9 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
       requestId: 0,
     });
     const [selectedAssignmentId, setSelectedAssignmentId] = useState<string | null>(null);
+    const [liveAnnouncement, setLiveAnnouncement] = useState("");
+    const pollIntervalRef = useRef<number | null>(null);
+    const isPollingRef = useRef(false);
 
     function handleViewDetails(assignmentId: string) {
       setSelectedAssignmentId(assignmentId);
@@ -55,6 +90,83 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
 
       return () => clearTimeout(timer);
     }, [state.page, state.pageSize]);
+
+    // Task 2/3 (AC1,2,4,5,7,8; Findings 1,3,4): silent background poll, kept
+    // decoupled from fetchDashboard()'s loading/blanking behavior so a poll
+    // tick never flashes the loading skeleton (Finding 1). The effect depends
+    // on [state.page, state.pageSize, state.requestId] so pollDashboard's
+    // closure never goes stale after a page change (see story file's
+    // "Closure trap" note) -- requestId is included too so the poll's
+    // requestId snapshot (below) tracks fetchDashboard's optimistic bump
+    // instead of freezing at its pre-mount-fetch value forever.
+    useEffect(() => {
+      function startPolling() {
+        if (pollIntervalRef.current !== null) {
+          return;
+        }
+        pollIntervalRef.current = window.setInterval(pollDashboard, POLL_INTERVAL_MS) as unknown as number;
+      }
+
+      function stopPolling() {
+        if (pollIntervalRef.current === null) {
+          return;
+        }
+        window.clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
+      }
+
+      async function pollDashboard() {
+        if (isPollingRef.current) {
+          return; // Subtask 3.3: skip if a poll is already in-flight
+        }
+        isPollingRef.current = true;
+        // Finding 1: snapshot requestId so a slow poll response can't clobber
+        // a newer manual fetch (page change, retry) that started after it --
+        // mirrors fetchDashboard's own requestId staleness guard.
+        const requestIdAtPollStart = state.requestId;
+        try {
+          const response = await dashboardApi.getDashboard(state.page, state.pageSize);
+          setState((prev) => {
+            if (prev.requestId !== requestIdAtPollStart) {
+              return prev;
+            }
+            const changes = diffAssignments(prev.assignments, response.assignments);
+            if (changes.length > 0) {
+              setLiveAnnouncement(describeChanges(changes));
+            }
+            return { ...prev, assignments: response.assignments, totalCount: response.total_count };
+          });
+        } catch (err) {
+          // AC8: non-blocking -- log and let the next interval retry, never
+          // touch state.error (that's reserved for the manual/initial fetch).
+          console.warn("Dashboard poll failed, will retry on next interval", err);
+        } finally {
+          isPollingRef.current = false;
+        }
+      }
+
+      function handleVisibilityChange() {
+        if (document.visibilityState === "hidden") {
+          stopPolling();
+        } else {
+          startPolling();
+        }
+      }
+
+      // AC7: don't start polling if the tab is already hidden at mount time
+      // (e.g. opened into a background tab) -- visibilitychange only fires on
+      // a transition, so an unconditional startPolling() here would miss the
+      // "already hidden" case entirely.
+      if (document.visibilityState !== "hidden") {
+        startPolling();
+      }
+      document.addEventListener("visibilitychange", handleVisibilityChange);
+
+      return () => {
+        stopPolling();
+        document.removeEventListener("visibilitychange", handleVisibilityChange);
+      };
+    }, [state.page, state.pageSize, state.requestId]);
 
     async function fetchDashboard() {
       const currentRequestId = state.requestId + 1;
@@ -100,10 +212,21 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
       }
     }
 
+    // Task 4 (Finding 3, NFR-A4/UX-DR24): visually-hidden aria-live region
+    // announcing poll-driven row changes, matching Story 5.6's own literal
+    // announcement wording so that story can verify/extend rather than
+    // rebuild this. Rendered once, reused across every state branch below.
+    const liveRegion = (
+      <div aria-live="polite" className="sr-only">
+        {liveAnnouncement}
+      </div>
+    );
+
     // Loading state
     if (state.loading && state.assignments.length === 0) {
       return (
         <div>
+          {liveRegion}
           <div className="py-3 flex items-center justify-between">
             <button
               onClick={onNewAssignment}
@@ -126,6 +249,7 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
     if (state.error) {
       return (
         <div>
+          {liveRegion}
           <div className="py-3 flex items-center justify-between">
             <button
               onClick={onNewAssignment}
@@ -148,6 +272,7 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
     if (state.assignments.length === 0 && !state.loading) {
       return (
         <div>
+          {liveRegion}
           <div className="py-3 flex items-center justify-between">
             <button
               onClick={onNewAssignment}
@@ -167,6 +292,7 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
 
     return (
       <div>
+        {liveRegion}
         {/* Toolbar */}
         <div className="py-3 flex items-center justify-between">
           <button
@@ -191,6 +317,7 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
               <th className="px-4 py-3 font-medium">Assigned Skill</th>
               <th className="px-4 py-3 font-medium">Status</th>
               <th className="px-4 py-3 font-medium">Progress</th>
+              <th className="px-4 py-3 font-medium">Last Updated</th>
               <th className="px-4 py-3 font-medium">Actions</th>
             </tr>
           </thead>
