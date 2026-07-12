@@ -312,6 +312,62 @@ class ProgressRepository:
         return result.unique().scalar_one_or_none()
 
     @staticmethod
+    async def create_override(
+        session: AsyncSession, *, assignment_id: UUID, set_by: UUID, reason: str | None
+    ) -> AssignmentOverride:
+        """
+        Create a new HR Override record (Story 5.5, AC3/AD-4). Never touches
+        skill_progress -- a separate, coexisting record. override_status
+        always defaults to "COMPLETED": the request contract has no field for
+        HR to pick a different override status (epics.md's
+        `{action: 'set', reason?}`).
+
+        Args:
+            session: AsyncSession for database operations
+            assignment_id: UUID of the assignment being overridden
+            set_by: UUID of the HR Admin creating the override (from the
+                authenticated session, never the request body)
+            reason: Optional, already-trimmed reason (None if not provided or blank)
+
+        Returns:
+            AssignmentOverride: The newly created, active override record
+        """
+        override = AssignmentOverride(
+            id=uuid4(),
+            assignment_id=assignment_id,
+            set_by=set_by,
+            set_at=datetime.now(timezone.utc),
+            reason=reason,
+            active=True,
+            override_status="COMPLETED",
+        )
+        session.add(override)
+        await session.flush()
+        logger.debug(f"Created assignment_overrides row for {assignment_id}: set_by={set_by}")
+        return override
+
+    @staticmethod
+    async def deactivate_override(
+        session: AsyncSession, override: AssignmentOverride, *, reversed_by: UUID
+    ) -> None:
+        """
+        Deactivate an active HR Override in place (Story 5.5, AC6/AC9). Reused
+        for both the explicit `unset` action (AC6) and the "deactivate the
+        stale override before creating a new one" re-mark case (AC9) -- one
+        method, two callers, preserving the at-most-one-active invariant.
+
+        Args:
+            session: AsyncSession for database operations
+            override: The AssignmentOverride record to deactivate (mutated in place)
+            reversed_by: UUID of the HR Admin performing the deactivation
+        """
+        override.active = False
+        override.reversed_at = datetime.now(timezone.utc)
+        override.reversed_by = reversed_by
+        await session.flush()
+        logger.debug(f"Deactivated assignment_overrides row {override.id} for {override.assignment_id}")
+
+    @staticmethod
     async def get_progress_for_assignments(
         session: AsyncSession, assignment_ids: list[UUID]
     ) -> list[SkillProgress]:

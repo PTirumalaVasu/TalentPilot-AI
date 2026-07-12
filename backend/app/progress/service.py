@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.assignments.models import Assignment, AssignmentOverride
 from app.assignments.schemas import AssignmentStatus, ProvenanceLabel
 from app.auth.schemas import CurrentUser
+from app.core.errors import AppException
 from app.progress.antiflow import run_all_validations
 from app.progress.models import SkillProgress
 from app.progress.repository import ProgressRepository
@@ -443,3 +444,59 @@ class ProgressService:
             )
 
         return underlying
+
+    @staticmethod
+    async def set_override(
+        session: AsyncSession,
+        *,
+        assignment: Assignment,
+        current_user: CurrentUser,
+        action: Literal["set", "unset"],
+        reason: str | None,
+        video_duration: int | None,
+    ) -> ProvenanceDetail:
+        """
+        Create or reverse an HR Override for an assignment (Story 5.5/5.5b,
+        AD-4: a separate, coexisting record -- never a skill_progress
+        field-overwrite).
+
+        `action == "set"`: deactivates any existing active override first
+        (AC9 -- at most one active override per assignment at all times),
+        then creates a new one attributed to the caller. `action == "unset"`:
+        deactivates the current active override; raises 404 if none exists
+        (AC10 -- nothing to reverse).
+
+        Returns via get_provenance_detail() (AR-3, single derivation
+        authority) rather than re-deriving Status/Provenance here -- the
+        caller gets exactly what a subsequent GET drill-down would return
+        for the same state.
+        """
+        hr_admin_id = UUID(current_user.user_id)
+        active_override = await ProgressRepository.get_active_override_for_assignment(session, assignment.id)
+
+        if action == "unset":
+            if active_override is None:
+                raise AppException(
+                    status.HTTP_404_NOT_FOUND,
+                    error_code="NO_ACTIVE_OVERRIDE",
+                    message="No active override exists to reverse",
+                )
+            await ProgressRepository.deactivate_override(session, active_override, reversed_by=hr_admin_id)
+            new_override = None
+        else:  # "set"
+            if active_override is not None:
+                await ProgressRepository.deactivate_override(session, active_override, reversed_by=hr_admin_id)
+            trimmed_reason = (reason.strip() or None) if reason else None
+            await ProgressRepository.create_override(
+                session, assignment_id=assignment.id, set_by=hr_admin_id, reason=trimmed_reason
+            )
+            # Re-fetch via the existing eager-loaded query (joinedload on
+            # set_by_user) rather than session.refresh()-ing relationship
+            # attributes on the just-created row -- reuses an already-tested
+            # code path instead of a second, unverified async-relationship-load
+            # pattern (Story 2.5's MissingGreenlet lesson: verify before shipping).
+            new_override = await ProgressRepository.get_active_override_for_assignment(session, assignment.id)
+
+        progress = await ProgressRepository.get_progress_for_assignment(session, assignment.id)
+        await session.commit()
+        return ProgressService.get_provenance_detail(assignment, progress, new_override, video_duration)

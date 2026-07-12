@@ -81,6 +81,18 @@ class CreateAssignmentRequest(BaseModel):
     content_id: uuid.UUID | None = None
 
 
+class SetOverrideRequest(BaseModel):
+    """Request for POST /api/assignments/{assignment_id}/override (Story 5.5,
+    AC3/AC6). No status field: override_status is always server-derived
+    (COMPLETED) -- the request contract has no way for HR to pick a
+    different one."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    action: Literal["set", "unset"]
+    reason: str | None = None
+
+
 class AssignmentResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
