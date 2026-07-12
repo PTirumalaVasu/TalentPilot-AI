@@ -87,3 +87,20 @@ describe("DashboardRow Actions column", () => {
     expect(onViewDetails).toHaveBeenCalledWith("assign-1");
   });
 });
+
+describe("DashboardRow Last Updated column (Story 5-4)", () => {
+  it("renders a relative-time string for last_updated, not a raw ISO-8601 timestamp", () => {
+    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+    render(
+      <table>
+        <tbody>
+          <DashboardRow row={{ ...row, last_updated: twoHoursAgo }} onViewDetails={vi.fn()} />
+        </tbody>
+      </table>
+    );
+
+    const cell = screen.getByText(/ago$/);
+    expect(cell.textContent).toMatch(/\d+ (hour|minute|day)s? ago/);
+    expect(cell.textContent).not.toContain(twoHoursAgo);
+  });
+});

@@ -1,3 +1,4 @@
+import { formatDistanceToNow } from "date-fns";
 import { AssignmentRow } from "../../types/dashboard";
 import { StatusBadge } from "../../components/StatusBadge";
 
@@ -20,6 +21,9 @@ export function DashboardRow({ row, onViewDetails }: DashboardRowProps) {
         <div className="w-24 h-2 bg-gray-100 rounded-full overflow-hidden">
           <div className="h-full bg-blue-600" style={{ width: `${progressPercent}%` }}></div>
         </div>
+      </td>
+      <td className="px-4 py-3 text-gray-500 text-sm">
+        {formatDistanceToNow(new Date(row.last_updated), { addSuffix: true })}
       </td>
       <td className="px-4 py-3">
         <button
