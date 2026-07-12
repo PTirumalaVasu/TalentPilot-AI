@@ -1,7 +1,7 @@
 """Service layer for the assignments module. Cross-module callers must go through here (AD-1)."""
 import re
 
-from fastapi import status
+from fastapi import HTTPException, status
 import uuid
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,6 +11,7 @@ from app.assignments.repository import (
     _parse_user_id,
     create_assignment,
     find_existing_assignment,
+    get_assignment_scoped_to_hr_admin,
     list_assignments_for_dashboard,
     list_assignments_for_employee,
     list_assignments_for_hr,
@@ -23,6 +24,7 @@ from app.assignments.schemas import (
     AssignmentStatus,
     CreateAssignmentRequest,
     DashboardAssignmentRow,
+    DrillDownResponse,
     EmployeeResponse,
     MyAssignmentsResponse,
     SkillResponse,
@@ -132,6 +134,49 @@ async def duplicate_check_service(
         )
         for a in existing
     ]
+
+
+async def get_drill_down_service(
+    session: AsyncSession, *, current_user: CurrentUser, assignment_id: uuid.UUID
+) -> DrillDownResponse:
+    """Provenance Drill-Down read (Story 5.2, FR-9). HR_ADMIN-only
+    (require_hr_admin, matching this file's established pattern of gating in
+    the service layer rather than the router), hard-scoped to assignments
+    the caller created (assigned_by == current_user.user_id) via
+    get_assignment_scoped_to_hr_admin -- mirrors Story 4-5's
+    get_assignment_with_scope 403-on-mismatch pattern: not-found and
+    not-owned both raise the same 403, never leaking which case it was
+    (AC6, AD-2)."""
+    require_hr_admin(current_user)
+
+    assignment = await get_assignment_scoped_to_hr_admin(
+        session, assignment_id=assignment_id, hr_admin_id=_parse_user_id(current_user)
+    )
+    if assignment is None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No access to this assignment")
+
+    progress = await ProgressRepository.get_progress_for_assignment(session, assignment_id)
+    override = await ProgressRepository.get_active_override_for_assignment(session, assignment_id)
+    video_duration = ProgressRepository.get_video_duration(assignment)
+
+    detail = ProgressService.get_provenance_detail(assignment, progress, override, video_duration)
+    underlying = detail.underlying_signal
+
+    return DrillDownResponse(
+        assignment_id=assignment.id,
+        employee_name=assignment.employee.name if assignment.employee else "Unknown",
+        skill_name=assignment.skill.name if assignment.skill else "Unknown",
+        status=detail.status,
+        status_percentage=detail.percentage,
+        provenance=detail.provenance,
+        last_updated=detail.last_updated,
+        override_set_by_name=detail.override_set_by_name,
+        override_reason=detail.override_reason,
+        override_set_at=detail.override_set_at,
+        underlying_provenance=underlying.provenance if underlying else None,
+        underlying_status=underlying.status if underlying else None,
+        underlying_status_percentage=underlying.percentage if underlying else None,
+    )
 
 
 async def list_assignment_rows_for_dashboard_service(

@@ -1,5 +1,6 @@
 """Service layer for the progress module. Cross-module callers must go through here (AD-1)."""
 import logging
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Literal
 from uuid import UUID
@@ -7,7 +8,7 @@ from uuid import UUID
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.assignments.models import Assignment
+from app.assignments.models import Assignment, AssignmentOverride
 from app.assignments.schemas import AssignmentStatus, ProvenanceLabel
 from app.auth.schemas import CurrentUser
 from app.progress.antiflow import run_all_validations
@@ -23,6 +24,58 @@ logger = logging.getLogger(__name__)
 # content/repository.py's SIMILARITY_THRESHOLD precedent (Story 2.4) — this
 # threshold has no legitimate per-environment override case.
 NEEDS_ATTENTION_STALENESS_DAYS = 7
+
+# Display-string mapping for the two internal enums (AssignmentStatus,
+# ProvenanceLabel use SCREAMING_SNAKE_CASE values) to the Title Case strings
+# the dashboard grid (Story 5.1) and drill-down modal (Story 5.2) both render
+# — kept next to get_provenance_detail() below since it's the only producer
+# of these display strings (AR-3: one derivation authority, one place that
+# knows the wire-format mapping too).
+STATUS_DISPLAY: dict[AssignmentStatus, str] = {
+    AssignmentStatus.NOT_STARTED: "Not Started",
+    AssignmentStatus.IN_PROGRESS: "In Progress",
+    AssignmentStatus.COMPLETED: "Completed",
+}
+
+_PROVENANCE_DISPLAY: dict[ProvenanceLabel, str] = {
+    ProvenanceLabel.NOT_STARTED: "Not Started",
+    ProvenanceLabel.SELF_REPORTED: "Self-reported",
+    ProvenanceLabel.NEEDS_ATTENTION: "Needs Attention",
+    ProvenanceLabel.VERIFIED: "Verified",
+}
+
+PROVENANCE_HR_OVERRIDE = "HR Override"  # not a ProvenanceLabel member — see ProvenanceLabel's own docstring
+
+
+@dataclass
+class ProvenanceDetail:
+    """Single AR-3 authority for the (Status, Provenance) pair plus every
+    raw-signal field the dashboard grid (Story 5.1) and the Provenance
+    Drill-Down modal (Story 5.2) both need — one function producing both
+    surfaces' data so they can never drift apart (the exact failure mode
+    Story 5.2's Finding 3 identified: dashboard/service.py previously
+    recomputed this independently instead of calling Story 5.3's function).
+
+    `provenance` is a display string, not the `ProvenanceLabel` enum,
+    because the real, fully-resolved value has 5 possible states (including
+    "HR Override", which is deliberately not a `ProvenanceLabel` member yet
+    -- see that enum's docstring) — this field is the merge point between
+    the enum's 4 members and the override case.
+
+    `underlying_signal` is populated only when an active HR Override is
+    present: it holds the non-override (Verified/Self-reported/Needs
+    Attention/Not Started) detail that would have applied otherwise, per
+    AR-4 (HR Override is a separate coexisting record, never a field
+    overwrite — the original signal must stay visible, not be erased)."""
+
+    provenance: str
+    status: AssignmentStatus
+    percentage: int | None
+    last_updated: datetime
+    override_set_by_name: str | None = None
+    override_reason: str | None = None
+    override_set_at: datetime | None = None
+    underlying_signal: "ProvenanceDetail | None" = None
 
 
 class ProgressService:
@@ -298,3 +351,95 @@ class ProgressService:
         if (now - last_update) > timedelta(days=NEEDS_ATTENTION_STALENESS_DAYS):
             return ProvenanceLabel.NEEDS_ATTENTION
         return ProvenanceLabel.SELF_REPORTED
+
+    @staticmethod
+    def get_provenance_detail(
+        assignment: Assignment,
+        progress: SkillProgress | None,
+        override: AssignmentOverride | None,
+        video_duration: int | None,
+        *,
+        now: datetime | None = None,
+    ) -> ProvenanceDetail:
+        """Single AR-3 authority for (Status, Provenance) + raw signal detail,
+        used by both the dashboard grid (Story 5.1) and the drill-down modal
+        (Story 5.2). Composes `derive_dashboard_status_and_percent` (3.5) and
+        `derive_self_reported_provenance` (5.3) rather than re-deriving their
+        logic a third time (Story 5.2 Finding 3).
+
+        Always computes the underlying (non-override) signal first, then
+        wraps it in an override branch if one is active — never
+        short-circuits past it, since the drill-down's "Underlying Signal"
+        must show through an active override (AR-4).
+
+        Two deliberate behavior corrections vs. dashboard/service.py's prior
+        standalone logic, made while consolidating (see Story 5-2 Dev Agent
+        Record for detail):
+        - No progress + no self-report + no override now displays Provenance
+          "Not Started" (properly wiring in Story 5.3's previously-dead
+          derive_self_reported_provenance(None) == NOT_STARTED) instead of
+          the prior placeholder "Self-reported" label for a row nothing has
+          ever touched.
+        - An unknown/unparseable video duration now reports an indeterminate
+          0% via derive_dashboard_status_and_percent (matching the
+          Employee-facing Content Discovery derivation) instead of the prior
+          ad-hoc "assume 3600 seconds" fallback, which had no basis in any
+          AC and could fabricate a percentage or even a false Completed.
+        """
+        watch_position = progress.watch_position if progress else 0
+        status_value, percentage = ProgressService.derive_dashboard_status_and_percent(watch_position, video_duration)
+
+        if progress is None:
+            underlying = ProvenanceDetail(
+                provenance=_PROVENANCE_DISPLAY[ProvenanceLabel.NOT_STARTED],
+                status=status_value,
+                percentage=percentage,
+                last_updated=assignment.assigned_at,
+            )
+        elif progress.verified:
+            underlying = ProvenanceDetail(
+                provenance=_PROVENANCE_DISPLAY[ProvenanceLabel.VERIFIED],
+                status=status_value,
+                percentage=percentage,
+                last_updated=progress.updated_at,
+            )
+        else:
+            try:
+                label = ProgressService.derive_self_reported_provenance(progress.event_time, now=now)
+            except ValueError:
+                # derive_self_reported_provenance (Story 5.3) deliberately raises on a
+                # naive or future (clock-skew) event_time -- correct for a pure function
+                # with no live caller, but this is now called from two user-facing
+                # endpoints (dashboard grid, drill-down modal). Degrade to the same
+                # tolerant SELF_REPORTED fallback dashboard/service.py used before this
+                # story's consolidation, rather than 500ing the whole request over a
+                # single assignment's malformed timestamp (code review finding, Story 5-2).
+                logger.warning(
+                    f"derive_self_reported_provenance rejected event_time={progress.event_time!r} "
+                    f"for assignment {progress.assignment_id} (naive or clock-skewed) -- "
+                    "falling back to SELF_REPORTED"
+                )
+                label = ProvenanceLabel.SELF_REPORTED
+            underlying = ProvenanceDetail(
+                provenance=_PROVENANCE_DISPLAY[label],
+                status=status_value,
+                percentage=percentage,
+                last_updated=progress.updated_at,
+            )
+
+        if override is not None and override.active:
+            override_status = (
+                AssignmentStatus(override.override_status) if override.override_status else AssignmentStatus.COMPLETED
+            )
+            return ProvenanceDetail(
+                provenance=PROVENANCE_HR_OVERRIDE,
+                status=override_status,
+                percentage=None,
+                last_updated=override.set_at,
+                override_set_by_name=override.set_by_user.name if override.set_by_user else None,
+                override_reason=override.reason,
+                override_set_at=override.set_at,
+                underlying_signal=underlying,
+            )
+
+        return underlying

@@ -181,3 +181,26 @@ async def list_assignments_for_hr(
     assignments = list(result.scalars().all())
 
     return AssignmentPage(assignments=assignments, total_count=total_count)
+
+
+async def get_assignment_scoped_to_hr_admin(
+    session: AsyncSession, *, assignment_id: uuid.UUID, hr_admin_id: uuid.UUID
+) -> Assignment | None:
+    """Hard-scoped single-assignment fetch for the Provenance Drill-Down
+    endpoint (Story 5.2, AC6) — mirrors `list_assignments_for_hr`'s
+    `assigned_by == hr_admin_id` scoping (AD-6), but for one row instead of a
+    page. Returns `None` for both "doesn't exist" and "exists but a
+    different HR Admin created it" — the caller raises a uniform 403 for
+    both, never leaking which case it was (same pattern as Story 4-5's
+    `get_assignment_with_scope`)."""
+    stmt = (
+        select(Assignment)
+        .where(Assignment.id == assignment_id, Assignment.assigned_by == hr_admin_id)
+        .options(
+            selectinload(Assignment.employee),
+            selectinload(Assignment.skill),
+            selectinload(Assignment.content),
+        )
+    )
+    result = await session.execute(stmt)
+    return result.scalar_one_or_none()

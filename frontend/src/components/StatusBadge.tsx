@@ -33,13 +33,14 @@ export function StatusBadge({ status, percentage }: StatusBadgeProps) {
 
   const config = statusConfig[status];
 
-  // Build label with percentage for In Progress (AC2), with validation
-  // If percentage is 0, should show "Not Started" instead of "In Progress (0%)"
+  // Build label with percentage for In Progress (AC2). Trust the derived
+  // `status`, don't infer it from `percentage` -- an unknown/unparseable
+  // video duration legitimately produces (status: "In Progress", percentage: 0)
+  // for content that has genuinely been watched (indeterminate %, not zero
+  // watched); inferring "Not Started" from percentage===0 alone silently
+  // mislabels that case (code review finding, Story 5-2).
   let label: string;
-  if (percentage === 0) {
-    // 0% watch position should display as "Not Started", not "In Progress (0%)"
-    label = "Not Started";
-  } else if (status === "In Progress" && percentage !== null && percentage !== undefined && percentage > 0) {
+  if (status === "In Progress" && percentage !== null && percentage !== undefined && percentage > 0) {
     label = `${status} (${percentage}%)`;
   } else {
     label = status;

@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.assignments.schemas import (
     AssignmentResponse,
     CreateAssignmentRequest,
+    DrillDownResponse,
     EmployeeResponse,
     MyAssignmentsResponse,
     SkillResponse,
@@ -13,6 +14,7 @@ from app.assignments.schemas import (
 from app.assignments.service import (
     create_assignment_service,
     duplicate_check_service,
+    get_drill_down_service,
     list_employees_service,
     list_my_assignments,
     list_skills_service,
@@ -78,3 +80,19 @@ async def create_assignment_route(
     """Creates an Assignment (Story 3.4 AC1/AC9) — HR_ADMIN-only via
     create_assignment_service's require_hr_admin gate (Story 3.1 AC4)."""
     return await create_assignment_service(session, current_user=current_user, request=request)
+
+
+@router.get("/{assignment_id}/progress/drill-down", response_model=DrillDownResponse)
+async def get_drill_down_route(
+    assignment_id: UUID,
+    current_user: CurrentUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+) -> DrillDownResponse:
+    """Provenance Drill-Down modal data (Story 5.2, FR-9) — HR_ADMIN-only via
+    get_drill_down_service's require_hr_admin gate, hard-scoped to
+    assignments the caller created. Deliberately registered on this router
+    (mounted at /api/assignments with only relative-path routes) rather than
+    progress/router.py, which double-prefixes its own absolute-path routes
+    with main.py's /api/progress mount — see this story's Dev Notes Finding 2
+    for the live bug that causes."""
+    return await get_drill_down_service(session, current_user=current_user, assignment_id=assignment_id)

@@ -307,8 +307,9 @@ class ProgressRepository:
             .where(AssignmentOverride.assignment_id == assignment_id, AssignmentOverride.active == True)
             .order_by(AssignmentOverride.set_at.desc())
             .limit(1)
+            .options(joinedload(AssignmentOverride.set_by_user))
         )
-        return result.scalar_one_or_none()
+        return result.unique().scalar_one_or_none()
 
     @staticmethod
     async def get_progress_for_assignments(
@@ -360,8 +361,9 @@ class ProgressRepository:
                 )
             )
             .order_by(AssignmentOverride.assignment_id, AssignmentOverride.set_at.desc())
+            .options(joinedload(AssignmentOverride.set_by_user))
         )
-        overrides = list(result.scalars().all())
+        overrides = list(result.unique().scalars().all())
 
         deduped = {}
         for override in overrides:
