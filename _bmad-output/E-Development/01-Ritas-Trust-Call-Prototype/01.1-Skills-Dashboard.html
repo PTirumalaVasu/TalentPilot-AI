@@ -108,6 +108,8 @@
                     <th class="px-4 py-3 font-medium">Assigned Skill</th>
                     <th class="px-4 py-3 font-medium">Status</th>
                     <th class="px-4 py-3 font-medium">Progress</th>
+                    <th class="px-4 py-3 font-medium">Last Updated</th>
+                    <th class="px-4 py-3 font-medium">Actions</th>
                 </tr>
             </thead>
             <tbody id="assignments-tbody"></tbody>
@@ -265,28 +267,46 @@
         }
 
         function rowHtml(a) {
+            const isStale = a.provenance === 'Needs Attention';
+            const staleDaysText = isStale ? ' (Not updated today)' : '';
             return `
                 <tr data-assignment-id="${a.id}" class="border-b border-gray-100 hover:bg-gray-50">
                     <td class="px-4 py-3 text-gray-900">${escapeHtml(a.employee.firstName + ' ' + a.employee.lastName)}</td>
                     <td class="px-4 py-3 text-gray-700">${escapeHtml(a.skill.name)}</td>
                     <td class="px-4 py-3">${statusBadge(a.watchPercent)}</td>
                     <td class="px-4 py-3">${progressBar(a.watchPercent)}</td>
+                    <td class="px-4 py-3 text-sm ${isStale ? 'text-red-700 font-medium' : 'text-gray-500'}">
+                        ${a.lastUpdate}${staleDaysText}
+                    </td>
+                    <td class="px-4 py-3">
+                        <button onclick="openDrillDown('${a.id}')"
+                                aria-label="View details for ${escapeHtml(a.employee.firstName + ' ' + a.employee.lastName)} ${escapeHtml(a.skill.name)}"
+                                class="text-blue-600 hover:underline text-sm font-medium">
+                            View Details
+                        </button>
+                    </td>
                 </tr>`;
         }
 
         function statusBadge(percent) {
-            let status, styles;
+            let status, styles, icon;
             if (percent === 100) {
                 status = 'Completed';
                 styles = 'bg-green-100 text-green-800';
+                icon = '✓';
             } else if (percent > 0) {
-                status = 'In Progress';
+                status = `In Progress (${percent}%)`;
                 styles = 'bg-yellow-100 text-yellow-800';
+                icon = '▶';
             } else {
                 status = 'Not Started';
                 styles = 'bg-gray-100 text-gray-700';
+                icon = '○';
             }
-            return `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${styles}">${status}</span>`;
+            return `<span class="inline-flex items-center gap-1 px-3 py-1 rounded font-medium text-xs ${styles}" role="status">
+                <span aria-hidden="true">${icon}</span>
+                <span>${status}</span>
+            </span>`;
         }
 
         function provenanceBadge(a) {

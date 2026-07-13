@@ -1,0 +1,264 @@
+═══════════════════════════════════════════════════════════════════════════════
+  UI/UX ALIGNMENT ANALYSIS — QUICK REFERENCE CARD
+═══════════════════════════════════════════════════════════════════════════════
+
+Generated: 2026-07-13
+Status: ✅ Analysis Complete | 🤔 Action Required
+
+───────────────────────────────────────────────────────────────────────────────
+ THE ISSUE IN ONE PICTURE
+───────────────────────────────────────────────────────────────────────────────
+
+DESIGN SPEC (5 COLUMNS):
+┌──────────┬────────┬─────────────────────────────┬──────────┬───┐
+│ Employee │ Skill  │ ✓ Verified · 2 hours ago    │ Progress │ → │
+│          │        │                             │ ████░░░░ │   │
+└──────────┴────────┴─────────────────────────────┴──────────┴───┘
+           One cell = Proof type + Freshness ✅
+
+CURRENT CODE (6 COLUMNS):
+┌──────────┬────────┬──────────────────┬──────────┬──────────────┬─────────────┐
+│ Employee │ Skill  │ In Progress (92%)│ Progress │ 2 hours ago  │ View Details│
+│          │        │ ▶ Green          │ ████░░░░ │              │             │
+└──────────┴────────┴──────────────────┴──────────┴──────────────┴─────────────┘
+           Two cells = Status + Time (split) ❌
+
+───────────────────────────────────────────────────────────────────────────────
+ QUICK FACTS
+───────────────────────────────────────────────────────────────────────────────
+
+✅ WHAT'S CORRECT:
+  • Color mapping (green/gray/amber) — PERFECT
+  • Never color-only rule — MET
+  • Progress bars — CORRECT
+  • Drill-down modal — EXCELLENT
+  • Accessibility — EXCEEDS SPEC
+  • Pagination & states — PERFECT
+
+🔴 WHAT'S MISSING:
+  • Provenance badge format ("{Name} · {Time}") — NOT IMPLEMENTED
+  • Provenance field visibility — NOT DISPLAYED TO USER
+  • Column count (6 vs 5) — DIVERGENT
+
+🟡 MINOR DIFFERENCES:
+  • Action button ("View Details" vs "→") — FUNCTIONAL
+  • Timestamp placement — SEPARATE COLUMN
+
+───────────────────────────────────────────────────────────────────────────────
+ SEVERITY RATING
+───────────────────────────────────────────────────────────────────────────────
+
+FUNCTIONAL CORRECTNESS:  ✅✅✅✅✅ 100% (All AC met)
+ACCESSIBILITY:           ✅✅✅✅✅ 100%+ (WCAG AA+)
+DESIGN ALIGNMENT:        🟡🟡🟡 60% (Structure diverged)
+PROVENANCE STORY:        🔴 Not surfaced
+
+BLOCKING DEPLOYMENT?     🟢 NO
+BLOCKS POC VALIDATION?   🟡 MAYBE (depends on Rita's preference)
+
+───────────────────────────────────────────────────────────────────────────────
+ TWO OPTIONS TO FIX THIS
+───────────────────────────────────────────────────────────────────────────────
+
+OPTION A: ALIGN CODE TO DESIGN (Recommended for UX Validation)
+  • Create new ProvnanceBadge component
+  • Consolidate Status + Last Updated → single cell
+  • Result: 5-column table
+  • Effort: 4–6 hours
+  • Risk: LOW
+  • Payoff: Rita can validate provenance-badge UX
+  → See: IMPLEMENTATION_GUIDE_OPTION_A.md
+
+OPTION B: UPDATE DESIGN TO MATCH CODE (Quicker Shipping)
+  • Document 6-column layout as intentional
+  • Keep timestamp in separate column (always visible)
+  • No code changes
+  • Effort: 30 minutes
+  • Risk: NONE
+  • Payoff: Ship immediately
+  → Update: _bmad-output/E-Development/.../stories/01.1.2-*.md
+
+───────────────────────────────────────────────────────────────────────────────
+ WHICH OPTION SHOULD I CHOOSE?
+───────────────────────────────────────────────────────────────────────────────
+
+CHOOSE A IF:
+  ✓ This is a POC; fidelity for stakeholder feedback matters
+  ✓ You want to validate the provenance-badge concept
+  ✓ You have 4–6 hours to spare
+  ✓ Rita will be testing the dashboard
+
+CHOOSE B IF:
+  ✓ You need to ship quickly
+  ✓ You like the 6-column layout better
+  ✓ Implementation is considered final
+  ✓ Design docs are just docs; code is source of truth
+
+RECOMMENDATION: A (for POC validation) or B (for quick shipping)
+
+───────────────────────────────────────────────────────────────────────────────
+ FILE STRUCTURE
+───────────────────────────────────────────────────────────────────────────────
+
+UI_UX_ALIGNMENT_INDEX.md (START HERE)
+  └─ Links to all other documents
+
+COMPARISON_SUMMARY.md (30-second version)
+  └─ Read this to decide A or B
+
+UI_UX_ALIGNMENT_ANALYSIS.md (Full analysis)
+  └─ Comprehensive gap details + rationale
+
+ALIGNMENT_VISUAL_GUIDE.md (For visual learners)
+  └─ Diagrams, flowcharts, side-by-sides
+
+IMPLEMENTATION_GUIDE_OPTION_A.md (If choosing A)
+  └─ Step-by-step code changes + tests
+
+───────────────────────────────────────────────────────────────────────────────
+ NEXT STEPS
+───────────────────────────────────────────────────────────────────────────────
+
+IMMEDIATE (5 min):
+  1. Read COMPARISON_SUMMARY.md
+  2. Decide: Option A or B?
+
+IF OPTION A (Implementation):
+  1. Read IMPLEMENTATION_GUIDE_OPTION_A.md (10 min)
+  2. Create feature branch: feat/provenance-badge-consolidation
+  3. Implement (4–6 hrs)
+  4. Test & PR
+
+IF OPTION B (Design Update):
+  1. Update design docs (30 min)
+  2. Get stakeholder sign-off
+  3. Ship!
+
+───────────────────────────────────────────────────────────────────────────────
+ COMMAND REFERENCE (If Choosing Option A)
+───────────────────────────────────────────────────────────────────────────────
+
+# Create feature branch
+git checkout -b feat/provenance-badge-consolidation
+
+# Files to create:
+  src/components/ProvnanceBadge.tsx (NEW)
+  src/components/ProvnanceBadge.test.tsx (NEW)
+
+# Files to modify:
+  src/features/dashboard/DashboardRow.tsx
+  src/features/dashboard/DashboardRow.test.tsx
+  src/features/dashboard/DashboardPage.tsx
+
+# Test
+npm test
+
+# Commit
+git add src/components/ProvnanceBadge*
+git add src/features/dashboard/Dashboard*
+git commit -m "feat: consolidate provenance badge + timestamp (align to design spec)"
+
+───────────────────────────────────────────────────────────────────────────────
+ IMPLEMENTATION CHECKLIST (If Choosing Option A)
+───────────────────────────────────────────────────────────────────────────────
+
+BUILDING:
+  ☐ Create ProvnanceBadge.tsx (~60 lines)
+  ☐ Create ProvnanceBadge.test.tsx (~80 lines)
+  ☐ Refactor DashboardRow.tsx (~30 line changes)
+  ☐ Update DashboardRow.test.tsx (~20 line changes)
+  ☐ Update DashboardPage.tsx headers (~5 line changes)
+
+TESTING:
+  ☐ All unit tests pass
+  ☐ All integration tests pass
+  ☐ Visual regression check
+  ☐ Keyboard navigation works
+  ☐ Screen reader announces correctly
+  ☐ Drill-down modal still works
+  ☐ Polling updates still work
+  ☐ Empty/loading/error states
+
+VERIFICATION:
+  ☐ 5 columns rendered (not 6)
+  ☐ Provenance badges show "{icon} {Name} · {Time}"
+  ☐ Colors correct (green/gray/amber)
+  ☐ Action arrow visible
+  ☐ No console errors
+
+───────────────────────────────────────────────────────────────────────────────
+ KEY NUMBERS
+───────────────────────────────────────────────────────────────────────────────
+
+Implementation Effort:       4–6 hours
+Design Update Effort:        30 minutes
+Risk Level (Option A):       LOW
+Risk Level (Option B):       NONE
+Regression Risk:             LOW
+User Impact:                 LOW (both layouts usable)
+
+Files to Change (Option A):  5 files
+New Components:              1 (ProvnanceBadge)
+Breaking Changes:            0
+Backward Compatibility:      NOT NEEDED (internal)
+
+───────────────────────────────────────────────────────────────────────────────
+ SEVERITY SUMMARY
+───────────────────────────────────────────────────────────────────────────────
+
+🔴 CRITICAL GAPS:
+  1. Provenance badge format not implemented
+  2. Provenance field not displayed to user
+
+🟡 MINOR GAPS:
+  1. Column count (5 vs 6)
+  2. Action button style (arrow vs text)
+
+✅ NO GAPS:
+  1. Color mapping
+  2. Never color-only rule
+  3. Progress bars
+  4. Accessibility
+  5. Drill-down modal
+  6. Pagination
+  7. Empty/error states
+
+───────────────────────────────────────────────────────────────────────────────
+ DECISION MATRIX
+───────────────────────────────────────────────────────────────────────────────
+
+SITUATION                        RECOMMENDATION    EFFORT    RISK
+──────────────────────────────── ──────────────── ─────── ───────
+POC needs UX validation          A (Align)        4–6h    LOW
+Need to ship ASAP                B (Update)       30min   NONE
+Rita prefers split columns       B (Update)       30min   NONE
+Rita prefers compact badge       A (Align)        4–6h    LOW
+Design is absolute spec          A (Align)        4–6h    LOW
+Implementation is final          B (Update)       30min   NONE
+
+───────────────────────────────────────────────────────────────────────────────
+ BOTTOM LINE
+───────────────────────────────────────────────────────────────────────────────
+
+✅ The UI works. Functional, accessible, meets all AC.
+
+🟡 The UI structure diverged from design. Provenance story split across columns.
+
+🛠️ EASY FIX: Create 1 component, refactor 1 existing component (4–6 hrs).
+
+📝 OR: Update design docs (30 min).
+
+🎯 RECOMMENDATION: Option A for POC, Option B for shipping.
+
+───────────────────────────────────────────────────────────────────────────────
+ START HERE
+───────────────────────────────────────────────────────────────────────────────
+
+1. Read: UI_UX_ALIGNMENT_INDEX.md
+2. Read: COMPARISON_SUMMARY.md
+3. Decide: Option A or B
+4. Execute: Based on choice
+
+───────────────────────────────────────────────────────────────────────────────
+
+Generated: 2026-07-13 | Status: Ready for Team Review | Next: Make Decision
