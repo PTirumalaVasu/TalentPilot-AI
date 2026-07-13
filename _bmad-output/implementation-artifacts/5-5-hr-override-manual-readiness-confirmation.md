@@ -10,7 +10,7 @@ baseline_commit: 4ae858d
 
 # Story 5.5: HR Override — Manual Readiness Confirmation
 
-Status: review
+Status: done
 
 **Epic:** 5 (Readiness Dashboard — Status, Provenance, Auto-Update & Override)
 **Story ID:** 5.5
@@ -157,6 +157,34 @@ _Verbatim intent from epics.md lines 1791-1826 (Story 5.5), numbered for traceab
   - [x] Subtask 10.1: Backend — run the new file plus `test_drill_down_endpoint.py`, `test_dashboard_router.py`, `test_provenance_detail.py` (files sharing import surface) in isolation per-file (known pre-existing cross-file asyncpg pool-corruption pattern, `deferred-work.md`, unfixed since Epic 4 — do not attempt to fix it in this story).
   - [x] Subtask 10.2: Frontend — `npm run test` full suite; `tsc --noEmit` diffed via `git stash` against baseline (matches Story 5.2/5.4's established verification method) — assert **zero new** type errors, not a clean full-build pass (pre-existing unrelated errors are documented in `deferred-work.md`, Story 2.6 entry).
   - [x] Subtask 10.3: Update Dev Agent Record + File List (below) with actual results.
+
+### Review Findings
+
+_Code review run 2026-07-13 (`bmad-code-review`), 3 parallel adversarial layers — Blind Hunter, Edge Case Hunter, Acceptance Auditor. 29 raw findings merged/verified against source into 18; 8 dismissed as false positives or spec-matching-as-written after reading the actual code (not rated from diff hunks alone)._
+
+- [x] [Review][Decision] ~~Reason-fallback operator (`??` vs `||`) contradicts literal spec text~~ — **Resolved 2026-07-13 (user decision): accept the corrected behavior, no code change.** Finding 3 and Success Criterion 5 both said `??`, but `.trim() || "No reason provided"` (as shipped) is what actually closes the gap Finding 3 was trying to fix — literal `??` alone only guards `null`/`undefined`, not an empty-string or whitespace-only `override_reason`. The spec text itself was imprecise; the implementation's deviation was the right call. [`frontend/src/features/dashboard/ProvenanceDrillDownModal.tsx:275`]
+
+- [x] [Review][Patch] No DB-level guard on the "at-most-one-active-override" invariant — **Fixed**: added `ProgressRepository.acquire_override_lock()` (a Postgres transaction-scoped advisory lock, `pg_advisory_xact_lock(hashtext(assignment_id))`, no schema change needed) called at the start of `ProgressService.set_override`, before the read-active → deactivate → create sequence — serializes concurrent set/unset calls for the same assignment. New test `test_concurrent_set_calls_leave_exactly_one_active_override_row` fires two real concurrent requests via `asyncio.gather`; empirically verified meaningful by temporarily disabling the lock (3/5 runs failed) then restoring it (5/5 runs passed). [`backend/app/progress/service.py:474-503`, `backend/app/progress/repository.py:314-330`, `backend/tests/test_override_endpoint.py`]
+
+- [x] [Review][Patch] `handleConfirmOverride` has no stale-response guard — **Fixed**: added the same `requestIdRef` snapshot-and-compare guard `fetchDetail` already uses, checked before `setData`/`onOverrideChanged` on success and before `setSubmitError` on failure; also added `setSubmitting(false)` to `fetchDetail`'s reset block so a reused modal never inherits a stale `submitting=true`. [`frontend/src/features/dashboard/ProvenanceDrillDownModal.tsx:54-133`]
+
+- [x] [Review][Patch] `reason` has no length cap anywhere in the stack — **Fixed**: `Field(default=None, max_length=1000)` on `SetOverrideRequest.reason`; `maxLength={1000}` on the frontend `<textarea>`. [`backend/app/assignments/schemas.py:93`, `frontend/src/features/dashboard/ProvenanceDrillDownModal.tsx:154-161`]
+
+- [x] [Review][Patch] Test coverage gaps: nonexistent `assignment_id` and `extra="forbid"` rejection are untested — **Fixed**: added `test_nonexistent_assignment_gets_403_not_a_leak` and `test_unknown_request_field_rejected_with_422`. [`backend/tests/test_override_endpoint.py`]
+
+- [x] [Review][Patch] `unset` silently discards a supplied `reason` with no error/warning — **Fixed**: `SetOverrideRequest` gained a `model_validator` rejecting a non-blank `reason` when `action == "unset"` (422, `reason is not supported for action='unset'`) instead of silently dropping it. New test `test_reason_with_unset_action_rejected_with_422`. [`backend/app/assignments/schemas.py:95-102`, `backend/tests/test_override_endpoint.py`]
+
+- [x] [Review][Defer] `_parse_user_id` bypassed inside `ProgressService.set_override` [`backend/app/progress/service.py:474`] — deferred, pre-existing pattern; currently unreachable. `set_override` does `UUID(current_user.user_id)` directly instead of reusing `_parse_user_id`, but its only caller (`set_override_service`) already calls `_parse_user_id(current_user)` on the same value one step earlier for the ownership-scope query — any malformed `user_id` is already intercepted there with a clean 400 before this code runs. Worth hardening defensively if `progress/service.py` ever gets a second caller that skips that upstream check.
+
+- [x] [Review][Defer] 403 error-body shape differs between "wrong role" and "wrong owner/not-found" [`backend/app/assignments/service.py:181-182,208-209`] — deferred, pre-existing since Story 5.2. `require_hr_admin`'s 403 uses `AppException` (structured `error_code`), while the ownership-scope 403 in both the new `set_override_service` and the pre-existing `get_drill_down_service` uses a bare `HTTPException` (falls back to generic `"HTTP_ERROR"`). This diff deliberately copies `get_drill_down_service`'s existing pattern per the story's own Task 4.1 instruction — fixing it means touching `get_drill_down_service` too, out of this story's scope.
+
+- [x] [Review][Defer] Frontend surfaces Axios's generic error message instead of the backend's actual `detail`/`message` [`frontend/src/features/dashboard/ProvenanceDrillDownModal.tsx:103-105`] — deferred, systemic pre-existing gap. `handleConfirmOverride`'s catch uses the same `err instanceof Error ? err.message : ...` pattern already used pre-existing in `fetchDetail` (same file) and `DashboardPage.tsx`'s `fetchDashboard` — a real fix belongs in a shared `apiClient` interceptor/utility, not a one-off patch here.
+
+- [x] [Review][Defer] Toast auto-dismiss timer doesn't reset for two identical back-to-back messages [`frontend/src/components/ui/toast.tsx:27-31`] — deferred, pre-existing component bug (Story 3.5), untouched by this diff. `Toast`'s effect keys off `[message, durationMs]`; two Mark-as-Ready confirmations producing the identical message string in a row won't re-fire it, so the second toast can vanish early.
+
+**Dismissed (8, verified false positives or spec-matching-as-written, not listed as action items):** pagination/filter reset after post-confirm refresh (verified false — `fetchDashboard()` reuses the current page, no filter feature exists); `assignment.employee`/`skill` access after commit risking `MissingGreenlet` (verified false — `core/db.py` sets `expire_on_commit=False` globally); `get_active_override_for_assignment` re-fetch after `create_override` racing a concurrent call (verified false — same uncommitted transaction, reads its own write); Mark as Ready shown for an already-Completed/Verified assignment (matches AC1/Finding 4 exactly, which key visibility on Provenance only — a product-scope question already answered by the spec, not a code defect); debug logging via eager f-strings (identical pre-existing pattern already in `record_watch_progress`, not a new inconsistency); JWT not checked against a real employee's existence (pre-existing auth behavior, orthogonal to this feature); `unset` shipping with zero frontend coverage (explicitly, deliberately in scope per Finding 4 — Reverse Override UI is Story 5.5b's job); Dev Agent Record test-count bookkeeping mismatch (cosmetic self-reported-numbers inaccuracy, zero code impact).
+
+**Post-patch regression (2026-07-13):** Backend, isolated per-file per this story's Subtask 10.1 convention — `test_override_endpoint.py` 16/16 passing (12 original + 4 new), `test_drill_down_endpoint.py` 10/10, `test_provenance_detail.py` 9/9; `test_dashboard_router.py`'s 5 failures confirmed unchanged/pre-existing (targets a superseded endpoint, deferred-work.md's Story 5-2 entry). Frontend: 211/213 passing (2 pre-existing `DashboardPage.test.tsx` failures, unchanged since Story 5.4); `tsc --noEmit` diffed via `git stash` against the pre-patch baseline: 85 errors both before and after — zero new; `vite build` clean.
 
 ---
 

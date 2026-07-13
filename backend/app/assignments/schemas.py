@@ -4,7 +4,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.content.schemas import ContentResponse
 
@@ -90,7 +90,17 @@ class SetOverrideRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     action: Literal["set", "unset"]
-    reason: str | None = None
+    reason: str | None = Field(default=None, max_length=1000)
+
+    @model_validator(mode="after")
+    def _reason_only_valid_for_set(self) -> "SetOverrideRequest":
+        """A reversal (`unset`) has no column to persist a reason against
+        (Table 7's `reversed_at`/`reversed_by` carry no `reversed_reason`) --
+        code review finding, Story 5.5: reject rather than silently drop a
+        caller-supplied reason on this action."""
+        if self.action == "unset" and self.reason is not None and self.reason.strip():
+            raise ValueError("reason is not supported for action='unset'")
+        return self
 
 
 class AssignmentResponse(BaseModel):

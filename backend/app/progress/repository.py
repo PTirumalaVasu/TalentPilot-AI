@@ -287,6 +287,26 @@ class ProgressRepository:
         return result.unique().scalar_one_or_none()
 
     @staticmethod
+    async def acquire_override_lock(session: AsyncSession, assignment_id: UUID) -> None:
+        """Serializes concurrent `set_override` calls for the same assignment
+        (Story 5.5 code review finding: the read-active -> deactivate -> create
+        sequence has no DB-level guard, so two concurrent "set" calls with no
+        currently-active override can both insert, violating AC9's
+        at-most-one-active-override invariant). A row-level `SELECT ... FOR
+        UPDATE` can't help here since there is nothing to lock when zero
+        overrides are active yet -- a Postgres transaction-scoped advisory
+        lock keyed on the assignment_id works from a cold start too, and is
+        auto-released on commit/rollback, so it needs no schema change and no
+        explicit unlock call. Call this before the read-then-write sequence,
+        never on a read-only path (get_drill_down_service) where the extra
+        serialization would be pure overhead.
+        """
+        await session.execute(
+            text("SELECT pg_advisory_xact_lock(hashtext(:assignment_id))"),
+            {"assignment_id": str(assignment_id)},
+        )
+
+    @staticmethod
     async def get_active_override_for_assignment(
         session: AsyncSession, assignment_id: UUID
     ) -> AssignmentOverride | None:
