@@ -471,6 +471,12 @@ class ProgressService:
         caller gets exactly what a subsequent GET drill-down would return
         for the same state.
         """
+        # Code review finding, Story 5.5: serialize concurrent set/unset calls
+        # for this assignment before the read-then-write sequence below, so
+        # two concurrent "set" calls can't both observe "no active override"
+        # and both insert (AC9 violation).
+        await ProgressRepository.acquire_override_lock(session, assignment.id)
+
         hr_admin_id = UUID(current_user.user_id)
         active_override = await ProgressRepository.get_active_override_for_assignment(session, assignment.id)
 

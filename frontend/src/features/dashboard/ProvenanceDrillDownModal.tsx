@@ -60,6 +60,7 @@ export function ProvenanceDrillDownModal({ assignmentId, open, onClose, onOverri
     setConfirming(false);
     setReason("");
     setSubmitError(null);
+    setSubmitting(false);
     dashboardApi
       .getDrillDown(assignmentId)
       .then((response) => {
@@ -91,20 +92,30 @@ export function ProvenanceDrillDownModal({ assignmentId, open, onClose, onOverri
 
   async function handleConfirmOverride() {
     if (!assignmentId) return;
+    // Snapshot the request generation this submit belongs to -- mirrors
+    // fetchDetail's requestIdRef guard (code review finding, Story 5.5): if
+    // the modal is reused for a different assignment (or re-fetches) before
+    // this request resolves, requestIdRef.current will have moved on, and
+    // this response must not overwrite what's now on screen.
+    const requestIdAtSubmit = requestIdRef.current;
     setSubmitting(true);
     setSubmitError(null);
     try {
       const trimmedReason = reason.trim();
       const response = await dashboardApi.setOverride(assignmentId, "set", trimmedReason || undefined);
+      if (requestIdRef.current !== requestIdAtSubmit) return;
       setData(response);
       setConfirming(false);
       setReason("");
       onOverrideChanged?.(`${response.employee_name} marked as Ready for ${response.skill_name}.`);
     } catch (err) {
+      if (requestIdRef.current !== requestIdAtSubmit) return;
       const message = err instanceof Error ? err.message : "Couldn't mark as Ready. Try again.";
       setSubmitError(message);
     } finally {
-      setSubmitting(false);
+      if (requestIdRef.current === requestIdAtSubmit) {
+        setSubmitting(false);
+      }
     }
   }
 
@@ -156,6 +167,7 @@ export function ProvenanceDrillDownModal({ assignmentId, open, onClose, onOverri
               onChange={(event) => setReason(event.target.value)}
               disabled={submitting}
               rows={3}
+              maxLength={1000}
               className="mt-1 w-full rounded border border-gray-200 p-2 text-sm"
             />
           </label>

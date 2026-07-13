@@ -2,6 +2,7 @@
 (Story 5.5, FR-12). Real app + ASGITransport + real Postgres, mirroring
 test_drill_down_endpoint.py's exact scaffolding (see that file's module
 docstring for why loop_scope="module" is needed here)."""
+import asyncio
 import uuid
 from datetime import datetime, timezone
 
@@ -301,3 +302,93 @@ async def test_unauthenticated_gets_401():
             f"/api/assignments/{uuid.uuid4()}/override", json={"action": "set"}
         )
         assert response.status_code == 401
+
+
+async def test_nonexistent_assignment_gets_403_not_a_leak():
+    """Code review finding, Story 5.5: only "owned by someone else" was
+    tested for the anti-enumeration 403 -- a wholly nonexistent assignment_id
+    must behave identically (same status, no existence leak)."""
+    async with _client() as client:
+        await _login(client)
+        response = await client.post(
+            f"/api/assignments/{uuid.uuid4()}/override", json={"action": "set"}
+        )
+        assert response.status_code == 403
+
+
+async def test_unknown_request_field_rejected_with_422():
+    """Code review finding, Story 5.5: SetOverrideRequest's extra="forbid"
+    (no client-supplied override_status/set_by/active) was asserted in prose
+    but never tested."""
+    async with _client() as client:
+        await _login(client)
+        assignment_id = await _create_assignment(client)
+        try:
+            response = await client.post(
+                f"/api/assignments/{assignment_id}/override",
+                json={"action": "set", "status": "IN_PROGRESS"},
+            )
+            assert response.status_code == 422
+        finally:
+            await _cleanup_assignment(assignment_id)
+
+
+async def test_reason_with_unset_action_rejected_with_422():
+    """Code review finding, Story 5.5: a reversal has no column to persist a
+    reason against -- reject rather than silently drop a caller-supplied one."""
+    async with _client() as client:
+        await _login(client)
+        assignment_id = await _create_assignment(client)
+        try:
+            set_response = await client.post(
+                f"/api/assignments/{assignment_id}/override", json={"action": "set"}
+            )
+            assert set_response.status_code == 200
+
+            response = await client.post(
+                f"/api/assignments/{assignment_id}/override",
+                json={"action": "unset", "reason": "Should not be accepted"},
+            )
+            assert response.status_code == 422
+        finally:
+            await _cleanup_assignment(assignment_id)
+
+
+async def test_concurrent_set_calls_leave_exactly_one_active_override_row():
+    """Code review finding, Story 5.5: the read-active -> deactivate -> create
+    sequence had no DB-level guard, so two concurrent 'set' calls starting
+    from zero active overrides could both insert, violating AC9. Fixed via a
+    Postgres advisory lock (ProgressRepository.acquire_override_lock) that
+    serializes concurrent calls for the same assignment_id -- this test
+    fires two real concurrent requests (not sequential) to prove the guard
+    actually closes the race, not just that re-marking works in order."""
+    async with _client() as client_a, _client() as client_b:
+        await _login(client_a)
+        await _login(client_b)
+        assignment_id = await _create_assignment(client_a)
+        try:
+            responses = await asyncio.gather(
+                client_a.post(
+                    f"/api/assignments/{assignment_id}/override",
+                    json={"action": "set", "reason": "From A"},
+                ),
+                client_b.post(
+                    f"/api/assignments/{assignment_id}/override",
+                    json={"action": "set", "reason": "From B"},
+                ),
+            )
+            assert all(r.status_code == 200 for r in responses)
+
+            async with _session_factory() as session:
+                result = await session.execute(
+                    select(AssignmentOverride).where(AssignmentOverride.assignment_id == assignment_id)
+                )
+                rows = list(result.scalars().all())
+
+            active_rows = [r for r in rows if r.active]
+            assert len(active_rows) == 1, (
+                f"expected exactly one active override after concurrent 'set' calls, "
+                f"got {len(active_rows)}"
+            )
+        finally:
+            await _cleanup_assignment(assignment_id)
