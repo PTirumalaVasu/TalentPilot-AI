@@ -27,7 +27,7 @@ describe("DashboardPage", () => {
       () => new Promise(() => {}) // Never resolves
     );
 
-    render(<DashboardPage />);
+    render(<DashboardPage onNewAssignment={() => {}} />);
     expect(screen.getByText(/Loading assignments/i)).toBeInTheDocument();
   });
 
@@ -38,6 +38,7 @@ describe("DashboardPage", () => {
           assignment_id: "id-1",
           employee_id: "emp-1",
           employee_name: "Casey the Continuer",
+            employee_group: "Engineering",
           skill_id: "skill-1",
           skill_name: "Data Visualization",
           status: "In Progress" as const,
@@ -54,7 +55,7 @@ describe("DashboardPage", () => {
 
     vi.mocked(dashboardApi.dashboardApi.getDashboard).mockResolvedValue(mockData);
 
-    render(<DashboardPage />);
+    render(<DashboardPage onNewAssignment={() => {}} />);
 
     await waitFor(() => {
       expect(screen.getByText("Casey the Continuer")).toBeInTheDocument();
@@ -69,6 +70,7 @@ describe("DashboardPage", () => {
           assignment_id: "id-1",
           employee_id: "emp-1",
           employee_name: "Test Employee",
+            employee_group: "Engineering",
           skill_id: "skill-1",
           skill_name: "Test Skill",
           status: "In Progress" as const,
@@ -85,7 +87,7 @@ describe("DashboardPage", () => {
 
     vi.mocked(dashboardApi.dashboardApi.getDashboard).mockResolvedValue(mockData);
 
-    render(<DashboardPage />);
+    render(<DashboardPage onNewAssignment={() => {}} />);
 
     await waitFor(() => {
       // Status text should be present (not just color)
@@ -103,6 +105,7 @@ describe("DashboardPage", () => {
           assignment_id: "id-1",
           employee_id: "emp-1",
           employee_name: "Test Employee",
+            employee_group: "Engineering",
           skill_id: "skill-1",
           skill_name: "Test Skill",
           status: "Not Started" as const,
@@ -119,7 +122,7 @@ describe("DashboardPage", () => {
 
     vi.mocked(dashboardApi.dashboardApi.getDashboard).mockResolvedValue(mockData);
 
-    render(<DashboardPage />);
+    render(<DashboardPage onNewAssignment={() => {}} />);
 
     await waitFor(() => {
       // Should show relative time like "2 hours ago", not ISO-8601
@@ -135,6 +138,7 @@ describe("DashboardPage", () => {
           assignment_id: "id-1",
           employee_id: "emp-1",
           employee_name: "Test Employee",
+            employee_group: "Engineering",
           skill_id: "skill-1",
           skill_name: "Test Skill",
           status: "Not Started" as const,
@@ -151,7 +155,7 @@ describe("DashboardPage", () => {
 
     vi.mocked(dashboardApi.dashboardApi.getDashboard).mockResolvedValue(mockData);
 
-    render(<DashboardPage />);
+    render(<DashboardPage onNewAssignment={() => {}} />);
 
     await waitFor(() => {
       const buttons = screen.getAllByText("View Details");
@@ -168,7 +172,7 @@ describe("DashboardPage", () => {
       new Error("Network error")
     );
 
-    render(<DashboardPage />);
+    render(<DashboardPage onNewAssignment={() => {}} />);
 
     await waitFor(() => {
       expect(screen.getByText(/Network error/)).toBeInTheDocument();
@@ -197,7 +201,7 @@ describe("DashboardPage", () => {
         page_size: 50,
       });
 
-    render(<DashboardPage />);
+    render(<DashboardPage onNewAssignment={() => {}} />);
 
     await waitFor(() => {
       expect(screen.getByText(/Network error/)).toBeInTheDocument();
@@ -219,7 +223,7 @@ describe("DashboardPage", () => {
       page_size: 50,
     });
 
-    render(<DashboardPage />);
+    render(<DashboardPage onNewAssignment={() => {}} />);
 
     await waitFor(() => {
       expect(screen.getByText(/No assignments yet/)).toBeInTheDocument();
@@ -232,6 +236,7 @@ describe("DashboardPage", () => {
         assignment_id: `id-${i}`,
         employee_id: `emp-${i}`,
         employee_name: `Employee ${i}`,
+        employee_group: "Engineering",
         skill_id: `skill-${i}`,
         skill_name: `Skill ${i}`,
         status: "Not Started" as const,
@@ -247,7 +252,7 @@ describe("DashboardPage", () => {
 
     vi.mocked(dashboardApi.dashboardApi.getDashboard).mockResolvedValue(mockData);
 
-    render(<DashboardPage />);
+    render(<DashboardPage onNewAssignment={() => {}} />);
 
     await waitFor(() => {
       expect(screen.getByText(/Page 1 of 3/)).toBeInTheDocument();
@@ -262,6 +267,7 @@ describe("DashboardPage", () => {
           assignment_id: "id-1",
           employee_id: "emp-1",
           employee_name: "Test Employee",
+            employee_group: "Engineering",
           skill_id: "skill-1",
           skill_name: "Test Skill",
           status: "Not Started" as const,
@@ -278,7 +284,7 @@ describe("DashboardPage", () => {
 
     vi.mocked(dashboardApi.dashboardApi.getDashboard).mockResolvedValueOnce(mockData);
 
-    render(<DashboardPage />);
+    render(<DashboardPage onNewAssignment={() => {}} />);
 
     // Await for the grid to render
     await waitFor(() => {
@@ -300,6 +306,7 @@ describe("DashboardPage", () => {
           assignment_id: "id-1",
           employee_id: "emp-1",
           employee_name: "Casey the Continuer",
+            employee_group: "Engineering",
           skill_id: "skill-1",
           skill_name: "Data Visualization",
           status: "Not Started" as const,
@@ -318,6 +325,7 @@ describe("DashboardPage", () => {
     vi.mocked(dashboardApi.dashboardApi.getDrillDown).mockResolvedValue({
       assignment_id: "id-1",
       employee_name: "Casey the Continuer",
+            employee_group: "Engineering",
       skill_name: "Data Visualization",
       status: "NOT_STARTED",
       status_percentage: null,
@@ -333,6 +341,7 @@ describe("DashboardPage", () => {
     vi.mocked(dashboardApi.dashboardApi.setOverride).mockResolvedValue({
       assignment_id: "id-1",
       employee_name: "Casey the Continuer",
+            employee_group: "Engineering",
       skill_name: "Data Visualization",
       status: "COMPLETED",
       status_percentage: null,

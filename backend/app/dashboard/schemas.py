@@ -33,6 +33,7 @@ class AssignmentRowResponse(BaseModel):
     assignment_id: uuid.UUID
     employee_id: uuid.UUID
     employee_name: str
+    employee_group: str | None
     skill_id: uuid.UUID
     skill_name: str
     status: Literal["Not Started", "In Progress", "Completed"]

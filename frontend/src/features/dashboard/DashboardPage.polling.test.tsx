@@ -28,6 +28,7 @@ function makeRow(overrides: Partial<AssignmentRow> = {}): AssignmentRow {
     assignment_id: "assign-1",
     employee_id: "emp-1",
     employee_name: "Casey the Continuer",
+    employee_group: "Engineering",
     skill_id: "skill-1",
     skill_name: "Data Visualization",
     status: "Not Started",
@@ -110,7 +111,7 @@ describe("DashboardPage live auto-update polling", () => {
     getDashboard.mockResolvedValueOnce(
       makeResponse([
         makeRow(),
-        makeRow({ assignment_id: "assign-2", employee_name: "Sam the Starter", skill_name: "Public Speaking" }),
+        makeRow({ assignment_id: "assign-2", employee_name: "Sam the Starter", employee_group: "Engineering", skill_name: "Public Speaking" }),
       ])
     );
     await advance(POLL_INTERVAL_MS);

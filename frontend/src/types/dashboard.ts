@@ -14,6 +14,7 @@ export interface AssignmentRow {
   assignment_id: string; // UUID
   employee_id: string; // UUID
   employee_name: string;
+  employee_group: string | null;
   skill_id: string; // UUID
   skill_name: string;
   status: StatusType;

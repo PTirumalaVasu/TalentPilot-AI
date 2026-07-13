@@ -75,12 +75,14 @@ class DashboardService:
             )
 
             employee_name = assignment.employee.name if assignment.employee else "Unknown"
+            employee_group = assignment.employee.group if assignment.employee else None
             skill_name = assignment.skill.name if assignment.skill else "Unknown"
 
             row = AssignmentRowResponse(
                 assignment_id=assignment.id,
                 employee_id=assignment.employee_id,
                 employee_name=employee_name,
+                employee_group=employee_group,
                 skill_id=assignment.skill_id,
                 skill_name=skill_name,
                 status=status,
