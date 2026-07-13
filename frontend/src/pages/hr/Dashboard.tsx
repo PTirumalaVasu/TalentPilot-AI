@@ -7,11 +7,28 @@ import { AssignmentModal } from "@/features/assignments/AssignmentModal";
 import { DashboardPage, type DashboardPageHandle } from "@/features/dashboard/DashboardPage";
 
 export function Dashboard() {
-  const { signOut } = useAuth();
+  const { signOut, auth } = useAuth();
   const navigate = useNavigate();
   const [assignmentModalOpen, setAssignmentModalOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const dashboardRef = useRef<DashboardPageHandle>(null);
+
+  // Get employee initials from user ID or default to 'R'
+  const getInitials = () => {
+    if (auth.status === 'authenticated') {
+      return auth.userId.charAt(0).toUpperCase();
+    }
+    return 'R';
+  };
+
+  // Get employee name from user ID or default to 'Rita'
+  const getEmployeeName = () => {
+    if (auth.status === 'authenticated') {
+      // For demo purposes, we'll show a generic name. In production, fetch from API
+      return 'Rita';
+    }
+    return 'Rita';
+  };
 
   async function handleSignOut() {
     try {
@@ -42,8 +59,10 @@ export function Dashboard() {
             onClick={() => setUserMenuOpen(!userMenuOpen)}
             className="flex items-center gap-2 text-sm text-gray-700"
           >
-            <span className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-medium">R</span>
-            Rita
+            <span className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-medium">
+              {getInitials()}
+            </span>
+            {getEmployeeName()}
           </button>
           {userMenuOpen && (
             <div className="absolute right-0 mt-2 w-40 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
