@@ -120,14 +120,44 @@ export function ContentDiscovery() {
             <span className="text-gray-400">Continue Watching</span>
           </nav>
         </div>
-        <Button variant="outline" onClick={handleSignOut}>
-          Sign Out
-        </Button>
+        <div className="flex items-center gap-2">
+          <span className="w-8 h-8 rounded-full bg-talentpilot-100 flex items-center justify-center text-talentpilot-700 font-medium">C</span>
+          <span className="text-sm text-gray-700">Casey</span>
+          <Button variant="outline" onClick={handleSignOut} className="ml-4">
+            Sign Out
+          </Button>
+        </div>
       </header>
 
       <main className="px-6 py-6 max-w-5xl mx-auto">
-        <h1 className="text-3xl font-bold text-gray-900 mb-1">Assigned Skills</h1>
-        <p className="text-sm text-gray-600 mb-6">Select a video to continue watching or start a new one</p>
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900">Assigned Skills</h1>
+          <p className="text-sm text-gray-600 mt-2">Select a video to continue watching or start a new one</p>
+
+          {/* Employee Info Card */}
+          {state.status === 'loaded' && (
+            <div className="bg-gradient-to-r from-blue-50 to-blue-50 rounded-lg px-5 py-4 border border-blue-200 mt-6">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div>
+                  <p className="text-xs text-gray-600 uppercase tracking-wide mb-1">Name</p>
+                  <p className="text-sm font-semibold text-gray-900">Casey the Continuer</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-600 uppercase tracking-wide mb-1">Role</p>
+                  <p className="text-sm font-semibold text-gray-900">Individual Contributor</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-600 uppercase tracking-wide mb-1">Email</p>
+                  <p className="text-sm font-semibold text-gray-900">casey@sailssoftware.com</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-600 uppercase tracking-wide mb-1">Skills Assigned</p>
+                  <p className="text-sm font-semibold text-blue-600">{state.data.total}</p>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
 
         {state.status === 'loading' && (
           <div data-testid="content-discovery-loading" className="grid grid-cols-1 md:grid-cols-3 gap-4">
