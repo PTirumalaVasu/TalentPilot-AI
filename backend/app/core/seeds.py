@@ -215,17 +215,26 @@ _CONTENT_SEED_DATA = [
 async def seed_content(session: AsyncSession) -> None:
     """Idempotently seed content_catalog with real, previously-ingested
     YouTube content for the 5 seeded Skills (see _CONTENT_SEED_DATA above).
-    Skipped entirely if this Skill already has any Content -- covers both
-    a re-run of this seed and a machine that already ran real ingestion
-    (`app.content.cli ingest`), which must never be duplicated by this."""
+
+    Checked per-skill, not globally: a Skill that already has Content (from
+    a prior run of this seed, real `app.content.cli ingest`, or a manual
+    seed) is skipped, but a sibling Skill with zero Content still gets
+    seeded even if Data Visualization already has some. A single
+    Data-Viz-only check previously skipped this function for *all* 5
+    Skills the moment any one of them had Content, silently leaving the
+    others empty on a partially-ingested machine."""
+    seed_skill_ids = {row[0] for row in _CONTENT_SEED_DATA}
     existing = await session.execute(
-        select(ContentCatalog).where(ContentCatalog.skill_id == SKILL_DATA_VIZ_ID)
+        select(ContentCatalog.skill_id)
+        .where(ContentCatalog.skill_id.in_(seed_skill_ids))
+        .distinct()
     )
-    if existing.scalar():
-        return
+    already_seeded = set(existing.scalars().all())
 
     rows = []
     for skill_id, title, description, video_id, duration in _CONTENT_SEED_DATA:
+        if skill_id in already_seeded:
+            continue
         embedding = embed_text(f"{title}: {description or ''}")
         rows.append(
             ContentCatalog(
@@ -244,8 +253,9 @@ async def seed_content(session: AsyncSession) -> None:
             )
         )
 
-    session.add_all(rows)
-    await session.flush()
+    if rows:
+        session.add_all(rows)
+        await session.flush()
 
 
 async def create_default_accounts(session: AsyncSession) -> None:

@@ -8,8 +8,10 @@ from app.assignments.router import router as assignments_router
 from app.auth.router import router as auth_router
 from app.content.router import router as content_router
 from app.core.config import settings
+from app.core.db import async_session_factory
 from app.core.embedding import load_embedding_model
 from app.core.errors import register_exception_handlers
+from app.core.seeds import run_seeds
 from app.dashboard.router import router as dashboard_router
 from app.progress.router import router as progress_router
 from app.progress.my_assignments import router as my_assignments_router
@@ -18,6 +20,8 @@ from app.progress.my_assignments import router as my_assignments_router
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await asyncio.to_thread(load_embedding_model)
+    async with async_session_factory() as session:
+        await run_seeds(session)
     yield
 
 
