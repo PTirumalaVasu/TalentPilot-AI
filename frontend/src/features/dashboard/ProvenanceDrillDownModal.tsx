@@ -210,8 +210,8 @@ export function ProvenanceDrillDownModal({ assignmentId, open, onClose, onOverri
             Remove this HR Override?
           </h2>
           <p className="text-sm text-gray-700">
-            Status: {STATUS_DISPLAY[data.status]} (set by {data.override_set_by_name ?? "Unknown"} on{" "}
-            {data.override_set_at ? new Date(data.override_set_at).toLocaleDateString() : "Unknown"})
+            Status: {STATUS_DISPLAY[data.status]} (set by {data.override_set_by_name ?? "Unknown"}{" "}
+            {data.override_set_at ? relativeTime(data.override_set_at) : "at an unknown time"})
           </p>
           <p className="text-sm text-gray-700">Currently: {describeUnderlyingSignal(data)}</p>
           {submitError && <p className="text-red-600 text-sm">{submitError}</p>}

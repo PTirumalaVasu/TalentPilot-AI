@@ -282,7 +282,11 @@ describe("ProvenanceDrillDownModal", () => {
       });
 
       expect(screen.getByRole("heading", { name: "Remove this HR Override?" })).toBeInTheDocument();
-      expect(screen.getByText(/Status: Completed \(set by Rita the Recommender on/)).toBeInTheDocument();
+      // Code review finding, Story 5-5b review: this must render the same
+      // relative-time format the detail view's "Overridden at:" line already
+      // uses (e.g. "3 days ago"), not a raw locale date -- otherwise the same
+      // override_set_at timestamp reads inconsistently across the two views.
+      expect(screen.getByText(/Status: Completed \(set by Rita the Recommender .* ago\)/)).toBeInTheDocument();
       expect(screen.getByText(/Currently: Watch Progress 65% \(Verified\)/)).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Remove Override" })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
@@ -345,7 +349,66 @@ describe("ProvenanceDrillDownModal", () => {
       expect(onOverrideChanged).toHaveBeenCalledWith("Override removed. Status now based on video progress.");
     });
 
-    it("the toast message varies by the response's underlying_provenance rather than a single hardcoded string", async () => {
+    it("the toast message reads the response's own provenance, not underlying_provenance (Self-reported branch, previously untested)", async () => {
+      // Fixture deliberately makes response.provenance and
+      // response.underlying_provenance disagree, so this test actually fails
+      // if the code regresses to reading the wrong field (the exact bug this
+      // story's Debug Log documents catching) -- unlike a fixture where both
+      // fields map to the same message, which can't tell the two apart.
+      const onOverrideChanged = vi.fn();
+      vi.mocked(dashboardApi.getDrillDown).mockResolvedValue(
+        baseResponse({ provenance: "HR Override", status: "COMPLETED", override_set_by_name: "Rita the Recommender" })
+      );
+      vi.mocked(dashboardApi.setOverride).mockResolvedValue(
+        baseResponse({ provenance: "Self-reported", underlying_provenance: null })
+      );
+      render(
+        <ProvenanceDrillDownModal
+          assignmentId="assign-1"
+          open
+          onClose={vi.fn()}
+          onOverrideChanged={onOverrideChanged}
+        />
+      );
+      await waitFor(() => screen.getByRole("button", { name: "Reverse Override" }));
+      await userEvent.click(screen.getByRole("button", { name: "Reverse Override" }));
+      await userEvent.click(screen.getByRole("button", { name: "Remove Override" }));
+
+      await waitFor(() => {
+        expect(onOverrideChanged).toHaveBeenCalledWith(
+          "Override removed. Status now based on self-reported progress."
+        );
+      });
+    });
+
+    it("the toast message uses the same self-reported wording for the Needs Attention branch (fallthrough case)", async () => {
+      const onOverrideChanged = vi.fn();
+      vi.mocked(dashboardApi.getDrillDown).mockResolvedValue(
+        baseResponse({ provenance: "HR Override", status: "COMPLETED", override_set_by_name: "Rita the Recommender" })
+      );
+      vi.mocked(dashboardApi.setOverride).mockResolvedValue(
+        baseResponse({ provenance: "Needs Attention", underlying_provenance: null })
+      );
+      render(
+        <ProvenanceDrillDownModal
+          assignmentId="assign-1"
+          open
+          onClose={vi.fn()}
+          onOverrideChanged={onOverrideChanged}
+        />
+      );
+      await waitFor(() => screen.getByRole("button", { name: "Reverse Override" }));
+      await userEvent.click(screen.getByRole("button", { name: "Reverse Override" }));
+      await userEvent.click(screen.getByRole("button", { name: "Remove Override" }));
+
+      await waitFor(() => {
+        expect(onOverrideChanged).toHaveBeenCalledWith(
+          "Override removed. Status now based on self-reported progress."
+        );
+      });
+    });
+
+    it("the toast message falls back to the no-prior-progress wording when the response's provenance is Not Started", async () => {
       const onOverrideChanged = vi.fn();
       vi.mocked(dashboardApi.getDrillDown).mockResolvedValue(
         baseResponse({ provenance: "HR Override", status: "COMPLETED", override_set_by_name: "Rita the Recommender" })
