@@ -36,12 +36,17 @@ export interface ContentMatch {
   url: string;
   source: 'YOUTUBE' | 'MANUAL';
   ingested_at: string;
-  // Matches the backend's actual wire key: ContentResponse's Pydantic field
-  // is `metadata: ... = Field(alias="content_metadata")`, and FastAPI
-  // serializes by alias -- confirmed via a live HTTP call, since a plain
-  // `metadata` key here would silently read as `undefined` against the
-  // real API (code review round 2 finding).
-  content_metadata: Record<string, unknown> | null;
+  // Matches the backend's actual wire key. ContentResponse's Pydantic field
+  // uses `validation_alias="content_metadata"` (Story 2.5 fix), which only
+  // affects input parsing -- serialization falls back to the field's own
+  // name, "metadata". Confirmed via a live HTTP call (2026-07-12): the real
+  // API returns `"metadata": {...}`, never `"content_metadata"`. The
+  // `content_metadata` name here was stale from Story 3.4, which was built
+  // in parallel before Story 2.5's fix landed and was never reconciled with
+  // it after merge -- silently `undefined` against the real API the whole
+  // time, since nothing before now actually rendered this field in a
+  // browser (only checked the raw JSON shape).
+  metadata: Record<string, unknown> | null;
 }
 
 export async function listEmployees(search?: string): Promise<Employee[]> {

@@ -3,6 +3,7 @@ import { Dialog } from '@/components/ui/dialog';
 import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
 import { Button } from '@/components/ui/button';
 import { FormErrorText } from '@/components/ui/form-error-text';
+import { formatDurationMinutes, parseIso8601DurationSeconds } from '@/lib/utils/duration';
 import {
   listEmployees,
   listSkills,
@@ -22,7 +23,12 @@ type Step = 1 | 2 | 3;
 
 interface ContentMetadata {
   video_id?: string;
-  duration?: number;
+  // Raw YouTube-API ISO-8601 string (e.g. "PT28M33S"), never a plain
+  // number -- matches AssignmentCard.tsx's identical field, parsed the same
+  // way via parseIso8601DurationSeconds() (code review finding: the old
+  // `typeof duration === 'number'` check here was always false against the
+  // real API, so this text never rendered).
+  duration?: string;
 }
 
 function formatRole(role: string): string {
@@ -257,8 +263,8 @@ export function AssignmentModal({ open, onClose, onAssigned }: AssignmentModalPr
   const selectedEmployee = employees.find((employee) => employee.id === employeeId);
   const selectedSkill = skills.find((skill) => skill.id === skillId);
 
-  const metadata = (content?.content_metadata ?? null) as ContentMetadata | null;
-  const durationMinutes = typeof metadata?.duration === 'number' ? Math.round(metadata.duration / 60) : null;
+  const metadata = (content?.metadata ?? null) as ContentMetadata | null;
+  const durationLabel = formatDurationMinutes(parseIso8601DurationSeconds(metadata?.duration));
   const thumbnailUrl =
     content?.source === 'YOUTUBE' && metadata?.video_id
       ? `https://img.youtube.com/vi/${metadata.video_id}/hqdefault.jpg`
@@ -407,7 +413,7 @@ export function AssignmentModal({ open, onClose, onAssigned }: AssignmentModalPr
                   <p className="font-medium">{content.title}</p>
                   <p className="text-sm text-gray-500">
                     {formatSource(content.source)}
-                    {durationMinutes !== null ? ` · ${durationMinutes} minutes` : ''}
+                    {durationLabel ? ` · ${durationLabel}` : ''}
                   </p>
                 </div>
                 <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">

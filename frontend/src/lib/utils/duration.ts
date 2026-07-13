@@ -1,6 +1,6 @@
 /**
  * Best-effort ISO-8601 duration parsing (Story 2.5, Scope Note 6).
- * `content_metadata.duration` is a raw YouTube-API string (e.g. "PT28M33S"),
+ * `metadata.duration` is a raw YouTube-API string (e.g. "PT28M33S"),
  * present only for source="YOUTUBE" content. Percent-watched is display-only
  * -- omit it rather than guess when duration is missing/unparseable.
  */
