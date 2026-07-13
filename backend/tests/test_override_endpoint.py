@@ -392,3 +392,53 @@ async def test_concurrent_set_calls_leave_exactly_one_active_override_row():
             )
         finally:
             await _cleanup_assignment(assignment_id)
+
+
+async def test_concurrent_reversal_and_fresh_watch_progress_no_data_loss():
+    """Story 5.5b AC6 ("State Management During Reversal"): an `unset` firing
+    at the same moment as a fresh watch-position write for the same
+    assignment must not lose either change. Routes the watch-progress side
+    through a direct SkillProgress insert (not the live HTTP endpoint) --
+    progress/router.py's routes are still double-prefixed/unreachable at
+    their documented URL (deferred-work.md, Story 5-2 review), the same
+    reason test_fresh_watch_progress_after_override_shows_both_signals
+    above sidesteps it. asyncio.gather technique copied from
+    test_concurrent_set_calls_leave_exactly_one_active_override_row so both
+    operations genuinely race rather than run sequentially."""
+
+    async def _insert_fresh_progress() -> None:
+        async with _session_factory() as session:
+            session.add(
+                SkillProgress(
+                    assignment_id=assignment_id,
+                    watch_position=120,
+                    event_time=datetime.now(timezone.utc),
+                    verified=True,
+                )
+            )
+            await session.commit()
+
+    async with _client() as client:
+        await _login(client)
+        assignment_id = await _create_assignment(client)
+        try:
+            set_response = await client.post(
+                f"/api/assignments/{assignment_id}/override", json={"action": "set"}
+            )
+            assert set_response.status_code == 200
+
+            unset_response, _ = await asyncio.gather(
+                client.post(f"/api/assignments/{assignment_id}/override", json={"action": "unset"}),
+                _insert_fresh_progress(),
+            )
+            assert unset_response.status_code == 200
+
+            get_response = await client.get(f"/api/assignments/{assignment_id}/progress/drill-down")
+            assert get_response.status_code == 200
+            body = get_response.json()
+            # The reversal took effect (override no longer shadows the signal)...
+            assert body["provenance"] == "Verified"
+            # ...and the fresh watch write was not lost.
+            assert body["status"] == "IN_PROGRESS"
+        finally:
+            await _cleanup_assignment(assignment_id)
