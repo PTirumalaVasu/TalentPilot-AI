@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-09
-last_updated: 2026-07-13 (epic-2 retrospective completed, status -> done)
+last_updated: 2026-07-13 (epic-3/epic-5 retrospective completed; both epics -> done)
 # story 1-1 marked ready-for-dev 2026-07-09 (bmad-create-story); epic-1 auto-transitioned to in-progress
 # story 1-1 completed and merged to main via PR #25 2026-07-09; story 1-2 marked ready-for-dev 2026-07-09 (bmad-create-story)
 # stories 1-2/1-3/1-4 completed and merged to main via PR #27 2026-07-09; story 1-5 marked ready-for-dev 2026-07-09 (bmad-create-story)
@@ -146,6 +146,7 @@ story_location: _bmad-output/implementation-artifacts
 # story 5-5b marked ready-for-dev 2026-07-13 (bmad-create-story): confirmed almost entirely frontend-only -- Story 5.5 already built the shared POST /api/assignments/{id}/override endpoint's `unset` action end-to-end (service, repository, advisory-lock concurrency guard, 404-on-nothing-active, EMPLOYEE 403), and dashboardApi.setOverride() already accepts `"unset"`. This story's only backend change is one new test. 7 findings surfaced by reading actual current code: (1) backend is 100% done, don't touch it beyond the new test; (2) DashboardPage.tsx's onOverrideChanged/Toast wiring is already a generic string-message callback -- needs zero changes; (3) [Mark as Ready]'s visibility condition is already correct, only [Reverse Override]'s unconditional-disabled-stub condition needs to flip to `provenance === "HR Override"`; (4) the epic's own "concurrent reversal + fresh watch progress" AC has no test yet, and writing it correctly means bypassing progress/router.py's still-open double-prefix bug (deferred-work.md, Story 5-2 review) the same way Story 5.5's own test_fresh_watch_progress_after_override_shows_both_signals already does (raw SkillProgress insert, not the broken HTTP route); (5) the confirmation view's fields all already exist on DrillDownResponse -- extract UnderlyingSignal's label-mapping switch into a standalone describeUnderlyingSignal() rather than reinventing it; (6) epics.md's literal reversal-toast text ("...based on video progress") is only accurate for 1 of 4 possible underlying-signal states -- verified as a real mismatch, corrected to a signal-aware message, documented as a deliberate deviation (matching Story 5.5's own `??`-deviation precedent); (7) epics.md's "Last Updated timestamp is current" claim contradicts get_provenance_detail's actual (correct-by-design) derivation, which reflects the underlying signal's own freshness, not the reversal action's timestamp -- explicitly flagged as not-to-be-fixed, since fixing it would mean touching the shared AR-3 derivation function every other consumer in the app relies on.
 # story 5-5b implemented 2026-07-13 (bmad-dev-story, claude-code, on branch feature/story-5.5b): all 6 tasks complete. Frontend: ProvenanceDrillDownModal.tsx's [Reverse Override] button is now visible+enabled only when provenance === "HR Override" (was an unconditional disabled stub); a reversal confirmation sub-view reuses the existing `confirming` boolean (branched on provenance, no new state flag, per the story's own instruction) showing the override summary + underlying-signal preview via a newly extracted describeUnderlyingSignal() helper (pure refactor out of UnderlyingSignal, its existing tests re-verified passing unmodified); handleConfirmReversal mirrors handleConfirmOverride's requestIdRef staleness guard, calling dashboardApi.setOverride(assignmentId, "unset") with no reason argument. Backend: one new test, test_concurrent_reversal_and_fresh_watch_progress_no_data_loss (AC6), firing an unset HTTP call and a direct SkillProgress insert via asyncio.gather genuinely concurrently, then asserting a following drill-down GET shows both the reversal and the fresh signal with no data lost either direction. One real bug found and fixed during implementation, not shipped blindly: Finding 6's own sketch code read response.underlying_provenance for the reversal toast message, but that field is only ever populated alongside an *active* override -- a successful unset response always has it null, so the message was wrong for every case. Caught by writing the frontend test for the varying-toast-message case (not by inspection alone), fixed by reading response.provenance instead. Zero changes to DashboardPage.tsx, dashboardApi.ts, or any backend production file (Findings 1/2 confirmed true, not just assumed). Test counts as originally reported (corrected below, code review found the "9 new"/"3 rewritten" framing overstated at the time): backend test_override_endpoint.py 17/17 (16 carried over from Story 5.5 + 1 new); test_drill_down_endpoint.py/test_provenance_detail.py 19/19 unchanged. Frontend: ProvenanceDrillDownModal.test.tsx 28/28 (actually 2 stale Story-5.5-era placeholder tests rewritten + 1 more deleted outright, 7 new reversal-flow tests added at this point); full frontend suite 217/219 passing (2 pre-existing unrelated DashboardPage.test.tsx failures, unchanged since Story 5.4/5.5). Full regression investigated rather than assumed: backend touched-surface files pass 100% in isolation; the full combined suite reproduces the already-documented cross-file asyncpg pool-corruption pattern (open since the Epic 4 retro), confirmed pre-existing (not introduced by this story) via a git-stash-against-baseline comparison of the identical 3-file combination yielding the byte-identical failure signature. tsc --noEmit diffed via git stash: 85 lines both before and after, diff empty -- zero new type errors. vite build clean. Real-browser verification via a one-off Playwright script (scratchpad-only, frontend/package.json untouched) against the live running app (Docker+uvicorn+Vite, already running): drove the full Reverse Override flow on a real assignment that already had an active override from an earlier session -- confirm view, Cancel (override stays active), Remove Override (Mark as Ready reappears, Reverse Override disappears, toast fires) -- all 8 checks passed in a real browser, not just jsdom. Status -> review.
 # story 5-5b code review completed 2026-07-13 (bmad-code-review, 3 parallel adversarial layers -- Blind Hunter, Edge Case Hunter, Acceptance Auditor): 0 decision-needed, 6 patches applied, 1 deferred, 5 dismissed. Patches: (1) AC6's concurrency test only asserted `status`, never `status_percentage` -- Subtask 4.1 explicitly required proving the fresh watch write's percentage, but the test's assignment had no linked content/duration so percentage was structurally stuck at 0; fixed by linking a ContentCatalog row with duration=300 (pattern copied from test_drill_down_endpoint.py) and asserting status_percentage == 40; (2)-(3) the "toast varies by signal" test didn't actually discriminate the exact provenance/underlying_provenance bug it was meant to guard (both buggy and fixed code produced the same message under its chosen fixture), and the Self-reported/Needs-Attention toast branch had zero coverage -- replaced with 3 discriminating tests (Self-reported, Needs Attention, Not Started), net +2 tests, bringing ProvenanceDrillDownModal.test.tsx's reversal-flow tests to a genuine 9 (was 7); (4) this story's own tracking docs overstated "9 new"/"3 rewritten" at implementation time when the actual count was 7 new / 2 rewritten + 1 deleted -- corrected across this file, sprint-status.yaml, and project-context.md; (5) the story's own Developer Context sketch and Finding 6 prose still showed the buggy `underlying_provenance` read after the Debug Log documented the fix to `provenance` -- corrected both; (6) the reversal confirm view rendered `override_set_at` as an absolute date while the detail view renders the same field as relative time -- both now use relativeTime(). 1 deferred (Dev Agent Record's real-browser verification narrative has no attached artifact to confirm it happened as described -- not fixable by a code patch, logged to deferred-work.md). Re-verified after patches: backend test_override_endpoint.py 17/17; frontend ProvenanceDrillDownModal.test.tsx 30/30, full suite 219/221 (2 pre-existing unrelated failures unchanged), tsc --noEmit byte-identical (85 lines), vite build clean. Status -> done.
+# epic-3/epic-5 combined retrospective completed 2026-07-13 (bmad-retrospective, single session covering both epics): reviewed all 13 stories across both epics plus deferred-work.md, epics.md, and the WDS prototype tree. Key findings: (1) the prototype's own internal numbering (03.1-03.6, keyed to the assignment modal's UI steps) collides with Epic 3's story numbering (3-1..3-6, keyed to a different data-model-first decomposition), but caused zero real confusion -- every story file treats the prototype as interaction/copy reference only, never as scope authority, and Story 3.6 explicitly flagged its own prototype counterpart as unrelated rather than assuming alignment; (2) both named decision-needed HALTs (Story 3.4's duplicate-pair interstitial-vs-banner, Story 3.5's toast-gated-on-refetch-success) are documented with full before/after/rationale directly in their story files' Review Findings sections, not just chat history; (3) Story 5.3's derive_self_reported_provenance() gap (no self-report submission mechanism anywhere in the codebase) is confirmed still dangling -- no story since (5.4/5.5/5.5b/5.6) built or wired one; (4) Story 5.6 is confirmed the only story in both epics with zero WDS prototype equivalent (verified, by design -- accessibility passes are cross-cutting, not a category the prototype covers); (5) cross-referenced deferred-work.md: the progress/router.py double-prefix bug (Story 5.2) and the conftest.py drop_all() pool-corruption gap (open since Story 1.7/Epic 4 retro) are both now 2+ epics old and should stop being "whoever touches this file next" items. 5 new action items recorded (conftest.py fix, double-prefix routing fix, dashboard test file rewrite/removal, Story 5.3 dangling-scaffolding decision, create-story guidance note on prototype-less story categories). Full doc: epic-3-and-epic-5-retro-2026-07-13.md. epic-3-retrospective -> done, epic-5-retrospective -> done, epic-3 -> done, epic-5 -> done.
 
 development_status:
   epic-1: done
@@ -168,14 +169,14 @@ development_status:
   2-6-empty-and-error-states-for-content-discovery: done
   epic-2-retrospective: done
 
-  epic-3: in-progress
+  epic-3: done
   3-1-assignments-data-model-and-hr-admin-scope: done
   3-2-skill-master-data-and-seed: done
   3-3-employee-master-data-and-seed: done
   3-4-hr-assignment-flow-multi-step-modal-employee-and-skill-selection: done
   3-5-assignment-creation-and-immediate-dashboard-appearance: done
   3-6-cancel-assignment-flow-leaves-no-orphaned-record: done
-  epic-3-retrospective: optional
+  epic-3-retrospective: done
 
   epic-4: in-progress
   4-0-youtube-iframe-adapter-abstraction-layer-for-player-events: done
@@ -187,7 +188,7 @@ development_status:
   4-6-continue-watching-card-empty-and-loaded-states: done
   epic-4-retrospective: done
 
-  epic-5: in-progress
+  epic-5: done
   5-1-assignment-dashboard-grid-status-badge-display: done
   5-2-provenance-drill-down-modal-trust-detail-and-raw-data: done
   5-3-needs-attention-flagging-7-day-staleness-threshold: done
@@ -195,7 +196,7 @@ development_status:
   5-5-hr-override-manual-readiness-confirmation: done
   5-5b-hr-override-reversal-undo-manual-confirmation: done
   5-6-accessibility-and-real-time-announcements: done
-  epic-5-retrospective: optional
+  epic-5-retrospective: done
 
 action_items:
   - epic: 1
@@ -226,6 +227,24 @@ action_items:
     action: "Document database transaction patterns (commit-on-success, read-only scope, Employee hard-scoping) before Epic 5 Story 5-1. Crystallized mid-Epic 4; must be in writing for next developers."
     owner: "Charlie (senior dev)"
     status: open
+  - epic: [3, 5]
+    action: "Schedule a dedicated fix for the conftest.py drop_all()/no-isolated-test-DB gap -- stop treating it as a per-story workaround. Open since Story 1.7, re-hit in nearly every Epic 3/5 story review."
+    owner: "Charlie (senior dev)"
+    status: open
+  - epic: [3, 5]
+    action: "Fix the progress/router.py double-prefix bug -- Story 4's watch-progress POST/GET endpoints are unreachable at their documented URL in the running app. Confirmed live via app.openapi(); discovered during Story 5.2's review."
+    owner: "Charlie (senior dev)"
+    status: open
+  - epic: 5
+    action: "Rewrite or delete test_dashboard.py/test_dashboard_router.py against the real current /api/dashboard endpoint shape -- both have been stale/broken since Story 5.1/5.2, substituted only by live-smoke-testing."
+    owner: "Dana (QA)"
+    status: open
+  - epic: 5
+    action: "Decide the fate of Story 5.3's derive_self_reported_provenance() -- either a future story wires a real self-report entry mechanism to it, or it is formally marked dead and removed. Confirmed still uncalled as of Epic 5's close."
+    owner: "Alice (Product Owner) + Amelia (dev)"
+    status: open
+  - epic: [3, 5]
+    action: "Add a note to create-story guidance: cross-cutting/accessibility stories (e.g. Story 5.6) are expected to have no WDS prototype equivalent by category -- don't search for one, don't treat its absence as a gap."
   - epic: 2
     action: "Audit the tsc --noEmit pre-existing error count (45 as of Story 5.5, up from 25 first pinned at Story 2.6) and either fix the CaptureService-as-type / UUID-branding bugs or consolidate into one tracked item instead of re-flagging it story after story."
     owner: "Charlie (senior dev)"
