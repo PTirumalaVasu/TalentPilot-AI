@@ -54,6 +54,9 @@ interface DashboardPageProps {
 
 export interface DashboardPageHandle {
   refreshGrid: () => void;
+  /** Shows the shared Toast with `message` (Story 5-6, AC5 -- e.g. the
+   * "Skill assigned to..." success toast fired from the real Dashboard route). */
+  announceToast: (message: string) => void;
 }
 
 export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>(
@@ -84,6 +87,7 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
 
     useImperativeHandle(ref, () => ({
       refreshGrid: () => fetchDashboard(),
+      announceToast: (message: string) => setToastMessage(message),
     }));
 
     useEffect(() => {
@@ -225,10 +229,13 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
       </div>
     );
 
-    // Story 5.5: rendered alongside liveRegion in every branch below, since a
-    // Mark-as-Ready confirm can trigger fetchDashboard()'s brief
-    // loading-skeleton flash (Finding 1) immediately afterward -- the toast
-    // must survive that transition, not just the final loaded branch.
+    // Shared success-toast slot, rendered alongside liveRegion in every
+    // branch below. Two callers as of Story 5.6: (1) Story 5.5's
+    // Mark-as-Ready confirm, where a fetchDashboard() refresh can trigger a
+    // brief loading-skeleton flash (Finding 1) right after -- the toast must
+    // survive that transition, not just the final loaded branch; (2) Story
+    // 5.6's assignment-created toast via announceToast() (AC5), fired from
+    // Dashboard.tsx's AssignmentModal onAssigned handler.
     const toastElement = <Toast message={toastMessage} onDismiss={() => setToastMessage(null)} />;
 
     // Loading state
@@ -270,7 +277,7 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
             </button>
           </div>
           <div className="text-center py-12 border-2 border-dashed border-red-200 rounded-lg text-red-600">
-            {state.error}
+            <span role="alert">{state.error}</span>
             <button onClick={handleRetry} className="underline font-medium ml-1">
               Retry
             </button>

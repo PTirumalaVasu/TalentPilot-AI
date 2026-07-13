@@ -1,8 +1,9 @@
 import { useEffect, useState, useCallback, useId, useRef } from "react";
-import { formatDistanceToNow, differenceInCalendarDays } from "date-fns";
+import { formatDistanceToNow } from "date-fns";
 import { Dialog } from "@/components/ui/dialog";
 import { StatusBadge } from "@/components/StatusBadge";
 import { dashboardApi } from "@/lib/api/dashboardApi";
+import { staleDaysSince } from "@/lib/utils/staleness";
 import type { DrillDownResponse, StatusType } from "@/types/dashboard";
 
 interface ProvenanceDrillDownModalProps {
@@ -194,7 +195,7 @@ export function ProvenanceDrillDownModal({ assignmentId, open, onClose, onOverri
           <h2 id={titleId} className="text-lg font-bold text-gray-900">
             Couldn't load details
           </h2>
-          <p className="text-red-600 text-sm">{error}</p>
+          <p role="alert" className="text-red-600 text-sm">{error}</p>
           <button
             onClick={fetchDetail}
             className="text-blue-600 hover:underline text-sm font-medium"
@@ -250,7 +251,7 @@ export function ProvenanceDrillDownModal({ assignmentId, open, onClose, onOverri
               className="mt-1 w-full rounded border border-gray-200 p-2 text-sm"
             />
           </label>
-          {submitError && <p className="text-red-600 text-sm">{submitError}</p>}
+          {submitError && <p role="alert" className="text-red-600 text-sm">{submitError}</p>}
           <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-100">
             <button
               disabled={submitting}
@@ -337,15 +338,20 @@ function ProvenanceSection({ data }: { data: DrillDownResponse }) {
         </section>
       );
     case "Needs Attention": {
-      const staleDays = differenceInCalendarDays(new Date(), new Date(data.last_updated));
+      // Shared, clamped computation (code review finding, Story 5-6): was
+      // duplicated inline here and in DashboardRow.tsx, with no guard
+      // against a future/clock-skewed last_updated producing a negative count.
+      const staleDays = staleDaysSince(data.last_updated);
       return (
         <section aria-label="Provenance detail" className="space-y-1 text-sm text-gray-700">
           <p className="font-medium text-amber-700">⚠️ Needs Attention</p>
           <p>Status: {STATUS_DISPLAY[data.status]}</p>
           <p>Last Updated: {relativeTime(data.last_updated)}</p>
           <p>
-            This status hasn't been updated in {staleDays} day{staleDays === 1 ? "" : "s"}. Consider reaching out to{" "}
-            {data.employee_name} to confirm.
+            {staleDays === 0
+              ? "This status hasn't been updated today."
+              : `This status hasn't been updated in ${staleDays} day${staleDays === 1 ? "" : "s"}.`}{" "}
+            Consider reaching out to {data.employee_name} to confirm.
           </p>
           <p>
             Self-reported by {data.employee_name} on {new Date(data.last_updated).toLocaleDateString()}

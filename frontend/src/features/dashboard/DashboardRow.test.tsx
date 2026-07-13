@@ -62,8 +62,12 @@ describe("DashboardRow Actions column", () => {
     renderRow();
     document.body.focus();
 
+    // Story 5-6: the Status badge is now a Tab stop too (AC1/AC2), so it's
+    // reached first -- View Details is the row's second Tab stop, not its first.
     await userEvent.tab();
+    expect(document.activeElement).toBe(screen.getByRole("status"));
 
+    await userEvent.tab();
     expect(document.activeElement).toBe(screen.getByRole("button", { name: /view details/i }));
   });
 
@@ -102,5 +106,92 @@ describe("DashboardRow Last Updated column (Story 5-4)", () => {
     const cell = screen.getByText(/ago$/);
     expect(cell.textContent).toMatch(/\d+ (hour|minute|day)s? ago/);
     expect(cell.textContent).not.toContain(twoHoursAgo);
+  });
+});
+
+describe("DashboardRow stale-row highlight (Story 5-6, AC9)", () => {
+  it("shows red/highlighted styling + 'Not updated in X days' text when provenance is Needs Attention", () => {
+    const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
+    render(
+      <table>
+        <tbody>
+          <DashboardRow
+            row={{ ...row, provenance: "Needs Attention", last_updated: threeDaysAgo }}
+            onViewDetails={vi.fn()}
+          />
+        </tbody>
+      </table>
+    );
+
+    const cell = screen.getByText(/Not updated in 3 days/);
+    expect(cell.textContent).toMatch(/ago \(Not updated in 3 days\)/);
+    expect(cell.className).toContain("text-red-700");
+  });
+
+  it("uses singular 'day' when exactly 1 day stale", () => {
+    const oneDayAgo = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString();
+    render(
+      <table>
+        <tbody>
+          <DashboardRow
+            row={{ ...row, provenance: "Needs Attention", last_updated: oneDayAgo }}
+            onViewDetails={vi.fn()}
+          />
+        </tbody>
+      </table>
+    );
+
+    expect(screen.getByText(/Not updated in 1 day\)/)).toBeInTheDocument();
+  });
+
+  it("shows neither the red highlight nor the stale text for a non-stale (Verified) row", () => {
+    render(
+      <table>
+        <tbody>
+          <DashboardRow row={{ ...row, provenance: "Verified" }} onViewDetails={vi.fn()} />
+        </tbody>
+      </table>
+    );
+
+    expect(screen.queryByText(/Not updated in/)).not.toBeInTheDocument();
+  });
+
+  it("shows distinct 'Not updated today' text (not blank, not '0 days') at the 0-day boundary -- color is never the only signal (code review round 2, NFR-A2)", () => {
+    const justNow = new Date().toISOString();
+    render(
+      <table>
+        <tbody>
+          <DashboardRow
+            row={{ ...row, provenance: "Needs Attention", last_updated: justNow }}
+            onViewDetails={vi.fn()}
+          />
+        </tbody>
+      </table>
+    );
+
+    const cell = screen.getByText(/Not updated today/);
+    expect(cell.className).toContain("text-red-700");
+    expect(screen.queryByText(/Not updated in 0 days/)).not.toBeInTheDocument();
+  });
+
+  it("clamps a future last_updated (clock skew) to 'Not updated today' rather than a negative count (code review round 2)", () => {
+    // Several days in the future guarantees differenceInCalendarDays would be
+    // clearly negative without the Math.max(0, ...) clamp -- a same-day offset
+    // (e.g. 1 hour ahead) can coincidentally already read as 0 days without
+    // exercising the clamp at all (round-2 review finding).
+    const threeDaysFromNow = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString();
+    render(
+      <table>
+        <tbody>
+          <DashboardRow
+            row={{ ...row, provenance: "Needs Attention", last_updated: threeDaysFromNow }}
+            onViewDetails={vi.fn()}
+          />
+        </tbody>
+      </table>
+    );
+
+    expect(screen.getByText(/Not updated today/)).toBeInTheDocument();
+    expect(screen.queryByText(/Not updated in -/)).not.toBeInTheDocument();
   });
 });

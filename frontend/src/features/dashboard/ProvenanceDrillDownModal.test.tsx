@@ -256,6 +256,17 @@ describe("ProvenanceDrillDownModal", () => {
       expect(screen.getByRole("heading", { name: /Mark Casey the Continuer as Ready/ })).toBeInTheDocument();
       expect(screen.getByLabelText(/Reason \(optional\)/)).toHaveValue("Verified in call");
     });
+
+    it("Confirm failure announces the error immediately via role=alert (Story 5-6, AC6)", async () => {
+      vi.mocked(dashboardApi.setOverride).mockRejectedValueOnce(new Error("Server error"));
+      await openConfirmView();
+
+      await userEvent.click(screen.getByRole("button", { name: "Confirm" }));
+
+      await waitFor(() => {
+        expect(screen.getByRole("alert")).toHaveTextContent("Server error");
+      });
+    });
   });
 
   describe("Reverse Override confirm flow (Story 5.5b)", () => {
@@ -501,7 +512,16 @@ describe("ProvenanceDrillDownModal", () => {
     });
   });
 
-  it("Story 5.5/5.5b: Mark as Ready is visible and enabled when Provenance is not HR Override; Reverse Override is absent (mutually exclusive)", async () => {
+  it("announces fetch errors immediately via role=alert (Story 5-6, AC6)", async () => {
+    vi.mocked(dashboardApi.getDrillDown).mockRejectedValueOnce(new Error("Network error"));
+    render(<ProvenanceDrillDownModal assignmentId="assign-1" open onClose={vi.fn()} />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toHaveTextContent("Network error");
+    });
+  });
+
+  it("Story 5.5: Mark as Ready is visible and enabled when Provenance is not HR Override; Reverse Override stays visible-but-disabled (Story 5.5b's job)", async () => {
     vi.mocked(dashboardApi.getDrillDown).mockResolvedValue(baseResponse());
     render(<ProvenanceDrillDownModal assignmentId="assign-1" open onClose={vi.fn()} />);
 
@@ -541,6 +561,77 @@ describe("ProvenanceDrillDownModal", () => {
     await waitFor(() => screen.getByRole("button", { name: /^close$/i }));
     await userEvent.click(screen.getByRole("button", { name: /^close$/i }));
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("Story 5-6, AC3: opens with focus inside the panel and aria-labelledby resolving to the visible title text", async () => {
+    vi.mocked(dashboardApi.getDrillDown).mockResolvedValue(baseResponse());
+    render(<ProvenanceDrillDownModal assignmentId="assign-1" open onClose={vi.fn()} />);
+
+    await waitFor(() => screen.getByRole("dialog"));
+
+    const dialog = screen.getByRole("dialog");
+    // Dialog.tsx moves focus to the panel itself (tabIndex={-1}) on open --
+    // verify the panel is where focus actually lands, and that its
+    // aria-labelledby resolves to the currently-visible title text (per
+    // WAI-ARIA APG, aria-labelledby is announced regardless of which element
+    // inside the dialog holds focus -- confirmed here, not just assumed).
+    expect(document.activeElement).toBe(dialog);
+    const labelledById = dialog.getAttribute("aria-labelledby");
+    expect(labelledById).toBeTruthy();
+    const titleEl = document.getElementById(labelledById!);
+    expect(titleEl).toHaveTextContent("Casey the Continuer — Data Visualization");
+  });
+
+  it("Story 5-6 code review: the now-focusable Status badge is correctly included in the modal's Tab-wrap cycle (Dialog.tsx's focus trap, Story 5.2)", async () => {
+    vi.mocked(dashboardApi.getDrillDown).mockResolvedValue(baseResponse());
+    render(<ProvenanceDrillDownModal assignmentId="assign-1" open onClose={vi.fn()} />);
+
+    await waitFor(() => screen.getByRole("button", { name: "Mark as Ready" }));
+
+    const badge = screen.getByRole("status");
+    const markAsReady = screen.getByRole("button", { name: "Mark as Ready" });
+    const closeButton = screen.getByRole("button", { name: /^close$/i });
+
+    // Forward order from the panel: badge (first) -> Mark as Ready -> Close (last).
+    await userEvent.tab();
+    expect(document.activeElement).toBe(badge);
+    await userEvent.tab();
+    expect(document.activeElement).toBe(markAsReady);
+    await userEvent.tab();
+    expect(document.activeElement).toBe(closeButton);
+
+    // Tab past the last element wraps back to the badge (first), not out of the modal.
+    await userEvent.tab();
+    expect(document.activeElement).toBe(badge);
+
+    // Shift+Tab from the first element (badge) wraps to the last (Close).
+    await userEvent.tab({ shift: true });
+    expect(document.activeElement).toBe(closeButton);
+  });
+
+  it("Story 5-6 code review round 2: the Tab-wrap cycle is also correct for HR Override rows, where [Mark as Ready] is absent (only 2 focusable elements: badge, Close)", async () => {
+    vi.mocked(dashboardApi.getDrillDown).mockResolvedValue(baseResponse({ provenance: "HR Override" }));
+    render(<ProvenanceDrillDownModal assignmentId="assign-1" open onClose={vi.fn()} />);
+
+    await waitFor(() => screen.getByRole("button", { name: /^close$/i }));
+    expect(screen.queryByRole("button", { name: "Mark as Ready" })).not.toBeInTheDocument();
+
+    const badge = screen.getByRole("status");
+    const closeButton = screen.getByRole("button", { name: /^close$/i });
+
+    // Forward order: badge (first) -> Close (last, only 2 focusable elements).
+    await userEvent.tab();
+    expect(document.activeElement).toBe(badge);
+    await userEvent.tab();
+    expect(document.activeElement).toBe(closeButton);
+
+    // Tab past the last element wraps back to the badge.
+    await userEvent.tab();
+    expect(document.activeElement).toBe(badge);
+
+    // Shift+Tab from the first element wraps to the last.
+    await userEvent.tab({ shift: true });
+    expect(document.activeElement).toBe(closeButton);
   });
 
   it("Escape key calls onClose (via the shared Dialog primitive)", async () => {
