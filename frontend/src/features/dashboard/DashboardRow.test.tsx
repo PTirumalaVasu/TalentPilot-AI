@@ -14,6 +14,7 @@ const row: AssignmentRow = {
   assignment_id: "assign-1",
   employee_id: "emp-1",
   employee_name: "Casey the Continuer",
+  employee_group: "Engineering",
   skill_id: "skill-1",
   skill_name: "Data Visualization",
   status: "In Progress",

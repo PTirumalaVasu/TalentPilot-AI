@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState, useImperativeHandle, forwardRef } from "react";
 import { dashboardApi } from "../../lib/api/dashboardApi";
-import { DashboardResponse, AssignmentRow } from "../../types/dashboard";
+import { AssignmentRow } from "../../types/dashboard";
 import { DashboardRow } from "./DashboardRow";
 import { ProvenanceDrillDownModal } from "./ProvenanceDrillDownModal";
-import { Button } from "../../components/ui/button";
 import { Toast } from "../../components/ui/toast";
 
 // AC1 (epics.md:1771-1774): poll every 10-15s. 12000ms picked as the
@@ -48,6 +47,19 @@ function describeChanges(changes: AssignmentRow[]): string {
     .join(". ");
 }
 
+// Group assignments by employee name
+function groupAssignmentsByEmployee(assignments: AssignmentRow[]): Map<string, AssignmentRow[]> {
+  const grouped = new Map<string, AssignmentRow[]>();
+  assignments.forEach((assignment) => {
+    const employeeKey = assignment.employee_name;
+    if (!grouped.has(employeeKey)) {
+      grouped.set(employeeKey, []);
+    }
+    grouped.get(employeeKey)!.push(assignment);
+  });
+  return grouped;
+}
+
 interface DashboardPageProps {
   onNewAssignment: () => void;
 }
@@ -74,6 +86,7 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
     const [liveAnnouncement, setLiveAnnouncement] = useState("");
     // Story 5.5: success toast after a Mark-as-Ready confirm.
     const [toastMessage, setToastMessage] = useState<string | null>(null);
+    const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
     const pollIntervalRef = useRef<number | null>(null);
     const isPollingRef = useRef(false);
 
@@ -194,6 +207,9 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
             loading: false,
           };
         });
+
+        // Keep all accordions collapsed by default on load
+        setExpandedGroups(new Set());
       } catch (err) {
         setState((prev) => {
           if (prev.requestId !== currentRequestId) {
@@ -217,6 +233,18 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
       if (validatedPage !== state.page) {
         setState((prev) => ({ ...prev, page: validatedPage }));
       }
+    }
+
+    function toggleEmployee(employeeName: string) {
+      setExpandedGroups((prev) => {
+        const newSet = new Set(prev);
+        if (newSet.has(employeeName)) {
+          newSet.delete(employeeName);
+        } else {
+          newSet.add(employeeName);
+        }
+        return newSet;
+      });
     }
 
     // Task 4 (Finding 3, NFR-A4/UX-DR24): visually-hidden aria-live region
@@ -308,6 +336,8 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
     }
 
     const totalPages = Math.ceil(state.totalCount / state.pageSize);
+    const groupedAssignments = groupAssignmentsByEmployee(state.assignments);
+    const sortedEmployees = Array.from(groupedAssignments.keys()).sort();
 
     return (
       <div>
@@ -329,24 +359,84 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
           <span className="text-sm text-gray-500">Total: {state.totalCount} assignment{state.totalCount !== 1 ? 's' : ''}</span>
         </div>
 
-        {/* Table */}
-        <table className="w-full border-collapse text-sm bg-white rounded-lg overflow-hidden shadow-sm">
-          <thead>
-            <tr className="border-b border-gray-200 text-left text-gray-500">
-              <th className="px-4 py-3 font-medium">Employee</th>
-              <th className="px-4 py-3 font-medium">Assigned Skill</th>
-              <th className="px-4 py-3 font-medium">Status</th>
-              <th className="px-4 py-3 font-medium">Progress</th>
-              <th className="px-4 py-3 font-medium">Last Updated</th>
-              <th className="px-4 py-3 font-medium">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {state.assignments.map((row) => (
-              <DashboardRow key={row.assignment_id} row={row} onViewDetails={handleViewDetails} />
-            ))}
-          </tbody>
-        </table>
+        {/* Accordion with grouped assignments by employee */}
+        <div className="bg-white rounded-lg overflow-hidden shadow-sm">
+          {sortedEmployees.map((employeeName, index) => (
+            <div key={employeeName} className={`border-b border-gray-200 ${index === sortedEmployees.length - 1 ? 'border-b-0' : ''}`}>
+              <button
+                onClick={() => toggleEmployee(employeeName)}
+                className="w-full flex items-center justify-between px-4 py-3 text-left font-medium text-gray-900 hover:bg-gray-50 transition-colors"
+              >
+                <span className="font-semibold">{employeeName} ({groupedAssignments.get(employeeName)?.length || 0} skills)</span>
+                <span className={`text-gray-500 transition-transform ${expandedGroups.has(employeeName) ? "rotate-180" : ""}`}>
+                  ▼
+                </span>
+              </button>
+              {expandedGroups.has(employeeName) && (
+                <div className="bg-gray-50 border-t border-gray-200">
+                  <div className="px-4 py-3">
+                    <table className="w-full border-collapse text-sm">
+                      <thead>
+                        <tr className="border-b border-gray-300 text-left text-gray-600">
+                          <th className="px-3 py-2 font-medium">Assigned Skill</th>
+                          <th className="px-3 py-2 font-medium">Status</th>
+                          <th className="px-3 py-2 font-medium">Progress</th>
+                          <th className="px-3 py-2 font-medium">Last Updated</th>
+                          <th className="px-3 py-2 font-medium">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(groupedAssignments.get(employeeName) || []).map((row) => (
+                          <tr key={row.assignment_id} className="border-b border-gray-200 hover:bg-white transition-colors">
+                            <td className="px-3 py-2">{row.skill_name}</td>
+                            <td className="px-3 py-2">
+                              <div className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium" role="status">
+                                {row.status === "In Progress" && row.status_percentage !== null ? (
+                                  <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded">In Progress ({row.status_percentage}%)</span>
+                                ) : row.status === "Completed" ? (
+                                  <span className="bg-green-100 text-green-700 px-2 py-1 rounded">Completed</span>
+                                ) : (
+                                  <span className="bg-gray-100 text-gray-700 px-2 py-1 rounded">Not Started</span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-3 py-2">
+                              {row.status === "In Progress" && row.status_percentage !== null ? (
+                                <div className="flex items-center gap-2">
+                                  <div className="w-16 h-1 bg-gray-200 rounded-full overflow-hidden">
+                                    <div
+                                      className="h-full bg-blue-600"
+                                      style={{ width: `${row.status_percentage}%` }}
+                                    ></div>
+                                  </div>
+                                  <span className="text-xs text-gray-500">{row.status_percentage}%</span>
+                                </div>
+                              ) : (
+                                <span className="text-xs text-gray-400">-</span>
+                              )}
+                            </td>
+                            <td className="px-3 py-2 text-xs text-gray-500">
+                              {new Date(row.last_updated).toLocaleDateString()} {new Date(row.last_updated).toLocaleTimeString()}
+                            </td>
+                            <td className="px-3 py-2">
+                              <button
+                                onClick={() => handleViewDetails(row.assignment_id)}
+                                className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                                aria-label={`View details for ${row.employee_name} ${row.skill_name}`}
+                              >
+                                View Details
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
 
         <ProvenanceDrillDownModal
           assignmentId={selectedAssignmentId}

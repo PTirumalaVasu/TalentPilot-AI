@@ -29,6 +29,7 @@ class Employee(Base):
     name = Column(String(255), nullable=False)
     email = Column(String(255), unique=True, nullable=False, index=True)
     role = Column(Enum("HR_ADMIN", "EMPLOYEE", name="role_enum"), nullable=False)
+    group = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     # Relationships

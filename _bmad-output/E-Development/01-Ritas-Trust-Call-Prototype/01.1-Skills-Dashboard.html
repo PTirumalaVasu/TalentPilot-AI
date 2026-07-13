@@ -100,18 +100,11 @@
                   class="text-sm text-gray-500"></span>
         </div>
 
-        <table id="skills-dashboard-grid-skills" data-object-id="skills-dashboard-grid-skills"
-               class="w-full border-collapse text-sm bg-white rounded-lg overflow-hidden shadow-sm">
-            <thead>
-                <tr class="border-b border-gray-200 text-left text-gray-500">
-                    <th class="px-4 py-3 font-medium">Employee</th>
-                    <th class="px-4 py-3 font-medium">Assigned Skill</th>
-                    <th class="px-4 py-3 font-medium">Status</th>
-                    <th class="px-4 py-3 font-medium">Progress</th>
-                </tr>
-            </thead>
-            <tbody id="assignments-tbody"></tbody>
-        </table>
+        <!-- Accordion with grouped assignments by employee -->
+        <div id="skills-dashboard-grid-skills" data-object-id="skills-dashboard-grid-skills"
+             class="bg-white rounded-lg overflow-hidden shadow-sm">
+            <div id="assignments-accordion"></div>
+        </div>
 
         <!-- Loading skeleton (Section 3) -->
         <div id="grid-loading-state" class="hidden">
@@ -225,6 +218,9 @@
             return new URLSearchParams(window.location.search).get('demo_state');
         }
 
+        // Track expanded employees
+        const expandedEmployees = new Set();
+
         function setGridState(state) {
             // state: 'loading' | 'loaded' | 'empty' | 'error'
             document.getElementById('grid-loading-state').classList.toggle('hidden', state !== 'loading');
@@ -232,6 +228,83 @@
             document.getElementById('grid-error-state').classList.toggle('hidden', state !== 'error');
             document.getElementById('skills-dashboard-grid-skills').classList.toggle('hidden', state !== 'loaded');
             document.getElementById('skills-dashboard-pagination-controls').classList.toggle('hidden', state !== 'loaded');
+        }
+
+        function groupAssignmentsByEmployee(assignments) {
+            const grouped = new Map();
+            assignments.forEach(a => {
+                const employeeKey = a.employee.firstName + ' ' + a.employee.lastName;
+                if (!grouped.has(employeeKey)) {
+                    grouped.set(employeeKey, []);
+                }
+                grouped.get(employeeKey).push(a);
+            });
+            return grouped;
+        }
+
+        function toggleEmployee(employeeName) {
+            if (expandedEmployees.has(employeeName)) {
+                expandedEmployees.delete(employeeName);
+            } else {
+                expandedEmployees.add(employeeName);
+            }
+            renderAccordion(window.currentAssignments);
+        }
+
+        function renderAccordion(assignments) {
+            const grouped = groupAssignmentsByEmployee(assignments);
+            const sortedEmployees = Array.from(grouped.keys()).sort();
+
+            const html = sortedEmployees.map((employeeName, index) => {
+                const isExpanded = expandedEmployees.has(employeeName);
+                const employeeAssignments = grouped.get(employeeName) || [];
+                const skillCount = employeeAssignments.length;
+
+                return `
+                    <div class="border-b border-gray-200 ${index === sortedEmployees.length - 1 ? 'border-b-0' : ''}">
+                        <button onclick="window.toggleEmployee('${employeeName.replace(/'/g, "\\'")}')"
+                                class="w-full flex items-center justify-between px-4 py-3 text-left font-medium text-gray-900 hover:bg-gray-50 transition-colors">
+                            <span class="font-semibold">${escapeHtml(employeeName)} (${skillCount} skill${skillCount !== 1 ? 's' : ''})</span>
+                            <span class="text-gray-500 transition-transform ${isExpanded ? 'rotate-180' : ''}">▼</span>
+                        </button>
+                        ${isExpanded ? `
+                            <div class="bg-gray-50 border-t border-gray-200">
+                                <div class="px-4 py-3">
+                                    <table class="w-full border-collapse text-sm">
+                                        <thead>
+                                            <tr class="border-b border-gray-300 text-left text-gray-600">
+                                                <th class="px-3 py-2 font-medium">Assigned Skill</th>
+                                                <th class="px-3 py-2 font-medium">Status</th>
+                                                <th class="px-3 py-2 font-medium">Progress</th>
+                                                <th class="px-3 py-2 font-medium">Last Updated</th>
+                                                <th class="px-3 py-2 font-medium">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            ${employeeAssignments.map(a => `
+                                                <tr data-assignment-id="${a.id}" class="border-b border-gray-200 hover:bg-white transition-colors">
+                                                    <td class="px-3 py-2">${escapeHtml(a.skill.name)}</td>
+                                                    <td class="px-3 py-2">${statusBadge(a.watchPercent)}</td>
+                                                    <td class="px-3 py-2">${progressBar(a.watchPercent)}</td>
+                                                    <td class="px-3 py-2 text-xs text-gray-500">${a.lastUpdate}</td>
+                                                    <td class="px-3 py-2">
+                                                        <button onclick="window.openDrillDown('${a.id}')"
+                                                                class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                                                            View Details
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            `).join('')}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('');
+
+            document.getElementById('assignments-accordion').innerHTML = html;
         }
 
         async function loadDashboard() {
@@ -258,20 +331,12 @@
                 return;
             }
 
+            window.currentAssignments = assignments;
+            expandedEmployees.clear();
             document.getElementById('skills-dashboard-summary-count').textContent =
                 `Total: ${assignments.length} assignment${assignments.length === 1 ? '' : 's'}`;
-            document.getElementById('assignments-tbody').innerHTML = assignments.map(rowHtml).join('');
+            renderAccordion(assignments);
             setGridState('loaded');
-        }
-
-        function rowHtml(a) {
-            return `
-                <tr data-assignment-id="${a.id}" class="border-b border-gray-100 hover:bg-gray-50">
-                    <td class="px-4 py-3 text-gray-900">${escapeHtml(a.employee.firstName + ' ' + a.employee.lastName)}</td>
-                    <td class="px-4 py-3 text-gray-700">${escapeHtml(a.skill.name)}</td>
-                    <td class="px-4 py-3">${statusBadge(a.watchPercent)}</td>
-                    <td class="px-4 py-3">${progressBar(a.watchPercent)}</td>
-                </tr>`;
         }
 
         function statusBadge(percent) {
