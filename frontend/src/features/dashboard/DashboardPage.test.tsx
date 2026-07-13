@@ -2,8 +2,9 @@
  * Tests for DashboardPage component (Story 5-1).
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor, fireEvent } from "@testing-library/react";
-import { DashboardPage } from "./DashboardPage";
+import { createRef } from "react";
+import { render, screen, waitFor, fireEvent, act } from "@testing-library/react";
+import { DashboardPage, type DashboardPageHandle } from "./DashboardPage";
 import * as dashboardApi from "../../lib/api/dashboardApi";
 
 // Mock the dashboardApi module
@@ -171,6 +172,18 @@ describe("DashboardPage", () => {
 
     await waitFor(() => {
       expect(screen.getByText(/Network error/)).toBeInTheDocument();
+    });
+  });
+
+  it("announces fetch errors immediately via role=alert (Story 5-6, AC6)", async () => {
+    vi.mocked(dashboardApi.dashboardApi.getDashboard).mockRejectedValue(
+      new Error("Network error")
+    );
+
+    render(<DashboardPage onNewAssignment={() => {}} />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toHaveTextContent("Network error");
     });
   });
 
@@ -356,6 +369,35 @@ describe("DashboardPage", () => {
     await waitFor(() => {
       expect(dashboardApi.dashboardApi.getDashboard).toHaveBeenCalledTimes(2);
     });
+  });
+
+  it("Story 5-6, AC5: announceToast() on the ref handle shows the Toast with the given message", async () => {
+    vi.mocked(dashboardApi.dashboardApi.getDashboard).mockResolvedValue({
+      assignments: [],
+      total_count: 0,
+      page: 1,
+      page_size: 50,
+    });
+
+    const ref = createRef<DashboardPageHandle>();
+    render(<DashboardPage ref={ref} onNewAssignment={() => {}} />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/No assignments yet/)).toBeInTheDocument();
+    });
+
+    act(() => {
+      ref.current?.announceToast("✓ Skill assigned to Casey — Data Visualization");
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("✓ Skill assigned to Casey — Data Visualization")
+      ).toBeInTheDocument();
+    });
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "✓ Skill assigned to Casey — Data Visualization"
+    );
   });
 });
 
