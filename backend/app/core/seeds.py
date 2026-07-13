@@ -229,29 +229,37 @@ async def seed_content(session: AsyncSession) -> None:
         .where(ContentCatalog.skill_id.in_(seed_skill_ids))
         .distinct()
     )
-    already_seeded = set(existing.scalars().all())
+    already_seeded_skills = set(existing.scalars().all())
+
+    # Group seed data by skill_id to seed per-skill
+    by_skill = {}
+    for skill_id, title, description, video_id, duration in _CONTENT_SEED_DATA:
+        if skill_id not in by_skill:
+            by_skill[skill_id] = []
+        by_skill[skill_id].append((title, description, video_id, duration))
 
     rows = []
-    for skill_id, title, description, video_id, duration in _CONTENT_SEED_DATA:
-        if skill_id in already_seeded:
+    for skill_id, items in by_skill.items():
+        if skill_id in already_seeded_skills:
             continue
-        embedding = embed_text(f"{title}: {description or ''}")
-        rows.append(
-            ContentCatalog(
-                skill_id=skill_id,
-                title=title,
-                description=description,
-                type="VIDEO",
-                url=f"https://www.youtube.com/watch?v={video_id}",
-                embedding=embedding,
-                source="YOUTUBE",
-                content_metadata={
-                    "video_id": video_id,
-                    "duration": duration,
-                    "thumbnail_url": f"https://i.ytimg.com/vi/{video_id}/default.jpg",
-                },
+        for title, description, video_id, duration in items:
+            embedding = embed_text(f"{title}: {description or ''}")
+            rows.append(
+                ContentCatalog(
+                    skill_id=skill_id,
+                    title=title,
+                    description=description,
+                    type="VIDEO",
+                    url=f"https://www.youtube.com/watch?v={video_id}",
+                    embedding=embedding,
+                    source="YOUTUBE",
+                    content_metadata={
+                        "video_id": video_id,
+                        "duration": duration,
+                        "thumbnail_url": f"https://i.ytimg.com/vi/{video_id}/default.jpg",
+                    },
+                )
             )
-        )
 
     if rows:
         session.add_all(rows)
