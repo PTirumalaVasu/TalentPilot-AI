@@ -103,7 +103,7 @@ export function ContentDiscovery() {
 
         {state.status === 'loaded' && state.data.total > 0 && (
           <>
-            <div className="grid grid-cols-3 gap-4 mb-6">
+            <div className="grid grid-cols-4 gap-4 mb-6">
               <div className="bg-white rounded-lg p-4 border border-gray-200">
                 <p className="text-xs text-gray-500 uppercase tracking-wide mb-1 font-medium">Total</p>
                 <p className="text-3xl font-bold text-gray-900">{state.data.total}</p>
@@ -115,6 +115,10 @@ export function ContentDiscovery() {
               <div className="bg-white rounded-lg p-4 border border-gray-200">
                 <p className="text-xs text-gray-500 uppercase tracking-wide mb-1 font-medium">To Start</p>
                 <p className="text-3xl font-bold text-gray-600">{state.data.to_start_count}</p>
+              </div>
+              <div className="bg-white rounded-lg p-4 border border-gray-200">
+                <p className="text-xs text-gray-500 uppercase tracking-wide mb-1 font-medium">Completed</p>
+                <p className="text-3xl font-bold text-green-600">{state.data.completed_count}</p>
               </div>
             </div>
 
@@ -134,13 +138,28 @@ export function ContentDiscovery() {
             )}
 
             {state.data.to_start_count > 0 && (
-              <section>
+              <section className="mb-8">
                 <h2 className="text-lg font-bold text-gray-900 mb-4">
                   To Start <span className="text-sm text-gray-500">({state.data.to_start_count})</span>
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {state.data.assignments
                     .filter((item) => item.group === 'TO_START')
+                    .map((item) => (
+                      <AssignmentCard key={item.assignment_id} item={item} onSelect={handleSelect} />
+                    ))}
+                </div>
+              </section>
+            )}
+
+            {state.data.completed_count > 0 && (
+              <section>
+                <h2 className="text-lg font-bold text-gray-900 mb-4">
+                  Completed <span className="text-sm text-gray-500">({state.data.completed_count})</span>
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {state.data.assignments
+                    .filter((item) => item.group === 'COMPLETED')
                     .map((item) => (
                       <AssignmentCard key={item.assignment_id} item={item} onSelect={handleSelect} />
                     ))}

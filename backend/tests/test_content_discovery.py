@@ -172,11 +172,17 @@ async def test_status_and_group_derivation_from_watch_position():
         assert in_progress_item.group == "IN_PROGRESS"
 
 
-async def test_completed_status_folds_into_in_progress_group():
+async def test_completed_status_gets_its_own_group():
     """A watch_position at/above the matched Content's known duration derives
-    COMPLETED -- and, per the Dev Notes' deliberate folding decision (not a
-    reproduction of the prototype's disappearing-video bug), COMPLETED still
-    groups as IN_PROGRESS for section placement, not a third ungrouped bucket."""
+    COMPLETED. This used to fold into the IN_PROGRESS group/section (a
+    deliberate earlier decision to avoid the prototype's disappearing-video
+    bug, where a completed video vanished from view entirely) -- but folding
+    it into IN_PROGRESS created a different, real bug: the dashboard's
+    "In Progress" count/section included assignments that were actually done,
+    which employees reported as the dashboard visibly lying about their
+    progress. COMPLETED now gets its own group/count/section instead --
+    still visible (not the old disappearing-video bug), no longer mislabeled
+    as in-progress."""
     async with _seeded_session() as session:
         content = await _make_matching_content(session, skill_id=SKILL_DATA_VIZ_ID, duration="PT10M0S")
         skill = await session.get(Skill, SKILL_DATA_VIZ_ID)
@@ -195,9 +201,9 @@ async def test_completed_status_folds_into_in_progress_group():
         item = next(i for i in response.assignments if i.assignment_id == assignment.id)
         assert item.content is not None and item.content.id == content.id
         assert item.status == "COMPLETED"
-        assert item.group == "IN_PROGRESS"
-        assert response.in_progress_count >= 1
-        assert response.total == response.in_progress_count + response.to_start_count
+        assert item.group == "COMPLETED"
+        assert response.completed_count >= 1
+        assert response.total == response.in_progress_count + response.to_start_count + response.completed_count
 
 
 # --- AC3: summary counts always match the assembled list ---------------------
@@ -222,7 +228,8 @@ async def test_summary_counts_match_assignment_groups():
         assert response.total == len(response.assignments)
         assert response.in_progress_count == sum(1 for i in response.assignments if i.group == "IN_PROGRESS")
         assert response.to_start_count == sum(1 for i in response.assignments if i.group == "TO_START")
-        assert response.total == response.in_progress_count + response.to_start_count
+        assert response.completed_count == sum(1 for i in response.assignments if i.group == "COMPLETED")
+        assert response.total == response.in_progress_count + response.to_start_count + response.completed_count
 
         # Sanity: our two freshly-created assignments really did land in each bucket.
         to_start_item = next(i for i in response.assignments if i.assignment_id == to_start.id)

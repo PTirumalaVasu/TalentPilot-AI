@@ -6,9 +6,12 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class RecordWatchProgressRequest(BaseModel):
-    """Request to record a watch position update."""
+    """Request to record a watch position update. assignment_id is deliberately
+    not a field here -- it's already bound from the URL path
+    (POST /api/assignments/{assignment_id}/progress) and is what the handler
+    actually uses; a duplicate required body field would only reject every
+    real client request, which never sends it."""
 
-    assignment_id: UUID = Field(..., description="Assignment ID for this progress record")
     watch_position: int = Field(..., ge=0, description="Watch position in seconds")
     event_time: datetime = Field(..., description="ISO-8601 timestamp when position was observed (client time)")
     video_url: str = Field(..., description="Video URL for server-side anti-spoofing validation")

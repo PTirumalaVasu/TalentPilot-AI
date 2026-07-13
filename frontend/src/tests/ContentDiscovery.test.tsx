@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { AuthProvider } from '@/lib/auth/AuthContext';
@@ -38,6 +38,7 @@ const mixedResponse: MyAssignmentsResponse = {
   total: 2,
   in_progress_count: 1,
   to_start_count: 1,
+  completed_count: 0,
   assignments: [
     {
       assignment_id: 'a1',
@@ -56,6 +57,7 @@ const mixedResponse: MyAssignmentsResponse = {
       },
       watch_position: 300,
       status: 'IN_PROGRESS',
+      status_percentage: 50,
       group: 'IN_PROGRESS',
     },
     {
@@ -65,6 +67,7 @@ const mixedResponse: MyAssignmentsResponse = {
       content: null,
       watch_position: 0,
       status: 'NOT_STARTED',
+      status_percentage: 0,
       group: 'TO_START',
     },
   ],
@@ -97,11 +100,12 @@ describe('ContentDiscovery', () => {
     expect(screen.getByText('⟳')).toBeInTheDocument();
   });
 
-  it('renders the Completed badge for a COMPLETED assignment, still grouped under In Progress', async () => {
+  it('renders the Completed badge for a COMPLETED assignment in its own Completed section', async () => {
     const completedResponse: MyAssignmentsResponse = {
       total: 1,
-      in_progress_count: 1,
+      in_progress_count: 0,
       to_start_count: 0,
+      completed_count: 1,
       assignments: [
         {
           assignment_id: 'a3',
@@ -120,7 +124,8 @@ describe('ContentDiscovery', () => {
           },
           watch_position: 600,
           status: 'COMPLETED',
-          group: 'IN_PROGRESS',
+          status_percentage: 100,
+          group: 'COMPLETED',
         },
       ],
     };
@@ -129,12 +134,18 @@ describe('ContentDiscovery', () => {
 
     await waitFor(() => expect(screen.getByText('SQL Fundamentals')).toBeInTheDocument());
 
-    // COMPLETED status folds into the In Progress section (Dev Notes' deliberate decision).
-    expect(screen.getByRole('heading', { name: /in progress/i })).toBeInTheDocument();
+    // COMPLETED gets its own section -- not folded into "In Progress" (which
+    // would misreport a done assignment as still in progress) and not
+    // dropped from view either (the disappearing-video bug this design
+    // originally guarded against).
+    expect(screen.getByRole('heading', { name: /^completed/i })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: /in progress/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: /to start/i })).not.toBeInTheDocument();
-    expect(screen.getByText('✓')).toBeInTheDocument();
-    expect(screen.getByText('Completed')).toBeInTheDocument();
-    expect(screen.getByText('100% watched')).toBeInTheDocument();
+
+    const card = screen.getByRole('button', { name: /sql fundamentals/i });
+    expect(within(card).getByText('✓')).toBeInTheDocument();
+    expect(within(card).getByText('Completed')).toBeInTheDocument();
+    expect(within(card).getByText('100% watched')).toBeInTheDocument();
   });
 
   it('does not suppress the nested "Contact Rita" link\'s own keyboard activation on a no-content card', async () => {
@@ -161,6 +172,7 @@ describe('ContentDiscovery', () => {
       total: 0,
       in_progress_count: 0,
       to_start_count: 0,
+      completed_count: 0,
       assignments: [],
     });
     renderPage();
