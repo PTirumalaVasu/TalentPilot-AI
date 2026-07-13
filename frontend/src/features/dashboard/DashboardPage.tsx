@@ -375,7 +375,14 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
               {expandedGroups.has(employeeName) && (
                 <div className="bg-gray-50 border-t border-gray-200">
                   <div className="px-4 py-3">
-                    <table className="w-full border-collapse text-sm">
+                    <table className="w-full border-collapse text-sm" style={{ tableLayout: 'fixed' }}>
+                      <colgroup>
+                        <col style={{ width: '25%' }} />
+                        <col style={{ width: '20%' }} />
+                        <col style={{ width: '20%' }} />
+                        <col style={{ width: '20%' }} />
+                        <col style={{ width: '15%' }} />
+                      </colgroup>
                       <thead>
                         <tr className="border-b border-gray-300 text-left text-gray-600">
                           <th className="px-3 py-2 font-medium">Assigned Skill</th>
@@ -387,20 +394,18 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
                       </thead>
                       <tbody>
                         {(groupedAssignments.get(employeeName) || []).map((row) => (
-                          <tr key={row.assignment_id} className="border-b border-gray-200 hover:bg-white transition-colors">
-                            <td className="px-3 py-2">{row.skill_name}</td>
-                            <td className="px-3 py-2">
-                              <div className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium" role="status">
-                                {row.status === "In Progress" && row.status_percentage !== null ? (
-                                  <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded">In Progress ({row.status_percentage}%)</span>
-                                ) : row.status === "Completed" ? (
-                                  <span className="bg-green-100 text-green-700 px-2 py-1 rounded">Completed</span>
-                                ) : (
-                                  <span className="bg-gray-100 text-gray-700 px-2 py-1 rounded">Not Started</span>
-                                )}
-                              </div>
+                          <tr key={row.assignment_id} className="border-b border-gray-200 hover:bg-white transition-colors align-middle">
+                            <td className="px-3 py-2 truncate align-middle">{row.skill_name}</td>
+                            <td className="px-3 py-2 text-left align-middle">
+                              {row.status === "In Progress" && row.status_percentage !== null ? (
+                                <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded whitespace-nowrap text-xs inline-block">In Progress ({row.status_percentage}%)</span>
+                              ) : row.status === "Completed" ? (
+                                <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs inline-block">Completed</span>
+                              ) : (
+                                <span className="bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs inline-block">Not Started</span>
+                              )}
                             </td>
-                            <td className="px-3 py-2">
+                            <td className="px-3 py-2 align-middle">
                               {row.status === "In Progress" && row.status_percentage !== null ? (
                                 <div className="flex items-center gap-2">
                                   <div className="w-16 h-1 bg-gray-200 rounded-full overflow-hidden">
@@ -415,13 +420,13 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
                                 <span className="text-xs text-gray-400">-</span>
                               )}
                             </td>
-                            <td className="px-3 py-2 text-xs text-gray-500">
+                            <td className="px-3 py-2 text-xs text-gray-500 truncate align-middle">
                               {new Date(row.last_updated).toLocaleDateString()} {new Date(row.last_updated).toLocaleTimeString()}
                             </td>
-                            <td className="px-3 py-2">
+                            <td className="px-3 py-2 align-middle">
                               <button
                                 onClick={() => handleViewDetails(row.assignment_id)}
-                                className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                                className="text-blue-600 hover:text-blue-800 text-sm font-medium whitespace-nowrap"
                                 aria-label={`View details for ${row.employee_name} ${row.skill_name}`}
                               >
                                 View Details
