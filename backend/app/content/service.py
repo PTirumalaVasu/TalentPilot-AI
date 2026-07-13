@@ -210,6 +210,28 @@ async def list_content_for_skill(
     return [ContentResponse.model_validate(orm) for orm in content_orms]
 
 
+async def reembed_content_for_skill(db: AsyncSession, skill_id: UUID) -> int:
+    """Recompute embeddings for a Skill's already-ingested Content afresh
+    and flush the update, using the current embed_text()/_build_embedding_text()
+    logic. Self-heals rows whose stored embedding drifted from what the
+    current code would produce (e.g. ingested before the Story 2.2 text-
+    truncation fix). No YouTube calls -- never touches ingestion, so it
+    stays clear of AD-7's live-request ban.
+
+    Uses flush(), not commit() -- this runs inside match_content_for_skill,
+    a request-path read called through get_db, whose commit-on-success
+    convention (core/db.py) owns the transaction boundary.
+
+    Returns:
+        Number of Content rows re-embedded (0 if the Skill has none).
+    """
+    content_rows = await repository.list_content_by_skill(db, skill_id)
+    for row in content_rows:
+        row.embedding = embed_text(_build_embedding_text(row.title, row.description))
+    await db.flush()
+    return len(content_rows)
+
+
 async def match_content_for_skill(db: AsyncSession, skill_id: UUID) -> ContentResponse | None:
     """Recommend the single best-matching Content for a Skill (Story 2.4).
 
@@ -220,15 +242,29 @@ async def match_content_for_skill(db: AsyncSession, skill_id: UUID) -> ContentRe
     means "no recommendation yet", not an error -- callers should treat it
     that way, not surface it to HR as a failure.
 
+    If no Content clears the threshold on the first pass, re-embeds the
+    Skill's existing Content afresh (reembed_content_for_skill) and retries
+    once -- this recovers matches lost to stale/drifted embeddings without
+    ever calling YouTube (AD-7 forbids live-request ingestion; this is a
+    local recompute over rows that already exist). A Skill with zero
+    ingested Content still returns None -- there is nothing to re-embed,
+    and getting real Content requires running the batch ingestion CLI.
+
     Returns:
         ContentResponse for the best match, or None if the Skill doesn't
-        exist or no Content clears the similarity threshold.
+        exist or no Content clears the similarity threshold even after
+        the re-embed retry.
     """
     skill_embedding = await repository.get_skill_embedding(db, skill_id)
     if skill_embedding is None:
         return None
 
     content_orm = await repository.find_best_matching_content(db, skill_id, skill_embedding)
+    if content_orm is None:
+        reembedded_count = await reembed_content_for_skill(db, skill_id)
+        if reembedded_count > 0:
+            content_orm = await repository.find_best_matching_content(db, skill_id, skill_embedding)
+
     if content_orm is None:
         return None
 

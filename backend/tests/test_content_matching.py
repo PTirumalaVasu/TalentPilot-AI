@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.assignments.models import ContentCatalog, Skill
 from app.content.repository import find_best_matching_content, get_skill_embedding
-from app.content.service import match_content_for_skill
+from app.content.service import match_content_for_skill, reembed_content_for_skill
 from app.core.config import settings
 from app.core.embedding import embed_text
 from app.core.seeds import run_seeds
@@ -135,12 +135,19 @@ async def test_ranks_by_similarity_and_returns_only_the_top_match():
 
 
 # --- AC3: threshold ------------------------------------------------------------
+# Boundary values below are relative to SIMILARITY_THRESHOLD (repository.py),
+# not hardcoded independent of it -- recalibrated 2026-07-12 when the
+# threshold itself moved from 0.7 to 0.4 (measured against real embeddings,
+# see repository.py's inline comment). The old 0.4/0.71/0.69 values were
+# clear-margin/just-above/just-below relative to 0.7 and silently started
+# asserting the wrong thing once the threshold changed underneath them --
+# caught via a full test-suite run, not by the threshold change itself.
 
 
 async def test_returns_none_when_only_candidate_is_below_threshold():
     async with _seeded_session() as session:
         skill = await _make_skill(session, embedding=_unit_vector(0))
-        await _make_content(session, skill_id=skill.id, embedding=_vector_at_similarity(0.4))
+        await _make_content(session, skill_id=skill.id, embedding=_vector_at_similarity(0.1))
 
         result = await find_best_matching_content(session, skill.id, skill.embedding)
 
@@ -150,7 +157,7 @@ async def test_returns_none_when_only_candidate_is_below_threshold():
 async def test_includes_content_just_above_threshold():
     async with _seeded_session() as session:
         skill = await _make_skill(session, embedding=_unit_vector(0))
-        content = await _make_content(session, skill_id=skill.id, embedding=_vector_at_similarity(0.71))
+        content = await _make_content(session, skill_id=skill.id, embedding=_vector_at_similarity(0.41))
 
         result = await find_best_matching_content(session, skill.id, skill.embedding)
 
@@ -161,7 +168,7 @@ async def test_includes_content_just_above_threshold():
 async def test_excludes_content_just_below_threshold():
     async with _seeded_session() as session:
         skill = await _make_skill(session, embedding=_unit_vector(0))
-        await _make_content(session, skill_id=skill.id, embedding=_vector_at_similarity(0.69))
+        await _make_content(session, skill_id=skill.id, embedding=_vector_at_similarity(0.39))
 
         result = await find_best_matching_content(session, skill.id, skill.embedding)
 
@@ -244,6 +251,65 @@ async def test_exact_tie_breaks_deterministically_by_content_id():
 
         assert first is not None and first.id == lower.id == lower_id
         assert second is not None and second.id == lower_id
+
+
+# --- Re-embed-and-retry fallback (no video meets threshold -> re-embed -> retry) ---
+
+
+async def test_reembeds_stale_content_and_finds_a_match_on_retry():
+    """A Content row whose stored embedding is stale/wrong (e.g. computed
+    under an older text-building convention) should fail the first
+    filter-then-rank pass, get re-embedded from its current title/
+    description, and match on the retry -- all without any YouTube call."""
+    async with _seeded_session() as session:
+        skill_embedding = embed_text("Data Visualization: creating charts, graphs, and dashboards")
+        skill = await _make_skill(session, embedding=skill_embedding)
+
+        content = await _make_content(
+            session,
+            skill_id=skill.id,
+            # Deliberately unrelated/stale stored embedding -- if this were
+            # used as-is, it would fall below SIMILARITY_THRESHOLD.
+            embedding=_vector_at_similarity(0.1),
+            title="Excel Charting Tutorial",
+        )
+        content.description = "how to build charts and graphs in Excel"
+        await session.flush()
+
+        result = await match_content_for_skill(session, skill.id)
+
+        assert result is not None
+        assert result.id == content.id
+
+
+async def test_reembed_content_for_skill_returns_zero_for_skill_with_no_content():
+    async with _seeded_session() as session:
+        skill = await _make_skill(session, embedding=_unit_vector(0))
+
+        count = await reembed_content_for_skill(session, skill.id)
+
+        assert count == 0
+
+
+async def test_service_still_returns_none_when_reembed_does_not_rescue_a_match():
+    """The retry is a best-effort rescue, not a guarantee -- genuinely
+    unrelated content stays below threshold even after re-embedding from
+    its real (also unrelated) title/description."""
+    async with _seeded_session() as session:
+        skill_embedding = embed_text("Data Visualization: creating charts, graphs, and dashboards")
+        skill = await _make_skill(session, embedding=skill_embedding)
+        content = await _make_content(
+            session,
+            skill_id=skill.id,
+            embedding=_vector_at_similarity(0.1),
+            title="How to boil pasta al dente",
+        )
+        content.description = "a simple cooking guide"
+        await session.flush()
+
+        result = await match_content_for_skill(session, skill.id)
+
+        assert result is None
 
 
 # --- Real-embedding integration check ---------------------------------------------
