@@ -135,12 +135,19 @@ async def test_ranks_by_similarity_and_returns_only_the_top_match():
 
 
 # --- AC3: threshold ------------------------------------------------------------
+# Boundary values below are relative to SIMILARITY_THRESHOLD (repository.py),
+# not hardcoded independent of it -- recalibrated 2026-07-12 when the
+# threshold itself moved from 0.7 to 0.4 (measured against real embeddings,
+# see repository.py's inline comment). The old 0.4/0.71/0.69 values were
+# clear-margin/just-above/just-below relative to 0.7 and silently started
+# asserting the wrong thing once the threshold changed underneath them --
+# caught via a full test-suite run, not by the threshold change itself.
 
 
 async def test_returns_none_when_only_candidate_is_below_threshold():
     async with _seeded_session() as session:
         skill = await _make_skill(session, embedding=_unit_vector(0))
-        await _make_content(session, skill_id=skill.id, embedding=_vector_at_similarity(0.4))
+        await _make_content(session, skill_id=skill.id, embedding=_vector_at_similarity(0.1))
 
         result = await find_best_matching_content(session, skill.id, skill.embedding)
 
@@ -150,7 +157,7 @@ async def test_returns_none_when_only_candidate_is_below_threshold():
 async def test_includes_content_just_above_threshold():
     async with _seeded_session() as session:
         skill = await _make_skill(session, embedding=_unit_vector(0))
-        content = await _make_content(session, skill_id=skill.id, embedding=_vector_at_similarity(0.71))
+        content = await _make_content(session, skill_id=skill.id, embedding=_vector_at_similarity(0.41))
 
         result = await find_best_matching_content(session, skill.id, skill.embedding)
 
@@ -161,7 +168,7 @@ async def test_includes_content_just_above_threshold():
 async def test_excludes_content_just_below_threshold():
     async with _seeded_session() as session:
         skill = await _make_skill(session, embedding=_unit_vector(0))
-        await _make_content(session, skill_id=skill.id, embedding=_vector_at_similarity(0.69))
+        await _make_content(session, skill_id=skill.id, embedding=_vector_at_similarity(0.39))
 
         result = await find_best_matching_content(session, skill.id, skill.embedding)
 
