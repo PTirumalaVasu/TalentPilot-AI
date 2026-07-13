@@ -1,5 +1,6 @@
 """Repository layer for the progress module. Only this module's own code may query its tables."""
 import logging
+import re
 from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID, uuid4
@@ -11,6 +12,8 @@ from sqlalchemy.orm import joinedload
 from app.assignments.models import Assignment, AssignmentOverride, SkillProgress
 
 logger = logging.getLogger(__name__)
+
+_ISO8601_DURATION_RE = re.compile(r"^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$")
 
 
 class ProgressRepository:
@@ -179,9 +182,38 @@ class ProgressRepository:
             )
 
     @staticmethod
+    def parse_duration_seconds(duration_raw: object | None) -> int | None:
+        """Best-effort parse of a Content row's raw `duration` metadata value
+        into whole seconds -- the single derivation authority for this
+        (AD-3), since every caller that needs a numeric duration (dashboard
+        percentage, resume-position bounds, anti-spoofing bounds/rate checks,
+        employee Content Discovery grid) must agree on the same parsing or
+        silently diverge, which is exactly the drift this centralizes.
+
+        Real YouTube-ingested content (Story 2.3) stores an ISO-8601 duration
+        string (e.g. "PT4H20M39S"); some manually-seeded rows store a plain
+        int, or an int-as-string, instead -- both are accepted. Anything that
+        matches neither shape returns None rather than raising: a video with
+        an unknown/malformed duration simply can't derive a percentage or a
+        COMPLETED status, it never blocks the read.
+        """
+        if duration_raw is None:
+            return None
+        if isinstance(duration_raw, str):
+            match = _ISO8601_DURATION_RE.match(duration_raw)
+            if match:
+                hours, minutes, seconds = (int(g) if g else 0 for g in match.groups())
+                return hours * 3600 + minutes * 60 + seconds
+        try:
+            return int(duration_raw)
+        except (TypeError, ValueError):
+            return None
+
+    @staticmethod
     def get_video_duration(assignment: Assignment) -> int | None:
         """
-        Extract video duration from assignment content metadata (DRY helper).
+        Extract video duration (in seconds) from assignment content metadata
+        (DRY helper).
 
         Args:
             assignment: Assignment with eager-loaded content
@@ -190,7 +222,7 @@ class ProgressRepository:
             Video duration in seconds, or None if not available
         """
         if assignment.content and assignment.content.content_metadata:
-            return assignment.content.content_metadata.get("duration")
+            return ProgressRepository.parse_duration_seconds(assignment.content.content_metadata.get("duration"))
         return None
 
     @staticmethod

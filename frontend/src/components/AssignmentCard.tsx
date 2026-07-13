@@ -1,6 +1,6 @@
 import { Card } from '@/components/ui/card';
 import type { AssignmentContentItem } from '@/types/assignments';
-import { computePercentWatched, formatDurationMinutes, parseIso8601DurationSeconds } from '@/lib/utils/duration';
+import { formatDurationMinutes, parseIso8601DurationSeconds } from '@/lib/utils/duration';
 
 interface AssignmentCardProps {
   item: AssignmentContentItem;
@@ -29,7 +29,13 @@ export function AssignmentCard({ item, onSelect }: AssignmentCardProps) {
     ? parseIso8601DurationSeconds(item.content.metadata.duration)
     : null;
   const durationLabel = formatDurationMinutes(durationSeconds);
-  const percentWatched = computePercentWatched(item.watch_position, durationSeconds);
+  // Sourced from the backend (derive_dashboard_status_and_percent) rather
+  // than recomputed here -- this used to independently round watch_position
+  // / durationSeconds, which could disagree with the backend's own COMPLETED
+  // decision (e.g. 3603/3606s rounds to "100% watched" here while the
+  // backend's stricter watch_position >= duration check still said
+  // IN_PROGRESS). One derivation authority now for both status and percent.
+  const percentWatched = item.status_percentage;
 
   function handleActivate() {
     if (item.content) onSelect(item);
@@ -92,10 +98,21 @@ export function AssignmentCard({ item, onSelect }: AssignmentCardProps) {
           <div className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 w-fit">
             ✓ Approved
           </div>
-          {item.watch_position > 0 && percentWatched !== null ? (
+          {item.status === 'COMPLETED' ? (
             <div className="pt-2 border-t border-gray-100">
               <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                <div className="h-full bg-blue-500" style={{ width: `${percentWatched}%` }} />
+                <div className="h-full bg-green-500" style={{ width: '100%' }} />
+              </div>
+              <p className="text-xs text-gray-600 font-medium mt-1">100% watched</p>
+            </div>
+          ) : item.watch_position > 0 && percentWatched !== null ? (
+            <div className="pt-2 border-t border-gray-100">
+              <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                {/* A real but small percentage (e.g. 1%) renders as a few px --
+                    functionally invisible against the bar's rounded corners.
+                    Floor the visible width at 4% so any nonzero progress reads
+                    as a genuine, perceptible sliver rather than an empty bar. */}
+                <div className="h-full bg-blue-500" style={{ width: `${Math.max(percentWatched, 4)}%` }} />
               </div>
               <p className="text-xs text-gray-600 font-medium mt-1">{percentWatched}% watched</p>
             </div>

@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.assignments.models import AssignmentOverride
 from app.assignments.service import AssignmentsService
+from app.content.service import match_content_for_skill
 from app.dashboard.schemas import DashboardResponse, AssignmentRowResponse
 from app.progress.service import STATUS_DISPLAY, ProgressService
 from app.progress.models import SkillProgress
@@ -59,16 +60,29 @@ class DashboardService:
             progress = progress_map.get(assignment.id)
             override = override_map.get(assignment.id)
 
-            # Extract video duration from content metadata if available (coerce to int for safety)
-            video_duration = None
-            if assignment.content and assignment.content.content_metadata:
-                duration_raw = assignment.content.content_metadata.get("duration")
-                if duration_raw is not None:
-                    try:
-                        video_duration = int(duration_raw) if isinstance(duration_raw, (int, float, str)) else None
-                    except (ValueError, TypeError):
-                        video_duration = None
-                        logger.warning(f"Invalid video duration for assignment {assignment.id}: {duration_raw}")
+            # Video duration in seconds (AD-3: progress/ is the single derivation
+            # authority for this -- ProgressRepository.parse_duration_seconds
+            # handles the real ISO-8601 duration strings YouTube-ingested
+            # content stores, e.g. "PT4H20M39S", which a naive int() cast
+            # can't parse and previously silently zeroed out every row's
+            # percentage).
+            video_duration = ProgressRepository.get_video_duration(assignment)
+            if video_duration is None and progress is not None and progress.watch_position > 0:
+                # Assignment.content_id is frequently unset (the "assign
+                # without content" flow, or older rows created before a
+                # match existed) -- fall back to the same live semantic
+                # match the employee's Content Discovery grid already uses
+                # (assignments/service.py's list_my_assignments), so a real,
+                # nonzero watch signal isn't stuck at an indeterminate 0%/
+                # never-Completed here just because no content_id was ever
+                # recorded on the Assignment row itself. Only attempted when
+                # there's an actual watch signal to explain -- a
+                # NOT_STARTED row has nothing to gain from a duration.
+                matched_content = await match_content_for_skill(session, assignment.skill_id)
+                if matched_content is not None and matched_content.metadata:
+                    video_duration = ProgressRepository.parse_duration_seconds(
+                        matched_content.metadata.get("duration")
+                    )
 
             status, provenance, percentage, last_updated = DashboardService._compute_status_and_provenance_from_data(
                 assignment, progress, override, video_duration=video_duration

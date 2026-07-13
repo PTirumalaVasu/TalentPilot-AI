@@ -160,7 +160,8 @@ class AssignmentContentItem(BaseModel):
     content: ContentResponse | None
     watch_position: int
     status: Literal["NOT_STARTED", "IN_PROGRESS", "COMPLETED"]
-    group: Literal["TO_START", "IN_PROGRESS"]
+    status_percentage: int | None
+    group: Literal["TO_START", "IN_PROGRESS", "COMPLETED"]
 
 
 class MyAssignmentsResponse(BaseModel):
@@ -170,6 +171,7 @@ class MyAssignmentsResponse(BaseModel):
     total: int
     in_progress_count: int
     to_start_count: int
+    completed_count: int
     assignments: list[AssignmentContentItem]
 
 

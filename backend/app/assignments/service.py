@@ -1,6 +1,4 @@
 """Service layer for the assignments module. Cross-module callers must go through here (AD-1)."""
-import re
-
 from fastapi import HTTPException, status
 import uuid
 
@@ -58,24 +56,6 @@ class AssignmentsService:
 async def list_employees_service(session: AsyncSession, *, search: str | None = None) -> list[EmployeeResponse]:
     employees = await list_employees(session, search=search)
     return [EmployeeResponse.model_validate(employee) for employee in employees]
-
-_ISO8601_DURATION_RE = re.compile(r"^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$")
-
-
-def _parse_iso8601_duration_seconds(duration: str | None) -> int | None:
-    """Best-effort parse of a YouTube-API ISO-8601 duration (e.g. "PT28M33S")
-    into whole seconds. Returns None for missing/unparseable input -- a video
-    with an unparseable duration simply can't derive a COMPLETED status
-    (Scope Note 6, ProgressService.derive_status's duration_seconds=None path),
-    it never raises."""
-    if not duration:
-        return None
-    match = _ISO8601_DURATION_RE.match(duration)
-    if not match:
-        return None
-    hours, minutes, seconds = (int(g) if g else 0 for g in match.groups())
-    return hours * 3600 + minutes * 60 + seconds
-
 
 async def list_skills_service(session: AsyncSession, *, search: str | None = None) -> list[SkillResponse]:
     skills = await list_skills(session, search=search)
@@ -277,6 +257,11 @@ async def list_my_assignments(session: AsyncSession, *, current_user: CurrentUse
 
     assignments = await list_assignments_for_employee(session, current_user=current_user)
 
+    overrides = await ProgressRepository.get_active_overrides_for_assignments(
+        session, [assignment.id for assignment in assignments]
+    )
+    override_by_assignment_id = {override.assignment_id: override for override in overrides}
+
     items: list[AssignmentContentItem] = []
     for assignment in assignments:
         content = await match_content_for_skill(session, assignment.skill_id)
@@ -285,10 +270,37 @@ async def list_my_assignments(session: AsyncSession, *, current_user: CurrentUse
 
         duration_seconds = None
         if content is not None and content.metadata:
-            duration_seconds = _parse_iso8601_duration_seconds(content.metadata.get("duration"))
+            duration_seconds = ProgressRepository.parse_duration_seconds(content.metadata.get("duration"))
 
-        derived_status = ProgressService.derive_status(watch_position, duration_seconds)
-        group = "TO_START" if derived_status == "NOT_STARTED" else "IN_PROGRESS"
+        # HR Override (AD-4: a separate, coexisting record) takes precedence
+        # over the raw watch signal here too -- mirrors dashboard/service.py's
+        # DashboardService (the only other Status consumer), so an HR
+        # "mark complete" is reflected on the employee's own dashboard
+        # instead of only the HR dashboard.
+        override = override_by_assignment_id.get(assignment.id)
+        if override is not None:
+            derived_status = override.override_status
+            status_percentage = None
+        else:
+            # AD-3: derive via the SAME function the HR dashboard uses
+            # (derive_dashboard_status_and_percent), not the older
+            # derive_status -- the two had drifted onto different COMPLETED
+            # criteria (derive_status required watch_position >= duration
+            # exactly; this one rounds the percentage, so e.g. 3603/3606s
+            # rounds to 100% and correctly derives COMPLETED there but not
+            # under derive_status), which is exactly the contradiction of a
+            # card showing "100% watched" while still badged "In Progress".
+            status_enum, status_percentage = ProgressService.derive_dashboard_status_and_percent(
+                watch_position, duration_seconds
+            )
+            derived_status = status_enum.value
+
+        if derived_status == "NOT_STARTED":
+            group = "TO_START"
+        elif derived_status == "COMPLETED":
+            group = "COMPLETED"
+        else:
+            group = "IN_PROGRESS"
 
         items.append(
             AssignmentContentItem(
@@ -298,16 +310,19 @@ async def list_my_assignments(session: AsyncSession, *, current_user: CurrentUse
                 content=content,
                 watch_position=watch_position,
                 status=derived_status,
+                status_percentage=status_percentage,
                 group=group,
             )
         )
 
     in_progress_count = sum(1 for item in items if item.group == "IN_PROGRESS")
     to_start_count = sum(1 for item in items if item.group == "TO_START")
+    completed_count = sum(1 for item in items if item.group == "COMPLETED")
 
     return MyAssignmentsResponse(
         total=len(items),
         in_progress_count=in_progress_count,
         to_start_count=to_start_count,
+        completed_count=completed_count,
         assignments=items,
     )

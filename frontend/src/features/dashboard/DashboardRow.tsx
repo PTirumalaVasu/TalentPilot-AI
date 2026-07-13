@@ -9,7 +9,15 @@ interface DashboardRowProps {
 }
 
 export function DashboardRow({ row, onViewDetails }: DashboardRowProps) {
-  const progressPercent = row.status_percentage || 0;
+  // status_percentage is deliberately null for Completed rows (nulled
+  // unless status === "In Progress", Story 5.1's own display convention --
+  // see DrillDownResponse's docstring) since a Completed row has no
+  // meaningful "% through" left to report. But `null || 0` rendered a
+  // 0%-wide bar for a *finished* skill, which reads as empty/broken, not
+  // done -- show a full bar instead for Completed, matching the employee
+  // Content Discovery card's same fix.
+  const isCompleted = row.status === "Completed";
+  const progressPercent = isCompleted ? 100 : row.status_percentage || 0;
 
   // Story 5-6, AC9 (closing Story 5-1's own never-built stale-highlight AC):
   // never color-only -- pair the red highlight with literal staleness text,
@@ -37,7 +45,10 @@ export function DashboardRow({ row, onViewDetails }: DashboardRowProps) {
       </td>
       <td className="px-4 py-3">
         <div className="w-24 h-2 bg-gray-100 rounded-full overflow-hidden">
-          <div className="h-full bg-blue-600" style={{ width: `${progressPercent}%` }}></div>
+          <div
+            className={`h-full ${isCompleted ? "bg-green-600" : "bg-blue-600"}`}
+            style={{ width: `${progressPercent}%` }}
+          ></div>
         </div>
       </td>
       <td className={`px-4 py-3 text-sm ${isStale ? "text-red-700 font-medium" : "text-gray-500"}`}>

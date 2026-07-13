@@ -17,7 +17,7 @@ export interface ContentItem {
 }
 
 export type AssignmentStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED';
-export type AssignmentGroup = 'TO_START' | 'IN_PROGRESS';
+export type AssignmentGroup = 'TO_START' | 'IN_PROGRESS' | 'COMPLETED';
 
 export interface AssignmentContentItem {
   assignment_id: string;
@@ -26,6 +26,7 @@ export interface AssignmentContentItem {
   content: ContentItem | null;
   watch_position: number;
   status: AssignmentStatus;
+  status_percentage: number | null;
   group: AssignmentGroup;
 }
 
@@ -33,5 +34,6 @@ export interface MyAssignmentsResponse {
   total: number;
   in_progress_count: number;
   to_start_count: number;
+  completed_count: number;
   assignments: AssignmentContentItem[];
 }

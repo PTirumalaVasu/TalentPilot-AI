@@ -22,8 +22,3 @@ export function formatDurationMinutes(durationSeconds: number | null): string | 
   const minutes = Math.round(durationSeconds / 60);
   return `${minutes} minute${minutes === 1 ? '' : 's'}`;
 }
-
-export function computePercentWatched(watchPosition: number, durationSeconds: number | null): number | null {
-  if (durationSeconds === null || durationSeconds <= 0) return null;
-  return Math.min(100, Math.round((watchPosition / durationSeconds) * 100));
-}
