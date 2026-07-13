@@ -25,6 +25,7 @@ export function ContentDiscovery() {
   const [state, setState] = useState<LoadState>({ status: 'loading' });
   const [playingVideo, setPlayingVideo] = useState<PlayingVideo | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -86,9 +87,28 @@ export function ContentDiscovery() {
               <span className="text-gray-600">Continue Watching</span>
             </nav>
           </div>
-          <Button variant="outline" onClick={handleSignOut}>
-            Sign Out
-          </Button>
+          <div className="relative">
+            <button
+              onClick={() => setUserMenuOpen(!userMenuOpen)}
+              className="flex items-center gap-2 text-sm text-gray-700"
+            >
+              <span className="w-8 h-8 rounded-full bg-talentpilot-100 flex items-center justify-center text-talentpilot-700 font-medium">C</span>
+              Casey
+            </button>
+            {userMenuOpen && (
+              <div className="absolute right-0 mt-2 w-40 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+                <button
+                  onClick={() => {
+                    setUserMenuOpen(false);
+                    handleSignOut();
+                  }}
+                  className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg"
+                >
+                  Sign Out
+                </button>
+              </div>
+            )}
+          </div>
         </header>
 
         <main className="px-6 py-6 max-w-5xl mx-auto">
@@ -120,12 +140,27 @@ export function ContentDiscovery() {
             <span className="text-gray-400">Continue Watching</span>
           </nav>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="w-8 h-8 rounded-full bg-talentpilot-100 flex items-center justify-center text-talentpilot-700 font-medium">C</span>
-          <span className="text-sm text-gray-700">Casey</span>
-          <Button variant="outline" onClick={handleSignOut} className="ml-4">
-            Sign Out
-          </Button>
+        <div className="relative">
+          <button
+            onClick={() => setUserMenuOpen(!userMenuOpen)}
+            className="flex items-center gap-2 text-sm text-gray-700"
+          >
+            <span className="w-8 h-8 rounded-full bg-talentpilot-100 flex items-center justify-center text-talentpilot-700 font-medium">C</span>
+            Casey
+          </button>
+          {userMenuOpen && (
+            <div className="absolute right-0 mt-2 w-40 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+              <button
+                onClick={() => {
+                  setUserMenuOpen(false);
+                  handleSignOut();
+                }}
+                className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg"
+              >
+                Sign Out
+              </button>
+            </div>
+          )}
         </div>
       </header>
 
