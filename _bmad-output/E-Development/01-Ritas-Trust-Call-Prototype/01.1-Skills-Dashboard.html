@@ -100,18 +100,11 @@
                   class="text-sm text-gray-500"></span>
         </div>
 
-        <table id="skills-dashboard-grid-skills" data-object-id="skills-dashboard-grid-skills"
-               class="w-full border-collapse text-sm bg-white rounded-lg overflow-hidden shadow-sm">
-            <thead>
-                <tr class="border-b border-gray-200 text-left text-gray-500">
-                    <th class="px-4 py-3 font-medium">Employee</th>
-                    <th class="px-4 py-3 font-medium">Assigned Skill</th>
-                    <th class="px-4 py-3 font-medium">Status</th>
-                    <th class="px-4 py-3 font-medium">Progress</th>
-                </tr>
-            </thead>
-            <tbody id="assignments-tbody"></tbody>
-        </table>
+        <!-- Grouped View - Default Display -->
+        <div id="skills-dashboard-grid-skills" data-object-id="skills-dashboard-grid-skills"
+             class="space-y-4">
+            <div id="assignments-tbody"></div>
+        </div>
 
         <!-- Loading skeleton (Section 3) -->
         <div id="grid-loading-state" class="hidden">
@@ -260,18 +253,95 @@
 
             document.getElementById('skills-dashboard-summary-count').textContent =
                 `Total: ${assignments.length} assignment${assignments.length === 1 ? '' : 's'}`;
-            document.getElementById('assignments-tbody').innerHTML = assignments.map(rowHtml).join('');
+            const grouped = groupByEmployee(assignments);
+            document.getElementById('assignments-tbody').innerHTML = grouped.map(employeeGroupHtml).join('');
+
+            // Add expand/collapse handlers - groups expanded by default
+            document.querySelectorAll('.group-header').forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    // Only toggle if clicking the header button itself, not the View Summary button
+                    if (e.target.closest('button').className.includes('group-header')) {
+                        const headerDiv = this.closest('div');
+                        const content = headerDiv.nextElementSibling;
+                        const chevron = headerDiv.querySelector('.chevron');
+                        const isHidden = content.classList.contains('hidden');
+                        content.classList.toggle('hidden');
+                        chevron.style.transform = isHidden ? 'rotate(180deg)' : '';
+                    }
+                });
+            });
+
+            // Expand all groups by default
+            document.querySelectorAll('.group-content').forEach(content => {
+                content.classList.remove('hidden');
+                const headerDiv = content.previousElementSibling;
+                const chevron = headerDiv.querySelector('.chevron');
+                if (chevron) chevron.style.transform = 'rotate(180deg)';
+            });
+
             setGridState('loaded');
         }
 
+        function groupByEmployee(assignments) {
+            const grouped = new Map();
+            for (const a of assignments) {
+                const empName = a.employee.firstName + ' ' + a.employee.lastName;
+                if (!grouped.has(empName)) grouped.set(empName, []);
+                grouped.get(empName).push(a);
+            }
+            const result = [];
+            for (const [name, skills] of grouped) {
+                result.push({ employeeName: name, assignments: skills.sort((a, b) => a.skill.name.localeCompare(b.skill.name)) });
+            }
+            return result.sort((a, b) => a.employeeName.localeCompare(b.employeeName));
+        }
+
+        function employeeGroupHtml(group) {
+            let html = `
+                <div class="mb-4 border border-gray-200 rounded-lg overflow-hidden bg-white">
+                    <div class="w-full px-4 py-3 bg-white border-b border-gray-200 hover:bg-gray-50 transition-colors flex items-center justify-between">
+                        <button class="flex items-center gap-3 text-left group-header cursor-pointer hover:opacity-75" data-employee="${escapeHtml(group.employeeName)}">
+                            <span class="text-base font-semibold text-gray-900">${escapeHtml(group.employeeName)}</span>
+                            <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">${group.assignments.length} skill${group.assignments.length !== 1 ? 's' : ''}</span>
+                        </button>
+                        <div class="flex items-center gap-2">
+                            <button onclick="openEmployeeSummary('${escapeHtml(group.employeeName)}', ${JSON.stringify(group.assignments).replace(/"/g, '&quot;')})" class="px-3 py-1 text-sm font-medium text-blue-600 hover:text-blue-700 hover:underline transition-colors whitespace-nowrap">
+                                View Summary
+                            </button>
+                            <button class="group-header cursor-pointer ml-2 text-gray-400 hover:text-gray-600 transition-colors" data-employee="${escapeHtml(group.employeeName)}" title="Expand/Collapse">
+                                <span class="chevron">▼</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="bg-white group-content hidden p-4 space-y-3">`;
+
+            for (const a of group.assignments) {
+                html += `
+                        <div data-assignment-id="${a.id}" class="border border-gray-200 rounded-lg p-3 hover:bg-gray-50 transition-colors grid grid-cols-4 gap-4 items-center">
+                            <div class="col-span-1">
+                                <span class="text-sm font-medium text-gray-900">${escapeHtml(a.skill.name)}</span>
+                            </div>
+                            <div class="col-span-1">
+                                ${progressBar(a.watchPercent)}
+                            </div>
+                            <div class="col-span-1">
+                                <span class="text-xs text-gray-500">${a.lastUpdate}</span>
+                            </div>
+                            <div class="col-span-1 text-right">
+                                <button onclick="openDrillDown('${a.id}')" class="text-blue-600 hover:underline text-xs font-medium">View Details</button>
+                            </div>
+                        </div>`;
+            }
+
+            html += `
+                    </div>
+                </div>`;
+
+            return html;
+        }
+
         function rowHtml(a) {
-            return `
-                <tr data-assignment-id="${a.id}" class="border-b border-gray-100 hover:bg-gray-50">
-                    <td class="px-4 py-3 text-gray-900">${escapeHtml(a.employee.firstName + ' ' + a.employee.lastName)}</td>
-                    <td class="px-4 py-3 text-gray-700">${escapeHtml(a.skill.name)}</td>
-                    <td class="px-4 py-3">${statusBadge(a.watchPercent)}</td>
-                    <td class="px-4 py-3">${progressBar(a.watchPercent)}</td>
-                </tr>`;
+            return employeeGroupHtml({ employeeName: a.employee.firstName + ' ' + a.employee.lastName, assignments: [a] });
         }
 
         function statusBadge(percent) {
@@ -351,6 +421,83 @@
 
         function closeDrillDown() {
             document.getElementById('assignment-details-modal').classList.add('hidden');
+        }
+
+        function openEmployeeSummary(employeeName, assignments) {
+            const completed = assignments.filter(a => a.watchPercent === 100).length;
+            const inProgress = assignments.filter(a => a.watchPercent > 0 && a.watchPercent < 100).length;
+            const notStarted = assignments.length - completed - inProgress;
+
+            let html = `
+                <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+                    <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
+                        <div class="flex items-center justify-between mb-6">
+                            <div>
+                                <h2 class="text-2xl font-bold text-gray-900">${escapeHtml(employeeName)}</h2>
+                                <p class="text-sm text-gray-500 mt-1">${assignments.length} skill assignment${assignments.length !== 1 ? 's' : ''}</p>
+                            </div>
+                            <button onclick="document.getElementById('employee-summary-modal').remove()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">×</button>
+                        </div>
+
+                        <div class="grid grid-cols-3 gap-4 mb-6 p-4 bg-gray-50 rounded-lg">
+                            <div class="text-center">
+                                <div class="text-2xl font-bold text-green-600">${completed}</div>
+                                <div class="text-xs text-gray-600 mt-1">Completed</div>
+                            </div>
+                            <div class="text-center">
+                                <div class="text-2xl font-bold text-yellow-600">${inProgress}</div>
+                                <div class="text-xs text-gray-600 mt-1">In Progress</div>
+                            </div>
+                            <div class="text-center">
+                                <div class="text-2xl font-bold text-gray-600">${notStarted}</div>
+                                <div class="text-xs text-gray-600 mt-1">Not Started</div>
+                            </div>
+                        </div>
+
+                        <div class="mb-6">
+                            <h3 class="text-lg font-semibold text-gray-900 mb-3">Assigned Skills</h3>
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-sm bg-white border border-gray-200 rounded-lg">
+                                    <thead>
+                                        <tr class="border-b border-gray-200 bg-gray-50">
+                                            <th class="px-4 py-2 text-left font-medium text-gray-700">Skill</th>
+                                            <th class="px-4 py-2 text-left font-medium text-gray-700">Status</th>
+                                            <th class="px-4 py-2 text-left font-medium text-gray-700">Progress</th>
+                                            <th class="px-4 py-2 text-left font-medium text-gray-700">Last Updated</th>
+                                            <th class="px-4 py-2 text-center font-medium text-gray-700">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>`;
+
+            for (const a of assignments) {
+                html += `
+                                        <tr class="border-b border-gray-100 hover:bg-gray-50">
+                                            <td class="px-4 py-3 text-gray-900">${escapeHtml(a.skill.name)}</td>
+                                            <td class="px-4 py-3">${statusBadge(a.watchPercent)}</td>
+                                            <td class="px-4 py-3">${progressBar(a.watchPercent)}</td>
+                                            <td class="px-4 py-3 text-xs text-gray-500">${a.lastUpdate}</td>
+                                            <td class="px-4 py-3 text-center">
+                                                <button onclick="document.getElementById('employee-summary-modal').remove(); openDrillDown('${a.id}')" class="text-blue-600 hover:underline text-xs font-medium">Details</button>
+                                            </td>
+                                        </tr>`;
+            }
+
+            html += `
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div class="flex justify-end gap-2">
+                            <button onclick="document.getElementById('employee-summary-modal').remove()" class="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50">Close</button>
+                        </div>
+                    </div>
+                </div>`;
+
+            const modal = document.createElement('div');
+            modal.id = 'employee-summary-modal';
+            modal.innerHTML = html;
+            document.body.appendChild(modal);
         }
 
         function renderRawSignal(a) {

@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState, useImperativeHandle, forwardRef } from "react";
 import { dashboardApi } from "../../lib/api/dashboardApi";
-import { DashboardResponse, AssignmentRow } from "../../types/dashboard";
+import { AssignmentRow } from "../../types/dashboard";
 import { DashboardRow } from "./DashboardRow";
 import { ProvenanceDrillDownModal } from "./ProvenanceDrillDownModal";
-import { Button } from "../../components/ui/button";
+import { EmployeeSummaryModal } from "./EmployeeSummaryModal";
+import { GroupedEmployeeView } from "./GroupedEmployeeView";
 import { Toast } from "../../components/ui/toast";
+import { groupAssignmentsByEmployee } from "../../lib/utils/grouping";
 
 // AC1 (epics.md:1771-1774): poll every 10-15s. 12000ms picked as the
 // midpoint -- config constant, not a magic number, so it's easy to adjust
@@ -20,6 +22,10 @@ interface DashboardState {
   pageSize: number;
   totalCount: number;
   requestId: number;
+}
+
+interface ExpandedEmployees {
+  [employeeName: string]: boolean;
 }
 
 // AC2/Finding 1: Status/Provenance/percentage changes matter for "did this
@@ -71,9 +77,11 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
       requestId: 0,
     });
     const [selectedAssignmentId, setSelectedAssignmentId] = useState<string | null>(null);
+    const [selectedEmployeeName, setSelectedEmployeeName] = useState<string | null>(null);
     const [liveAnnouncement, setLiveAnnouncement] = useState("");
     // Story 5.5: success toast after a Mark-as-Ready confirm.
     const [toastMessage, setToastMessage] = useState<string | null>(null);
+    const [expandedEmployees, setExpandedEmployees] = useState<ExpandedEmployees>({});
     const pollIntervalRef = useRef<number | null>(null);
     const isPollingRef = useRef(false);
 
@@ -83,6 +91,21 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
 
     function handleCloseDrillDown() {
       setSelectedAssignmentId(null);
+    }
+
+    function handleViewEmployeeSummary(employeeName: string) {
+      setSelectedEmployeeName(employeeName);
+    }
+
+    function handleCloseEmployeeSummary() {
+      setSelectedEmployeeName(null);
+    }
+
+    function handleToggleExpand(employeeName: string) {
+      setExpandedEmployees((prev) => ({
+        ...prev,
+        [employeeName]: !prev[employeeName],
+      }));
     }
 
     useImperativeHandle(ref, () => ({
@@ -314,7 +337,7 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
         {liveRegion}
         {toastElement}
         {/* Toolbar */}
-        <div className="py-3 flex items-center justify-between">
+        <div className="py-3 flex items-center justify-start gap-4">
           <button
             onClick={onNewAssignment}
             className="bg-blue-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
@@ -329,24 +352,20 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
           <span className="text-sm text-gray-500">Total: {state.totalCount} assignment{state.totalCount !== 1 ? 's' : ''}</span>
         </div>
 
-        {/* Table */}
-        <table className="w-full border-collapse text-sm bg-white rounded-lg overflow-hidden shadow-sm">
-          <thead>
-            <tr className="border-b border-gray-200 text-left text-gray-500">
-              <th className="px-4 py-3 font-medium">Employee</th>
-              <th className="px-4 py-3 font-medium">Assigned Skill</th>
-              <th className="px-4 py-3 font-medium">Status</th>
-              <th className="px-4 py-3 font-medium">Progress</th>
-              <th className="px-4 py-3 font-medium">Last Updated</th>
-              <th className="px-4 py-3 font-medium">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {state.assignments.map((row) => (
-              <DashboardRow key={row.assignment_id} row={row} onViewDetails={handleViewDetails} />
-            ))}
-          </tbody>
-        </table>
+        {/* Grouped View - Default Display */}
+        <div>
+          {groupAssignmentsByEmployee(state.assignments).map((group) => (
+            <GroupedEmployeeView
+              key={group.employeeName}
+              employeeName={group.employeeName}
+              assignments={group.assignments}
+              onViewDetails={handleViewDetails}
+              onViewEmployeeSummary={handleViewEmployeeSummary}
+              isExpanded={expandedEmployees[group.employeeName] ?? true}
+              onToggleExpand={handleToggleExpand}
+            />
+          ))}
+        </div>
 
         <ProvenanceDrillDownModal
           assignmentId={selectedAssignmentId}
@@ -357,6 +376,18 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
             fetchDashboard();
           }}
         />
+
+        {selectedEmployeeName && (
+          <EmployeeSummaryModal
+            open={selectedEmployeeName !== null}
+            employeeName={selectedEmployeeName}
+            employeeAssignments={state.assignments.filter(
+              (a) => a.employee_name === selectedEmployeeName
+            )}
+            onClose={handleCloseEmployeeSummary}
+            onViewSkillDetails={handleViewDetails}
+          />
+        )}
 
         {/* Pagination */}
         <div className="flex items-center justify-center gap-2 mt-4 text-sm">
