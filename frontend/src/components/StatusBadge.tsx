@@ -6,9 +6,15 @@ import { StatusType } from "../types/dashboard";
 interface StatusBadgeProps {
   status: StatusType;
   percentage?: number | null;
+  /** Row context for the full "{Employee} {Skill}: {Status}..." announcement
+   * (Story 5-6, AC2). Optional: the drill-down modal's call site already
+   * states Employee/Skill in its own header, so passing these there would
+   * double-announce -- only DashboardRow passes them. */
+  employeeName?: string;
+  skillName?: string;
 }
 
-export function StatusBadge({ status, percentage }: StatusBadgeProps) {
+export function StatusBadge({ status, percentage, employeeName, skillName }: StatusBadgeProps) {
   // Config for each status (AC2: text + optional icon + color)
   const statusConfig: Record<
     StatusType,
@@ -46,11 +52,24 @@ export function StatusBadge({ status, percentage }: StatusBadgeProps) {
     label = status;
   }
 
+  // AC2: full "{Employee} {Skill}: {Status}..." announcement when row context
+  // is available (DashboardRow); otherwise fall back to status-only (drill-down).
+  const ariaLabel = employeeName && skillName ? `${employeeName} ${skillName}: ${label}` : label;
+
   return (
     <span
       className={`inline-flex items-center gap-1 px-3 py-1 rounded font-medium ${config.bg} ${config.text}`}
       role="status"
-      aria-label={label}
+      // aria-live="off" mutes role="status"'s implicit live-region behavior
+      // (code review finding, Story 5-6): DashboardPage.tsx already owns a
+      // dedicated aria-live="polite" region for poll-driven Status changes
+      // (AC4) -- without this, the badge's own live-region semantics would
+      // double-announce the same change. Focus-driven announcement (AC2)
+      // doesn't need a live region at all; any focusable element's
+      // aria-label is announced on focus regardless of aria-live.
+      aria-live="off"
+      aria-label={ariaLabel}
+      tabIndex={0}
     >
       <span aria-hidden="true">{config.icon}</span>
       <span>{label}</span>

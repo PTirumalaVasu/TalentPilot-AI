@@ -1,8 +1,9 @@
 import { useEffect, useState, useCallback, useId, useRef } from "react";
-import { formatDistanceToNow, differenceInCalendarDays } from "date-fns";
+import { formatDistanceToNow } from "date-fns";
 import { Dialog } from "@/components/ui/dialog";
 import { StatusBadge } from "@/components/StatusBadge";
 import { dashboardApi } from "@/lib/api/dashboardApi";
+import { staleDaysSince } from "@/lib/utils/staleness";
 import type { DrillDownResponse, StatusType } from "@/types/dashboard";
 
 interface ProvenanceDrillDownModalProps {
@@ -23,6 +24,30 @@ const STATUS_DISPLAY: Record<DrillDownResponse["status"], StatusType> = {
 
 function relativeTime(iso: string): string {
   return formatDistanceToNow(new Date(iso), { addSuffix: true });
+}
+
+// Story 5.5b, Finding 6: epics.md's literal reversal-toast text ("...based on
+// video progress") is only accurate when the underlying signal is actually
+// Verified -- the other 3 reachable states would be misdescribed by that one
+// hardcoded string, so the message is built from the response instead.
+//
+// Reads `provenance`, not `underlying_provenance` -- a successful `unset`
+// response is the plain underlying ProvenanceDetail (no override wrapping
+// it anymore), and `underlying_provenance` is only ever populated alongside
+// an *active* HR Override (see DrillDownResponse's own doc comment), so it
+// is always null on this response.
+function describeReversalToastMessage(provenance: DrillDownResponse["provenance"]): string {
+  switch (provenance) {
+    case "Verified":
+      return "Override removed. Status now based on video progress.";
+    case "Self-reported":
+    case "Needs Attention":
+      return "Override removed. Status now based on self-reported progress.";
+    case "Not Started":
+    case "HR Override":
+    default:
+      return "Override removed. No prior progress recorded — status now shows Not Started.";
+  }
 }
 
 /**
@@ -119,6 +144,31 @@ export function ProvenanceDrillDownModal({ assignmentId, open, onClose, onOverri
     }
   }
 
+  async function handleConfirmReversal() {
+    if (!assignmentId) return;
+    // Same requestIdRef staleness guard as handleConfirmOverride -- if the
+    // modal is reused for a different assignment before this resolves, don't
+    // let a stale response overwrite what's now on screen (Story 5.5b, Task 3).
+    const requestIdAtSubmit = requestIdRef.current;
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      const response = await dashboardApi.setOverride(assignmentId, "unset");
+      if (requestIdRef.current !== requestIdAtSubmit) return;
+      setData(response);
+      setConfirming(false);
+      onOverrideChanged?.(describeReversalToastMessage(response.provenance));
+    } catch (err) {
+      if (requestIdRef.current !== requestIdAtSubmit) return;
+      const message = err instanceof Error ? err.message : "Couldn't remove override. Try again.";
+      setSubmitError(message);
+    } finally {
+      if (requestIdRef.current === requestIdAtSubmit) {
+        setSubmitting(false);
+      }
+    }
+  }
+
   if (!open) return null;
 
   // A stable heading carrying `titleId` renders in every branch (loading,
@@ -145,7 +195,7 @@ export function ProvenanceDrillDownModal({ assignmentId, open, onClose, onOverri
           <h2 id={titleId} className="text-lg font-bold text-gray-900">
             Couldn't load details
           </h2>
-          <p className="text-red-600 text-sm">{error}</p>
+          <p role="alert" className="text-red-600 text-sm">{error}</p>
           <button
             onClick={fetchDetail}
             className="text-blue-600 hover:underline text-sm font-medium"
@@ -155,7 +205,37 @@ export function ProvenanceDrillDownModal({ assignmentId, open, onClose, onOverri
         </div>
       )}
 
-      {!loading && !error && data && confirming && (
+      {!loading && !error && data && confirming && data.provenance === "HR Override" && (
+        <div className="space-y-4">
+          <h2 id={titleId} className="text-lg font-bold text-gray-900">
+            Remove this HR Override?
+          </h2>
+          <p className="text-sm text-gray-700">
+            Status: {STATUS_DISPLAY[data.status]} (set by {data.override_set_by_name ?? "Unknown"}{" "}
+            {data.override_set_at ? relativeTime(data.override_set_at) : "at an unknown time"})
+          </p>
+          <p className="text-sm text-gray-700">Currently: {describeUnderlyingSignal(data)}</p>
+          {submitError && <p className="text-red-600 text-sm">{submitError}</p>}
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-100">
+            <button
+              disabled={submitting}
+              onClick={handleCancelOverride}
+              className="text-sm font-medium text-gray-600 hover:underline disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              disabled={submitting}
+              onClick={handleConfirmReversal}
+              className="bg-red-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+            >
+              Remove Override
+            </button>
+          </div>
+        </div>
+      )}
+
+      {!loading && !error && data && confirming && data.provenance !== "HR Override" && (
         <div className="space-y-4">
           <h2 id={titleId} className="text-lg font-bold text-gray-900">
             Mark {data.employee_name} as Ready for {data.skill_name}?
@@ -171,7 +251,7 @@ export function ProvenanceDrillDownModal({ assignmentId, open, onClose, onOverri
               className="mt-1 w-full rounded border border-gray-200 p-2 text-sm"
             />
           </label>
-          {submitError && <p className="text-red-600 text-sm">{submitError}</p>}
+          {submitError && <p role="alert" className="text-red-600 text-sm">{submitError}</p>}
           <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-100">
             <button
               disabled={submitting}
@@ -214,14 +294,14 @@ export function ProvenanceDrillDownModal({ assignmentId, open, onClose, onOverri
                   Mark as Ready
                 </button>
               )}
-              <button
-                disabled
-                aria-label="Available once HR Override reversal is built — Story 5.5b"
-                title="Available once HR Override reversal is built — Story 5.5b"
-                className="text-sm font-medium text-gray-400 cursor-not-allowed"
-              >
-                Reverse Override
-              </button>
+              {data.provenance === "HR Override" && (
+                <button
+                  onClick={() => setConfirming(true)}
+                  className="text-sm font-medium text-red-600 hover:underline"
+                >
+                  Reverse Override
+                </button>
+              )}
             </div>
             <button
               onClick={onClose}
@@ -258,15 +338,20 @@ function ProvenanceSection({ data }: { data: DrillDownResponse }) {
         </section>
       );
     case "Needs Attention": {
-      const staleDays = differenceInCalendarDays(new Date(), new Date(data.last_updated));
+      // Shared, clamped computation (code review finding, Story 5-6): was
+      // duplicated inline here and in DashboardRow.tsx, with no guard
+      // against a future/clock-skewed last_updated producing a negative count.
+      const staleDays = staleDaysSince(data.last_updated);
       return (
         <section aria-label="Provenance detail" className="space-y-1 text-sm text-gray-700">
           <p className="font-medium text-amber-700">⚠️ Needs Attention</p>
           <p>Status: {STATUS_DISPLAY[data.status]}</p>
           <p>Last Updated: {relativeTime(data.last_updated)}</p>
           <p>
-            This status hasn't been updated in {staleDays} day{staleDays === 1 ? "" : "s"}. Consider reaching out to{" "}
-            {data.employee_name} to confirm.
+            {staleDays === 0
+              ? "This status hasn't been updated today."
+              : `This status hasn't been updated in ${staleDays} day${staleDays === 1 ? "" : "s"}.`}{" "}
+            Consider reaching out to {data.employee_name} to confirm.
           </p>
           <p>
             Self-reported by {data.employee_name} on {new Date(data.last_updated).toLocaleDateString()}
@@ -299,35 +384,37 @@ function ProvenanceSection({ data }: { data: DrillDownResponse }) {
   }
 }
 
+// Story 5.5b: standalone label-computation function, extracted from
+// UnderlyingSignal below so the reversal confirmation view (which needs a
+// signal description even when there's no underlying signal at all) can call
+// it directly, without UnderlyingSignal's early-return-null guard.
+//
+// Explicit per-branch mapping (not a Verified/else split) -- collapsing Not
+// Started or Needs Attention into "Self-reported" would falsely assert a
+// self-report that may never have happened, or silently drop the
+// Needs-Attention staleness signal AR-4 exists to preserve.
+function describeUnderlyingSignal(data: DrillDownResponse): string {
+  const underlyingStatusLabel = data.underlying_status ? STATUS_DISPLAY[data.underlying_status] : "Not Started";
+
+  switch (data.underlying_provenance) {
+    case "Verified":
+      return `Watch Progress ${data.underlying_status_percentage ?? 0}% (Verified)`;
+    case "Self-reported":
+      return `Self-reported · ${underlyingStatusLabel}`;
+    case "Needs Attention":
+      return `Self-reported (Needs Attention) · ${underlyingStatusLabel}`;
+    case "Not Started":
+    default:
+      return "No signal yet — nothing had been watched or reported";
+  }
+}
+
 function UnderlyingSignal({ data }: { data: DrillDownResponse }) {
   if (!data.underlying_provenance) return null;
 
-  const underlyingStatusLabel = data.underlying_status ? STATUS_DISPLAY[data.underlying_status] : "Not Started";
-
-  // Explicit per-branch mapping (not a Verified/else split) -- collapsing
-  // Not Started or Needs Attention into "Self-reported" would falsely assert
-  // a self-report that may never have happened, or silently drop the
-  // Needs-Attention staleness signal AR-4 exists to preserve.
-  let label: string;
-  switch (data.underlying_provenance) {
-    case "Verified":
-      label = `Original signal: Watch Progress ${data.underlying_status_percentage ?? 0}% (Verified)`;
-      break;
-    case "Self-reported":
-      label = `Original signal: Self-reported · ${underlyingStatusLabel}`;
-      break;
-    case "Needs Attention":
-      label = `Original signal: Self-reported (Needs Attention) · ${underlyingStatusLabel}`;
-      break;
-    case "Not Started":
-    default:
-      label = "Original signal: No signal yet — nothing had been watched or reported";
-      break;
-  }
-
   return (
     <p className="mt-2 pt-2 border-t border-gray-100 text-gray-600" aria-label="Underlying signal">
-      {label}
+      Original signal: {describeUnderlyingSignal(data)}
     </p>
   );
 }

@@ -7,6 +7,7 @@
  */
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { StatusBadge } from "./StatusBadge";
 
 describe("StatusBadge", () => {
@@ -29,5 +30,41 @@ describe("StatusBadge", () => {
   it("still shows 'Completed' regardless of percentage", () => {
     render(<StatusBadge status="Completed" percentage={null} />);
     expect(screen.getByText("Completed")).toBeInTheDocument();
+  });
+});
+
+describe("StatusBadge focus + announcement (Story 5-6, AC1/AC2)", () => {
+  it("is reachable via real Tab-key traversal from the document body", async () => {
+    render(<StatusBadge status="In Progress" percentage={45} />);
+    document.body.focus();
+
+    await userEvent.tab();
+
+    expect(document.activeElement).toBe(screen.getByRole("status"));
+  });
+
+  it("announces '{Employee} {Skill}: {Status} {percentage}' when employeeName/skillName are provided", () => {
+    render(
+      <StatusBadge
+        status="In Progress"
+        percentage={45}
+        employeeName="Casey the Continuer"
+        skillName="Data Visualization"
+      />
+    );
+    expect(screen.getByRole("status")).toHaveAttribute(
+      "aria-label",
+      "Casey the Continuer Data Visualization: In Progress (45%)"
+    );
+  });
+
+  it("falls back to status-only aria-label when employeeName/skillName are omitted", () => {
+    render(<StatusBadge status="Completed" percentage={null} />);
+    expect(screen.getByRole("status")).toHaveAttribute("aria-label", "Completed");
+  });
+
+  it("mutes its own live-region behavior via aria-live=\"off\" (code review round 2: prevents double-announcement against DashboardPage's dedicated aria-live region for the same poll-driven Status change)", () => {
+    render(<StatusBadge status="Completed" percentage={null} />);
+    expect(screen.getByRole("status")).toHaveAttribute("aria-live", "off");
   });
 });

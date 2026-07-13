@@ -11,7 +11,7 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from app.assignments.models import Assignment, AssignmentOverride, SkillProgress
+from app.assignments.models import Assignment, AssignmentOverride, ContentCatalog, SkillProgress
 from app.core.config import settings
 from app.core.security import create_access_token
 from app.core.seed_ids import CASEY_ID
@@ -46,10 +46,11 @@ async def _cleanup_assignment(assignment_id: uuid.UUID) -> None:
         await session.commit()
 
 
-async def _create_assignment(client: AsyncClient) -> uuid.UUID:
-    response = await client.post(
-        "/api/assignments", json={"employee_id": str(CASEY_ID), "skill_id": str(SKILL_DATA_VIZ_ID)}
-    )
+async def _create_assignment(client: AsyncClient, content_id: uuid.UUID | None = None) -> uuid.UUID:
+    payload = {"employee_id": str(CASEY_ID), "skill_id": str(SKILL_DATA_VIZ_ID)}
+    if content_id is not None:
+        payload["content_id"] = str(content_id)
+    response = await client.post("/api/assignments", json=payload)
     assert response.status_code == 201
     return uuid.UUID(response.json()["id"])
 
@@ -392,3 +393,85 @@ async def test_concurrent_set_calls_leave_exactly_one_active_override_row():
             )
         finally:
             await _cleanup_assignment(assignment_id)
+
+
+async def test_concurrent_reversal_and_fresh_watch_progress_no_data_loss():
+    """Story 5.5b AC6 ("State Management During Reversal"): an `unset` firing
+    at the same moment as a fresh watch-position write for the same
+    assignment must not lose either change. Routes the watch-progress side
+    through a direct SkillProgress insert (not the live HTTP endpoint) --
+    progress/router.py's routes are still double-prefixed/unreachable at
+    their documented URL (deferred-work.md, Story 5-2 review), the same
+    reason test_fresh_watch_progress_after_override_shows_both_signals
+    above sidesteps it. asyncio.gather technique copied from
+    test_concurrent_set_calls_leave_exactly_one_active_override_row so both
+    operations genuinely race rather than run sequentially.
+
+    Links a ContentCatalog row with a known duration (pattern copied from
+    test_drill_down_endpoint.py's cross-surface-invariant test) so
+    status_percentage is derived from a real duration instead of being
+    structurally stuck at 0 -- otherwise a percentage assertion here couldn't
+    actually distinguish "the write landed" from "the write was lost"
+    (code review finding, Story 5-5b review)."""
+
+    async def _insert_fresh_progress() -> None:
+        async with _session_factory() as session:
+            session.add(
+                SkillProgress(
+                    assignment_id=assignment_id,
+                    watch_position=120,
+                    event_time=datetime.now(timezone.utc),
+                    verified=True,
+                )
+            )
+            await session.commit()
+
+    content_id = None
+    assignment_id = None
+    async with _client() as client:
+        await _login(client)
+        try:
+            async with _session_factory() as session:
+                content = ContentCatalog(
+                    skill_id=SKILL_DATA_VIZ_ID,
+                    title="AC6 concurrency test content",
+                    description="test",
+                    type="VIDEO",
+                    url="https://youtube.com/watch?v=test-ac6",
+                    embedding=[0.1] * 384,
+                    source="YOUTUBE",
+                    content_metadata={"video_id": "test-ac6", "duration": 300},
+                )
+                session.add(content)
+                await session.commit()
+                content_id = content.id
+
+            assignment_id = await _create_assignment(client, content_id=content_id)
+
+            set_response = await client.post(
+                f"/api/assignments/{assignment_id}/override", json={"action": "set"}
+            )
+            assert set_response.status_code == 200
+
+            unset_response, _ = await asyncio.gather(
+                client.post(f"/api/assignments/{assignment_id}/override", json={"action": "unset"}),
+                _insert_fresh_progress(),
+            )
+            assert unset_response.status_code == 200
+
+            get_response = await client.get(f"/api/assignments/{assignment_id}/progress/drill-down")
+            assert get_response.status_code == 200
+            body = get_response.json()
+            # The reversal took effect (override no longer shadows the signal)...
+            assert body["provenance"] == "Verified"
+            # ...and the fresh watch write was not lost -- 120/300s = 40%, not 0
+            # and not some stale/other value.
+            assert body["status"] == "IN_PROGRESS"
+            assert body["status_percentage"] == 40
+        finally:
+            if assignment_id is not None:
+                await _cleanup_assignment(assignment_id)
+            if content_id is not None:
+                async with _session_factory() as session:
+                    await session.execute(delete(ContentCatalog).where(ContentCatalog.id == content_id))
+                    await session.commit()

@@ -256,6 +256,244 @@ describe("ProvenanceDrillDownModal", () => {
       expect(screen.getByRole("heading", { name: /Mark Casey the Continuer as Ready/ })).toBeInTheDocument();
       expect(screen.getByLabelText(/Reason \(optional\)/)).toHaveValue("Verified in call");
     });
+
+    it("Confirm failure announces the error immediately via role=alert (Story 5-6, AC6)", async () => {
+      vi.mocked(dashboardApi.setOverride).mockRejectedValueOnce(new Error("Server error"));
+      await openConfirmView();
+
+      await userEvent.click(screen.getByRole("button", { name: "Confirm" }));
+
+      await waitFor(() => {
+        expect(screen.getByRole("alert")).toHaveTextContent("Server error");
+      });
+    });
+  });
+
+  describe("Reverse Override confirm flow (Story 5.5b)", () => {
+    async function openReversalConfirmView(overrides: Partial<DrillDownResponse> = {}) {
+      vi.mocked(dashboardApi.getDrillDown).mockResolvedValue(
+        baseResponse({
+          provenance: "HR Override",
+          status: "COMPLETED",
+          override_set_by_name: "Rita the Recommender",
+          override_set_at: new Date("2026-07-09T12:00:00Z").toISOString(),
+          ...overrides,
+        })
+      );
+      render(<ProvenanceDrillDownModal assignmentId="assign-1" open onClose={vi.fn()} />);
+      await waitFor(() => screen.getByRole("button", { name: "Reverse Override" }));
+      await userEvent.click(screen.getByRole("button", { name: "Reverse Override" }));
+    }
+
+    it("clicking Reverse Override opens a confirm view with the override summary and underlying-signal preview", async () => {
+      await openReversalConfirmView({
+        underlying_provenance: "Verified",
+        underlying_status: "IN_PROGRESS",
+        underlying_status_percentage: 65,
+      });
+
+      expect(screen.getByRole("heading", { name: "Remove this HR Override?" })).toBeInTheDocument();
+      // Code review finding, Story 5-5b review: this must render the same
+      // relative-time format the detail view's "Overridden at:" line already
+      // uses (e.g. "3 days ago"), not a raw locale date -- otherwise the same
+      // override_set_at timestamp reads inconsistently across the two views.
+      expect(screen.getByText(/Status: Completed \(set by Rita the Recommender .* ago\)/)).toBeInTheDocument();
+      expect(screen.getByText(/Currently: Watch Progress 65% \(Verified\)/)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Remove Override" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
+    });
+
+    it("shows the no-signal case as a real string, not a blank line, when there's no underlying signal at all", async () => {
+      await openReversalConfirmView({
+        underlying_provenance: null,
+        underlying_status: null,
+        underlying_status_percentage: null,
+      });
+
+      expect(
+        screen.getByText(/Currently: No signal yet — nothing had been watched or reported/)
+      ).toBeInTheDocument();
+    });
+
+    it("Cancel returns to the detail view without calling setOverride, override stays active", async () => {
+      await openReversalConfirmView({ underlying_provenance: "Verified" });
+
+      await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+      expect(screen.getByRole("button", { name: "Reverse Override" })).toBeInTheDocument();
+      expect(dashboardApi.setOverride).not.toHaveBeenCalled();
+    });
+
+    it("Remove Override calls setOverride with 'unset' and no reason argument, updates the view, and reports a signal-aware success message", async () => {
+      const onOverrideChanged = vi.fn();
+      vi.mocked(dashboardApi.getDrillDown).mockResolvedValue(
+        baseResponse({ provenance: "HR Override", status: "COMPLETED", override_set_by_name: "Rita the Recommender" })
+      );
+      vi.mocked(dashboardApi.setOverride).mockResolvedValue(
+        baseResponse({
+          provenance: "Verified",
+          status: "IN_PROGRESS",
+          status_percentage: 65,
+          underlying_provenance: null,
+        })
+      );
+      render(
+        <ProvenanceDrillDownModal
+          assignmentId="assign-1"
+          open
+          onClose={vi.fn()}
+          onOverrideChanged={onOverrideChanged}
+        />
+      );
+      await waitFor(() => screen.getByRole("button", { name: "Reverse Override" }));
+      await userEvent.click(screen.getByRole("button", { name: "Reverse Override" }));
+      await userEvent.click(screen.getByRole("button", { name: "Remove Override" }));
+
+      await waitFor(() => {
+        expect(dashboardApi.setOverride).toHaveBeenCalledWith("assign-1", "unset");
+      });
+      // Confirm view closed, detail view now shows Mark as Ready (provenance is no longer HR Override).
+      await waitFor(() => {
+        expect(screen.getByRole("button", { name: "Mark as Ready" })).toBeInTheDocument();
+      });
+      expect(screen.queryByRole("button", { name: "Reverse Override" })).not.toBeInTheDocument();
+      expect(onOverrideChanged).toHaveBeenCalledWith("Override removed. Status now based on video progress.");
+    });
+
+    it("the toast message reads the response's own provenance, not underlying_provenance (Self-reported branch, previously untested)", async () => {
+      // Fixture deliberately makes response.provenance and
+      // response.underlying_provenance disagree, so this test actually fails
+      // if the code regresses to reading the wrong field (the exact bug this
+      // story's Debug Log documents catching) -- unlike a fixture where both
+      // fields map to the same message, which can't tell the two apart.
+      const onOverrideChanged = vi.fn();
+      vi.mocked(dashboardApi.getDrillDown).mockResolvedValue(
+        baseResponse({ provenance: "HR Override", status: "COMPLETED", override_set_by_name: "Rita the Recommender" })
+      );
+      vi.mocked(dashboardApi.setOverride).mockResolvedValue(
+        baseResponse({ provenance: "Self-reported", underlying_provenance: null })
+      );
+      render(
+        <ProvenanceDrillDownModal
+          assignmentId="assign-1"
+          open
+          onClose={vi.fn()}
+          onOverrideChanged={onOverrideChanged}
+        />
+      );
+      await waitFor(() => screen.getByRole("button", { name: "Reverse Override" }));
+      await userEvent.click(screen.getByRole("button", { name: "Reverse Override" }));
+      await userEvent.click(screen.getByRole("button", { name: "Remove Override" }));
+
+      await waitFor(() => {
+        expect(onOverrideChanged).toHaveBeenCalledWith(
+          "Override removed. Status now based on self-reported progress."
+        );
+      });
+    });
+
+    it("the toast message uses the same self-reported wording for the Needs Attention branch (fallthrough case)", async () => {
+      const onOverrideChanged = vi.fn();
+      vi.mocked(dashboardApi.getDrillDown).mockResolvedValue(
+        baseResponse({ provenance: "HR Override", status: "COMPLETED", override_set_by_name: "Rita the Recommender" })
+      );
+      vi.mocked(dashboardApi.setOverride).mockResolvedValue(
+        baseResponse({ provenance: "Needs Attention", underlying_provenance: null })
+      );
+      render(
+        <ProvenanceDrillDownModal
+          assignmentId="assign-1"
+          open
+          onClose={vi.fn()}
+          onOverrideChanged={onOverrideChanged}
+        />
+      );
+      await waitFor(() => screen.getByRole("button", { name: "Reverse Override" }));
+      await userEvent.click(screen.getByRole("button", { name: "Reverse Override" }));
+      await userEvent.click(screen.getByRole("button", { name: "Remove Override" }));
+
+      await waitFor(() => {
+        expect(onOverrideChanged).toHaveBeenCalledWith(
+          "Override removed. Status now based on self-reported progress."
+        );
+      });
+    });
+
+    it("the toast message falls back to the no-prior-progress wording when the response's provenance is Not Started", async () => {
+      const onOverrideChanged = vi.fn();
+      vi.mocked(dashboardApi.getDrillDown).mockResolvedValue(
+        baseResponse({ provenance: "HR Override", status: "COMPLETED", override_set_by_name: "Rita the Recommender" })
+      );
+      vi.mocked(dashboardApi.setOverride).mockResolvedValue(
+        baseResponse({ provenance: "Not Started", underlying_provenance: null })
+      );
+      render(
+        <ProvenanceDrillDownModal
+          assignmentId="assign-1"
+          open
+          onClose={vi.fn()}
+          onOverrideChanged={onOverrideChanged}
+        />
+      );
+      await waitFor(() => screen.getByRole("button", { name: "Reverse Override" }));
+      await userEvent.click(screen.getByRole("button", { name: "Reverse Override" }));
+      await userEvent.click(screen.getByRole("button", { name: "Remove Override" }));
+
+      await waitFor(() => {
+        expect(onOverrideChanged).toHaveBeenCalledWith(
+          "Override removed. No prior progress recorded — status now shows Not Started."
+        );
+      });
+    });
+
+    it("Remove Override failure shows an error and stays in the confirm view", async () => {
+      vi.mocked(dashboardApi.setOverride).mockRejectedValueOnce(new Error("Server error"));
+      await openReversalConfirmView({ underlying_provenance: "Verified" });
+
+      await userEvent.click(screen.getByRole("button", { name: "Remove Override" }));
+
+      await waitFor(() => {
+        expect(screen.getByText("Server error")).toBeInTheDocument();
+      });
+      expect(screen.getByRole("heading", { name: "Remove this HR Override?" })).toBeInTheDocument();
+    });
+
+    it("a stale response (assignment switched mid-request) does not overwrite what's now on screen", async () => {
+      let resolveFirst: (value: DrillDownResponse) => void;
+      const firstCallPromise = new Promise<DrillDownResponse>((resolve) => {
+        resolveFirst = resolve;
+      });
+      vi.mocked(dashboardApi.getDrillDown).mockResolvedValue(
+        baseResponse({
+          provenance: "HR Override",
+          status: "COMPLETED",
+          override_set_by_name: "Rita the Recommender",
+          underlying_provenance: "Verified",
+        })
+      );
+      vi.mocked(dashboardApi.setOverride).mockReturnValueOnce(firstCallPromise);
+      const { rerender } = render(<ProvenanceDrillDownModal assignmentId="assign-1" open onClose={vi.fn()} />);
+      await waitFor(() => screen.getByRole("button", { name: "Reverse Override" }));
+      await userEvent.click(screen.getByRole("button", { name: "Reverse Override" }));
+      await userEvent.click(screen.getByRole("button", { name: "Remove Override" }));
+
+      // Re-render the same instance with a different assignmentId while the
+      // first reversal request is still in flight -- mirrors the modal being
+      // reused for a second row before the first submit resolves.
+      vi.mocked(dashboardApi.getDrillDown).mockResolvedValue(
+        baseResponse({ provenance: "HR Override", status: "COMPLETED", override_set_by_name: "Someone Else" })
+      );
+      rerender(<ProvenanceDrillDownModal assignmentId="assign-2" open onClose={vi.fn()} />);
+      await waitFor(() => screen.getByText(/Overridden by: Someone Else/));
+
+      resolveFirst!(baseResponse({ provenance: "Verified" }));
+
+      // The late response from the first (now-stale) request must not clobber
+      // the second assignment's currently-displayed HR Override state.
+      await waitFor(() => {
+        expect(screen.getByText(/Overridden by: Someone Else/)).toBeInTheDocument();
+      });
+    });
   });
 
   it("shows an error state with retry on fetch failure", async () => {
@@ -274,33 +512,32 @@ describe("ProvenanceDrillDownModal", () => {
     });
   });
 
+  it("announces fetch errors immediately via role=alert (Story 5-6, AC6)", async () => {
+    vi.mocked(dashboardApi.getDrillDown).mockRejectedValueOnce(new Error("Network error"));
+    render(<ProvenanceDrillDownModal assignmentId="assign-1" open onClose={vi.fn()} />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toHaveTextContent("Network error");
+    });
+  });
+
   it("Story 5.5: Mark as Ready is visible and enabled when Provenance is not HR Override; Reverse Override stays visible-but-disabled (Story 5.5b's job)", async () => {
     vi.mocked(dashboardApi.getDrillDown).mockResolvedValue(baseResponse());
     render(<ProvenanceDrillDownModal assignmentId="assign-1" open onClose={vi.fn()} />);
 
     await waitFor(() => {
       expect(screen.getByRole("button", { name: "Mark as Ready" })).toBeEnabled();
-      expect(screen.getByRole("button", { name: /Available once HR Override reversal is built/i })).toBeDisabled();
+      expect(screen.queryByRole("button", { name: "Reverse Override" })).not.toBeInTheDocument();
     });
   });
 
-  it("Story 5.5/Finding 4: Mark as Ready is absent entirely on an HR Override row (mutually exclusive with Reverse Override)", async () => {
+  it("Story 5.5b: Mark as Ready is absent entirely on an HR Override row; Reverse Override is visible and enabled instead", async () => {
     vi.mocked(dashboardApi.getDrillDown).mockResolvedValue(baseResponse({ provenance: "HR Override" }));
     render(<ProvenanceDrillDownModal assignmentId="assign-1" open onClose={vi.fn()} />);
 
     await waitFor(() => {
       expect(screen.queryByRole("button", { name: "Mark as Ready" })).not.toBeInTheDocument();
-      expect(screen.getByRole("button", { name: /Available once HR Override reversal is built/i })).toBeDisabled();
-    });
-  });
-
-  it("Reverse Override is rendered disabled for HR Override rows", async () => {
-    vi.mocked(dashboardApi.getDrillDown).mockResolvedValue(baseResponse({ provenance: "HR Override" }));
-    render(<ProvenanceDrillDownModal assignmentId="assign-1" open onClose={vi.fn()} />);
-
-    await waitFor(() => {
-      const button = screen.getByRole("button", { name: /Available once HR Override reversal is built/i });
-      expect(button).toBeDisabled();
+      expect(screen.getByRole("button", { name: "Reverse Override" })).toBeEnabled();
     });
   });
 
@@ -324,6 +561,77 @@ describe("ProvenanceDrillDownModal", () => {
     await waitFor(() => screen.getByRole("button", { name: /^close$/i }));
     await userEvent.click(screen.getByRole("button", { name: /^close$/i }));
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("Story 5-6, AC3: opens with focus inside the panel and aria-labelledby resolving to the visible title text", async () => {
+    vi.mocked(dashboardApi.getDrillDown).mockResolvedValue(baseResponse());
+    render(<ProvenanceDrillDownModal assignmentId="assign-1" open onClose={vi.fn()} />);
+
+    await waitFor(() => screen.getByRole("dialog"));
+
+    const dialog = screen.getByRole("dialog");
+    // Dialog.tsx moves focus to the panel itself (tabIndex={-1}) on open --
+    // verify the panel is where focus actually lands, and that its
+    // aria-labelledby resolves to the currently-visible title text (per
+    // WAI-ARIA APG, aria-labelledby is announced regardless of which element
+    // inside the dialog holds focus -- confirmed here, not just assumed).
+    expect(document.activeElement).toBe(dialog);
+    const labelledById = dialog.getAttribute("aria-labelledby");
+    expect(labelledById).toBeTruthy();
+    const titleEl = document.getElementById(labelledById!);
+    expect(titleEl).toHaveTextContent("Casey the Continuer — Data Visualization");
+  });
+
+  it("Story 5-6 code review: the now-focusable Status badge is correctly included in the modal's Tab-wrap cycle (Dialog.tsx's focus trap, Story 5.2)", async () => {
+    vi.mocked(dashboardApi.getDrillDown).mockResolvedValue(baseResponse());
+    render(<ProvenanceDrillDownModal assignmentId="assign-1" open onClose={vi.fn()} />);
+
+    await waitFor(() => screen.getByRole("button", { name: "Mark as Ready" }));
+
+    const badge = screen.getByRole("status");
+    const markAsReady = screen.getByRole("button", { name: "Mark as Ready" });
+    const closeButton = screen.getByRole("button", { name: /^close$/i });
+
+    // Forward order from the panel: badge (first) -> Mark as Ready -> Close (last).
+    await userEvent.tab();
+    expect(document.activeElement).toBe(badge);
+    await userEvent.tab();
+    expect(document.activeElement).toBe(markAsReady);
+    await userEvent.tab();
+    expect(document.activeElement).toBe(closeButton);
+
+    // Tab past the last element wraps back to the badge (first), not out of the modal.
+    await userEvent.tab();
+    expect(document.activeElement).toBe(badge);
+
+    // Shift+Tab from the first element (badge) wraps to the last (Close).
+    await userEvent.tab({ shift: true });
+    expect(document.activeElement).toBe(closeButton);
+  });
+
+  it("Story 5-6 code review round 2: the Tab-wrap cycle is also correct for HR Override rows, where [Mark as Ready] is absent (only 2 focusable elements: badge, Close)", async () => {
+    vi.mocked(dashboardApi.getDrillDown).mockResolvedValue(baseResponse({ provenance: "HR Override" }));
+    render(<ProvenanceDrillDownModal assignmentId="assign-1" open onClose={vi.fn()} />);
+
+    await waitFor(() => screen.getByRole("button", { name: /^close$/i }));
+    expect(screen.queryByRole("button", { name: "Mark as Ready" })).not.toBeInTheDocument();
+
+    const badge = screen.getByRole("status");
+    const closeButton = screen.getByRole("button", { name: /^close$/i });
+
+    // Forward order: badge (first) -> Close (last, only 2 focusable elements).
+    await userEvent.tab();
+    expect(document.activeElement).toBe(badge);
+    await userEvent.tab();
+    expect(document.activeElement).toBe(closeButton);
+
+    // Tab past the last element wraps back to the badge.
+    await userEvent.tab();
+    expect(document.activeElement).toBe(badge);
+
+    // Shift+Tab from the first element wraps to the last.
+    await userEvent.tab({ shift: true });
+    expect(document.activeElement).toBe(closeButton);
   });
 
   it("Escape key calls onClose (via the shared Dialog primitive)", async () => {
