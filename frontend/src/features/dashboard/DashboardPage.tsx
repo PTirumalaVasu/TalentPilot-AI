@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, useImperativeHandle, forwardRef } from "react";
 import { dashboardApi } from "../../lib/api/dashboardApi";
 import { AssignmentRow } from "../../types/dashboard";
-import { DashboardRow } from "./DashboardRow";
 import { ProvenanceDrillDownModal } from "./ProvenanceDrillDownModal";
 import { Toast } from "../../components/ui/toast";
 
