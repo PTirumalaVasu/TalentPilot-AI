@@ -15,7 +15,12 @@ vi.mock('react-router-dom', async () => {
 
 vi.mock('@/lib/api/authApi', () => ({
   logout: vi.fn().mockResolvedValue(undefined),
-  getCurrentUser: vi.fn().mockRejectedValue({ isAxiosError: true, response: { status: 401 } }),
+  getMe: vi.fn().mockResolvedValue({
+    user_id: 'e1',
+    role: 'EMPLOYEE',
+    name: 'Casey the Continuer',
+    email: 'casey@sails.example.com',
+  }),
 }));
 
 vi.mock('@/lib/api/assignmentsApi', () => ({

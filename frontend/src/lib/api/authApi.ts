@@ -7,6 +7,13 @@ export interface LoginResponse {
   user_id: string;
 }
 
+export interface MeResponse {
+  role: Role;
+  user_id: string;
+  name: string;
+  email: string;
+}
+
 /** Matches backend/app/core/errors.py's centralized error contract. */
 export interface ApiErrorBody {
   status: 'error';
@@ -24,8 +31,7 @@ export async function logout(): Promise<void> {
   await apiClient.post('/api/auth/logout');
 }
 
-/** Resolves the session from the HttpOnly cookie, or rejects (401) if absent/expired. */
-export async function getCurrentUser(): Promise<LoginResponse> {
-  const response = await apiClient.get<LoginResponse>('/api/auth/me', { timeout: 8000 });
+export async function getMe(): Promise<MeResponse> {
+  const response = await apiClient.get<MeResponse>('/api/auth/me');
   return response.data;
 }

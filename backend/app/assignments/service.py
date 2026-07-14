@@ -13,6 +13,7 @@ from app.assignments.repository import (
     create_assignment,
     find_existing_assignment,
     get_assignment_scoped_to_hr_admin,
+    get_employee_by_id,
     list_assignments_for_dashboard,
     list_assignments_for_employee,
     list_assignments_for_hr,
@@ -58,6 +59,17 @@ class AssignmentsService:
 async def list_employees_service(session: AsyncSession, *, search: str | None = None) -> list[EmployeeResponse]:
     employees = await list_employees(session, search=search)
     return [EmployeeResponse.model_validate(employee) for employee in employees]
+
+
+async def get_employee_by_id_service(session: AsyncSession, employee_id: uuid.UUID) -> EmployeeResponse | None:
+    """Resolves one employee's own directory record by id -- used by the auth
+    module's GET /api/auth/me to answer "who am I" for the logged-in session
+    (AD-1: employees is this module's table, so auth reaches it through here
+    rather than querying directly)."""
+    employee = await get_employee_by_id(session, employee_id)
+    if employee is None:
+        return None
+    return EmployeeResponse.model_validate(employee)
 
 async def list_skills_service(session: AsyncSession, *, search: str | None = None) -> list[SkillResponse]:
     skills = await list_skills(session, search=search)
