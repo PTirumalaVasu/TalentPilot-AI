@@ -22,7 +22,7 @@ const POLL_INTERVAL_MS = 12000;
 // emoji-free convention for anything that must actually render a color.
 function TrashIcon() {
   return (
-    <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4" aria-hidden="true">
+    <svg viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5" aria-hidden="true">
       <path
         fillRule="evenodd"
         d="M8.75 1a.75.75 0 00-.75.75V3H4.5a.75.75 0 000 1.5h.352l.622 10.579A2.75 2.75 0 008.22 17.5h3.56a2.75 2.75 0 002.746-2.421L15.148 4.5H15.5a.75.75 0 000-1.5H12v-1.25a.75.75 0 00-.75-.75h-2.5zM10 4.5H8.5V2.5h3v2H10zM6.856 4.5h6.288l-.61 10.394a1.25 1.25 0 01-1.248 1.106H8.22a1.25 1.25 0 01-1.248-1.106L6.856 4.5zM8.5 7a.75.75 0 01.75.75v5a.75.75 0 01-1.5 0v-5A.75.75 0 018.5 7zm3 0a.75.75 0 01.75.75v5a.75.75 0 01-1.5 0v-5A.75.75 0 0111.5 7z"
@@ -485,7 +485,7 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
                       </thead>
                       <tbody>
                         {(groupedAssignments.get(employeeName) || []).map((row) => (
-                          <tr key={row.assignment_id} className="border-b border-gray-200 hover:bg-white transition-colors">
+                          <tr key={row.assignment_id} className="border-b border-gray-200 hover:bg-gray-100 transition-colors">
                             <td className="px-3 py-2">{row.skill_name}</td>
                             <td className="px-3 py-2">
                               <div className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium" role="status">
@@ -528,8 +528,9 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
                             <td className="px-3 py-2">
                               <button
                                 onClick={() => handleDeleteClick(row)}
-                                className="inline-flex items-center justify-center w-7 h-7 rounded text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors"
+                                className="inline-flex items-center justify-center w-9 h-9 rounded-full text-red-600 hover:bg-red-100 hover:text-red-700 transition-colors"
                                 aria-label={`Remove assignment for ${row.employee_name} ${row.skill_name}`}
+                                title="Delete"
                               >
                                 <TrashIcon />
                               </button>
