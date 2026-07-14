@@ -32,6 +32,6 @@ export async function logout(): Promise<void> {
 }
 
 export async function getMe(): Promise<MeResponse> {
-  const response = await apiClient.get<MeResponse>('/api/auth/me');
+  const response = await apiClient.get<MeResponse>('/api/auth/me', { timeout: 8000 });
   return response.data;
 }
