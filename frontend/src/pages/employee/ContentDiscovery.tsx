@@ -207,11 +207,11 @@ export function ContentDiscovery() {
             <nav className="flex gap-6 text-sm">
               <button
                 onClick={handleCloseVideo}
-                className="text-talentpilot-600 font-medium hover:text-talentpilot-700"
+                className="text-gray-400 hover:text-gray-600 transition-colors"
               >
                 Assignments
               </button>
-              <span className="text-gray-600">Continue Watching</span>
+              <span className="text-talentpilot-600 font-medium border-b-2 border-talentpilot-600 pb-3 -mb-3">Continue Watching</span>
             </nav>
           </div>
           <UserMenuButton
@@ -251,8 +251,8 @@ export function ContentDiscovery() {
         <div className="flex items-center gap-8">
           <span className="font-bold text-lg text-gray-900">TalentPilot-AI</span>
           <nav className="flex gap-6 text-sm">
-            <span className="text-talentpilot-600 font-medium">Assignments</span>
-            <span className="text-gray-400">Continue Watching</span>
+            <span className="text-talentpilot-600 font-medium border-b-2 border-talentpilot-600 pb-3 -mb-3">Assignments</span>
+            <span className="text-gray-400 cursor-not-allowed">Continue Watching</span>
           </nav>
         </div>
         <UserMenuButton

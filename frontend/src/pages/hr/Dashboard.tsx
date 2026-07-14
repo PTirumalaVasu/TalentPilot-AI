@@ -34,7 +34,7 @@ export function Dashboard() {
           </div>
           <nav className="flex gap-6 text-sm">
             <a href="#" className="text-blue-600 font-medium border-b-2 border-blue-600 pb-3 -mb-3">Dashboard</a>
-            <a href="#" className="text-gray-600 hover:text-gray-900 pb-3 -mb-3 transition-colors">Assignments</a>
+            <a href="#" className="text-gray-600 hover:text-gray-900 pb-3 -mb-3 transition-colors">Skills</a>
           </nav>
         </div>
         <div className="relative">
