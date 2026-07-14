@@ -14,6 +14,7 @@ from app.assignments.schemas import (
 )
 from app.assignments.service import (
     create_assignment_service,
+    delete_assignment_service,
     duplicate_check_service,
     get_drill_down_service,
     list_employees_service,
@@ -82,6 +83,20 @@ async def create_assignment_route(
     """Creates an Assignment (Story 3.4 AC1/AC9) — HR_ADMIN-only via
     create_assignment_service's require_hr_admin gate (Story 3.1 AC4)."""
     return await create_assignment_service(session, current_user=current_user, request=request)
+
+
+@router.delete("/{assignment_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_assignment_route(
+    assignment_id: UUID,
+    current_user: CurrentUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+) -> None:
+    """Soft-deletes an Assignment (Story 3.7, FR-15) -- HR_ADMIN-only via
+    delete_assignment_service's require_hr_admin gate, hard-scoped to
+    assignments the caller created. Row is never physically removed; see
+    delete_assignment_service's docstring for the soft-delete/idempotency
+    contract."""
+    await delete_assignment_service(session, current_user=current_user, assignment_id=assignment_id)
 
 
 @router.get("/{assignment_id}/progress/drill-down", response_model=DrillDownResponse)

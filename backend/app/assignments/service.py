@@ -16,6 +16,7 @@ from app.assignments.repository import (
     list_assignments_for_hr,
     list_employees,
     list_skills,
+    soft_delete_assignment,
 )
 from app.assignments.schemas import (
     AssignmentContentItem,
@@ -198,6 +199,33 @@ async def set_override_service(
         video_duration=video_duration,
     )
     return _provenance_detail_to_drill_down_response(assignment, detail)
+
+
+async def delete_assignment_service(
+    session: AsyncSession, *, current_user: CurrentUser, assignment_id: uuid.UUID
+) -> None:
+    """Soft-delete an Assignment (Story 3.7, FR-15). HR_ADMIN-only,
+    hard-scoped to assignments the caller created -- identical scoping to
+    get_drill_down_service/set_override_service (same uniform 403 for
+    not-found/not-owned). Succeeds regardless of the Assignment's Status or
+    whether it carries an active HR Override -- no state-based restriction
+    (sprint-change-proposal-2026-07-13.md, "no restriction" decision).
+
+    Idempotent (AC7): re-deleting an already-inactive Assignment is a 204
+    no-op -- it does not overwrite the original deleted_at/deleted_by with a
+    second delete's values. Chosen over a 404/409 since there's no existing
+    precedent in this codebase for a stricter "already deleted" error, and a
+    no-op is simpler for a caller that double-clicks or retries."""
+    require_hr_admin(current_user)
+
+    assignment = await get_assignment_scoped_to_hr_admin(
+        session, assignment_id=assignment_id, hr_admin_id=_parse_user_id(current_user)
+    )
+    if assignment is None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No access to this assignment")
+
+    if assignment.active:
+        await soft_delete_assignment(session, assignment=assignment, deleted_by=_parse_user_id(current_user))
 
 
 async def list_assignment_rows_for_dashboard_service(

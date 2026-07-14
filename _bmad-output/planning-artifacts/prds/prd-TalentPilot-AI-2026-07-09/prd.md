@@ -65,7 +65,7 @@ These three journeys were already designed as UX scenarios and built as working 
 - **Employee** — The secondary user role (persona: Casey). Receives skill assignments, consumes recommended content, generates watch-progress signal passively.
 - **Session** — The authenticated context established after HR Admin or Employee login, carried via a JWT in an HTTP-only/Secure/SameSite cookie (see `addendum.md`, Technical Stack). Required before any Assignment, Content, or Watch Progress data is reachable (FR-13); scoped to exactly one role and, for Employees, exactly one identity (FR-14).
 - **Skill** — A named competency HR can assign to an Employee (e.g., "Data Visualization"). Distinct from a **sub-skill**, a finer-grained status field that remains self-reported (out of MVP auto-capture scope).
-- **Assignment** — A record linking one Employee to one Skill, created by an HR Admin. Carries a Status badge (Not Started → In Progress → Completed) and, one level down via drill-down, a Provenance Label.
+- **Assignment** — A record linking one Employee to one Skill, created by an HR Admin. Carries a Status badge (Not Started → In Progress → Completed) and, one level down via drill-down, a Provenance Label. An HR Admin can remove an Assignment (FR-15, added via `bmad-correct-course`, 2026-07-13); removal is a soft delete — the Assignment disappears from both the Dashboard and the Employee's Content Discovery list, but the underlying record and any watch-progress/override history are retained for audit, never physically deleted.
 - **Content** — A video, document, or website recommended for a given Skill. Only video content is auto-captured in MVP; document/website content is recommended but not progress-tracked.
 - **Watch Progress** — The percentage of a video an Employee has watched, captured automatically from actual playback behavior, never typed in.
 - **Status** — The primary at-a-glance completion badge shown on every dashboard row: **Not Started**, **In Progress**, or **Completed**, computed from Watch Progress percentage (0% / 1–99% / 100%). Answers "how far along," not "how much do I trust this" — that's the Provenance Label's job, one level down via drill-down (FR-9).
@@ -101,6 +101,17 @@ During the assignment flow, the system surfaces its matched Content recommendati
 
 **Consequences (testable):**
 - If no matching Content exists for a Skill, the flow allows the HR Admin to assign the Skill without Content, rather than blocking the assignment ("No approved content found yet for this skill. [Choose Different Content] or assign without content.").
+
+#### FR-15: HR Admin removes an Assignment from the Dashboard
+
+`[ADDED 2026-07-13 via bmad-correct-course — not in original PRD scope; surfaced from live dashboard use, not an original UJ.]` HR Admin can remove an Assignment from the Readiness Dashboard via a delete control on the row, after confirming the action.
+
+**Consequences (testable):**
+- Deletion is soft: the Assignment row is hidden from the Dashboard and from the Employee's Content Discovery list; the underlying `assignments`, `skill_progress`, and `assignment_overrides` records are retained for audit, never physically removed.
+- A confirmation step is always required before delete executes; canceling leaves the Assignment untouched.
+- If the Assignment has recorded watch progress, the confirmation copy explicitly names the recorded percentage before HR confirms; a Not Started Assignment gets plain confirmation copy.
+- Any Assignment is deletable regardless of Status (Not Started / In Progress / Completed) or whether it carries an active HR Override.
+- No restore/undo path exists in the product UI for this capability; recovery, if ever needed, is a database-level operation outside product scope.
 
 ### 4.2 AI-Assisted Content Discovery
 
@@ -257,7 +268,7 @@ An HR Admin session can reach the Readiness Dashboard and Skill Assignment Flow;
 
 ### 6.1 In Scope
 
-- HR Skill Assignment Flow (FR-1, FR-2)
+- HR Skill Assignment Flow (FR-1, FR-2, FR-15)
 - AI-Assisted Content Discovery, video/doc/website recommendations (FR-3, FR-4)
 - Automatic Video Progress Capture & Resume, bundled as one mechanic (FR-5, FR-6, FR-7)
 - Readiness Dashboard — Status badges at a glance, Provenance Label + Needs Attention on drill-down, HR manual override (FR-8, FR-9, FR-10, FR-11, FR-12)

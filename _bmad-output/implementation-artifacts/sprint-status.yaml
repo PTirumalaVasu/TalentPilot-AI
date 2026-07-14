@@ -41,7 +41,10 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-09
-last_updated: 2026-07-13 (epic-2/epic-4 status-drift fix: both flipped in-progress -> done)
+last_updated: 2026-07-14 (story 3-7 implemented, status -> review)
+# sprint-change-proposal-2026-07-13.md (bmad-correct-course): new capability -- HR Admin delete/soft-delete of a Skill Assignment from the dashboard, never in original PRD/epics.md scope. Added Story 3-7 (assignments soft-delete data model + API, backend) and Story 5-7 (delete-assignment dashboard row action, frontend) as backlog.
+# story 3-7 marked ready-for-dev 2026-07-13 (bmad-create-story): schema (active/deleted_at/deleted_by + index on assignments, mirrors assignment_overrides.active from Story 5.5b), DELETE /api/assignments/{id} endpoint (HR-Admin-only, scoped to assigned_by == caller), and active=true filters added to 4 existing read call sites (list_assignments_for_dashboard, list_assignments_for_employee, list_assignments_for_hr, find_existing_assignment). epic-3 flipped done -> in-progress (reopened by this new story). epic-5 remains 'done' until Story 5-7 is created next.
+# story 3-7 implemented 2026-07-14 (bmad-dev-story): migration 003 applied and verified against real Postgres (active/deleted_at/deleted_by backfilled correctly); DELETE /api/assignments/{id} added (delete_assignment_service mirrors set_override_service's scoping, idempotent no-op on double-delete); all 4 read call sites filtered to active=true. 11 new tests (test_assignment_delete.py) all passing; zero regressions in the rest of the assignments module (pre-existing cross-file asyncpg pool-corruption pattern reproduced as expected, every file verified passing in isolation). Hit and recovered from a Docker Desktop networking hang mid-session (user restarted Docker Desktop). Found and cleaned up one pre-existing orphaned test-data row (confirmed via git stash unrelated to this story). Status -> review.
 # story 1-1 marked ready-for-dev 2026-07-09 (bmad-create-story); epic-1 auto-transitioned to in-progress
 # story 1-1 completed and merged to main via PR #25 2026-07-09; story 1-2 marked ready-for-dev 2026-07-09 (bmad-create-story)
 # stories 1-2/1-3/1-4 completed and merged to main via PR #27 2026-07-09; story 1-5 marked ready-for-dev 2026-07-09 (bmad-create-story)
@@ -170,13 +173,14 @@ development_status:
   2-6-empty-and-error-states-for-content-discovery: done
   epic-2-retrospective: done
 
-  epic-3: done
+  epic-3: in-progress
   3-1-assignments-data-model-and-hr-admin-scope: done
   3-2-skill-master-data-and-seed: done
   3-3-employee-master-data-and-seed: done
   3-4-hr-assignment-flow-multi-step-modal-employee-and-skill-selection: done
   3-5-assignment-creation-and-immediate-dashboard-appearance: done
   3-6-cancel-assignment-flow-leaves-no-orphaned-record: done
+  3-7-assignment-soft-delete-data-model-and-api: review
   epic-3-retrospective: done
 
   epic-4: done
@@ -197,6 +201,7 @@ development_status:
   5-5-hr-override-manual-readiness-confirmation: done
   5-5b-hr-override-reversal-undo-manual-confirmation: done
   5-6-accessibility-and-real-time-announcements: done
+  5-7-delete-assignment-dashboard-row-action: backlog
   epic-5-retrospective: done
 
 action_items:

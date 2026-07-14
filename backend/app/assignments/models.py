@@ -86,10 +86,14 @@ class Assignment(Base):
     content_id = Column(UUID(as_uuid=True), ForeignKey("content_catalog.id"), nullable=True)
     assigned_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     assigned_by = Column(UUID(as_uuid=True), ForeignKey("employees.id"), nullable=False)
+    active = Column(Boolean, default=True, nullable=False)
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
+    deleted_by = Column(UUID(as_uuid=True), ForeignKey("employees.id"), nullable=True)
 
     # Relationships
     employee = relationship("Employee", back_populates="assignments", foreign_keys=[employee_id])
     assigned_by_user = relationship("Employee", back_populates="assignments_created", foreign_keys=[assigned_by])
+    deleted_by_user = relationship("Employee", foreign_keys=[deleted_by])
     skill = relationship("Skill", back_populates="assignments")
     content = relationship("ContentCatalog", back_populates="assignments")
     progress = relationship("SkillProgress", back_populates="assignment", uselist=False)
@@ -98,6 +102,7 @@ class Assignment(Base):
     __table_args__ = (
         Index("idx_assignments_employee", "employee_id"),
         Index("idx_assignments_skill", "skill_id"),
+        Index("idx_assignments_active", "active"),
     )
 
 
