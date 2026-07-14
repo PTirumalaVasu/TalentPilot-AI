@@ -9,6 +9,9 @@ vi.mock('axios', () => ({
   default: {
     create: vi.fn(() => ({
       interceptors: { response: { use: responseUseMock } },
+      get: vi.fn(() =>
+        Promise.reject({ isAxiosError: true, response: { status: 401 } })
+      ),
     })),
     isAxiosError: (err: unknown) =>
       typeof err === 'object' &&
@@ -76,10 +79,10 @@ function renderApp(initialPath: string) {
 }
 
 describe('RequireAuth', () => {
-  it('redirects an unauthenticated visit straight to /login, never rendering protected content', () => {
+  it('redirects an unauthenticated visit straight to /login, never rendering protected content', async () => {
     renderApp('/protected');
 
-    expect(screen.getByText('LOGIN PAGE')).toBeInTheDocument();
+    expect(await screen.findByText('LOGIN PAGE')).toBeInTheDocument();
     expect(screen.queryByText('PROTECTED CONTENT')).not.toBeInTheDocument();
   });
 
