@@ -41,7 +41,15 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-09
-last_updated: 2026-07-13 (epic-2/epic-4 status-drift fix: both flipped in-progress -> done)
+last_updated: 2026-07-14 (story 5-7 code review complete, status -> done; epic-5 flipped in-progress -> done, all 8 stories complete)
+# story 5-7 code review completed 2026-07-14 (bmad-code-review, 3 parallel layers -- Blind Hunter, Edge Case Hunter, Acceptance Auditor): 1 decision-needed resolved (kept fetchDashboard() re-fetch per user choice); 8 patches applied (DeleteAssignmentModal state-reset-on-open effect fixing a real Cancel/Confirm-stuck-disabled-forever bug reachable via Escape mid-flight, simultaneous-modal guard, row-data snapshot replacing live derivation immune to poll/concurrent-delete races, page-clamp after delete, deduplicated modal JSX, direct Total-count assertion test, red-tinted-background delete icon independent of emoji glyph coloring, expanded Debug Log transcription); 2 deferred (accordion-collapse-on-refetch, refetch-failure-masks-success -- both confirmed pre-existing/shared with Mark-as-Ready since Story 5.5); 3 dismissed. Full regression re-verified: tsc --noEmit zero new errors, vite build clean, full suite re-run twice to rule out flakiness (one run showed 4 extra failures under parallel-execution resource contention; second run matched git-stash baseline byte-for-byte). Status -> done. epic-5 all 8 stories now done -> epic-5 done.
+# story 5-7 implemented 2026-07-14 (bmad-dev-story): dashboardApi.deleteAssignment(), new DeleteAssignmentModal component (progress-aware confirmation copy, built on the existing Dialog primitive), delete icon wired into DashboardPage.tsx's real live grid. 13 new tests, all passing; zero new regressions against a pre-existing, git-stash-confirmed baseline of 20 failing frontend tests (documented in story's Debug Log -- substantially more than Story 5.6's claimed "2"). tsc --noEmit zero new errors; vite build clean (513 modules). Live-browser verification via one-off Playwright script (Chromium installed ad hoc, cleaned up after use): full create->delete->verify lifecycle confirmed working, zero console errors. Status -> review.
+# story 5-7 marked ready-for-dev 2026-07-14 (bmad-create-story): frontend half of the delete-assignment capability (Story 3.7 backend already done) -- red bin delete icon + confirmation modal (progress-aware copy) + row removal, wired into DashboardPage.tsx's real live grid (NOT DashboardRow.tsx/AssignmentsList.tsx, both confirmed dead code). Critical discovery during authoring: DashboardRow.tsx is imported into DashboardPage.tsx but never rendered -- Story 5.6's stale-row-highlighting AC9 is invisible in the actual running app despite being marked done. Logged as its own deferred-work.md item, out of Story 5.7's scope. epic-5 flipped done -> in-progress (reopened by this new story).
+# sprint-change-proposal-2026-07-13.md (bmad-correct-course): new capability -- HR Admin delete/soft-delete of a Skill Assignment from the dashboard, never in original PRD/epics.md scope. Added Story 3-7 (assignments soft-delete data model + API, backend) and Story 5-7 (delete-assignment dashboard row action, frontend) as backlog.
+# story 3-7 marked ready-for-dev 2026-07-13 (bmad-create-story): schema (active/deleted_at/deleted_by + index on assignments, mirrors assignment_overrides.active from Story 5.5b), DELETE /api/assignments/{id} endpoint (HR-Admin-only, scoped to assigned_by == caller), and active=true filters added to 4 existing read call sites (list_assignments_for_dashboard, list_assignments_for_employee, list_assignments_for_hr, find_existing_assignment). epic-3 flipped done -> in-progress (reopened by this new story). epic-5 remains 'done' until Story 5-7 is created next.
+# story 3-7 implemented 2026-07-14 (bmad-dev-story): migration 003 applied and verified against real Postgres (active/deleted_at/deleted_by backfilled correctly); DELETE /api/assignments/{id} added (delete_assignment_service mirrors set_override_service's scoping, idempotent no-op on double-delete); all 4 read call sites filtered to active=true. 11 new tests (test_assignment_delete.py) all passing; zero regressions in the rest of the assignments module (pre-existing cross-file asyncpg pool-corruption pattern reproduced as expected, every file verified passing in isolation). Hit and recovered from a Docker Desktop networking hang mid-session (user restarted Docker Desktop). Found and cleaned up one pre-existing orphaned test-data row (confirmed via git stash unrelated to this story). Status -> review.
+# story 3-7 code review completed 2026-07-14 (bmad-code-review, 3 parallel layers -- Blind Hunter, Edge Case Hunter, Acceptance Auditor): 0 AC violations; 1 decision-needed (progress-capture/resume path not filtered by active -- user chose to fix now: progress/repository.py's _build_assignment_query/get_assignment_with_scope now exclude soft-deleted assignments, new 12th test added); 5 patches applied (atomic conditional-UPDATE idempotency fix closing a real concurrent-double-DELETE race, Assignment.active model column gained matching server_default, deleted_by_user relationship gained its reciprocal Employee pair, list_assignments_for_hr's duplicated active filter consolidated, sprint-change-proposal's idx_overrides_active partial-index misdescription corrected); 1 deferred (pre-existing offset-pagination drift characteristic, logged in deferred-work.md); 5 dismissed. 24/24 tests passing after patches (one more recurring stray dev-DB row cleaned up, same pre-existing class confirmed via git stash). Status -> done. epic-3 all 7 stories now done -> epic-3 done.
+# story 3-7 round-2 code review completed 2026-07-14 (bmad-code-review, user-requested re-review of round-1 fixes, same 3 layers): 0 AC violations, 0 decision-needed; 3 patches applied (soft_delete_assignment's discarded bool return value now logged, Assignment.active's Python-side default=True restored alongside server_default -- was replaced not supplemented in round 1, round-1's new test strengthened to assert verified=True on its pre-delete baseline); 3 deferred to deferred-work.md (narrow TOCTOU window on the progress-capture fix, AssignmentOverride.active still lacking matching server_default -- out of this story's module scope, soft_delete_assignment's atomic UPDATE not re-checking assigned_by -- not currently exploitable); 8 dismissed. 24/24 tests passing. Status remains done.
 # story 1-1 marked ready-for-dev 2026-07-09 (bmad-create-story); epic-1 auto-transitioned to in-progress
 # story 1-1 completed and merged to main via PR #25 2026-07-09; story 1-2 marked ready-for-dev 2026-07-09 (bmad-create-story)
 # stories 1-2/1-3/1-4 completed and merged to main via PR #27 2026-07-09; story 1-5 marked ready-for-dev 2026-07-09 (bmad-create-story)
@@ -178,6 +186,7 @@ development_status:
   3-4-hr-assignment-flow-multi-step-modal-employee-and-skill-selection: done
   3-5-assignment-creation-and-immediate-dashboard-appearance: done
   3-6-cancel-assignment-flow-leaves-no-orphaned-record: done
+  3-7-assignment-soft-delete-data-model-and-api: done
   epic-3-retrospective: done
 
   epic-4: done
@@ -198,6 +207,7 @@ development_status:
   5-5-hr-override-manual-readiness-confirmation: done
   5-5b-hr-override-reversal-undo-manual-confirmation: done
   5-6-accessibility-and-real-time-announcements: done
+  5-7-delete-assignment-dashboard-row-action: done
   epic-5-retrospective: done
 
 action_items:
@@ -254,4 +264,12 @@ action_items:
   - epic: 2
     action: "Add a 'does the checked task-box actually have a covering test' self-check to the dev-story workflow before sending a story to review -- recurred 4x in Epic 2 alone (2.1/2.2/2.5/2.6)."
     owner: "Amelia (dev-story workflow)"
+    status: open
+  - epic: 5
+    action: "DashboardRow.tsx is imported into DashboardPage.tsx but never rendered (DashboardPage.tsx builds its rows from separate inline JSX) -- Story 5.6's stale-row-highlighting AC9 (StatusBadge integration, red highlight + 'Not updated in X days' text) is invisible in the actual running app despite Story 5.6 being marked done. Discovered during Story 5.7's authoring/implementation, out of that story's scope to fix. See deferred-work.md, 'create-story of 5-7' entry."
+    owner: "Alice (Product Owner) + Amelia (dev)"
+    status: open
+  - epic: 5
+    action: "Re-baseline the frontend vitest suite's pre-existing-failure count -- Story 5.7 found 20 failing tests at true baseline (git-stash-confirmed), not the '2 pre-existing unrelated' Story 5.6 claimed. Root cause identified for at least the DashboardPage.test.tsx subset (RTL exact-text-match vs. the accordion header's '(N skills)' suffix) but not yet fixed or fully triaged across all 4 affected files (DashboardPage.test.tsx, DashboardPage.polling.test.tsx, ProvenanceDrillDownModal.test.tsx, ContentDiscovery.test.tsx)."
+    owner: "Dana (QA)"
     status: open

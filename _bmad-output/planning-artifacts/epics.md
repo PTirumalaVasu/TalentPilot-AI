@@ -492,18 +492,22 @@ So that first-time deployments succeed and schema drift is caught early.
   - CREATE INDEX idx_content_skill ON content_catalog(skill_id)
   - CREATE INDEX idx_content_embedding ON content_catalog USING ivfflat(embedding vector_cosine_ops)
 
-#### **Table 5: `assignments` (Story 3.1 - Assignments Data Model)**
+#### **Table 5: `assignments` (Story 3.1 - Assignments Data Model; soft-delete columns added by Story 3.7)**
 - `id` (UUID primary key)
 - `employee_id` (UUID, foreign key to employees.id, not null)
 - `skill_id` (UUID, foreign key to skills.id, not null)
 - `content_id` (UUID, nullable, foreign key to content_catalog.id — AI-recommended match)
 - `assigned_at` (timestamp UTC, not null)
 - `assigned_by` (UUID, foreign key to employees.id — HR Admin who created it, not null)
+- `active` (boolean, default true — false when soft-deleted via Story 3.7; mirrors `assignment_overrides.active`, Table 7)
+- `deleted_at` (timestamp UTC, nullable — when soft-deleted, Story 3.7)
+- `deleted_by` (UUID, nullable, foreign key to employees.id — HR Admin who deleted it, Story 3.7)
 - **Purpose:** Employee × Skill assignment links
 - **Constraint:** (employee_id, skill_id) may have multiple rows (intentional re-assignment allowed)
 - **Indexes:**
   - CREATE INDEX idx_assignments_employee ON assignments(employee_id)
   - CREATE INDEX idx_assignments_skill ON assignments(skill_id)
+  - CREATE INDEX idx_assignments_active ON assignments(active) (Story 3.7)
 
 #### **Table 6: `skill_progress` (Story 4.1 - Skill Progress Data Model)**
 - `id` (UUID primary key)
@@ -1275,6 +1279,46 @@ So that I can start over or abandon the action without polluting the database.
 
 ---
 
+### Story 3.7: Assignment Soft-Delete — Data Model & API
+
+> Added via `bmad-correct-course` (sprint-change-proposal-2026-07-13.md) — not in original PRD/epics.md scope. Realizes FR-15.
+
+As a **developer**,
+I want to add soft-delete support to the `assignments` table and a delete endpoint,
+So that HR Admins can remove an Assignment from the Dashboard without physically destroying audit history.
+
+**Acceptance Criteria:**
+
+**Given** the `assignments` table (Story 3.1) has no delete/lifecycle state today  
+**When** I extend the `assignments` table  
+**Then** it gains:
+- `active` (boolean, not null, default `true`)
+- `deleted_at` (timestamp with time zone, nullable)
+- `deleted_by` (UUID, nullable, foreign key to `employees.id`)
+- `CREATE INDEX idx_assignments_active ON assignments(active)` (mirrors `idx_overrides_active` from Story 5.5, Table 7)
+
+**And** a new Alembic migration applies these changes without data loss to any existing row (all existing rows default to `active = true`)
+
+**And** a new endpoint `DELETE /api/assignments/{assignment_id}`:
+- Is HR_ADMIN-only (`require_hr_admin`, same gate as every other assignments mutation)
+- Is hard-scoped to Assignments the caller created (`assigned_by == current_user.user_id`), using the same lookup pattern as `get_assignment_scoped_to_hr_admin` — not-found and not-owned both return a uniform 403, never leaking which case it was (matches `get_drill_down_service`/`set_override_service` precedent)
+- Sets `active = false`, `deleted_at = now()`, `deleted_by = current_user.user_id` on the target Assignment row — this is a soft delete; the row is never physically removed from `assignments`, and `skill_progress`/`assignment_overrides` rows referencing it are untouched
+- Succeeds regardless of the Assignment's current Status (Not Started / In Progress / Completed) or whether it carries an active HR Override (Story 5.5) — no restriction by state
+- Returns 204 No Content on success
+- Returns 403 Forbidden for an EMPLOYEE-role caller
+
+**And** every existing read path over `assignments` is updated to exclude soft-deleted rows, so a deleted Assignment disappears from both HR and Employee views without any further change on their side:
+- `list_assignments_for_dashboard` (repository.py) — add `.where(Assignment.active.is_(True))`
+- `list_assignments_for_employee` (repository.py) — same filter; this is what Content Discovery (FR-4) reads, so a deleted Assignment also disappears from the Employee's own list
+- `list_assignments_for_hr` (repository.py) — same filter on **both** the `count_stmt` and the paginated `stmt`; this is the function behind the live `GET /api/dashboard` path (`DashboardService.get_dashboard_assignments` → `AssignmentsService.list_assignments_for_hr`), so pagination counts must reflect only active Assignments
+- `find_existing_assignment` (repository.py, Story 3.4's duplicate-check) — same filter, so a soft-deleted prior Assignment no longer surfaces as a duplicate when HR re-assigns the same (employee, skill) pair
+
+**And** a re-fetch of a soft-deleted Assignment's drill-down (`GET /{assignment_id}/progress/drill-down`) or override endpoint (`POST /{assignment_id}/override`) is out of scope for this story — those endpoints are hard-scoped by `assigned_by` only today and are not required to additionally check `active` (no UI path reaches them for a row that's no longer listed); revisit only if this becomes a real gap.
+
+**Out of Scope (this story):** the Dashboard UI delete icon, confirmation modal, and toast — that is Story 5.7. This story is backend-only: schema, migration, endpoint, and the four repository-level read-filter updates above.
+
+---
+
 ## EPIC 4: Video Progress Capture, Resume & Event-Time Ordering
 
 **Epic Goal:** Automatically capture Employee video watch positions, enable exact-position resume, and order writes by event timestamp to prevent stale writes from regressing progress.
@@ -1969,6 +2013,48 @@ So that HR Admins using assistive technology have full access.
 - Status badges have text labels
 - Provenance labels have text labels
 - Stale rows have text ("Not updated in X days") in addition to any color highlighting
+
+---
+
+## Story 5.7: Delete Assignment — Dashboard Row Action
+
+> Added via `bmad-correct-course` (sprint-change-proposal-2026-07-13.md) — not in original PRD/epics.md scope. Realizes FR-15's UI consequences. Backend half (Story 3.7, `DELETE /api/assignments/{id}`) is already done.
+
+As an **HR Admin**,
+I want a delete control on each Assignment row that asks me to confirm before it executes,
+So that I can remove an Assignment I no longer want tracked, without risking an accidental, unconfirmed removal.
+
+**Acceptance Criteria:**
+
+**Given** I am viewing the Assignment Dashboard (the live grid at `/hr/dashboard`, `DashboardPage.tsx`)  
+**When** I look at any row's Actions cell  
+**Then** I see a delete control (red bin icon/button) next to the existing "View Details" link, on every row regardless of Status or Provenance — no row is exempt (mirrors backend Story 3.7 AC5's "no restriction" decision).
+
+**Given** I click the delete control on a row  
+**When** the confirmation modal opens  
+**Then**:
+- The modal never executes the delete immediately — confirmation is always required first (FR-15)
+- If the row's Status is `Not Started` (no recorded watch progress), the copy is plain: "Remove this assignment?" with the Employee name and Skill name shown for context
+- If the row's Status is `In Progress` or `Completed` (recorded signal exists — verified watch progress or an HR Override), the copy is escalated and explicit about what's being hidden, e.g. "This assignment has recorded progress ({X}% watched, or 'Completed'). Removing it will take it off the dashboard; the history is retained for audit." — matching the locked sprint-change-proposal decision ("escalated copy when a `skill_progress` row exists ... vs. plain wording for Not Started")
+- Buttons: `[Cancel]` and `[Remove Assignment]` (or equivalent confirm action), matching this codebase's established confirm/cancel modal button pattern (`ProvenanceDrillDownModal.tsx`'s Reverse-Override confirmation view)
+
+**Given** I click `[Cancel]` in the confirmation modal  
+**When** the modal closes  
+**Then** no request is sent, the Assignment is untouched, and I return to the dashboard exactly as it was
+
+**Given** I click `[Remove Assignment]` in the confirmation modal  
+**When** the `DELETE /api/assignments/{id}` request succeeds (204 No Content, per Story 3.7)  
+**Then**:
+- The row disappears from the grid without a full page reload
+- The employee's group total count updates (row count in the accordion header, and the dashboard's overall `Total: {N} assignments` count)
+- A success toast appears (reuse `DashboardPage.tsx`'s existing `toastMessage`/`Toast` slot, the same one Story 5.5/5.6 already use — no new Toast instance)
+- If the deleted row's drill-down modal happened to be open, it closes
+
+**Given** the `DELETE` request fails (network error, unexpected 4xx/5xx)  
+**When** the error is returned  
+**Then** the confirmation modal shows an inline error (not a silent failure), the row is NOT removed from the grid, and the HR Admin can retry or cancel
+
+**Out of Scope (this story):** any restore/undo affordance for a deleted Assignment (locked sprint-change-proposal decision: "One-way from the UI in this change"); any change to which assignments are eligible for delete (backend Story 3.7 already allows any Status/Override state, no additional frontend restriction is added).
 
 ---
 

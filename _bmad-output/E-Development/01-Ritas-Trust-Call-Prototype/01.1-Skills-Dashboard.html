@@ -187,6 +187,34 @@
     </div>
 
     <!-- ========================================================================
+         DELETE ASSIGNMENT CONFIRMATION MODAL (Story 5.7)
+         ======================================================================== -->
+    <div id="delete-assignment-modal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-40 p-4">
+        <div class="bg-white rounded-lg shadow-xl max-w-lg w-full p-6 space-y-4">
+
+            <h3 id="delete-assignment-heading" class="text-lg font-bold text-gray-900">Remove this assignment?</h3>
+
+            <p id="delete-assignment-summary" class="text-sm text-gray-700"></p>
+
+            <p id="delete-assignment-progress-warning" class="hidden text-sm text-gray-700"></p>
+
+            <p id="delete-assignment-error" role="alert" class="hidden text-red-600 text-sm"></p>
+
+            <div class="flex items-center justify-end gap-2 pt-2 border-t border-gray-100">
+                <button id="delete-assignment-btn-cancel" onclick="closeDeleteModal()"
+                        class="text-sm font-medium text-gray-600 hover:underline disabled:opacity-50">
+                    Cancel
+                </button>
+                <button id="delete-assignment-btn-confirm" onclick="confirmDelete()"
+                        class="bg-red-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50">
+                    Remove Assignment
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- ========================================================================
          JAVASCRIPT - Shared Scripts
          ======================================================================== -->
     <script src="data/demo-data.js"></script>
@@ -278,6 +306,9 @@
                                                 <th class="px-3 py-2 font-medium">Progress</th>
                                                 <th class="px-3 py-2 font-medium">Last Updated</th>
                                                 <th class="px-3 py-2 font-medium">Actions</th>
+                                                <th class="px-3 py-2 font-medium">
+                                                    <span class="sr-only">Delete</span>
+                                                </th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -291,6 +322,18 @@
                                                         <button onclick="window.openDrillDown('${a.id}')"
                                                                 class="text-blue-600 hover:text-blue-800 text-sm font-medium">
                                                             View Details
+                                                        </button>
+                                                    </td>
+                                                    <td class="px-3 py-2">
+                                                        <button onclick="window.openDeleteModal('${a.id}')"
+                                                                class="inline-flex items-center justify-center w-9 h-9 rounded-full text-red-600 hover:bg-red-100 hover:text-red-700 transition-colors"
+                                                                aria-label="Remove assignment for ${escapeHtml(a.employee.firstName + ' ' + a.employee.lastName)} ${escapeHtml(a.skill.name)}"
+                                                                title="Delete">
+                                                            <svg viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5" aria-hidden="true">
+                                                                <path fill-rule="evenodd"
+                                                                      d="M8.75 1a.75.75 0 00-.75.75V3H4.5a.75.75 0 000 1.5h.352l.622 10.579A2.75 2.75 0 008.22 17.5h3.56a2.75 2.75 0 002.746-2.421L15.148 4.5H15.5a.75.75 0 000-1.5H12v-1.25a.75.75 0 00-.75-.75h-2.5zM10 4.5H8.5V2.5h3v2H10zM6.856 4.5h6.288l-.61 10.394a1.25 1.25 0 01-1.248 1.106H8.22a1.25 1.25 0 01-1.248-1.106L6.856 4.5zM8.5 7a.75.75 0 01.75.75v5a.75.75 0 01-1.5 0v-5A.75.75 0 018.5 7zm3 0a.75.75 0 01.75.75v5a.75.75 0 01-1.5 0v-5A.75.75 0 0111.5 7z"
+                                                                      clip-rule="evenodd" />
+                                                            </svg>
                                                         </button>
                                                     </td>
                                                 </tr>
@@ -418,6 +461,70 @@
             document.getElementById('assignment-details-modal').classList.add('hidden');
         }
 
+        // ================================================================
+        // DELETE ASSIGNMENT (Story 5.7)
+        // ================================================================
+
+        let pendingDeleteId = null;
+        let deleteSubmitting = false;
+
+        function setDeleteSubmitting(submitting) {
+            deleteSubmitting = submitting;
+            document.getElementById('delete-assignment-btn-cancel').disabled = submitting;
+            document.getElementById('delete-assignment-btn-confirm').disabled = submitting;
+        }
+
+        async function openDeleteModal(assignmentId) {
+            const a = await PrototypeAPI.getAssignmentDetail(assignmentId);
+            pendingDeleteId = assignmentId;
+            setDeleteSubmitting(false);
+
+            document.getElementById('delete-assignment-summary').textContent =
+                `${a.employee.firstName} ${a.employee.lastName} — ${a.skill.name}`;
+
+            const hasRecordedProgress = a.watchPercent > 0;
+            const warning = document.getElementById('delete-assignment-progress-warning');
+            if (hasRecordedProgress) {
+                const progressLabel = a.watchPercent === 100 ? 'Completed' : `${a.watchPercent}% watched`;
+                warning.textContent =
+                    `This assignment has recorded progress (${progressLabel}). Removing it will take it off the dashboard; the history is retained for audit.`;
+                warning.classList.remove('hidden');
+            } else {
+                warning.classList.add('hidden');
+            }
+
+            const errorEl = document.getElementById('delete-assignment-error');
+            errorEl.classList.add('hidden');
+            errorEl.textContent = '';
+
+            document.getElementById('delete-assignment-modal').classList.remove('hidden');
+        }
+
+        function closeDeleteModal() {
+            if (deleteSubmitting) return;
+            pendingDeleteId = null;
+            document.getElementById('delete-assignment-modal').classList.add('hidden');
+        }
+
+        async function confirmDelete() {
+            if (!pendingDeleteId) return;
+            setDeleteSubmitting(true);
+            const errorEl = document.getElementById('delete-assignment-error');
+            errorEl.classList.add('hidden');
+
+            try {
+                await PrototypeAPI.deleteAssignment(pendingDeleteId);
+                pendingDeleteId = null;
+                document.getElementById('delete-assignment-modal').classList.add('hidden');
+                await loadDashboard();
+            } catch (err) {
+                errorEl.textContent = err.message || "Couldn't remove assignment. Try again.";
+                errorEl.classList.remove('hidden');
+            } finally {
+                setDeleteSubmitting(false);
+            }
+        }
+
         function renderRawSignal(a) {
             const rows = [`<div><strong>Assigned:</strong> ${a.assignedDate}</div>`];
             if (a.provenance === 'Verified') {
@@ -468,12 +575,22 @@
             }
         });
 
-        // Modal: close on Escape key
+        // Delete modal: close on click-outside (unless a delete is in flight)
+        document.getElementById('delete-assignment-modal').addEventListener('click', (e) => {
+            if (e.target.id === 'delete-assignment-modal') {
+                closeDeleteModal();
+            }
+        });
+
+        // Modal: close on Escape key (checks both modals)
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 const modal = document.getElementById('assignment-details-modal');
+                const deleteModal = document.getElementById('delete-assignment-modal');
                 if (!modal.classList.contains('hidden')) {
                     closeDrillDown();
+                } else if (!deleteModal.classList.contains('hidden')) {
+                    closeDeleteModal();
                 }
             }
         });

@@ -60,6 +60,19 @@ const PrototypeAPI = {
     return assignment;
   },
 
+  // Mirrors DELETE /api/assignments/{id} (Story 3.7/5.7) -- soft-delete in
+  // the real backend, but the prototype's sessionStorage store has no
+  // audit trail to preserve, so this just removes the row.
+  async deleteAssignment(assignmentId) {
+    const data = await this._load();
+    const before = data.assignments.length;
+    data.assignments = data.assignments.filter((a) => a.id !== assignmentId);
+    if (data.assignments.length === before) {
+      throw new Error(`Assignment ${assignmentId} not found`);
+    }
+    await this._save(data);
+  },
+
   // ==========================================================================
   // DEBUG HELPERS (console commands)
   // ==========================================================================

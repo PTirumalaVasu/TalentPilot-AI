@@ -1,8 +1,9 @@
 """Repository layer for the assignments module. Only this module's own code may query its tables."""
 import uuid
+from datetime import datetime, timezone
 
 from fastapi import status
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -87,9 +88,15 @@ async def find_existing_assignment(
     """Returns all existing Assignment rows for (employee_id, skill_id), for
     duplicate-detection (Story 3.4) — does not enforce uniqueness. Unordered:
     do not treat result[0] as "the" existing assignment (AC2 permits multiple
-    intentional re-assignments of the same pair)."""
+    intentional re-assignments of the same pair). Excludes soft-deleted rows
+    (Story 3.7) — a deleted prior Assignment must not surface as a duplicate
+    blocking/flagging a fresh re-assignment of the same pair."""
     result = await session.execute(
-        select(Assignment).where(Assignment.employee_id == employee_id, Assignment.skill_id == skill_id)
+        select(Assignment).where(
+            Assignment.employee_id == employee_id,
+            Assignment.skill_id == skill_id,
+            Assignment.active.is_(True),
+        )
     )
     return list(result.scalars().all())
 
@@ -104,8 +111,10 @@ async def list_assignments_for_employee(
     always scoped to their own employee_id in the WHERE clause, silently
     ignoring any requested_employee_id override. HR_ADMIN sessions are
     unrestricted; requested_employee_id acts as a real filter for them, not a
-    spoof-defense."""
-    stmt = select(Assignment).options(selectinload(Assignment.skill))
+    spoof-defense. Excludes soft-deleted rows (Story 3.7) -- this feeds
+    Content Discovery (FR-4), so a deleted Assignment disappears from the
+    Employee's own list too, not just HR's."""
+    stmt = select(Assignment).options(selectinload(Assignment.skill)).where(Assignment.active.is_(True))
 
     if current_user.role == Role.EMPLOYEE:
         stmt = stmt.where(Assignment.employee_id == _parse_user_id(current_user))
@@ -128,9 +137,12 @@ async def list_assignments_for_dashboard(session: AsyncSession) -> list[Assignme
     `content`/`progress` are eager-loaded (not just `employee`/`skill`) so
     the service layer can derive real per-row Status/Progress via
     `ProgressService.derive_dashboard_status_and_percent` +
-    `ProgressRepository.get_video_duration` without N+1 queries."""
+    `ProgressRepository.get_video_duration` without N+1 queries.
+
+    Excludes soft-deleted rows (Story 3.7)."""
     stmt = (
         select(Assignment)
+        .where(Assignment.active.is_(True))
         .options(
             selectinload(Assignment.employee),
             selectinload(Assignment.skill),
@@ -162,19 +174,29 @@ async def list_assignments_for_hr(
 
     Returns assignments sorted by assigned_at DESC (newest first).
     Joins with Employee and Skill for eager loading of relationships.
+
+    This is the function behind the live `GET /api/dashboard` path
+    (DashboardService.get_dashboard_assignments -> AssignmentsService.list_assignments_for_hr
+    -> here), so excluding soft-deleted rows (Story 3.7) here -- in both the
+    count and the page query -- is what keeps pagination counts and the
+    dashboard grid correct. The filter is expressed once (`base_filters`,
+    code review patch 4) rather than duplicated across both statements, so a
+    future edit to one can't silently drift from the other.
     """
     from sqlalchemy import desc
     from sqlalchemy.orm import selectinload
 
+    base_filters = (Assignment.assigned_by == hr_admin_id, Assignment.active.is_(True))
+
     # Count total assignments for this HR Admin
-    count_stmt = select(func.count(Assignment.id)).where(Assignment.assigned_by == hr_admin_id)
+    count_stmt = select(func.count(Assignment.id)).where(*base_filters)
     count_result = await session.execute(count_stmt)
     total_count = count_result.scalar() or 0
 
     # Fetch paginated assignments with eager-loaded relationships
     stmt = (
         select(Assignment)
-        .where(Assignment.assigned_by == hr_admin_id)
+        .where(*base_filters)
         .order_by(desc(Assignment.assigned_at))
         .offset((page - 1) * page_size)
         .limit(page_size)
@@ -189,6 +211,36 @@ async def list_assignments_for_hr(
     assignments = list(result.scalars().all())
 
     return AssignmentPage(assignments=assignments, total_count=total_count)
+
+
+async def soft_delete_assignment(
+    session: AsyncSession, *, assignment_id: uuid.UUID, deleted_by: uuid.UUID
+) -> bool:
+    """Atomically soft-deletes an Assignment via a conditional
+    `UPDATE ... WHERE active = true` (Story 3.7 code review patch 1) --
+    never physically removes the row; skill_progress/assignment_overrides
+    rows referencing it are untouched, per the locked
+    sprint-change-proposal-2026-07-13.md decision (soft delete, mirroring
+    assignment_overrides.active from Story 5.5b).
+
+    The DB-level conditional UPDATE, not a Python-side read-then-write
+    check, is what makes double-delete idempotency (AC7) race-safe: two
+    concurrent DELETE requests for the same assignment_id can no longer
+    both observe active=True and both overwrite deleted_at/deleted_by --
+    only the first to commit actually changes anything; the second's
+    UPDATE matches zero rows and is a true no-op. Caller is responsible
+    for scoping/access-checking the assignment before calling this (see
+    get_assignment_scoped_to_hr_admin).
+
+    Returns True if this call performed the soft-delete, False if the
+    Assignment was already inactive (idempotent no-op)."""
+    result = await session.execute(
+        update(Assignment)
+        .where(Assignment.id == assignment_id, Assignment.active.is_(True))
+        .values(active=False, deleted_at=datetime.now(timezone.utc), deleted_by=deleted_by)
+    )
+    await session.flush()
+    return result.rowcount > 0
 
 
 async def get_assignment_scoped_to_hr_admin(
