@@ -1,8 +1,9 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { setUnauthorizedHandler } from '@/lib/api/client';
-import type { Role } from '@/lib/api/authApi';
+import { getCurrentUser, type Role } from '@/lib/api/authApi';
 
 type AuthState =
+  | { status: 'loading' }
   | { status: 'unauthenticated' }
   | { status: 'authenticated'; role: Role; userId: string };
 
@@ -17,24 +18,34 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 /**
  * In-memory only, by design (see Story 1.8 Dev Notes "Cookie-based session,
  * not token-in-state"): the HttpOnly cookie the backend sets IS the session.
- * This context exists purely so the frontend can (a) decide the post-login
- * redirect target and (b) react to a 401 arriving at any point, without
- * duplicating the backend's own session/revocation logic client-side.
- *
- * Known, accepted limitation: because there is no `GET /api/auth/me` (or
- * equivalent) endpoint on the backend to silently verify an existing cookie,
- * a hard page refresh always resets this to `unauthenticated` and bounces to
- * `/login`, even if the cookie is technically still valid. No story/AC in
- * this project requires "stay logged in across a refresh" (a persistent
- * session is explicitly out of scope - see Story 1.8 AC7), so this is the
- * safe, honest behavior rather than inventing a fake client-side check.
+ * On mount, `GET /api/auth/me` is used to silently resolve that cookie back
+ * into auth state (e.g. after a hard refresh), instead of assuming
+ * `unauthenticated` until the user logs in again.
  */
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [auth, setAuth] = useState<AuthState>({ status: 'unauthenticated' });
+  const [auth, setAuth] = useState<AuthState>({ status: 'loading' });
 
   useEffect(() => {
     setUnauthorizedHandler(() => setAuth({ status: 'unauthenticated' }));
     return () => setUnauthorizedHandler(null);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    getCurrentUser()
+      .then(({ role, user_id }) => {
+        setAuth((prev) =>
+          cancelled || prev.status !== 'loading'
+            ? prev
+            : { status: 'authenticated', role, userId: user_id }
+        );
+      })
+      .catch(() => {
+        setAuth((prev) => (cancelled || prev.status !== 'loading' ? prev : { status: 'unauthenticated' }));
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const value = useMemo<AuthContextValue>(

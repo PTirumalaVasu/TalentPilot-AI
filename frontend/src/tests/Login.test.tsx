@@ -14,6 +14,7 @@ vi.mock('react-router-dom', async () => {
 
 vi.mock('@/lib/api/authApi', () => ({
   login: vi.fn(),
+  getCurrentUser: vi.fn().mockRejectedValue({ isAxiosError: true, response: { status: 401 } }),
 }));
 
 import { login } from '@/lib/api/authApi';
