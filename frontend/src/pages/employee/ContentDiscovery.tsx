@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { AssignmentCard } from '@/components/AssignmentCard';
@@ -7,6 +7,8 @@ import { useAuth } from '@/lib/auth/AuthContext';
 import { getMe, logout, type MeResponse } from '@/lib/api/authApi';
 import { listMyAssignments } from '@/lib/api/assignmentsApi';
 import type { AssignmentContentItem, MyAssignmentsResponse } from '@/types/assignments';
+
+const POLL_INTERVAL_MS = 30000;
 
 type LoadState =
   | { status: 'loading' }
@@ -22,6 +24,8 @@ interface PlayingVideo {
   assignmentId: string;
   videoUrl: string;
   startSeconds: number;
+  videoTitle?: string;
+  skillName?: string;
 }
 
 interface UserMenuButtonProps {
@@ -69,6 +73,8 @@ export function ContentDiscovery() {
   const [playingVideo, setPlayingVideo] = useState<PlayingVideo | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const pollIntervalRef = useRef<number | null>(null);
+  const isPollingRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -100,6 +106,67 @@ export function ContentDiscovery() {
     };
   }, [reloadToken]);
 
+  useEffect(() => {
+    function startPolling() {
+      if (pollIntervalRef.current !== null) {
+        return;
+      }
+      console.log(`🔄 Starting employee dashboard polling every ${POLL_INTERVAL_MS / 1000} seconds`);
+      pollIntervalRef.current = window.setInterval(pollAssignments, POLL_INTERVAL_MS) as unknown as number;
+    }
+
+    function stopPolling() {
+      if (pollIntervalRef.current === null) {
+        return;
+      }
+      window.clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
+    }
+
+    async function pollAssignments() {
+      if (isPollingRef.current) {
+        return;
+      }
+      isPollingRef.current = true;
+      try {
+        const data = await listMyAssignments();
+        const timestamp = new Date().toLocaleTimeString();
+        console.log(`[${timestamp}] Assignments poll successful, fetched ${data.assignments.length} assignments`);
+        data.assignments.forEach((assignment) => {
+          console.log(`  - ${assignment.skill_name}: ${assignment.status} (${assignment.status_percentage}%)`);
+        });
+        setState((prev) => {
+          if (prev.status === 'loaded') {
+            return { status: 'loaded', data };
+          }
+          return prev;
+        });
+      } catch (err) {
+        console.warn("Assignment poll failed, will retry on next interval", err);
+      } finally {
+        isPollingRef.current = false;
+      }
+    }
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === "hidden") {
+        stopPolling();
+      } else {
+        startPolling();
+      }
+    }
+
+    if (document.visibilityState !== "hidden") {
+      startPolling();
+    }
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      stopPolling();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, []);
+
   async function handleSignOut() {
     try {
       await logout();
@@ -117,6 +184,8 @@ export function ContentDiscovery() {
       assignmentId: item.assignment_id,
       videoUrl: item.content.url,
       startSeconds: item.watch_position,
+      videoTitle: item.content.title,
+      skillName: item.skill_name,
     });
   }
 
@@ -164,6 +233,7 @@ export function ContentDiscovery() {
             ← Back to Assignments
           </button>
           <div className="mx-auto max-w-3xl">
+            <h1 className="text-2xl font-bold text-gray-900 mb-4">{playingVideo.videoTitle || playingVideo.skillName}</h1>
             <VideoPlayer
               assignmentId={playingVideo.assignmentId}
               videoUrl={playingVideo.videoUrl}
