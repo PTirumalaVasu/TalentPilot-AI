@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { AssignmentCard } from '@/components/AssignmentCard';
 import { VideoPlayer } from '@/components/VideoPlayer';
 import { useAuth } from '@/lib/auth/AuthContext';
-import { logout } from '@/lib/api/authApi';
+import { getMe, logout, type MeResponse } from '@/lib/api/authApi';
 import { listMyAssignments } from '@/lib/api/assignmentsApi';
 import type { AssignmentContentItem, MyAssignmentsResponse } from '@/types/assignments';
 
@@ -13,16 +13,59 @@ type LoadState =
   | { status: 'error' }
   | { status: 'loaded'; data: MyAssignmentsResponse };
 
+type ProfileState =
+  | { status: 'loading' }
+  | { status: 'error' }
+  | { status: 'loaded'; data: MeResponse };
+
 interface PlayingVideo {
   assignmentId: string;
   videoUrl: string;
   startSeconds: number;
 }
 
+interface UserMenuButtonProps {
+  profile: ProfileState;
+  open: boolean;
+  onToggle: () => void;
+  onSignOut: () => void;
+}
+
+// Shared by both header variants below (idle grid and inline video player) so
+// the logged-in employee's own name/initial is resolved from GET /api/auth/me
+// in exactly one place, rather than each header copy hardcoding a placeholder
+// identity (the bug this fixes -- every employee's header used to read "Casey").
+function UserMenuButton({ profile, open, onToggle, onSignOut }: UserMenuButtonProps) {
+  const firstName = profile.status === 'loaded' ? profile.data.name.split(' ')[0] : '';
+  const initial = profile.status === 'loaded' ? profile.data.name.charAt(0).toUpperCase() : '';
+
+  return (
+    <div className="relative">
+      <button onClick={onToggle} className="flex items-center gap-2 text-sm text-gray-700">
+        <span className="w-8 h-8 rounded-full bg-talentpilot-100 flex items-center justify-center text-talentpilot-700 font-medium">
+          {initial}
+        </span>
+        {firstName}
+      </button>
+      {open && (
+        <div className="absolute right-0 mt-2 w-40 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+          <button
+            onClick={onSignOut}
+            className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg"
+          >
+            Sign Out
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ContentDiscovery() {
   const { signOut } = useAuth();
   const navigate = useNavigate();
   const [state, setState] = useState<LoadState>({ status: 'loading' });
+  const [profile, setProfile] = useState<ProfileState>({ status: 'loading' });
   const [playingVideo, setPlayingVideo] = useState<PlayingVideo | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -36,6 +79,21 @@ export function ContentDiscovery() {
       })
       .catch(() => {
         if (!cancelled) setState({ status: 'error' });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadToken]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setProfile({ status: 'loading' });
+    getMe()
+      .then((data) => {
+        if (!cancelled) setProfile({ status: 'loaded', data });
+      })
+      .catch(() => {
+        if (!cancelled) setProfile({ status: 'error' });
       });
     return () => {
       cancelled = true;
@@ -87,28 +145,15 @@ export function ContentDiscovery() {
               <span className="text-gray-600">Continue Watching</span>
             </nav>
           </div>
-          <div className="relative">
-            <button
-              onClick={() => setUserMenuOpen(!userMenuOpen)}
-              className="flex items-center gap-2 text-sm text-gray-700"
-            >
-              <span className="w-8 h-8 rounded-full bg-talentpilot-100 flex items-center justify-center text-talentpilot-700 font-medium">C</span>
-              Casey
-            </button>
-            {userMenuOpen && (
-              <div className="absolute right-0 mt-2 w-40 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
-                <button
-                  onClick={() => {
-                    setUserMenuOpen(false);
-                    handleSignOut();
-                  }}
-                  className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg"
-                >
-                  Sign Out
-                </button>
-              </div>
-            )}
-          </div>
+          <UserMenuButton
+            profile={profile}
+            open={userMenuOpen}
+            onToggle={() => setUserMenuOpen(!userMenuOpen)}
+            onSignOut={() => {
+              setUserMenuOpen(false);
+              handleSignOut();
+            }}
+          />
         </header>
 
         <main className="px-6 py-6 max-w-5xl mx-auto">
@@ -140,28 +185,15 @@ export function ContentDiscovery() {
             <span className="text-gray-400">Continue Watching</span>
           </nav>
         </div>
-        <div className="relative">
-          <button
-            onClick={() => setUserMenuOpen(!userMenuOpen)}
-            className="flex items-center gap-2 text-sm text-gray-700"
-          >
-            <span className="w-8 h-8 rounded-full bg-talentpilot-100 flex items-center justify-center text-talentpilot-700 font-medium">C</span>
-            Casey
-          </button>
-          {userMenuOpen && (
-            <div className="absolute right-0 mt-2 w-40 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
-              <button
-                onClick={() => {
-                  setUserMenuOpen(false);
-                  handleSignOut();
-                }}
-                className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg"
-              >
-                Sign Out
-              </button>
-            </div>
-          )}
-        </div>
+        <UserMenuButton
+          profile={profile}
+          open={userMenuOpen}
+          onToggle={() => setUserMenuOpen(!userMenuOpen)}
+          onSignOut={() => {
+            setUserMenuOpen(false);
+            handleSignOut();
+          }}
+        />
       </header>
 
       <main className="px-6 py-6 max-w-5xl mx-auto">
@@ -175,7 +207,9 @@ export function ContentDiscovery() {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
                   <p className="text-xs text-gray-600 uppercase tracking-wide mb-1">Name</p>
-                  <p className="text-sm font-semibold text-gray-900">Casey the Continuer</p>
+                  <p className="text-sm font-semibold text-gray-900">
+                    {profile.status === 'loaded' ? profile.data.name : '—'}
+                  </p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-600 uppercase tracking-wide mb-1">Role</p>
@@ -183,7 +217,9 @@ export function ContentDiscovery() {
                 </div>
                 <div>
                   <p className="text-xs text-gray-600 uppercase tracking-wide mb-1">Email</p>
-                  <p className="text-sm font-semibold text-gray-900">casey@sailssoftware.com</p>
+                  <p className="text-sm font-semibold text-gray-900">
+                    {profile.status === 'loaded' ? profile.data.email : '—'}
+                  </p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-600 uppercase tracking-wide mb-1">Skills Assigned</p>

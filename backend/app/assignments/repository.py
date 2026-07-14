@@ -27,6 +27,14 @@ def _parse_user_id(current_user: CurrentUser) -> uuid.UUID:
         ) from exc
 
 
+async def get_employee_by_id(session: AsyncSession, employee_id: uuid.UUID) -> Employee | None:
+    """Single-employee lookup by primary key -- used by the auth module's
+    GET /api/auth/me (via get_employee_by_id_service, AD-1) to resolve a
+    session's own display name/email. `employees` is owned by this module,
+    so cross-module callers must go through the service layer for this too."""
+    return await session.get(Employee, employee_id)
+
+
 async def list_employees(session: AsyncSession, *, search: str | None = None) -> list[Employee]:
     """Read-only employee directory listing — not scoped by caller identity;
     any authenticated session (EMPLOYEE or HR_ADMIN) can see the roster. This

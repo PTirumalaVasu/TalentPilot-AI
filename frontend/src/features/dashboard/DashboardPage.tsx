@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState, useImperativeHandle, forwardRef } from "react";
+import { formatDistanceToNow } from "date-fns";
 import { dashboardApi } from "../../lib/api/dashboardApi";
 import { AssignmentRow } from "../../types/dashboard";
-import { DashboardRow } from "./DashboardRow";
 import { ProvenanceDrillDownModal } from "./ProvenanceDrillDownModal";
 import { Toast } from "../../components/ui/toast";
+import { staleDaysSince, formatStaleDaysText } from "../../lib/utils/staleness";
 
 // AC1 (epics.md:1771-1774): poll every 10-15s. 12000ms picked as the
 // midpoint -- config constant, not a magic number, so it's easy to adjust
@@ -280,7 +281,7 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
               + New Assignment
             </button>
           </div>
-          <div className="bg-white rounded-lg shadow-sm p-4 space-y-3">
+          <div data-testid="dashboard-loading" className="bg-white rounded-lg shadow-sm p-4 space-y-3">
             <div className="h-6 bg-gray-100 rounded animate-pulse w-full"></div>
             <div className="h-6 bg-gray-100 rounded animate-pulse w-full"></div>
             <div className="h-6 bg-gray-100 rounded animate-pulse w-full"></div>
@@ -393,7 +394,10 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
                         </tr>
                       </thead>
                       <tbody>
-                        {(groupedAssignments.get(employeeName) || []).map((row) => (
+                        {(groupedAssignments.get(employeeName) || []).map((row) => {
+                          const isStale = row.provenance === "Needs Attention";
+                          const staleDays = isStale ? staleDaysSince(row.last_updated) : null;
+                          return (
                           <tr key={row.assignment_id} className="border-b border-gray-200 hover:bg-white transition-colors align-middle">
                             <td className="px-3 py-2 truncate align-middle">{row.skill_name}</td>
                             <td className="px-3 py-2 text-left align-middle">
@@ -416,12 +420,20 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
                                   </div>
                                   <span className="text-xs text-gray-500">{row.status_percentage}%</span>
                                 </div>
+                              ) : row.status === "Completed" ? (
+                                <div className="flex items-center gap-2">
+                                  <div className="w-16 h-1 bg-gray-200 rounded-full overflow-hidden">
+                                    <div className="h-full bg-green-600" style={{ width: "100%" }}></div>
+                                  </div>
+                                  <span className="text-xs text-gray-500">100%</span>
+                                </div>
                               ) : (
                                 <span className="text-xs text-gray-400">-</span>
                               )}
                             </td>
-                            <td className="px-3 py-2 text-xs text-gray-500 truncate align-middle">
-                              {new Date(row.last_updated).toLocaleDateString()} {new Date(row.last_updated).toLocaleTimeString()}
+                            <td className={`px-3 py-2 text-xs truncate align-middle ${isStale ? "text-red-700 font-medium" : "text-gray-500"}`}>
+                              {formatDistanceToNow(new Date(row.last_updated), { addSuffix: true })}
+                              {isStale && ` (${formatStaleDaysText(staleDays!)})`}
                             </td>
                             <td className="px-3 py-2 align-middle">
                               <button
@@ -433,7 +445,8 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
                               </button>
                             </td>
                           </tr>
-                        ))}
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
