@@ -1,14 +1,18 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Routes, Route, useNavigate } from 'react-router-dom';
 
-const { responseUseMock } = vi.hoisted(() => ({ responseUseMock: vi.fn() }));
+const { responseUseMock, getMock } = vi.hoisted(() => ({
+  responseUseMock: vi.fn(),
+  getMock: vi.fn(() => Promise.reject({ isAxiosError: true, response: { status: 401 } })),
+}));
 
 vi.mock('axios', () => ({
   default: {
     create: vi.fn(() => ({
       interceptors: { response: { use: responseUseMock } },
+      get: getMock,
     })),
     isAxiosError: (err: unknown) =>
       typeof err === 'object' &&
@@ -76,10 +80,47 @@ function renderApp(initialPath: string) {
 }
 
 describe('RequireAuth', () => {
-  it('redirects an unauthenticated visit straight to /login, never rendering protected content', () => {
+  beforeEach(() => {
+    getMock.mockReset();
+    getMock.mockImplementation(() =>
+      Promise.reject({ isAxiosError: true, response: { status: 401 } })
+    );
+  });
+
+  it('restores an authenticated session from a valid cookie on mount (refresh persistence)', async () => {
+    getMock.mockResolvedValueOnce({ data: { role: 'EMPLOYEE', user_id: 'casey' } });
+
     renderApp('/protected');
 
-    expect(screen.getByText('LOGIN PAGE')).toBeInTheDocument();
+    expect(await screen.findByText('PROTECTED CONTENT')).toBeInTheDocument();
+    expect(screen.queryByText('LOGIN PAGE')).not.toBeInTheDocument();
+  });
+
+  it('renders neither the login redirect nor protected content while the startup check is pending', async () => {
+    let resolveGet!: (value: { data: { role: string; user_id: string } }) => void;
+    getMock.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveGet = resolve;
+        })
+    );
+
+    renderApp('/protected');
+
+    expect(screen.queryByText('LOGIN PAGE')).not.toBeInTheDocument();
+    expect(screen.queryByText('PROTECTED CONTENT')).not.toBeInTheDocument();
+
+    await act(async () => {
+      resolveGet({ data: { role: 'EMPLOYEE', user_id: 'casey' } });
+    });
+
+    expect(await screen.findByText('PROTECTED CONTENT')).toBeInTheDocument();
+  });
+
+  it('redirects an unauthenticated visit straight to /login, never rendering protected content', async () => {
+    renderApp('/protected');
+
+    expect(await screen.findByText('LOGIN PAGE')).toBeInTheDocument();
     expect(screen.queryByText('PROTECTED CONTENT')).not.toBeInTheDocument();
   });
 

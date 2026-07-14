@@ -12,6 +12,10 @@ export function RequireAuth({ children }: { children: ReactElement }) {
   const { auth } = useAuth();
   const location = useLocation();
 
+  if (auth.status === 'loading') {
+    return null;
+  }
+
   if (auth.status !== 'authenticated') {
     return <Navigate to="/login" replace state={{ from: location }} />;
   }

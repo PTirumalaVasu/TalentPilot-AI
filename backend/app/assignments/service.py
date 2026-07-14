@@ -4,6 +4,8 @@ from fastapi import HTTPException, status
 import uuid
 
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 from app.assignments.models import Assignment
 from app.assignments.repository import (
@@ -12,6 +14,7 @@ from app.assignments.repository import (
     create_assignment,
     find_existing_assignment,
     get_assignment_scoped_to_hr_admin,
+    get_employee_by_id,
     list_assignments_for_dashboard,
     list_assignments_for_employee,
     list_assignments_for_hr,
@@ -60,6 +63,17 @@ class AssignmentsService:
 async def list_employees_service(session: AsyncSession, *, search: str | None = None) -> list[EmployeeResponse]:
     employees = await list_employees(session, search=search)
     return [EmployeeResponse.model_validate(employee) for employee in employees]
+
+
+async def get_employee_by_id_service(session: AsyncSession, employee_id: uuid.UUID) -> EmployeeResponse | None:
+    """Resolves one employee's own directory record by id -- used by the auth
+    module's GET /api/auth/me to answer "who am I" for the logged-in session
+    (AD-1: employees is this module's table, so auth reaches it through here
+    rather than querying directly)."""
+    employee = await get_employee_by_id(session, employee_id)
+    if employee is None:
+        return None
+    return EmployeeResponse.model_validate(employee)
 
 async def list_skills_service(session: AsyncSession, *, search: str | None = None) -> list[SkillResponse]:
     skills = await list_skills(session, search=search)
@@ -151,19 +165,27 @@ async def get_drill_down_service(
 ) -> DrillDownResponse:
     """Provenance Drill-Down read (Story 5.2, FR-9). HR_ADMIN-only
     (require_hr_admin, matching this file's established pattern of gating in
-    the service layer rather than the router), hard-scoped to assignments
-    the caller created (assigned_by == current_user.user_id) via
-    get_assignment_scoped_to_hr_admin -- mirrors Story 4-5's
-    get_assignment_with_scope 403-on-mismatch pattern: not-found and
-    not-owned both raise the same 403, never leaking which case it was
-    (AC6, AD-2)."""
+    the service layer rather than the router). Allows any HR Admin to view
+    all assignments for the drill-down modal."""
     require_hr_admin(current_user)
 
     assignment = await get_assignment_scoped_to_hr_admin(
         session, assignment_id=assignment_id, hr_admin_id=_parse_user_id(current_user)
     )
     if assignment is None:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No access to this assignment")
+        stmt = (
+            select(Assignment)
+            .where(Assignment.id == assignment_id)
+            .options(
+                selectinload(Assignment.employee),
+                selectinload(Assignment.skill),
+                selectinload(Assignment.content),
+            )
+        )
+        result = await session.execute(stmt)
+        assignment = result.scalar_one_or_none()
+        if assignment is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assignment not found")
 
     progress = await ProgressRepository.get_progress_for_assignment(session, assignment_id)
     override = await ProgressRepository.get_active_override_for_assignment(session, assignment_id)
@@ -176,21 +198,27 @@ async def get_drill_down_service(
 async def set_override_service(
     session: AsyncSession, *, current_user: CurrentUser, assignment_id: uuid.UUID, request: SetOverrideRequest
 ) -> DrillDownResponse:
-    """Create or reverse an HR Override (Story 5.5/5.5b, FR-12). HR_ADMIN-only,
-    hard-scoped to assignments the caller created -- identical scoping to
-    get_drill_down_service (same uniform 403 for not-found/not-owned, AC7).
-    The actual mutation is delegated to ProgressService.set_override()
-    (service-to-service, per AD-1) rather than reaching into
-    ProgressRepository directly here -- unlike get_drill_down_service's
-    existing read-side shortcut (a pre-existing, already-deferred AD-1 gap,
-    see deferred-work.md), this new write path does not repeat that pattern."""
+    """Create or reverse an HR Override (Story 5.5/5.5b, FR-12). HR_ADMIN-only.
+    Allows any HR Admin to set overrides on any assignment."""
     require_hr_admin(current_user)
 
     assignment = await get_assignment_scoped_to_hr_admin(
         session, assignment_id=assignment_id, hr_admin_id=_parse_user_id(current_user)
     )
     if assignment is None:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No access to this assignment")
+        stmt = (
+            select(Assignment)
+            .where(Assignment.id == assignment_id)
+            .options(
+                selectinload(Assignment.employee),
+                selectinload(Assignment.skill),
+                selectinload(Assignment.content),
+            )
+        )
+        result = await session.execute(stmt)
+        assignment = result.scalar_one_or_none()
+        if assignment is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assignment not found")
 
     video_duration = ProgressRepository.get_video_duration(assignment)
     detail = await ProgressService.set_override(
