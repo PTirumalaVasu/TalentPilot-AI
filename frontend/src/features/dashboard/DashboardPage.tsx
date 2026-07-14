@@ -473,11 +473,12 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
                   <div className="px-4 py-3">
                     <table className="w-full border-collapse text-sm" style={{ tableLayout: 'fixed' }}>
                       <colgroup>
-                        <col style={{ width: '25%' }} />
-                        <col style={{ width: '20%' }} />
-                        <col style={{ width: '20%' }} />
-                        <col style={{ width: '20%' }} />
-                        <col style={{ width: '15%' }} />
+                        <col style={{ width: '22%' }} />
+                        <col style={{ width: '18%' }} />
+                        <col style={{ width: '18%' }} />
+                        <col style={{ width: '18%' }} />
+                        <col style={{ width: '16%' }} />
+                        <col style={{ width: '8%' }} />
                       </colgroup>
                       <thead>
                         <tr className="border-b border-gray-300 text-left text-gray-600">
