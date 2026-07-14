@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { setUnauthorizedHandler } from '@/lib/api/client';
-import { getCurrentUser, type Role } from '@/lib/api/authApi';
+import { getMe, type Role } from '@/lib/api/authApi';
 
 type AuthState =
   | { status: 'loading' }
@@ -32,7 +32,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let cancelled = false;
-    getCurrentUser()
+    getMe()
       .then(({ role, user_id }) => {
         setAuth((prev) =>
           cancelled || prev.status !== 'loading'
