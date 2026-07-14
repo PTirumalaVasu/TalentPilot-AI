@@ -203,7 +203,7 @@ export function ContentDiscovery() {
 
           {/* Employee Info Card */}
           {state.status === 'loaded' && (
-            <div className="bg-gradient-to-r from-blue-50 to-blue-50 rounded-lg px-5 py-4 border border-blue-200 mt-6">
+            <div className="bg-linear-to-r from-blue-50 to-blue-50 rounded-lg px-5 py-4 border border-blue-200 mt-6">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
                   <p className="text-xs text-gray-600 uppercase tracking-wide mb-1">Name</p>
