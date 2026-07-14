@@ -34,10 +34,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     getCurrentUser()
       .then(({ role, user_id }) => {
-        if (!cancelled) setAuth({ status: 'authenticated', role, userId: user_id });
+        setAuth((prev) =>
+          cancelled || prev.status !== 'loading'
+            ? prev
+            : { status: 'authenticated', role, userId: user_id }
+        );
       })
       .catch(() => {
-        if (!cancelled) setAuth({ status: 'unauthenticated' });
+        setAuth((prev) => (cancelled || prev.status !== 'loading' ? prev : { status: 'unauthenticated' }));
       });
     return () => {
       cancelled = true;

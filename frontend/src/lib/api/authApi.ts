@@ -24,13 +24,8 @@ export async function logout(): Promise<void> {
   await apiClient.post('/api/auth/logout');
 }
 
-export interface CurrentUserResponse {
-  role: Role;
-  user_id: string;
-}
-
 /** Resolves the session from the HttpOnly cookie, or rejects (401) if absent/expired. */
-export async function getCurrentUser(): Promise<CurrentUserResponse> {
-  const response = await apiClient.get<CurrentUserResponse>('/api/auth/me');
+export async function getCurrentUser(): Promise<LoginResponse> {
+  const response = await apiClient.get<LoginResponse>('/api/auth/me', { timeout: 8000 });
   return response.data;
 }
