@@ -50,9 +50,18 @@ async function setOverride(
   return response.data;
 }
 
+/**
+ * Soft-deletes an Assignment (Story 5.7, backend already done in Story 3.7).
+ * Backend returns 204 No Content -- nothing to parse.
+ */
+async function deleteAssignment(assignmentId: string): Promise<void> {
+  await apiClient.delete(`/api/assignments/${assignmentId}`);
+}
+
 export const dashboardApi = {
   getDashboardAssignments,
   getDashboard,
   getDrillDown,
   setOverride,
+  deleteAssignment,
 };

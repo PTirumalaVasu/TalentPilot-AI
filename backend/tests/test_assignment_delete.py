@@ -15,7 +15,7 @@ from app.assignments.models import Assignment, AssignmentOverride, SkillProgress
 from app.core.config import settings
 from app.core.security import create_access_token
 from app.core.seed_ids import CASEY_ID, RITA_ID
-from app.core.seeds import SKILL_DATA_VIZ_ID, SKILL_SQL_ID
+from app.core.seeds import SKILL_COMMUNICATION_ID, SKILL_DATA_VIZ_ID, SKILL_SQL_ID
 from app.main import app
 
 pytestmark = pytest.mark.asyncio(loop_scope="module")
@@ -288,6 +288,62 @@ async def test_deleted_assignment_disappears_from_employee_content_discovery():
                 assert response.status_code == 200
                 body = response.json()
                 assert not any(a["assignment_id"] == str(assignment_id) for a in body["assignments"])
+        finally:
+            await _cleanup_assignment(assignment_id)
+
+
+async def test_deleted_assignment_rejects_further_watch_progress_capture_and_resume():
+    """Code review decision-needed finding 1 (2026-07-14): an Employee's
+    already-open video page (SPA, no reload) must not be able to keep
+    writing/reading watch progress against an assignment HR just deleted --
+    progress/repository.py's _build_assignment_query and
+    get_assignment_with_scope now exclude soft-deleted assignments too, so
+    POST/GET .../progress correctly 404/403 instead of silently succeeding."""
+    await _cleanup_assignments_for(CASEY_ID, SKILL_COMMUNICATION_ID)
+    async with _client() as client:
+        await _login(client)
+        assignment_id = await _create_assignment(client, skill_id=SKILL_COMMUNICATION_ID)
+        try:
+            async with _client() as employee_client:
+                await _login(employee_client, email="casey@sails.example.com")
+
+                # Before delete: both endpoints work normally. Checking
+                # `verified` (not just the 201 status) matters here --
+                # record_watch_progress's silent-rejection pattern (Story
+                # 4-4) means a 201 alone doesn't prove the write actually
+                # landed as a real signal; this establishes a genuinely
+                # clean baseline before asserting the post-delete contrast.
+                post_before = await employee_client.post(
+                    f"/api/assignments/{assignment_id}/progress",
+                    json={
+                        "watch_position": 30,
+                        "event_time": datetime.now(timezone.utc).isoformat(),
+                        "video_url": "https://youtube.com/watch?v=test",
+                    },
+                )
+                assert post_before.status_code == 201
+                assert post_before.json()["verified"] is True
+                get_before = await employee_client.get(f"/api/assignments/{assignment_id}/progress")
+                assert get_before.status_code == 200
+
+            delete_response = await client.delete(f"/api/assignments/{assignment_id}")
+            assert delete_response.status_code == 204
+
+            async with _client() as employee_client:
+                await _login(employee_client, email="casey@sails.example.com")
+
+                post_after = await employee_client.post(
+                    f"/api/assignments/{assignment_id}/progress",
+                    json={
+                        "watch_position": 60,
+                        "event_time": datetime.now(timezone.utc).isoformat(),
+                        "video_url": "https://youtube.com/watch?v=test",
+                    },
+                )
+                assert post_after.status_code == 404
+
+                get_after = await employee_client.get(f"/api/assignments/{assignment_id}/progress")
+                assert get_after.status_code == 403
         finally:
             await _cleanup_assignment(assignment_id)
 

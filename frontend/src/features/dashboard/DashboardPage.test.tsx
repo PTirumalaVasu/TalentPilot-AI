@@ -13,6 +13,7 @@ vi.mock("../../lib/api/dashboardApi", () => ({
     getDashboard: vi.fn(),
     getDrillDown: vi.fn(),
     setOverride: vi.fn(),
+    deleteAssignment: vi.fn(),
   },
 }));
 
@@ -407,6 +408,135 @@ describe("DashboardPage", () => {
     expect(screen.getByRole("status")).toHaveTextContent(
       "✓ Skill assigned to Casey — Data Visualization"
     );
+  });
+
+  describe("Story 5.7: delete assignment", () => {
+    function mockRow(overrides: {
+      status?: "Not Started" | "In Progress" | "Completed";
+      status_percentage?: number | null;
+    } = {}) {
+      return {
+        assignment_id: "id-1",
+        employee_id: "emp-1",
+        employee_name: "Casey the Continuer",
+        employee_group: "Engineering",
+        skill_id: "skill-1",
+        skill_name: "Data Visualization",
+        status: overrides.status ?? ("Not Started" as const),
+        status_percentage: overrides.status_percentage ?? null,
+        provenance: "Not Started" as const,
+        last_updated: new Date().toISOString(),
+        assignment_created_at: new Date().toISOString(),
+      };
+    }
+
+    async function renderAndExpandGroup(row: ReturnType<typeof mockRow>) {
+      vi.mocked(dashboardApi.dashboardApi.getDashboard).mockResolvedValue({
+        assignments: [row],
+        total_count: 1,
+        page: 1,
+        page_size: 50,
+      });
+
+      render(<DashboardPage onNewAssignment={() => {}} />);
+
+      // Regex, not exact match -- the accordion header's full text content
+      // is "Casey the Continuer (1 skills)", not just the bare name.
+      await waitFor(() => screen.getByRole("button", { name: /Casey the Continuer/ }));
+      fireEvent.click(screen.getByRole("button", { name: /Casey the Continuer/ }));
+
+      await waitFor(() => {
+        expect(screen.getByRole("button", { name: /Remove assignment/i })).toBeInTheDocument();
+      });
+    }
+
+    it("delete icon renders on every row", async () => {
+      await renderAndExpandGroup(mockRow());
+      expect(
+        screen.getByRole("button", { name: "Remove assignment for Casey the Continuer Data Visualization" })
+      ).toBeInTheDocument();
+    });
+
+    it("clicking the delete icon opens the confirmation modal", async () => {
+      await renderAndExpandGroup(mockRow());
+
+      fireEvent.click(screen.getByRole("button", { name: /Remove assignment/i }));
+
+      await waitFor(() => {
+        expect(screen.getByRole("heading", { name: "Remove this assignment?" })).toBeInTheDocument();
+      });
+    });
+
+    it("a successful delete removes the row, decrements the total count, and shows a success toast", async () => {
+      await renderAndExpandGroup(mockRow());
+      vi.mocked(dashboardApi.dashboardApi.deleteAssignment).mockResolvedValue(undefined);
+      // AC5: the post-delete re-fetch (Subtask 3.5) returns a *different*
+      // remaining row (distinct assignment_id) with a lower total_count, so
+      // the "Total: N assignments" header text itself is asserted below,
+      // not just inferred from the row/toast -- and the deleted row's own
+      // button disappearing isn't trivially true just because the mock
+      // happens to reuse the same id.
+      vi.mocked(dashboardApi.dashboardApi.getDashboard).mockResolvedValue({
+        assignments: [{ ...mockRow(), assignment_id: "id-2", skill_name: "SQL Fundamentals" }],
+        total_count: 1,
+        page: 1,
+        page_size: 50,
+      });
+
+      fireEvent.click(screen.getByRole("button", { name: /Remove assignment/i }));
+      await waitFor(() => screen.getByRole("button", { name: "Remove Assignment" }));
+      fireEvent.click(screen.getByRole("button", { name: "Remove Assignment" }));
+
+      await waitFor(() => {
+        expect(dashboardApi.dashboardApi.deleteAssignment).toHaveBeenCalledWith("id-1");
+      });
+      await waitFor(() => {
+        expect(screen.getByText("Casey — Data Visualization removed.")).toBeInTheDocument();
+      });
+      await waitFor(() => {
+        expect(screen.getByText("Total: 1 assignment")).toBeInTheDocument();
+      });
+      await waitFor(() => {
+        expect(screen.queryByRole("button", { name: /Remove assignment/i })).not.toBeInTheDocument();
+      });
+    });
+
+    it("a failed delete leaves the row in the grid", async () => {
+      await renderAndExpandGroup(mockRow());
+      vi.mocked(dashboardApi.dashboardApi.deleteAssignment).mockRejectedValueOnce(new Error("Server error"));
+
+      fireEvent.click(screen.getByRole("button", { name: /Remove assignment/i }));
+      await waitFor(() => screen.getByRole("button", { name: "Remove Assignment" }));
+      fireEvent.click(screen.getByRole("button", { name: "Remove Assignment" }));
+
+      await waitFor(() => {
+        expect(screen.getByRole("alert")).toHaveTextContent("Server error");
+      });
+      expect(
+        screen.getByRole("button", { name: "Remove assignment for Casey the Continuer Data Visualization" })
+      ).toBeInTheDocument();
+    });
+
+    it("escalated confirmation copy names the recorded percentage for an In Progress row", async () => {
+      await renderAndExpandGroup(mockRow({ status: "In Progress", status_percentage: 45 }));
+
+      fireEvent.click(screen.getByRole("button", { name: /Remove assignment/i }));
+
+      await waitFor(() => {
+        expect(screen.getByText(/recorded progress \(45% watched\)/)).toBeInTheDocument();
+      });
+    });
+
+    it("plain confirmation copy for a Not Started row", async () => {
+      await renderAndExpandGroup(mockRow({ status: "Not Started", status_percentage: null }));
+
+      fireEvent.click(screen.getByRole("button", { name: /Remove assignment/i }));
+
+      await waitFor(() => {
+        expect(screen.getByRole("heading", { name: "Remove this assignment?" })).toBeInTheDocument();
+      });
+      expect(screen.queryByText(/recorded progress/i)).not.toBeInTheDocument();
+    });
   });
 });
 

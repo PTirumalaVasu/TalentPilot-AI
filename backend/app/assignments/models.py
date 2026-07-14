@@ -16,6 +16,7 @@ from sqlalchemy import (
     Boolean,
     Integer,
     func,
+    true,
 )
 from sqlalchemy.orm import relationship
 
@@ -35,6 +36,7 @@ class Employee(Base):
     # Relationships
     assignments = relationship("Assignment", back_populates="employee", foreign_keys="Assignment.employee_id")
     assignments_created = relationship("Assignment", back_populates="assigned_by_user", foreign_keys="Assignment.assigned_by")
+    assignments_deleted = relationship("Assignment", back_populates="deleted_by_user", foreign_keys="Assignment.deleted_by")
     overrides_created = relationship("AssignmentOverride", back_populates="set_by_user", foreign_keys="AssignmentOverride.set_by")
     overrides_reversed = relationship("AssignmentOverride", back_populates="reversed_by_user", foreign_keys="AssignmentOverride.reversed_by")
 
@@ -86,14 +88,14 @@ class Assignment(Base):
     content_id = Column(UUID(as_uuid=True), ForeignKey("content_catalog.id"), nullable=True)
     assigned_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     assigned_by = Column(UUID(as_uuid=True), ForeignKey("employees.id"), nullable=False)
-    active = Column(Boolean, default=True, nullable=False)
+    active = Column(Boolean, default=True, nullable=False, server_default=true())
     deleted_at = Column(DateTime(timezone=True), nullable=True)
     deleted_by = Column(UUID(as_uuid=True), ForeignKey("employees.id"), nullable=True)
 
     # Relationships
     employee = relationship("Employee", back_populates="assignments", foreign_keys=[employee_id])
     assigned_by_user = relationship("Employee", back_populates="assignments_created", foreign_keys=[assigned_by])
-    deleted_by_user = relationship("Employee", foreign_keys=[deleted_by])
+    deleted_by_user = relationship("Employee", back_populates="assignments_deleted", foreign_keys=[deleted_by])
     skill = relationship("Skill", back_populates="assignments")
     content = relationship("ContentCatalog", back_populates="assignments")
     progress = relationship("SkillProgress", back_populates="assignment", uselist=False)

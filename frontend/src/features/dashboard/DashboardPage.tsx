@@ -3,6 +3,7 @@ import { dashboardApi } from "../../lib/api/dashboardApi";
 import { AssignmentRow } from "../../types/dashboard";
 import { DashboardRow } from "./DashboardRow";
 import { ProvenanceDrillDownModal } from "./ProvenanceDrillDownModal";
+import { DeleteAssignmentModal } from "./DeleteAssignmentModal";
 import { Toast } from "../../components/ui/toast";
 
 // AC1 (epics.md:1771-1774): poll every 10-15s. 12000ms picked as the
@@ -10,6 +11,26 @@ import { Toast } from "../../components/ui/toast";
 // (mirrors Story 5.3's NEEDS_ATTENTION_STALENESS_DAYS / Story 2.4's
 // SIMILARITY_THRESHOLD convention).
 const POLL_INTERVAL_MS = 12000;
+
+// Story 5.7 code review follow-up: a real `currentColor` SVG, not the
+// Unicode 🗑️ emoji this story originally shipped -- emoji glyphs are drawn
+// by the OS's color-emoji font and ignore the CSS `color` property in
+// virtually every mainstream browser, so the button's `text-red-600` class
+// never actually reached the icon. This codebase has no icon library
+// (confirmed: no lucide-react/heroicons/etc. in package.json), so this is
+// hand-rolled, matching the rest of this file's inline-SVG-free but
+// emoji-free convention for anything that must actually render a color.
+function TrashIcon() {
+  return (
+    <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4" aria-hidden="true">
+      <path
+        fillRule="evenodd"
+        d="M8.75 1a.75.75 0 00-.75.75V3H4.5a.75.75 0 000 1.5h.352l.622 10.579A2.75 2.75 0 008.22 17.5h3.56a2.75 2.75 0 002.746-2.421L15.148 4.5H15.5a.75.75 0 000-1.5H12v-1.25a.75.75 0 00-.75-.75h-2.5zM10 4.5H8.5V2.5h3v2H10zM6.856 4.5h6.288l-.61 10.394a1.25 1.25 0 01-1.248 1.106H8.22a1.25 1.25 0 01-1.248-1.106L6.856 4.5zM8.5 7a.75.75 0 01.75.75v5a.75.75 0 01-1.5 0v-5A.75.75 0 018.5 7zm3 0a.75.75 0 01.75.75v5a.75.75 0 01-1.5 0v-5A.75.75 0 0111.5 7z"
+        clipRule="evenodd"
+      />
+    </svg>
+  );
+}
 
 interface DashboardState {
   assignments: AssignmentRow[];
@@ -83,6 +104,19 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
       requestId: 0,
     });
     const [selectedAssignmentId, setSelectedAssignmentId] = useState<string | null>(null);
+    // Story 5.7: which row's delete-confirmation modal is open.
+    const [deletingAssignmentId, setDeletingAssignmentId] = useState<string | null>(null);
+    // Code review patch: snapshotted at click time (handleDeleteClick)
+    // instead of derived live from state.assignments on every render --
+    // the live-derived version went blank/non-escalated if the row
+    // vanished from state.assignments while the modal was still open (a
+    // 12s poll tick, or a concurrent delete by another HR Admin).
+    const [deletingRowSnapshot, setDeletingRowSnapshot] = useState<{
+      employeeName: string;
+      skillName: string;
+      hasRecordedProgress: boolean;
+      progressPercent: number | null;
+    } | null>(null);
     const [liveAnnouncement, setLiveAnnouncement] = useState("");
     // Story 5.5: success toast after a Mark-as-Ready confirm.
     const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -91,11 +125,64 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
     const isPollingRef = useRef(false);
 
     function handleViewDetails(assignmentId: string) {
+      // Code review patch: never let the drill-down and delete-confirm
+      // modals be open at the same time (two stacked Dialog portals).
+      setDeletingAssignmentId(null);
+      setDeletingRowSnapshot(null);
       setSelectedAssignmentId(assignmentId);
     }
 
     function handleCloseDrillDown() {
       setSelectedAssignmentId(null);
+    }
+
+    function handleDeleteClick(row: AssignmentRow) {
+      // Code review patch: same simultaneous-modal guard as handleViewDetails.
+      setSelectedAssignmentId(null);
+      setDeletingAssignmentId(row.assignment_id);
+      setDeletingRowSnapshot({
+        employeeName: row.employee_name,
+        skillName: row.skill_name,
+        hasRecordedProgress: row.status !== "Not Started",
+        progressPercent: row.status_percentage,
+      });
+    }
+
+    function handleCloseDeleteModal() {
+      setDeletingAssignmentId(null);
+      setDeletingRowSnapshot(null);
+    }
+
+    // AC5: remove the row locally for immediate feedback, then re-fetch for
+    // consistency with server truth -- mirrors onOverrideChanged's existing
+    // fetchDashboard() call after a Mark-as-Ready confirm (Subtask 3.5,
+    // resolved via code review decision: keep the re-fetch).
+    function handleAssignmentDeleted(assignmentId: string) {
+      // Code review patch: clamp the target page if this delete empties out
+      // the last page the admin is currently viewing (previously state.page
+      // was never adjusted, stranding the admin on a falsely-empty page).
+      const newTotalCount = Math.max(0, state.totalCount - 1);
+      const totalPagesAfterDelete = Math.max(1, Math.ceil(newTotalCount / state.pageSize));
+      const targetPage = Math.min(state.page, totalPagesAfterDelete);
+
+      setState((prev) => ({
+        ...prev,
+        assignments: prev.assignments.filter((row) => row.assignment_id !== assignmentId),
+        totalCount: newTotalCount,
+      }));
+      if (selectedAssignmentId === assignmentId) {
+        handleCloseDrillDown();
+      }
+      // Code review patch: use the snapshot taken at click time, not a
+      // fresh state.assignments lookup -- the row may have already
+      // vanished from state (poll tick, concurrent delete) by now.
+      const firstName = deletingRowSnapshot?.employeeName.split(" ")[0] ?? "Assignment";
+      setToastMessage(
+        deletingRowSnapshot
+          ? `${firstName} — ${deletingRowSnapshot.skillName} removed.`
+          : "Assignment removed."
+      );
+      fetchDashboard(targetPage);
     }
 
     useImperativeHandle(ref, () => ({
@@ -188,12 +275,19 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
       };
     }, [state.page, state.pageSize, state.requestId]);
 
-    async function fetchDashboard() {
+    // `pageOverride` (code review patch): lets a caller request a specific
+    // page in the same call that triggers the fetch, instead of relying on
+    // state.page from this render's closure -- setState from an earlier
+    // statement in the same handler (e.g. handleAssignmentDeleted's page
+    // clamp) is not visible here, since this function's closure captured
+    // state.page at render time, not after that setState resolves.
+    async function fetchDashboard(pageOverride?: number) {
+      const targetPage = pageOverride ?? state.page;
       const currentRequestId = state.requestId + 1;
       setState((prev) => ({ ...prev, requestId: currentRequestId, loading: true, error: null, assignments: [] }));
 
       try {
-        const response = await dashboardApi.getDashboard(state.page, state.pageSize);
+        const response = await dashboardApi.getDashboard(targetPage, state.pageSize);
 
         setState((prev) => {
           if (prev.requestId !== currentRequestId) {
@@ -205,6 +299,7 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
             assignments: response.assignments,
             totalCount: response.total_count,
             loading: false,
+            page: targetPage,
           };
         });
 
@@ -383,6 +478,9 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
                           <th className="px-3 py-2 font-medium">Progress</th>
                           <th className="px-3 py-2 font-medium">Last Updated</th>
                           <th className="px-3 py-2 font-medium">Actions</th>
+                          <th className="px-3 py-2 font-medium">
+                            <span className="sr-only">Delete</span>
+                          </th>
                         </tr>
                       </thead>
                       <tbody>
@@ -427,6 +525,15 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
                                 View Details
                               </button>
                             </td>
+                            <td className="px-3 py-2">
+                              <button
+                                onClick={() => handleDeleteClick(row)}
+                                className="inline-flex items-center justify-center w-7 h-7 rounded text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors"
+                                aria-label={`Remove assignment for ${row.employee_name} ${row.skill_name}`}
+                              >
+                                <TrashIcon />
+                              </button>
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -446,6 +553,17 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
             setToastMessage(message);
             fetchDashboard();
           }}
+        />
+
+        <DeleteAssignmentModal
+          assignmentId={deletingAssignmentId}
+          employeeName={deletingRowSnapshot?.employeeName ?? ""}
+          skillName={deletingRowSnapshot?.skillName ?? ""}
+          hasRecordedProgress={deletingRowSnapshot?.hasRecordedProgress ?? false}
+          progressPercent={deletingRowSnapshot?.progressPercent ?? null}
+          open={deletingAssignmentId !== null}
+          onClose={handleCloseDeleteModal}
+          onDeleted={handleAssignmentDeleted}
         />
 
         {/* Pagination */}

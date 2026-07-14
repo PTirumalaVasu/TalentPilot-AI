@@ -236,10 +236,17 @@ class ProgressRepository:
 
         Returns:
             SQLAlchemy select statement with eager loading of content and skill
+
+        Excludes soft-deleted assignments (Story 3.7 code review, decision-needed
+        finding 1) -- without this, an Employee's already-open video page (SPA, no
+        reload) could keep writing/reading watch progress against an assignment HR
+        already deleted, contradicting FR-15's "disappears everywhere" intent.
+        Callers already treat a None/not-found result as 404 (get_assignment_for_progress)
+        so this is a safe, already-handled path, not a new error case.
         """
         stmt = (
             select(Assignment)
-            .where(Assignment.id == assignment_id)
+            .where(Assignment.id == assignment_id, Assignment.active.is_(True))
             .options(joinedload(Assignment.content), joinedload(Assignment.skill))
         )
         if employee_id is not None:
@@ -285,11 +292,20 @@ class ProgressRepository:
 
         Returns:
             Tuple of (Assignment, SkillProgress) where progress may be None if no watch history.
-            Returns (None, None) if assignment not found or identity mismatch.
+            Returns (None, None) if assignment not found, identity mismatch, or soft-deleted.
+
+        Excludes soft-deleted assignments (Story 3.7 code review, decision-needed
+        finding 1) -- see _build_assignment_query's docstring for the reasoning;
+        the caller (ProgressService.get_resume_position) already treats a None
+        assignment as 403, so this is a safe, already-handled path.
         """
         result = await session.execute(
             select(Assignment, SkillProgress)
-            .where(Assignment.id == assignment_id, Assignment.employee_id == employee_id)
+            .where(
+                Assignment.id == assignment_id,
+                Assignment.employee_id == employee_id,
+                Assignment.active.is_(True),
+            )
             .outerjoin(SkillProgress, Assignment.id == SkillProgress.assignment_id)
             .options(joinedload(Assignment.content), joinedload(Assignment.skill))
         )

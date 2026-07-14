@@ -2016,6 +2016,48 @@ So that HR Admins using assistive technology have full access.
 
 ---
 
+## Story 5.7: Delete Assignment — Dashboard Row Action
+
+> Added via `bmad-correct-course` (sprint-change-proposal-2026-07-13.md) — not in original PRD/epics.md scope. Realizes FR-15's UI consequences. Backend half (Story 3.7, `DELETE /api/assignments/{id}`) is already done.
+
+As an **HR Admin**,
+I want a delete control on each Assignment row that asks me to confirm before it executes,
+So that I can remove an Assignment I no longer want tracked, without risking an accidental, unconfirmed removal.
+
+**Acceptance Criteria:**
+
+**Given** I am viewing the Assignment Dashboard (the live grid at `/hr/dashboard`, `DashboardPage.tsx`)  
+**When** I look at any row's Actions cell  
+**Then** I see a delete control (red bin icon/button) next to the existing "View Details" link, on every row regardless of Status or Provenance — no row is exempt (mirrors backend Story 3.7 AC5's "no restriction" decision).
+
+**Given** I click the delete control on a row  
+**When** the confirmation modal opens  
+**Then**:
+- The modal never executes the delete immediately — confirmation is always required first (FR-15)
+- If the row's Status is `Not Started` (no recorded watch progress), the copy is plain: "Remove this assignment?" with the Employee name and Skill name shown for context
+- If the row's Status is `In Progress` or `Completed` (recorded signal exists — verified watch progress or an HR Override), the copy is escalated and explicit about what's being hidden, e.g. "This assignment has recorded progress ({X}% watched, or 'Completed'). Removing it will take it off the dashboard; the history is retained for audit." — matching the locked sprint-change-proposal decision ("escalated copy when a `skill_progress` row exists ... vs. plain wording for Not Started")
+- Buttons: `[Cancel]` and `[Remove Assignment]` (or equivalent confirm action), matching this codebase's established confirm/cancel modal button pattern (`ProvenanceDrillDownModal.tsx`'s Reverse-Override confirmation view)
+
+**Given** I click `[Cancel]` in the confirmation modal  
+**When** the modal closes  
+**Then** no request is sent, the Assignment is untouched, and I return to the dashboard exactly as it was
+
+**Given** I click `[Remove Assignment]` in the confirmation modal  
+**When** the `DELETE /api/assignments/{id}` request succeeds (204 No Content, per Story 3.7)  
+**Then**:
+- The row disappears from the grid without a full page reload
+- The employee's group total count updates (row count in the accordion header, and the dashboard's overall `Total: {N} assignments` count)
+- A success toast appears (reuse `DashboardPage.tsx`'s existing `toastMessage`/`Toast` slot, the same one Story 5.5/5.6 already use — no new Toast instance)
+- If the deleted row's drill-down modal happened to be open, it closes
+
+**Given** the `DELETE` request fails (network error, unexpected 4xx/5xx)  
+**When** the error is returned  
+**Then** the confirmation modal shows an inline error (not a silent failure), the row is NOT removed from the grid, and the HR Admin can retry or cancel
+
+**Out of Scope (this story):** any restore/undo affordance for a deleted Assignment (locked sprint-change-proposal decision: "One-way from the UI in this change"); any change to which assignments are eligible for delete (backend Story 3.7 already allows any Status/Override state, no additional frontend restriction is added).
+
+---
+
 ---
 
 ## Next Steps

@@ -1,4 +1,5 @@
 """Service layer for the assignments module. Cross-module callers must go through here (AD-1)."""
+import logging
 from fastapi import HTTPException, status
 import uuid
 
@@ -36,6 +37,8 @@ from app.content.service import match_content_for_skill
 from app.core.errors import AppException
 from app.progress.repository import ProgressRepository
 from app.progress.service import ProgressService, ProvenanceDetail
+
+logger = logging.getLogger(__name__)
 
 
 class AssignmentsService:
@@ -215,7 +218,12 @@ async def delete_assignment_service(
     no-op -- it does not overwrite the original deleted_at/deleted_by with a
     second delete's values. Chosen over a 404/409 since there's no existing
     precedent in this codebase for a stricter "already deleted" error, and a
-    no-op is simpler for a caller that double-clicks or retries."""
+    no-op is simpler for a caller that double-clicks or retries. The
+    idempotency guarantee is enforced atomically at the DB layer by
+    soft_delete_assignment's conditional UPDATE (code review patch 1), not
+    by a Python-side check here -- do not reintroduce an
+    `if assignment.active:` guard in this function, it would reopen the
+    exact race condition that patch fixed."""
     require_hr_admin(current_user)
 
     assignment = await get_assignment_scoped_to_hr_admin(
@@ -224,8 +232,13 @@ async def delete_assignment_service(
     if assignment is None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No access to this assignment")
 
-    if assignment.active:
-        await soft_delete_assignment(session, assignment=assignment, deleted_by=_parse_user_id(current_user))
+    deleted_now = await soft_delete_assignment(
+        session, assignment_id=assignment.id, deleted_by=_parse_user_id(current_user)
+    )
+    if deleted_now:
+        logger.debug(f"Soft-deleted assignment {assignment.id}")
+    else:
+        logger.debug(f"Delete no-op for assignment {assignment.id}: already inactive")
 
 
 async def list_assignment_rows_for_dashboard_service(

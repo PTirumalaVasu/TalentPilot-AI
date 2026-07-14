@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime, timezone
 
 from fastapi import status
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -171,22 +171,24 @@ async def list_assignments_for_hr(
     (DashboardService.get_dashboard_assignments -> AssignmentsService.list_assignments_for_hr
     -> here), so excluding soft-deleted rows (Story 3.7) here -- in both the
     count and the page query -- is what keeps pagination counts and the
-    dashboard grid correct.
+    dashboard grid correct. The filter is expressed once (`base_filters`,
+    code review patch 4) rather than duplicated across both statements, so a
+    future edit to one can't silently drift from the other.
     """
     from sqlalchemy import desc
     from sqlalchemy.orm import selectinload
 
+    base_filters = (Assignment.assigned_by == hr_admin_id, Assignment.active.is_(True))
+
     # Count total assignments for this HR Admin
-    count_stmt = select(func.count(Assignment.id)).where(
-        Assignment.assigned_by == hr_admin_id, Assignment.active.is_(True)
-    )
+    count_stmt = select(func.count(Assignment.id)).where(*base_filters)
     count_result = await session.execute(count_stmt)
     total_count = count_result.scalar() or 0
 
     # Fetch paginated assignments with eager-loaded relationships
     stmt = (
         select(Assignment)
-        .where(Assignment.assigned_by == hr_admin_id, Assignment.active.is_(True))
+        .where(*base_filters)
         .order_by(desc(Assignment.assigned_at))
         .offset((page - 1) * page_size)
         .limit(page_size)
@@ -204,20 +206,33 @@ async def list_assignments_for_hr(
 
 
 async def soft_delete_assignment(
-    session: AsyncSession, *, assignment: Assignment, deleted_by: uuid.UUID
-) -> Assignment:
-    """Soft-deletes an already-fetched Assignment (Story 3.7): sets
-    active=False, deleted_at=now(), deleted_by=caller. Never physically
-    removes the row -- skill_progress/assignment_overrides rows referencing
-    it are untouched, per the locked sprint-change-proposal-2026-07-13.md
-    decision (soft delete, mirroring assignment_overrides.active from Story
-    5.5b). Caller is responsible for scoping/access-checking `assignment`
-    before calling this (see get_assignment_scoped_to_hr_admin)."""
-    assignment.active = False
-    assignment.deleted_at = datetime.now(timezone.utc)
-    assignment.deleted_by = deleted_by
+    session: AsyncSession, *, assignment_id: uuid.UUID, deleted_by: uuid.UUID
+) -> bool:
+    """Atomically soft-deletes an Assignment via a conditional
+    `UPDATE ... WHERE active = true` (Story 3.7 code review patch 1) --
+    never physically removes the row; skill_progress/assignment_overrides
+    rows referencing it are untouched, per the locked
+    sprint-change-proposal-2026-07-13.md decision (soft delete, mirroring
+    assignment_overrides.active from Story 5.5b).
+
+    The DB-level conditional UPDATE, not a Python-side read-then-write
+    check, is what makes double-delete idempotency (AC7) race-safe: two
+    concurrent DELETE requests for the same assignment_id can no longer
+    both observe active=True and both overwrite deleted_at/deleted_by --
+    only the first to commit actually changes anything; the second's
+    UPDATE matches zero rows and is a true no-op. Caller is responsible
+    for scoping/access-checking the assignment before calling this (see
+    get_assignment_scoped_to_hr_admin).
+
+    Returns True if this call performed the soft-delete, False if the
+    Assignment was already inactive (idempotent no-op)."""
+    result = await session.execute(
+        update(Assignment)
+        .where(Assignment.id == assignment_id, Assignment.active.is_(True))
+        .values(active=False, deleted_at=datetime.now(timezone.utc), deleted_by=deleted_by)
+    )
     await session.flush()
-    return assignment
+    return result.rowcount > 0
 
 
 async def get_assignment_scoped_to_hr_admin(
