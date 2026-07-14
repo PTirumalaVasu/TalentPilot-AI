@@ -18,48 +18,33 @@ The player never talks to the backend directly. A capture service batches positi
 - **Resume:** on next visit, the resume endpoint is Employee-only and hard-scoped to the caller's own session identity; it returns the exact stored position (0 on first view, or as a fail-safe if the stored value is out of bounds).
 - **Tab close:** `beforeunload` flushes the last known position via `navigator.sendBeacon()` — fire-and-forget, no response wait.
 
+**1a. Resume (on open)**
+
 ```mermaid
 flowchart TD
-    subgraph Resume["On open — resume"]
-        Open["Employee opens assigned video"] --> ResumeReq["GET /api/assignments/id/progress"]
-        ResumeReq --> ResumeScope["Hard-scoped to caller's own session identity"]
-        ResumeScope --> ResumeCheck{"Stored row exists\nand in bounds?"}
-        ResumeCheck -->|"No row yet"| Zero["Return position 0"]
-        ResumeCheck -->|"Out of bounds"| Zero
-        ResumeCheck -->|"Yes"| Exact["Return exact stored watch_position"]
-        Zero --> Seek["Player seeks to position"]
-        Exact --> Seek
-    end
+    A[Employee opens video] --> B[GET progress: resume]
+    B --> C[Return stored position\nor 0 if none/out-of-bounds]
+    C --> D[Player seeks to position]
+```
 
-    subgraph Capture["While playing — capture"]
-        Play["Video playing"] --> Tick["timeupdate event fires"]
-        Tick --> Queue["Queue sample locally\n(position, event_time)"]
-        Queue --> Trigger{"~10s elapsed OR\n3 samples queued?"}
-        Trigger -->|No| Play
-        Trigger -->|Yes| Post["POST /api/assignments/id/progress"]
-    end
+**1b. Capture and validated write (while playing)**
 
-    subgraph Validate["Every write — server-side validation"]
-        Post --> Anti["Anti-spoofing checks (antiflow.py)"]
-        Anti --> C1["1: session identity == assignment.employee_id"]
-        Anti --> C2["2: 0 <= position <= duration"]
-        Anti --> C3["3: advance rate <= 10x realtime\n(rewinds always allowed)"]
-        Anti --> C4["4: event_time within +/-5 min of server clock"]
-        C1 --> Verified{"All checks pass?"}
-        C2 --> Verified
-        C3 --> Verified
-        C4 --> Verified
-        Verified -->|Yes| Flag["verified = true"]
-        Verified -->|No| FlagFalse["verified = false\n(write still persisted, for forensics)"]
-        Flag --> Cond{"event_time newer\nthan stored row?"}
-        FlagFalse --> Cond
-        Cond -->|Yes| Write[("Write skill_progress")]
-        Cond -->|No| Drop["Discard — stale/out-of-order write"]
-    end
+```mermaid
+flowchart TD
+    A[Video playing] --> B[Sample position periodically]
+    B --> C[Batch, POST every ~10s]
+    C --> D[Server anti-spoofing checks]
+    D --> E{Newer than\nstored row?}
+    E -->|Yes| F[(Write skill_progress)]
+    E -->|No| G[Discard as stale]
+```
 
-    subgraph TabClose["Tab close / hidden"]
-        Unload["beforeunload fires"] --> Beacon["navigator.sendBeacon:\nflush last position, fire-and-forget"]
-    end
+**1c. Tab close**
+
+```mermaid
+flowchart TD
+    A[Tab closes or hidden] --> B[sendBeacon flush]
+    B --> C[(skill_progress\nbest-effort)]
 ```
 
 ## 2. HR Admin workflow — dashboard polling, derivation, drill-down, override
@@ -71,45 +56,44 @@ The dashboard never reads raw watch data. Every row's Status and Provenance are 
 - **Drill-down:** reached from any row, calls the exact same derivation function as the grid — showing the raw signal (watch %, timestamp) behind the badge.
 - **HR Override:** a separate, coexisting record — never a field overwrite on `skill_progress`. Setting one deactivates any prior active override first (at most one active override per assignment), and an active override wins the effective Status while the underlying (pre-override) signal stays visible in the drill-down rather than being erased.
 
+**2a. Dashboard load and poll**
+
 ```mermaid
 flowchart TD
-    subgraph Load["Dashboard load + poll — every 12s while tab visible"]
-        Open["HR Admin opens Readiness Dashboard"] --> Get["GET /api/dashboard"]
-        Get --> Each["For each assignment row"]
-        Each --> Derive["get_provenance_detail()\nsingle derivation authority"]
-        Derive --> Status["derive_dashboard_status_and_percent:\nwatch % vs duration -> Status"]
-        Derive --> SelfRep["derive_self_reported_provenance:\nstale over 7 days -> Needs Attention"]
-        Derive --> OverrideCheck{"Active HR Override\non this row?"}
-        OverrideCheck -->|Yes| OverrideWins["Override wins Status\nProvenance = HR Override\nunderlying signal kept, not erased"]
-        OverrideCheck -->|No| NoOverride["Status/Provenance as derived above"]
-        Status --> Rows["Row: status, provenance, percentage"]
-        SelfRep --> Rows
-        OverrideWins --> Rows
-        NoOverride --> Rows
-        Rows --> Diff["Diff vs previous rows\nstatus/provenance/percentage only"]
-        Diff --> Announce["Highlight changed rows\naria-live announcement"]
-        Announce --> Poll{"12s elapsed AND\ntab visible?"}
-        Poll -->|Yes| Get
-        Poll -->|"Tab hidden"| Pause["Polling paused"]
-    end
+    A[GET /api/dashboard] --> B[Derive Status + Provenance\nper row, one function]
+    B --> C[Diff vs previous rows]
+    C --> D[Highlight + announce changes]
+    D --> E[Poll again in 12s\nif tab visible]
+    E --> A
+```
 
-    subgraph DrillDown["Drill-down"]
-        Click["HR Admin clicks a row"] --> GetDD["GET /assignments/id/progress/drill-down"]
-        GetDD --> Derive
-        Derive --> DDResp["Provenance + raw signal (watch %, timestamp)\nplus underlying signal if overridden"]
-    end
+**2b. Row derivation (used by 2a and drill-down)**
 
-    subgraph OverrideFlow["Set / reverse HR Override"]
-        Action["HR Admin sets or reverses override\nplus optional reason"] --> PostOv["POST /assignments/id/override"]
-        PostOv --> Lock["Lock row\nserialize concurrent set/unset"]
-        Lock --> Deactivate["Deactivate any prior active override"]
-        Deactivate --> Mutate{"action?"}
-        Mutate -->|"set"| Create["Create new override record\nattributed, timestamped"]
-        Mutate -->|"unset"| NoneActive["No active override remains"]
-        Create --> Rederive["Re-derive via get_provenance_detail\nsame authority, no drift"]
-        NoneActive --> Rederive
-        Rederive --> Resp["Updated drill-down response"]
-    end
+```mermaid
+flowchart TD
+    A[watch % vs duration] --> B[Base Status + Provenance]
+    B --> C{Active HR\nOverride?}
+    C -->|Yes| D[Override wins Status\nProvenance = HR Override]
+    C -->|No| E[Use base Status/Provenance]
+```
+
+**2c. Drill-down**
+
+```mermaid
+flowchart TD
+    A[Click a row] --> B[GET drill-down]
+    B --> C[Same derivation as dashboard]
+    C --> D[Show raw signal\n+ underlying signal if overridden]
+```
+
+**2d. Set or reverse HR Override**
+
+```mermaid
+flowchart TD
+    A[HR sets/reverses override] --> B[POST override]
+    B --> C[Deactivate prior override]
+    C --> D[Create or clear record]
+    D --> E[Re-derive Status/Provenance]
 ```
 
 ## 3. Why the two workflows never collide
