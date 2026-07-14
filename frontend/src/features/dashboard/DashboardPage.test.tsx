@@ -6,6 +6,7 @@ import { createRef } from "react";
 import { render, screen, waitFor, fireEvent, act } from "@testing-library/react";
 import { DashboardPage, type DashboardPageHandle } from "./DashboardPage";
 import * as dashboardApi from "../../lib/api/dashboardApi";
+import type { DashboardResponse } from "../../types/dashboard";
 
 // Mock the dashboardApi module
 vi.mock("../../lib/api/dashboardApi", () => ({
@@ -16,6 +17,15 @@ vi.mock("../../lib/api/dashboardApi", () => ({
   },
 }));
 
+// Groups render collapsed by default (fetchDashboard resets expandedGroups on
+// every load) -- row-level content (skill name, status, progress, last
+// updated, View Details) only enters the DOM once its employee group is
+// expanded, so most assertions below must open the group first.
+async function expandGroup(employeeName: RegExp | string) {
+  const toggle = await screen.findByRole("button", { name: employeeName });
+  fireEvent.click(toggle);
+}
+
 describe("DashboardPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -24,11 +34,11 @@ describe("DashboardPage", () => {
   it("renders loading state on mount", () => {
     // Mock API to delay response
     vi.mocked(dashboardApi.dashboardApi.getDashboard).mockImplementation(
-      () => new Promise(() => {}) // Never resolves
+      () => new Promise<DashboardResponse>(() => {}) // Never resolves
     );
 
     render(<DashboardPage onNewAssignment={() => {}} />);
-    expect(screen.getByText(/Loading assignments/i)).toBeInTheDocument();
+    expect(screen.getByTestId("dashboard-loading")).toBeInTheDocument();
   });
 
   it("renders assignment grid when data loads", async () => {
@@ -38,7 +48,7 @@ describe("DashboardPage", () => {
           assignment_id: "id-1",
           employee_id: "emp-1",
           employee_name: "Casey the Continuer",
-            employee_group: "Engineering",
+          employee_group: "Engineering",
           skill_id: "skill-1",
           skill_name: "Data Visualization",
           status: "In Progress" as const,
@@ -57,8 +67,9 @@ describe("DashboardPage", () => {
 
     render(<DashboardPage onNewAssignment={() => {}} />);
 
+    await expandGroup(/Casey the Continuer/);
+
     await waitFor(() => {
-      expect(screen.getByText("Casey the Continuer")).toBeInTheDocument();
       expect(screen.getByText("Data Visualization")).toBeInTheDocument();
     });
   });
@@ -70,7 +81,7 @@ describe("DashboardPage", () => {
           assignment_id: "id-1",
           employee_id: "emp-1",
           employee_name: "Test Employee",
-            employee_group: "Engineering",
+          employee_group: "Engineering",
           skill_id: "skill-1",
           skill_name: "Test Skill",
           status: "In Progress" as const,
@@ -89,6 +100,8 @@ describe("DashboardPage", () => {
 
     render(<DashboardPage onNewAssignment={() => {}} />);
 
+    await expandGroup(/Test Employee/);
+
     await waitFor(() => {
       // Status text should be present (not just color)
       expect(screen.getByText(/In Progress \(45%\)/)).toBeInTheDocument();
@@ -105,7 +118,7 @@ describe("DashboardPage", () => {
           assignment_id: "id-1",
           employee_id: "emp-1",
           employee_name: "Test Employee",
-            employee_group: "Engineering",
+          employee_group: "Engineering",
           skill_id: "skill-1",
           skill_name: "Test Skill",
           status: "Not Started" as const,
@@ -124,6 +137,8 @@ describe("DashboardPage", () => {
 
     render(<DashboardPage onNewAssignment={() => {}} />);
 
+    await expandGroup(/Test Employee/);
+
     await waitFor(() => {
       // Should show relative time like "2 hours ago", not ISO-8601
       const text = screen.getByText(/ago$/);
@@ -138,7 +153,7 @@ describe("DashboardPage", () => {
           assignment_id: "id-1",
           employee_id: "emp-1",
           employee_name: "Test Employee",
-            employee_group: "Engineering",
+          employee_group: "Engineering",
           skill_id: "skill-1",
           skill_name: "Test Skill",
           status: "Not Started" as const,
@@ -156,6 +171,8 @@ describe("DashboardPage", () => {
     vi.mocked(dashboardApi.dashboardApi.getDashboard).mockResolvedValue(mockData);
 
     render(<DashboardPage onNewAssignment={() => {}} />);
+
+    await expandGroup(/Test Employee/);
 
     await waitFor(() => {
       const buttons = screen.getAllByText("View Details");
@@ -255,9 +272,17 @@ describe("DashboardPage", () => {
     render(<DashboardPage onNewAssignment={() => {}} />);
 
     await waitFor(() => {
-      expect(screen.getByText(/Page 1 of 3/)).toBeInTheDocument();
       expect(screen.getByText(/Total: 125 assignments/)).toBeInTheDocument();
     });
+
+    // 125 total / 50 per page = 3 pages. Current page button reads "1",
+    // Previous is disabled (already on page 1) and Next is enabled (more
+    // pages remain) -- there's no separate "Page X of Y" string in this
+    // design, the button states themselves communicate paging.
+    const pageButton = screen.getByRole("button", { name: "1" });
+    expect(pageButton).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Previous" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Next" })).toBeEnabled();
   });
 
   it("keyboard navigation works - View Details button is focusable", async () => {
@@ -267,7 +292,7 @@ describe("DashboardPage", () => {
           assignment_id: "id-1",
           employee_id: "emp-1",
           employee_name: "Test Employee",
-            employee_group: "Engineering",
+          employee_group: "Engineering",
           skill_id: "skill-1",
           skill_name: "Test Skill",
           status: "Not Started" as const,
@@ -286,13 +311,10 @@ describe("DashboardPage", () => {
 
     render(<DashboardPage onNewAssignment={() => {}} />);
 
-    // Await for the grid to render
-    await waitFor(() => {
-      expect(screen.getByText("Test Employee")).toBeInTheDocument();
-    });
+    await expandGroup(/Test Employee/);
 
     // Check that View Details button exists and is focusable
-    const viewDetailsButtons = screen.getAllByRole("button", { name: /View Details/i });
+    const viewDetailsButtons = await screen.findAllByRole("button", { name: /View Details/i });
     expect(viewDetailsButtons.length).toBeGreaterThan(0);
     viewDetailsButtons.forEach((btn) => {
       expect(btn).not.toHaveAttribute("disabled");
@@ -306,7 +328,7 @@ describe("DashboardPage", () => {
           assignment_id: "id-1",
           employee_id: "emp-1",
           employee_name: "Casey the Continuer",
-            employee_group: "Engineering",
+          employee_group: "Engineering",
           skill_id: "skill-1",
           skill_name: "Data Visualization",
           status: "Not Started" as const,
@@ -325,7 +347,6 @@ describe("DashboardPage", () => {
     vi.mocked(dashboardApi.dashboardApi.getDrillDown).mockResolvedValue({
       assignment_id: "id-1",
       employee_name: "Casey the Continuer",
-            employee_group: "Engineering",
       skill_name: "Data Visualization",
       status: "NOT_STARTED",
       status_percentage: null,
@@ -341,7 +362,6 @@ describe("DashboardPage", () => {
     vi.mocked(dashboardApi.dashboardApi.setOverride).mockResolvedValue({
       assignment_id: "id-1",
       employee_name: "Casey the Continuer",
-            employee_group: "Engineering",
       skill_name: "Data Visualization",
       status: "COMPLETED",
       status_percentage: null,
@@ -357,12 +377,10 @@ describe("DashboardPage", () => {
 
     render(<DashboardPage onNewAssignment={() => {}} />);
 
-    await waitFor(() => {
-      expect(screen.getByText("Casey the Continuer")).toBeInTheDocument();
-    });
+    await expandGroup(/Casey the Continuer/);
     expect(dashboardApi.dashboardApi.getDashboard).toHaveBeenCalledTimes(1);
 
-    fireEvent.click(screen.getByRole("button", { name: /View Details/i }));
+    fireEvent.click(await screen.findByRole("button", { name: /View Details/i }));
 
     await waitFor(() => screen.getByRole("button", { name: "Mark as Ready" }));
     fireEvent.click(screen.getByRole("button", { name: "Mark as Ready" }));
@@ -409,4 +427,3 @@ describe("DashboardPage", () => {
     );
   });
 });
-
