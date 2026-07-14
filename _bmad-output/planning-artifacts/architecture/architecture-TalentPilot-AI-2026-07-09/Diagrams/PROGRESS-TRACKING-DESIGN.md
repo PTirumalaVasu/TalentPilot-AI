@@ -43,7 +43,7 @@ sequenceDiagram
 
     loop every 'timeupdate' while playing
         Player->>Cap: position(), duration()
-        Cap->>Cap: queue sample (batches; posts every ~10s or at 3 samples)
+        Cap->>Cap: queue sample locally (posts every ~10s or at 3 samples)
     end
 
     Cap->>API: POST /api/assignments/{id}/progress {watch_position, event_time, video_url}
@@ -84,7 +84,7 @@ sequenceDiagram
         SVC->>SVC: derive_dashboard_status_and_percent() -> Status
         SVC->>SVC: derive_self_reported_provenance() -> stale >7d = Needs Attention
         alt active HR Override exists
-            SVC->>SVC: Override wins Status; Provenance = "HR Override"<br/>underlying signal still attached, never erased
+            SVC->>SVC: Override wins Status, Provenance = "HR Override"<br/>underlying signal still attached, never erased
         end
     end
     SVC-->>UI: rows: {status, provenance, percentage}
