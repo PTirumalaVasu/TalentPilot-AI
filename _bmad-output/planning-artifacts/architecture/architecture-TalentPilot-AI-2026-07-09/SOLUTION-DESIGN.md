@@ -145,9 +145,89 @@ sequenceDiagram
     D->>PR: coaching-shaped drill-down (watch %, timestamp, provenance)
 ```
 
+### Content ingestion & skill matching (AD-7)
+
+Two separate phases, deliberately never in the same call path: an **offline batch ingestion** that pulls from YouTube (quota-limited, ~100 calls/day), and an **online semantic match** that runs at request time purely against what's already ingested.
+
+```mermaid
+flowchart TD
+    subgraph Offline["OFFLINE — Batch Ingestion (manual CLI trigger)"]
+        CLI["python -m app.content.cli ingest"] --> Job["run_ingestion_job()"]
+        Job --> Loop["For each Skill"]
+        Loop --> YT["YouTube Data API v3\nsearch.list + videos.list"]
+        YT --> Dedup{"video_id already\ningested for this Skill?"}
+        Dedup -->|Yes| Skip["Skip — skipped_duplicate++"]
+        Dedup -->|No| Embed["embed_text(title + description)\nall-MiniLM-L6-v2, 384-dim"]
+        Embed --> Store[("content_catalog row\nembedding + video_id/duration/thumbnail")]
+        YT -->|quota exhausted mid-run| Stop["Abort remaining Skills\n(quota is shared across the whole API key)"]
+    end
+
+    subgraph Online["ONLINE — Request-time Matching"]
+        Trigger["Caller: Assignment Modal Step 3,\nor Employee Content Discovery"] --> Match["match_content_for_skill(skill_id)"]
+        Match --> SkillEmb["Read Skill.embedding"]
+        SkillEmb --> Search["find_best_matching_content()\npgvector cosine_distance,\nORDER BY distance ASC LIMIT 1"]
+        Search --> Threshold{"best distance <\n(1 − relevance floor)?"}
+        Threshold -->|Yes| Return["Return best-match Content"]
+        Threshold -->|No match found| Reembed["Re-embed Skill's existing Content\n(self-heals drifted embeddings —\nno YouTube call)"]
+        Reembed --> Retry["Retry search once"]
+        Retry --> Threshold2{"Clears threshold now?"}
+        Threshold2 -->|Yes| Return
+        Threshold2 -->|No| Null["Return None\n(\"no recommendation yet\", not an error)"]
+    end
+
+    Store -.->|read by| SkillEmb
+```
+
+Build-order consequence (unchanged from §5): ingestion must run at least once before matching has data to rank.
+
 ### Assignment flow (FR-1/FR-2)
 
 Employee → skill → review auto-linked content → confirm. On confirm the row appears immediately as `Not Started` (no `skill_progress` row needs to exist yet — derivation treats "no signal" as Not Started). If the save succeeds but the dashboard refresh fails, the assignment is **not lost** — the UI shows a distinct *refresh* error. A cancel at any step is a true no-op. A duplicate (same employee+skill) surfaces the existing assignment rather than silently creating a second — though a second *intentional* one is allowed, which is why `skill_progress` is keyed by `assignment_id`, not by (employee, skill).
+
+```mermaid
+sequenceDiagram
+    actor HR as HR Admin
+    participant FE as Assignment Modal (SPA)
+    participant API as assignments/ router
+    participant SVC as assignments/ service
+    participant CSVC as content/ service
+    participant DB as Postgres
+
+    HR->>FE: Open "+ New Assignment"
+    FE->>API: GET /employees?search=
+    API-->>FE: Employee directory
+    HR->>FE: Select Employee (Step 1)
+
+    FE->>API: GET /skills?search=
+    API-->>FE: Skill directory
+    HR->>FE: Select Skill (Step 2) -> Review Content
+
+    FE->>API: GET /duplicate-check?employee_id&skill_id
+    API->>SVC: duplicate_check_service()
+    SVC->>DB: find_existing_assignment()
+    DB-->>SVC: existing rows (if any)
+    SVC-->>FE: [] or [Assignment...]
+
+    alt Duplicate found
+        FE-->>HR: "Already assigned" interstitial [View] / [Assign Again]
+        HR->>FE: Assign Again
+    end
+
+    FE->>API: GET /content/match?skill_id
+    API->>CSVC: match_content_for_skill()
+    CSVC->>DB: cosine-similarity search (see ingestion/matching diagram above)
+    DB-->>CSVC: best Content or None
+    CSVC-->>FE: matched content, shown in Step 3
+
+    HR->>FE: Confirm "Assign" (or "Assign without content")
+    FE->>API: POST /assignments {employee_id, skill_id, content_id}
+    API->>SVC: create_assignment_service()
+    SVC->>SVC: require_hr_admin(current_user)
+    SVC->>DB: create_assignment(assigned_by = HR Admin id)
+    DB-->>SVC: Assignment row
+    SVC-->>FE: 201 Created, status = "Not Started"
+    FE-->>HR: Success toast + new row highlighted on Dashboard
+```
 
 ---
 
