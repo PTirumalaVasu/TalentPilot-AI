@@ -103,8 +103,10 @@ async def find_best_matching_content(
     Pre-filters to the given skill_id, ranks by pgvector cosine distance
     (computed once and reused for the WHERE/ORDER BY clauses below), and
     returns only the single top match if it clears `threshold` similarity.
-    `ContentCatalog.id` is an explicit tie-break so ties resolve
-    deterministically (AC6) rather than by incidental row-fetch order.
+    `ingested_at` is an explicit tie-break so equally-similar candidates
+    resolve to the earlier-inserted row deterministically (AC6) rather than
+    by incidental row-fetch order; `ContentCatalog.id` (a random UUID, not
+    time-ordered) breaks any remaining tie for rows ingested simultaneously.
 
     Returns:
         The best-matching ContentCatalog ORM instance, or None if no
@@ -115,7 +117,7 @@ async def find_best_matching_content(
     stmt = (
         select(ContentCatalog)
         .where(ContentCatalog.skill_id == skill_id, distance < (1 - threshold))
-        .order_by(distance.asc(), ContentCatalog.id.asc())
+        .order_by(distance.asc(), ContentCatalog.ingested_at.asc(), ContentCatalog.id.asc())
         .limit(1)
     )
     result = await db.execute(stmt)

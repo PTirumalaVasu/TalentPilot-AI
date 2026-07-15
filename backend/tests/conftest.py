@@ -4,6 +4,7 @@ from typing import AsyncGenerator
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
+from sqlalchemy.pool import NullPool
 
 # Import models to register them with SQLAlchemy's mapper registry before we use it
 # noqa: F401 - imported for side-effects
@@ -21,6 +22,19 @@ from app.core.seeds import run_seeds
 os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://talentpilot:sails123@localhost:5433/talentpilot")
 os.environ.setdefault("JWT_SECRET", "test-secret-do-not-use-in-production")
 
+# app.core.db builds one module-level engine/pool at import time. asyncpg
+# connections are bound to the event loop that first used them, but test
+# modules run on a mix of function- and module-scoped loops (several set
+# `loop_scope="module"` deliberately -- see their docstrings). A pooled
+# connection handed out on one loop and reused on another raises
+# "cannot perform operation: another operation is in progress". NullPool
+# opens a fresh connection per checkout and never hands a connection across
+# a request boundary, so no connection can outlive the loop that made it.
+import app.core.db as _app_db
+from app.core.config import settings as _settings
+
+_app_db.engine = create_async_engine(_settings.DATABASE_URL, poolclass=NullPool)
+_app_db.async_session_factory = async_sessionmaker(_app_db.engine, expire_on_commit=False)
 
 from app.auth import service as auth_service
 

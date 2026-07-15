@@ -26,7 +26,7 @@ from app.auth.schemas import CurrentUser
 from app.auth.service import get_current_user
 from app.core.db import get_db
 
-router = APIRouter(tags=["assignments"])
+router = APIRouter(tags=["assignments"], dependencies=[Depends(get_current_user)])
 
 
 @router.get("/employees", response_model=list[EmployeeResponse])
@@ -106,12 +106,13 @@ async def get_drill_down_route(
     session: AsyncSession = Depends(get_db),
 ) -> DrillDownResponse:
     """Provenance Drill-Down modal data (Story 5.2, FR-9) — HR_ADMIN-only via
-    get_drill_down_service's require_hr_admin gate, hard-scoped to
-    assignments the caller created. Deliberately registered on this router
-    (mounted at /api/assignments with only relative-path routes) rather than
-    progress/router.py, which double-prefixes its own absolute-path routes
-    with main.py's /api/progress mount — see this story's Dev Notes Finding 2
-    for the live bug that causes."""
+    get_drill_down_service's require_hr_admin gate. Any HR Admin may view any
+    assignment (PR #80 removed the original creator-only scoping, which was
+    blocking legitimate cross-admin collaboration). Deliberately registered
+    on this router (mounted at /api/assignments with only relative-path
+    routes) rather than progress/router.py, which double-prefixes its own
+    absolute-path routes with main.py's /api/progress mount — see this
+    story's Dev Notes Finding 2 for the live bug that causes."""
     return await get_drill_down_service(session, current_user=current_user, assignment_id=assignment_id)
 
 
@@ -123,8 +124,9 @@ async def set_override_route(
     session: AsyncSession = Depends(get_db),
 ) -> DrillDownResponse:
     """Create or reverse an HR Override (Story 5.5/5.5b, FR-12) -- HR_ADMIN-only
-    via set_override_service's require_hr_admin gate, hard-scoped to
-    assignments the caller created. Registered here (not progress/router.py)
+    via set_override_service's require_hr_admin gate. Any HR Admin may
+    override any assignment (PR #80, same cross-admin collaboration fix as
+    the drill-down route above). Registered here (not progress/router.py)
     for the same double-prefix-avoidance reason as the drill-down route
     above -- even though assignment_overrides is owned by progress/ (AD-1),
     the mutation itself is delegated to ProgressService.set_override; this

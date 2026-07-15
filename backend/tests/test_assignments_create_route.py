@@ -9,10 +9,10 @@ import uuid
 
 import pytest
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import delete
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from app.assignments.models import Assignment
+from app.assignments.models import Assignment, SkillProgress
 from app.core.config import settings
 from app.core.seed_ids import CASEY_ID, MORGAN_ID
 from app.core.seeds import SKILL_DATA_VIZ_ID, SKILL_PYTHON_ID, SKILL_SQL_ID
@@ -47,6 +47,15 @@ async def _cleanup_assignment(assignment_id: uuid.UUID) -> None:
 
 async def _cleanup_assignments_for(employee_id: uuid.UUID, skill_id: uuid.UUID) -> None:
     async with _session_factory() as session:
+        assignment_ids = (
+            await session.execute(
+                select(Assignment.id).where(
+                    Assignment.employee_id == employee_id, Assignment.skill_id == skill_id
+                )
+            )
+        ).scalars().all()
+        if assignment_ids:
+            await session.execute(delete(SkillProgress).where(SkillProgress.assignment_id.in_(assignment_ids)))
         await session.execute(
             delete(Assignment).where(Assignment.employee_id == employee_id, Assignment.skill_id == skill_id)
         )
@@ -120,6 +129,7 @@ async def test_create_assignment_rejects_extra_fields():
 
 
 async def test_duplicate_check_returns_empty_when_no_existing_assignment():
+    await _cleanup_assignments_for(CASEY_ID, SKILL_SQL_ID)
     async with _client() as client:
         await _login(client)
         response = await client.get(

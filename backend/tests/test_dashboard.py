@@ -2,12 +2,18 @@
 import pytest
 from uuid import UUID
 
-from fastapi.testclient import TestClient
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dashboard.service import DashboardService
 from app.core.security import create_access_token
-from app.auth.models import Role
+from app.core.config import settings
+from app.auth.schemas import Role
+from app.main import app
+
+
+def _client() -> AsyncClient:
+    return AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
 
 
 @pytest.mark.asyncio
@@ -66,24 +72,28 @@ async def test_dashboard_response_schema(db_session: AsyncSession):
     assert isinstance(response.page_size, int)
 
 
-def test_dashboard_requires_hr_admin_role(client: TestClient):
+@pytest.mark.asyncio
+async def test_dashboard_requires_hr_admin_role():
     """Test: GET /api/dashboard returns 403 Forbidden for EMPLOYEE role (AC10)."""
-    # Create EMPLOYEE JWT
+    # Create EMPLOYEE JWT. The app only reads the session from the
+    # SESSION_COOKIE_NAME cookie (see get_current_token_payload), not an
+    # Authorization header, so the token must be delivered as a cookie.
     employee_id = UUID("550e8400-e29b-41d4-a716-446655440010")
     employee_token = create_access_token(
         user_id=str(employee_id), role=Role.EMPLOYEE
     )
 
-    response = client.get(
-        "/api/dashboard",
-        headers={"Authorization": f"Bearer {employee_token}"},
-    )
+    async with _client() as client:
+        client.cookies.set(settings.SESSION_COOKIE_NAME, employee_token)
+        response = await client.get("/api/dashboard")
 
     assert response.status_code == 403
 
 
-def test_dashboard_unauthenticated_returns_401(client: TestClient):
+@pytest.mark.asyncio
+async def test_dashboard_unauthenticated_returns_401():
     """Test: GET /api/dashboard returns 401 Unauthorized for no JWT (AC10)."""
-    response = client.get("/api/dashboard")
+    async with _client() as client:
+        response = await client.get("/api/dashboard")
 
     assert response.status_code == 401

@@ -22,6 +22,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.assignments.models import ContentCatalog
 from app.core.config import settings
+from app.core.embedding import embed_text
 from app.core.seeds import SKILL_DATA_VIZ_ID, SKILL_PYTHON_ID
 from app.main import app
 
@@ -46,7 +47,7 @@ async def _login(client: AsyncClient, email: str = "rita@sails.example.com") -> 
     return token
 
 
-async def _create_content(*, skill_id, title: str) -> uuid.UUID:
+async def _create_content(*, skill_id, title: str, embedding: list[float] | None = None) -> uuid.UUID:
     async with _session_factory() as session:
         content = ContentCatalog(
             skill_id=skill_id,
@@ -54,7 +55,7 @@ async def _create_content(*, skill_id, title: str) -> uuid.UUID:
             description="Test content for Story 3.4 content-match endpoint",
             type="VIDEO",
             url="https://youtube.com/watch?v=test",
-            embedding=[0.1] * 384,
+            embedding=embedding if embedding is not None else [0.1] * 384,
             source="YOUTUBE",
             content_metadata={"video_id": "test", "duration": 300},
         )
@@ -69,7 +70,19 @@ async def _delete_content(content_id: uuid.UUID) -> None:
         await session.commit()
 
 
+async def _cleanup_content_for_skill(skill_id) -> None:
+    """seed_content() (app/core/seeds.py) idempotently populates real content
+    for this skill outside of this test file — delete it so each test here
+    has full control over what rows exist. Self-healing: the next run_seeds()
+    call (from any test using db_session/_seeded_session) re-populates it,
+    since seed_content() only skips a skill that already has content."""
+    async with _session_factory() as session:
+        await session.execute(delete(ContentCatalog).where(ContentCatalog.skill_id == skill_id))
+        await session.commit()
+
+
 async def test_content_match_returns_the_content_when_one_exists_for_the_skill():
+    await _cleanup_content_for_skill(SKILL_DATA_VIZ_ID)
     content_id = await _create_content(skill_id=SKILL_DATA_VIZ_ID, title="Intro to Charts")
     try:
         async with _client() as client:
@@ -90,6 +103,7 @@ async def test_content_match_returns_the_content_when_one_exists_for_the_skill()
 async def test_content_match_returns_null_when_no_content_matches_the_skill():
     """The common case in this environment today — content_catalog is empty
     for most skills since Story 2.3's ingestion job is still backlog."""
+    await _cleanup_content_for_skill(SKILL_PYTHON_ID)
     async with _client() as client:
         await _login(client)
         response = await client.get("/api/content/match", params={"skill_id": str(SKILL_PYTHON_ID)})
@@ -108,8 +122,13 @@ async def test_content_match_is_deterministic_across_multiple_matching_rows():
     """Code review round 2: the first-match placeholder (TODO(Story 2.4)) must
     return the same row every time given multiple candidates, not whatever
     order Postgres happens to return without an ORDER BY."""
-    older_id = await _create_content(skill_id=SKILL_DATA_VIZ_ID, title="Older Video")
-    newer_id = await _create_content(skill_id=SKILL_DATA_VIZ_ID, title="Newer Video")
+    await _cleanup_content_for_skill(SKILL_DATA_VIZ_ID)
+    # Real, matching embedding (not the throwaway [0.1]*384 placeholder) so both
+    # rows clear match_content_for_skill's similarity threshold and are tied on
+    # similarity — isolating the (ingested_at, id) tiebreak this test targets.
+    tied_embedding = embed_text("Data Visualization: creating charts, graphs, and dashboards")
+    older_id = await _create_content(skill_id=SKILL_DATA_VIZ_ID, title="Older Video", embedding=tied_embedding)
+    newer_id = await _create_content(skill_id=SKILL_DATA_VIZ_ID, title="Newer Video", embedding=tied_embedding)
     try:
         async with _client() as client:
             await _login(client)

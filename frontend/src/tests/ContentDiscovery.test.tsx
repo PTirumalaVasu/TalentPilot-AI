@@ -210,7 +210,7 @@ describe('ContentDiscovery', () => {
     await waitFor(() => expect(screen.getByText('Data Visualization')).toBeInTheDocument());
   });
 
-  it('navigates to the watch route with videoUrl/startSeconds when a card with content is activated', async () => {
+  it('opens the video inline (no route navigation) when a card with content is activated', async () => {
     vi.mocked(listMyAssignments).mockResolvedValue(mixedResponse);
     renderPage();
 
@@ -220,9 +220,11 @@ describe('ContentDiscovery', () => {
     const card = screen.getByRole('button', { name: /data visualization/i });
     await user.click(card);
 
-    expect(navigateMock).toHaveBeenCalledWith('/assignments/a1/watch', {
-      state: { videoUrl: 'https://www.youtube.com/watch?v=abc123', startSeconds: 300 },
-    });
+    // Story 2.5's inline-video-streaming UX replaced the old /assignments/:id/watch
+    // route navigation -- the player now mounts in place, behind a "Back to
+    // Assignments" button, and the router is never touched.
+    expect(screen.getByRole('button', { name: /back to assignments/i })).toBeInTheDocument();
+    expect(navigateMock).not.toHaveBeenCalled();
   });
 
   it('does not navigate when a card with no matched content is activated', async () => {
@@ -248,9 +250,8 @@ describe('ContentDiscovery', () => {
     card.focus();
     await userEvent.keyboard('{Enter}');
 
-    expect(navigateMock).toHaveBeenCalledWith('/assignments/a1/watch', {
-      state: { videoUrl: 'https://www.youtube.com/watch?v=abc123', startSeconds: 300 },
-    });
+    expect(screen.getByRole('button', { name: /back to assignments/i })).toBeInTheDocument();
+    expect(navigateMock).not.toHaveBeenCalled();
   });
 
   it('calls the real logout endpoint and redirects to /login', async () => {
@@ -258,6 +259,10 @@ describe('ContentDiscovery', () => {
     const user = userEvent.setup();
     renderPage();
 
+    // Story: replace permanent sign out button with user menu dropdown --
+    // Sign Out only enters the DOM once the profile menu toggle is opened.
+    await waitFor(() => expect(screen.getByRole('button', { name: /casey/i })).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: /casey/i }));
     await user.click(screen.getByRole('button', { name: /sign out/i }));
 
     expect(logout).toHaveBeenCalledTimes(1);
@@ -270,6 +275,8 @@ describe('ContentDiscovery', () => {
     const user = userEvent.setup();
     renderPage();
 
+    await waitFor(() => expect(screen.getByRole('button', { name: /casey/i })).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: /casey/i }));
     await user.click(screen.getByRole('button', { name: /sign out/i }));
 
     expect(navigateMock).toHaveBeenCalledWith('/login', { replace: true });

@@ -19,16 +19,16 @@ from sqlalchemy import select
 
 from app.assignments.models import Employee, Assignment, Skill, ContentCatalog, SkillProgress
 from app.auth.schemas import CurrentUser
+from app.core.seed_ids import CASEY_ID
 from app.progress.service import ProgressService
 from app.progress.repository import ProgressRepository
-from app.progress.schemas import SkillProgressResponse
+from app.progress.schemas import SkillProgressResponseResume
 
 
 @pytest.fixture
 async def employee(db_session):
     """Fixture: create a test employee."""
-    from app.core.seeds import _DEMO_EMPLOYEE_IDS
-    emp = await db_session.get(Employee, _DEMO_EMPLOYEE_IDS[1])  # Casey
+    emp = await db_session.get(Employee, CASEY_ID)  # Casey
     return emp
 
 
@@ -49,6 +49,7 @@ async def video_content(db_session, skill):
         description="Test video for resume testing",
         type="VIDEO",
         url="https://www.youtube.com/embed/dQw4w9WgXcQ",
+        embedding=[0.1] * 384,
         source="YOUTUBE",
         content_metadata={"duration": 600, "video_id": "dQw4w9WgXcQ"},  # 10 minutes
     )
@@ -90,7 +91,7 @@ async def assignment_no_content(db_session, employee, skill):
 @pytest.fixture
 def current_user(employee):
     """Fixture: create CurrentUser from employee."""
-    return CurrentUser(user_id=employee.id, role="EMPLOYEE", email=employee.email)
+    return CurrentUser(user_id=str(employee.id), role="EMPLOYEE", email=employee.email)
 
 
 class TestPositionRetrievalRepository:
@@ -99,12 +100,12 @@ class TestPositionRetrievalRepository:
     @pytest.mark.asyncio
     async def test_get_assignment_with_scope_success(self, db_session, assignment_with_content, employee):
         """AC4: Hard-scoped assignment retrieval succeeds with correct employee."""
-        result = await ProgressRepository.get_assignment_with_scope(
+        assignment, _progress = await ProgressRepository.get_assignment_with_scope(
             db_session, assignment_with_content.id, employee.id
         )
-        assert result is not None
-        assert result.id == assignment_with_content.id
-        assert result.employee_id == employee.id
+        assert assignment is not None
+        assert assignment.id == assignment_with_content.id
+        assert assignment.employee_id == employee.id
 
     @pytest.mark.asyncio
     async def test_get_assignment_with_scope_wrong_employee(
@@ -112,32 +113,32 @@ class TestPositionRetrievalRepository:
     ):
         """AC4: Hard-scoped retrieval fails when employee_id doesn't match."""
         other_employee_id = uuid4()  # Different employee
-        result = await ProgressRepository.get_assignment_with_scope(
+        assignment, _progress = await ProgressRepository.get_assignment_with_scope(
             db_session, assignment_with_content.id, other_employee_id
         )
-        assert result is None
+        assert assignment is None
 
     @pytest.mark.asyncio
     async def test_get_assignment_with_scope_missing_assignment(self, db_session, employee):
         """AC4: Retrieval returns None for non-existent assignment."""
         fake_assignment_id = uuid4()
-        result = await ProgressRepository.get_assignment_with_scope(
+        assignment, _progress = await ProgressRepository.get_assignment_with_scope(
             db_session, fake_assignment_id, employee.id
         )
-        assert result is None
+        assert assignment is None
 
     @pytest.mark.asyncio
     async def test_get_assignment_with_scope_eager_loads_content(
         self, db_session, assignment_with_content, employee, video_content
     ):
         """AC4: Hard-scoped retrieval eager-loads content relationship."""
-        result = await ProgressRepository.get_assignment_with_scope(
+        assignment, _progress = await ProgressRepository.get_assignment_with_scope(
             db_session, assignment_with_content.id, employee.id
         )
-        assert result is not None
-        assert result.content is not None
-        assert result.content.id == video_content.id
-        assert result.content.content_metadata.get("duration") == 600
+        assert assignment is not None
+        assert assignment.content is not None
+        assert assignment.content.id == video_content.id
+        assert assignment.content.content_metadata.get("duration") == 600
 
 
 class TestPositionRetrievalService:
@@ -162,11 +163,11 @@ class TestPositionRetrievalService:
         self, db_session, assignment_with_content, current_user
     ):
         """AC2: Returns exact stored position without rounding or approximation."""
-        # Create skill_progress at specific position
+        # Create skill_progress at specific position (within the fixture video's 600s duration)
         progress = SkillProgress(
             id=uuid4(),
             assignment_id=assignment_with_content.id,
-            watch_position=872,  # 14:32
+            watch_position=437,  # 7:17
             event_time=datetime.now(timezone.utc),
             verified=True,
         )
@@ -176,7 +177,7 @@ class TestPositionRetrievalService:
         response = await ProgressService.get_resume_position(
             db_session, current_user, assignment_with_content.id
         )
-        assert response.watch_position == 872  # Exact, no rounding
+        assert response.watch_position == 437  # Exact, no rounding
         assert response.verified is True
 
     @pytest.mark.asyncio
@@ -231,7 +232,7 @@ class TestPositionRetrievalService:
         from fastapi import HTTPException
 
         # Create CurrentUser for different employee
-        other_user = CurrentUser(user_id=uuid4(), role="EMPLOYEE", email="other@example.com")
+        other_user = CurrentUser(user_id=str(uuid4()), role="EMPLOYEE", email="other@example.com")
 
         with pytest.raises(HTTPException) as exc_info:
             await ProgressService.get_resume_position(
@@ -277,7 +278,7 @@ class TestPositionRetrievalResponseTypes:
     @pytest.mark.asyncio
     async def test_skill_progress_response_schema_first_view(self, db_session):
         """AC9: Response schema handles null fields on first view."""
-        response = SkillProgressResponse(
+        response = SkillProgressResponseResume(
             id=None,
             assignment_id=uuid4(),
             watch_position=0,
@@ -292,7 +293,7 @@ class TestPositionRetrievalResponseTypes:
     @pytest.mark.asyncio
     async def test_skill_progress_response_schema_full(self, db_session):
         """AC9: Response schema accepts full data (backward compatibility with Story 4-2)."""
-        response = SkillProgressResponse(
+        response = SkillProgressResponseResume(
             id=uuid4(),
             assignment_id=uuid4(),
             watch_position=872,
