@@ -11,7 +11,7 @@
  * src/tests/Toast.test.tsx, which avoids waitFor for the same reason).
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, act } from "@testing-library/react";
+import { render, screen, act, fireEvent } from "@testing-library/react";
 import { DashboardPage } from "./DashboardPage";
 import { dashboardApi } from "../../lib/api/dashboardApi";
 import type { AssignmentRow, DashboardResponse } from "../../types/dashboard";
@@ -58,6 +58,16 @@ async function advance(ms: number) {
   });
 }
 
+// Rows render collapsed by default under employee-accordion grouping (see
+// DashboardPage.test.tsx's own expandGroup helper) -- row-level content
+// (Status, "View Details", etc.) only enters the DOM once the group is
+// expanded. Uses getByRole/fireEvent (not findByRole/waitFor), since waitFor's
+// internal retry loop relies on setTimeout, which fake timers also fake.
+function expandGroup(employeeName: RegExp | string) {
+  const toggle = screen.getByRole("button", { name: employeeName });
+  fireEvent.click(toggle);
+}
+
 describe("DashboardPage live auto-update polling", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -74,14 +84,18 @@ describe("DashboardPage live auto-update polling", () => {
     render(<DashboardPage onNewAssignment={vi.fn()} />);
     await advance(MOUNT_DEBOUNCE_MS);
 
-    expect(screen.getByText("Casey the Continuer")).toBeInTheDocument();
+    expect(screen.getByText(/Casey the Continuer/)).toBeInTheDocument();
     expect(getDashboard).toHaveBeenCalledTimes(1);
+
+    expandGroup(/Casey the Continuer/);
+    expect(screen.getByText("View Details")).toBeInTheDocument();
 
     await advance(POLL_INTERVAL_MS);
 
     expect(getDashboard).toHaveBeenCalledTimes(2);
-    // The grid must still be present the whole time -- no loading-skeleton flash.
-    expect(screen.getByText("Casey the Continuer")).toBeInTheDocument();
+    // The grid must still be present the whole time -- no loading-skeleton flash,
+    // and the group stays expanded across a poll (no full unmount/remount).
+    expect(screen.getByText(/Casey the Continuer/)).toBeInTheDocument();
     expect(screen.getByText("View Details")).toBeInTheDocument();
   });
 
@@ -90,6 +104,7 @@ describe("DashboardPage live auto-update polling", () => {
 
     render(<DashboardPage onNewAssignment={vi.fn()} />);
     await advance(MOUNT_DEBOUNCE_MS);
+    expandGroup(/Casey the Continuer/);
     expect(screen.getByText("Not Started")).toBeInTheDocument();
 
     getDashboard.mockResolvedValueOnce(
@@ -106,7 +121,7 @@ describe("DashboardPage live auto-update polling", () => {
 
     render(<DashboardPage onNewAssignment={vi.fn()} />);
     await advance(MOUNT_DEBOUNCE_MS);
-    expect(screen.getByText("Casey the Continuer")).toBeInTheDocument();
+    expect(screen.getByText(/Casey the Continuer/)).toBeInTheDocument();
 
     getDashboard.mockResolvedValueOnce(
       makeResponse([
@@ -116,7 +131,10 @@ describe("DashboardPage live auto-update polling", () => {
     );
     await advance(POLL_INTERVAL_MS);
 
-    expect(screen.getByText("Sam the Starter")).toBeInTheDocument();
+    // getByText would also match the aria-live announcement of this same
+    // new row ("Sam the Starter ... status updated to ..."), so scope to
+    // the accordion header button specifically.
+    expect(screen.getByRole("button", { name: /Sam the Starter/ })).toBeInTheDocument();
   });
 
   it("does not show the page-level error state when a poll fails; polling continues on the next interval (AC8)", async () => {
@@ -125,13 +143,14 @@ describe("DashboardPage live auto-update polling", () => {
 
     render(<DashboardPage onNewAssignment={vi.fn()} />);
     await advance(MOUNT_DEBOUNCE_MS);
-    expect(screen.getByText("Casey the Continuer")).toBeInTheDocument();
+    expandGroup(/Casey the Continuer/);
+    expect(screen.getByText(/Casey the Continuer/)).toBeInTheDocument();
 
     getDashboard.mockRejectedValueOnce(new Error("Network error"));
     await advance(POLL_INTERVAL_MS);
 
     // Grid stays visible; no error banner shown for a background poll failure.
-    expect(screen.getByText("Casey the Continuer")).toBeInTheDocument();
+    expect(screen.getByText(/Casey the Continuer/)).toBeInTheDocument();
     expect(screen.queryByText(/Network error/)).not.toBeInTheDocument();
     expect(warnSpy).toHaveBeenCalled();
 
@@ -150,7 +169,7 @@ describe("DashboardPage live auto-update polling", () => {
 
     render(<DashboardPage onNewAssignment={vi.fn()} />);
     await advance(MOUNT_DEBOUNCE_MS);
-    expect(screen.getByText("Casey the Continuer")).toBeInTheDocument();
+    expect(screen.getByText(/Casey the Continuer/)).toBeInTheDocument();
     expect(getDashboard).toHaveBeenCalledTimes(1);
 
     Object.defineProperty(document, "visibilityState", {
@@ -183,6 +202,7 @@ describe("DashboardPage live auto-update polling", () => {
 
     render(<DashboardPage onNewAssignment={vi.fn()} />);
     await advance(MOUNT_DEBOUNCE_MS);
+    expandGroup(/Casey the Continuer/);
     expect(screen.getByText("Not Started")).toBeInTheDocument();
 
     getDashboard.mockResolvedValueOnce(
@@ -200,6 +220,7 @@ describe("DashboardPage live auto-update polling", () => {
 
     render(<DashboardPage onNewAssignment={vi.fn()} />);
     await advance(MOUNT_DEBOUNCE_MS);
+    expandGroup(/Casey the Continuer/);
     expect(screen.getByText(/In Progress \(45%\)/)).toBeInTheDocument();
 
     await advance(POLL_INTERVAL_MS);

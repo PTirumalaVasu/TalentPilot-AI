@@ -77,29 +77,31 @@ async def test_dashboard_assignments_includes_created_assignment_with_display_na
             assert create_response.status_code == 201
             created_id = uuid.UUID(create_response.json()["id"])
 
-            response = await client.get("/api/dashboard/assignments")
+            response = await client.get("/api/dashboard")
 
             assert response.status_code == 200
             body = response.json()
-            row = next((r for r in body if r["id"] == str(created_id)), None)
+            row = next((r for r in body["assignments"] if r["assignment_id"] == str(created_id)), None)
             assert row is not None, "newly created assignment not found in dashboard list"
             assert row["employee_id"] == str(CASEY_ID)
             assert row["employee_name"] == "Casey the Continuer"
             assert row["skill_id"] == str(SKILL_DATA_VIZ_ID)
             assert row["skill_name"] == "Data Visualization"
-            assert row["status"] == "NOT_STARTED"
-            assert row["progress_percent"] == 0
-            assert row["provenance"] == "Assigned · Awaiting first watch"
+            assert row["status"] == "Not Started"
+            assert row["status_percentage"] is None
+            assert row["provenance"] == "Not Started"
             assert set(row.keys()) == {
-                "id",
+                "assignment_id",
                 "employee_id",
                 "employee_name",
+                "employee_group",
                 "skill_id",
                 "skill_name",
-                "assigned_at",
                 "status",
-                "progress_percent",
+                "status_percentage",
                 "provenance",
+                "last_updated",
+                "assignment_created_at",
             }
     finally:
         if created_id is not None:
@@ -108,14 +110,14 @@ async def test_dashboard_assignments_includes_created_assignment_with_display_na
 
 async def test_dashboard_assignments_requires_authentication():
     async with _client() as client:
-        response = await client.get("/api/dashboard/assignments")
+        response = await client.get("/api/dashboard")
         assert response.status_code == 401
 
 
 async def test_dashboard_assignments_forbidden_for_employee_role():
     async with _client() as client:
         await _login(client, email="casey@sails.example.com")
-        response = await client.get("/api/dashboard/assignments")
+        response = await client.get("/api/dashboard")
         assert response.status_code == 403
         assert response.json()["code"] == "FORBIDDEN_NOT_HR_ADMIN"
 
@@ -178,19 +180,19 @@ async def test_dashboard_assignments_reflects_real_watch_progress_status_and_per
 
         async with _client() as client:
             await _login(client)
-            response = await client.get("/api/dashboard/assignments")
+            response = await client.get("/api/dashboard")
             assert response.status_code == 200
             body = response.json()
 
-            not_started_row = next(r for r in body if r["id"] == str(created_ids["not_started"]))
-            assert not_started_row["status"] == "NOT_STARTED"
-            assert not_started_row["progress_percent"] == 0
-            assert not_started_row["provenance"] == "Assigned · Awaiting first watch"
+            not_started_row = next(r for r in body["assignments"] if r["assignment_id"] == str(created_ids["not_started"]))
+            assert not_started_row["status"] == "Not Started"
+            assert not_started_row["status_percentage"] is None
+            assert not_started_row["provenance"] == "Not Started"
 
-            in_progress_row = next(r for r in body if r["id"] == str(created_ids["in_progress"]))
-            assert in_progress_row["status"] == "IN_PROGRESS"
-            assert in_progress_row["progress_percent"] == 50
-            assert in_progress_row["provenance"] == "Verified · 50% watched"
+            in_progress_row = next(r for r in body["assignments"] if r["assignment_id"] == str(created_ids["in_progress"]))
+            assert in_progress_row["status"] == "In Progress"
+            assert in_progress_row["status_percentage"] == 50
+            assert in_progress_row["provenance"] == "Verified"
     finally:
         for cid in created_ids.values():
             await _cleanup_assignment(cid)
@@ -218,11 +220,11 @@ async def test_dashboard_assignments_returns_multiple_org_wide_rows_for_hr_admin
                 assert create_response.status_code == 201
                 created_ids.append(uuid.UUID(create_response.json()["id"]))
 
-            response = await client.get("/api/dashboard/assignments")
+            response = await client.get("/api/dashboard")
 
             assert response.status_code == 200
             body = response.json()
-            found_ids = {r["id"] for r in body}
+            found_ids = {r["assignment_id"] for r in body["assignments"]}
             assert all(str(cid) in found_ids for cid in created_ids)
     finally:
         for cid in created_ids:

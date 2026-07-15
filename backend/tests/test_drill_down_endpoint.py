@@ -90,10 +90,11 @@ async def test_employee_role_gets_403_never_200_or_404():
             await _cleanup_assignment(assignment_id)
 
 
-async def test_non_owning_hr_admin_gets_403_not_a_leak():
-    """A second HR Admin (not the assignment's creator) must be rejected the
-    same way as a non-existent assignment_id -- no 404-vs-403 split that
-    would leak existence."""
+async def test_non_owning_hr_admin_also_sees_full_drill_down_detail():
+    """PR #80: a second HR Admin (not the assignment's creator) must see the
+    same drill-down detail as the creator -- HR Admins collaboratively manage
+    assignments, so access is org-wide, not restricted to whoever created the
+    row (this used to 403; that was the reported bug PR #80 fixed)."""
     async with _client() as client:
         await _login(client)
         assignment_id = await _create_assignment(client)
@@ -102,7 +103,8 @@ async def test_non_owning_hr_admin_gets_403_not_a_leak():
             async with _client() as other_hr_client:
                 other_hr_client.cookies.set(settings.SESSION_COOKIE_NAME, other_hr_token)
                 response = await other_hr_client.get(f"/api/assignments/{assignment_id}/progress/drill-down")
-                assert response.status_code == 403
+                assert response.status_code == 200
+                assert response.json()["assignment_id"] == str(assignment_id)
         finally:
             await _cleanup_assignment(assignment_id)
 
@@ -197,11 +199,15 @@ async def _cleanup_assignments_for_data_viz() -> None:
         await session.commit()
 
 
-async def test_nonexistent_assignment_gets_the_same_403_as_not_owned():
+async def test_nonexistent_assignment_gets_404():
+    """Since PR #80, get_drill_down_service falls back to an unscoped lookup
+    on any HR Admin -- the only way to get a "not found" now is a genuinely
+    nonexistent assignment_id, which raises 404 (not the old creator-only
+    403)."""
     async with _client() as client:
         await _login(client)
         response = await client.get(f"/api/assignments/{uuid.uuid4()}/progress/drill-down")
-        assert response.status_code == 403
+        assert response.status_code == 404
 
 
 async def test_unauthenticated_gets_401():

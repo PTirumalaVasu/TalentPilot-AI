@@ -609,7 +609,7 @@ describe("ProvenanceDrillDownModal", () => {
     expect(document.activeElement).toBe(closeButton);
   });
 
-  it("Story 5-6 code review round 2: the Tab-wrap cycle is also correct for HR Override rows, where [Mark as Ready] is absent (only 2 focusable elements: badge, Close)", async () => {
+  it("Story 5-6 code review round 2: the Tab-wrap cycle is also correct for HR Override rows, where [Mark as Ready] is absent but the enabled [Reverse Override] button takes its place (3 focusable elements: badge, Reverse Override, Close)", async () => {
     vi.mocked(dashboardApi.getDrillDown).mockResolvedValue(baseResponse({ provenance: "HR Override" }));
     render(<ProvenanceDrillDownModal assignmentId="assign-1" open onClose={vi.fn()} />);
 
@@ -617,11 +617,14 @@ describe("ProvenanceDrillDownModal", () => {
     expect(screen.queryByRole("button", { name: "Mark as Ready" })).not.toBeInTheDocument();
 
     const badge = screen.getByRole("status");
+    const reverseOverrideButton = screen.getByRole("button", { name: "Reverse Override" });
     const closeButton = screen.getByRole("button", { name: /^close$/i });
 
-    // Forward order: badge (first) -> Close (last, only 2 focusable elements).
+    // Forward order: badge -> Reverse Override -> Close (last).
     await userEvent.tab();
     expect(document.activeElement).toBe(badge);
+    await userEvent.tab();
+    expect(document.activeElement).toBe(reverseOverrideButton);
     await userEvent.tab();
     expect(document.activeElement).toBe(closeButton);
 

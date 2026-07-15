@@ -11,7 +11,7 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from app.assignments.models import Assignment, AssignmentOverride, ContentCatalog, SkillProgress
+from app.assignments.models import Assignment, AssignmentOverride, ContentCatalog, Employee, SkillProgress
 from app.core.config import settings
 from app.core.security import create_access_token
 from app.core.seed_ids import CASEY_ID
@@ -36,6 +36,31 @@ async def _login(client: AsyncClient, email: str = "rita@sails.example.com") -> 
     token = set_cookie_header.split(";", 1)[0][len(prefix) :]
     client.cookies.clear()
     client.cookies.set(settings.SESSION_COOKIE_NAME, token)
+
+
+async def _create_hr_admin() -> uuid.UUID:
+    """A second real HR Admin employee row: assignment_overrides.set_by FKs
+    to employees.id, so setting an override needs a genuine employee, not
+    just a JWT claiming HR_ADMIN for an arbitrary UUID (fine for read-only
+    checks, but a real insert 500s on the FK violation)."""
+    employee_id = uuid.uuid4()
+    async with _session_factory() as session:
+        session.add(
+            Employee(
+                id=employee_id,
+                name="Other HR Admin",
+                email=f"other-hr-{employee_id}@sails.example.com",
+                role="HR_ADMIN",
+            )
+        )
+        await session.commit()
+    return employee_id
+
+
+async def _delete_employee(employee_id: uuid.UUID) -> None:
+    async with _session_factory() as session:
+        await session.execute(delete(Employee).where(Employee.id == employee_id))
+        await session.commit()
 
 
 async def _cleanup_assignment(assignment_id: uuid.UUID) -> None:
@@ -144,20 +169,27 @@ async def test_employee_role_gets_403_for_set_and_unset():
             await _cleanup_assignment(assignment_id)
 
 
-async def test_non_owning_hr_admin_gets_403_not_a_leak():
+async def test_non_owning_hr_admin_can_also_set_override():
+    """PR #80: a second HR Admin (not the assignment's creator) can set an
+    override too -- HR Admins collaboratively manage assignments, so access
+    is org-wide, not restricted to whoever created the row (this used to
+    403; that was the reported bug PR #80 fixed)."""
     async with _client() as client:
         await _login(client)
         assignment_id = await _create_assignment(client)
+        other_hr_id = await _create_hr_admin()
         try:
-            other_hr_token = create_access_token(str(uuid.uuid4()), "HR_ADMIN")
+            other_hr_token = create_access_token(str(other_hr_id), "HR_ADMIN")
             async with _client() as other_hr_client:
                 other_hr_client.cookies.set(settings.SESSION_COOKIE_NAME, other_hr_token)
                 response = await other_hr_client.post(
                     f"/api/assignments/{assignment_id}/override", json={"action": "set"}
                 )
-                assert response.status_code == 403
+                assert response.status_code == 200
+                assert response.json()["provenance"] == "HR Override"
         finally:
             await _cleanup_assignment(assignment_id)
+            await _delete_employee(other_hr_id)
 
 
 async def test_unset_with_no_active_override_returns_404():
@@ -305,16 +337,17 @@ async def test_unauthenticated_gets_401():
         assert response.status_code == 401
 
 
-async def test_nonexistent_assignment_gets_403_not_a_leak():
-    """Code review finding, Story 5.5: only "owned by someone else" was
-    tested for the anti-enumeration 403 -- a wholly nonexistent assignment_id
-    must behave identically (same status, no existence leak)."""
+async def test_nonexistent_assignment_gets_404():
+    """Since PR #80, set_override_service falls back to an unscoped lookup
+    on any HR Admin -- the only way to get a "not found" now is a genuinely
+    nonexistent assignment_id, which raises 404 (not the old creator-only
+    403)."""
     async with _client() as client:
         await _login(client)
         response = await client.post(
             f"/api/assignments/{uuid.uuid4()}/override", json={"action": "set"}
         )
-        assert response.status_code == 403
+        assert response.status_code == 404
 
 
 async def test_unknown_request_field_rejected_with_422():

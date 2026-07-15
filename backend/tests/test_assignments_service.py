@@ -53,6 +53,8 @@ async def test_employee_is_rejected_before_any_repository_call():
         employee_user = CurrentUser(role=Role.EMPLOYEE, user_id=str(CASEY_ID))
         request = CreateAssignmentRequest(employee_id=CASEY_ID, skill_id=SKILL_DATA_VIZ_ID)
 
+        before = await list_assignments_for_employee(session, current_user=employee_user)
+
         with pytest.raises(AppException) as exc_info:
             await create_assignment_service(session, current_user=employee_user, request=request)
 
@@ -60,8 +62,8 @@ async def test_employee_is_rejected_before_any_repository_call():
         assert exc_info.value.error_code == "FORBIDDEN_NOT_HR_ADMIN"
 
         # No assignment row was created as a side effect of the rejected call.
-        results = await list_assignments_for_employee(session, current_user=employee_user)
-        assert results == []
+        after = await list_assignments_for_employee(session, current_user=employee_user)
+        assert after == before
 
 
 async def test_real_mock_login_user_id_works_end_to_end_as_assigned_by():

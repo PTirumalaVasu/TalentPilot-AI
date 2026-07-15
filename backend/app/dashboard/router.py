@@ -5,12 +5,12 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.schemas import CurrentUser
-from app.auth.service import require_hr_admin
+from app.auth.service import get_current_user, require_hr_admin
 from app.core.db import get_db
 from app.dashboard.schemas import DashboardResponse
 from app.dashboard.service import DashboardService
 
-router = APIRouter(tags=["dashboard"])
+router = APIRouter(tags=["dashboard"], dependencies=[Depends(get_current_user)])
 
 
 @router.get("", response_model=DashboardResponse)

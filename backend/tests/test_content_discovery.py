@@ -9,6 +9,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
 import pytest
+from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.assignments.models import ContentCatalog, Skill
@@ -134,6 +135,13 @@ async def test_assignment_with_matching_content_populates_content_field():
 
 async def test_assignment_with_no_qualifying_content_has_null_content():
     async with _seeded_session() as session:
+        # seed_content() (invoked by _seeded_session's run_seeds() above) just
+        # (re-)populated real, genuinely matching Python content -- delete it
+        # (flush, not commit, so it's rolled back like the rest of this test's
+        # rows) so this skill has only the deliberately-unrelated content below.
+        await session.execute(delete(ContentCatalog).where(ContentCatalog.skill_id == SKILL_PYTHON_ID))
+        await session.flush()
+
         await _make_unrelated_content(session, skill_id=SKILL_PYTHON_ID)
 
         await create_assignment(
