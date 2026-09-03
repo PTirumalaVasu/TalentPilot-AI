@@ -1,0 +1,59 @@
+{
+  "_source": "Same real backend seed data as Scenario 01 (backend/app/core/seeds.py, seed_ids.py). currentUser here is Casey the Continuer (EMPLOYEE), not Rita — this scenario is the employee-facing Content Discovery + video-watch flow, not the HR admin dashboard. myAssignments below are synthesized (real backend seeds no Assignment rows) but use real employee/skill/content IDs and reuse the exact 3 rows Casey has in Scenario 01's demo-data.json, plus one To Start row for grid-layout variety (all 3 status groups need at least one row to demo the full page).",
+
+  "currentUser": {
+    "id": "550e8400-e29b-41d4-a716-446655440002",
+    "name": "Casey the Continuer",
+    "email": "casey@sails.example.com",
+    "role": "EMPLOYEE"
+  },
+
+  "myAssignments": [
+    {
+      "assignment_id": "sample-001",
+      "skill_name": "Data Visualization",
+      "status": "IN_PROGRESS",
+      "status_percentage": 45,
+      "watch_position": 494,
+      "group": "IN_PROGRESS",
+      "content": {
+        "url": "https://www.youtube.com/watch?v=5Zg-C8AAIGg",
+        "title": "The beauty of data visualization - David McCandless",
+        "source": "YOUTUBE",
+        "description": "View full lesson: http://ed.ted.com/lessons/david-mccandless-the-beauty-of-data-visualization David McCandless turns complex ...",
+        "metadata": { "video_id": "5Zg-C8AAIGg", "duration": "PT18M18S", "thumbnail_url": "https://i.ytimg.com/vi/5Zg-C8AAIGg/default.jpg" }
+      }
+    },
+    {
+      "assignment_id": "sample-006",
+      "skill_name": "Communication Skills",
+      "status": "NOT_STARTED",
+      "status_percentage": null,
+      "watch_position": 0,
+      "group": "TO_START",
+      "content": {
+        "url": "https://www.youtube.com/watch?v=7hr60EumwQ4",
+        "title": "Give me 8 minutes, and I'll improve your communication skills by 88%...",
+        "source": "YOUTUBE",
+        "description": "Improve your communication skills by 88% in 8 minutes...",
+        "metadata": { "video_id": "7hr60EumwQ4", "duration": "PT8M14S", "thumbnail_url": "https://i.ytimg.com/vi/7hr60EumwQ4/default.jpg" }
+      }
+    },
+    {
+      "assignment_id": "sample-002",
+      "skill_name": "SQL & Databases",
+      "status": "COMPLETED",
+      "status_percentage": null,
+      "watch_position": 143,
+      "group": "COMPLETED",
+      "content": {
+        "url": "https://www.youtube.com/watch?v=zsjvFFKOm3c",
+        "title": "SQL Explained in 100 Seconds",
+        "source": "YOUTUBE",
+        "description": "Learn the fundamentals of Structured Query Language SQL! Even though it's over 40 years old, the world's most popular ...",
+        "metadata": { "video_id": "zsjvFFKOm3c", "duration": "PT2M23S", "thumbnail_url": "https://i.ytimg.com/vi/zsjvFFKOm3c/default.jpg" }
+      }
+    }
+  ],
+  "_myAssignments_note": "IDs sample-001/-002 intentionally match Scenario 01's demo-data.json rows for the same employee+skill pairs (Casey/Data Visualization, Casey/SQL & Databases) — same underlying assignment, viewed from the employee side here vs the HR side there. sample-006 (Communication Skills, To Start) is new, added only so the To Start group has content to render; no HR-side equivalent exists yet."
+}

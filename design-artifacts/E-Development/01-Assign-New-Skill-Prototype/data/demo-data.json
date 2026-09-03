@@ -1,0 +1,82 @@
+{
+  "_source": "Pulled from backend/app/core/seeds.py and backend/app/core/seed_ids.py (the actual seed data run against the dev database) — not invented. UUIDs match the real seeded rows so this JSON can be swapped for a live API response without renumbering anything.",
+
+  "currentUser": {
+    "id": "550e8400-e29b-41d4-a716-446655440001",
+    "name": "Rita the Recommender",
+    "email": "rita@sails.example.com",
+    "role": "HR_ADMIN"
+  },
+
+  "employees": [
+    { "id": "550e8400-e29b-41d4-a716-446655440001", "name": "Rita the Recommender", "email": "rita@sails.example.com", "role": "HR_ADMIN" },
+    { "id": "550e8400-e29b-41d4-a716-446655440002", "name": "Casey the Continuer", "email": "casey@sails.example.com", "role": "EMPLOYEE" },
+    { "id": "550e8400-e29b-41d4-a716-446655440003", "name": "Morgan the Motivated", "email": "morgan@sails.example.com", "role": "EMPLOYEE" },
+    { "id": "550e8400-e29b-41d4-a716-446655440004", "name": "Jordan the Juggernaut", "email": "jordan@sails.example.com", "role": "EMPLOYEE" },
+    { "id": "550e8400-e29b-41d4-a716-446655440005", "name": "Sam the Stellar", "email": "sam@sails.example.com", "role": "EMPLOYEE" }
+  ],
+  "_employees_note": "list_employees() (backend/app/assignments/repository.py) is not role-filtered, so Rita (HR_ADMIN) genuinely appears in the wizard's own employee Combobox alongside the 4 EMPLOYEE rows, labeled 'HR Admin' via AssignmentModal.tsx's formatRole(). Kept in this demo data for fidelity, not a mistake.",
+
+  "skills": [
+    { "id": "660e8400-e29b-41d4-a716-446655440001", "name": "Data Visualization", "description": "Creating charts, graphs, and visual representations of data" },
+    { "id": "660e8400-e29b-41d4-a716-446655440002", "name": "Salesforce Admin", "description": "Administering Salesforce CRM systems and user management" },
+    { "id": "660e8400-e29b-41d4-a716-446655440003", "name": "Python Programming", "description": "Writing and maintaining Python code and applications" },
+    { "id": "660e8400-e29b-41d4-a716-446655440004", "name": "SQL & Databases", "description": "Database design, SQL queries, and data management" },
+    { "id": "660e8400-e29b-41d4-a716-446655440005", "name": "Communication Skills", "description": "Effective written and verbal communication" }
+  ],
+
+  "contentMatches": {
+    "660e8400-e29b-41d4-a716-446655440001": {
+      "title": "The beauty of data visualization - David McCandless",
+      "source": "YOUTUBE",
+      "url": "https://www.youtube.com/watch?v=5Zg-C8AAIGg",
+      "description": "View full lesson: http://ed.ted.com/lessons/david-mccandless-the-beauty-of-data-visualization David McCandless turns complex ...",
+      "metadata": { "video_id": "5Zg-C8AAIGg", "duration": "PT18M18S", "thumbnail_url": "https://i.ytimg.com/vi/5Zg-C8AAIGg/default.jpg" }
+    },
+    "660e8400-e29b-41d4-a716-446655440002": {
+      "title": "How to Pass the Salesforce Admin Exam [Administrator Certification]",
+      "source": "YOUTUBE",
+      "url": "https://www.youtube.com/watch?v=EBpKgvS8tnY",
+      "description": "Talking through how to pass the Salesforce Admin exam. I share six tips for studying to pass the salesforce certification test.",
+      "metadata": { "video_id": "EBpKgvS8tnY", "duration": "PT6M42S", "thumbnail_url": "https://i.ytimg.com/vi/EBpKgvS8tnY/default.jpg" }
+    },
+    "660e8400-e29b-41d4-a716-446655440003": {
+      "title": "Python for Beginners - Learn Coding with Python in 1 Hour",
+      "source": "YOUTUBE",
+      "url": "https://www.youtube.com/watch?v=kqtD5dpn9C8",
+      "description": "Learn Python basics in just 1 hour! Perfect for beginners interested in AI and coding.",
+      "metadata": { "video_id": "kqtD5dpn9C8", "duration": "PT1H6S", "thumbnail_url": "https://i.ytimg.com/vi/kqtD5dpn9C8/default.jpg" }
+    },
+    "660e8400-e29b-41d4-a716-446655440004": {
+      "title": "SQL Explained in 100 Seconds",
+      "source": "YOUTUBE",
+      "url": "https://www.youtube.com/watch?v=zsjvFFKOm3c",
+      "description": "Learn the fundamentals of Structured Query Language SQL! Even though it's over 40 years old, the world's most popular ...",
+      "metadata": { "video_id": "zsjvFFKOm3c", "duration": "PT2M23S", "thumbnail_url": "https://i.ytimg.com/vi/zsjvFFKOm3c/default.jpg" }
+    },
+    "660e8400-e29b-41d4-a716-446655440005": {
+      "title": "Give me 8 minutes, and I'll improve your communication skills by 88%...",
+      "source": "YOUTUBE",
+      "url": "https://www.youtube.com/watch?v=7hr60EumwQ4",
+      "description": "Improve your communication skills by 88% in 8 minutes...",
+      "metadata": { "video_id": "7hr60EumwQ4", "duration": "PT8M14S", "thumbnail_url": "https://i.ytimg.com/vi/7hr60EumwQ4/default.jpg" }
+    }
+  },
+  "_contentMatches_note": "The real match is picked by find_best_matching_content() (backend/app/content/repository.py) — pgvector cosine similarity against the skill's embedding, threshold 0.4 — which a static prototype can't recompute. Each entry above is one representative video pulled from that skill's actual seeded catalog in _CONTENT_SEED_DATA (backend/app/core/seeds.py), not a guaranteed match at every step change; treat it as a stand-in for 'whatever the API returns', not ground truth.",
+
+  "sampleAssignments": [
+    { "assignment_id": "sample-001", "employee_id": "550e8400-e29b-41d4-a716-446655440002", "employee_name": "Casey the Continuer", "skill_id": "660e8400-e29b-41d4-a716-446655440001", "skill_name": "Data Visualization", "status": "In Progress", "status_percentage": 45, "provenance": "Verified", "last_updated": "2026-09-02T14:30:00Z" },
+    { "assignment_id": "sample-002", "employee_id": "550e8400-e29b-41d4-a716-446655440002", "employee_name": "Casey the Continuer", "skill_id": "660e8400-e29b-41d4-a716-446655440004", "skill_name": "SQL & Databases", "status": "Completed", "status_percentage": null, "provenance": "Verified", "last_updated": "2026-08-28T09:15:00Z" },
+    { "assignment_id": "sample-003", "employee_id": "550e8400-e29b-41d4-a716-446655440003", "employee_name": "Morgan the Motivated", "skill_id": "660e8400-e29b-41d4-a716-446655440002", "skill_name": "Salesforce Admin", "status": "Not Started", "status_percentage": null, "provenance": "Not Started", "last_updated": "2026-08-30T11:00:00Z" },
+    { "assignment_id": "sample-004", "employee_id": "550e8400-e29b-41d4-a716-446655440004", "employee_name": "Jordan the Juggernaut", "skill_id": "660e8400-e29b-41d4-a716-446655440003", "skill_name": "Python Programming", "status": "In Progress", "status_percentage": 20, "provenance": "Self-reported", "last_updated": "2026-09-01T16:45:00Z" },
+    { "assignment_id": "sample-005", "employee_id": "550e8400-e29b-41d4-a716-446655440005", "employee_name": "Sam the Stellar", "skill_id": "660e8400-e29b-41d4-a716-446655440005", "skill_name": "Communication Skills", "status": "In Progress", "status_percentage": 10, "provenance": "Needs Attention", "last_updated": "2026-08-24T08:00:00Z" }
+  ],
+  "_sampleAssignments_note": "IMPORTANT: unlike employees/skills/contentMatches above, these 5 rows are SYNTHESIZED for this prototype, not pulled from the real database — the real backend seeds zero Assignment rows (backend/app/core/seeds.py has no seed_assignments()), so there is nothing real to pull. Built from the real seeded employees/skills so the pairings are at least plausible, and deliberately spans every status/provenance combination the dashboard needs to render (In Progress w/ %, Completed, Not Started, Self-reported, and a 10-day-stale Needs Attention row for Section 5's staleness flag). Added 2026-09-03 after user feedback that the empty-by-default grid gave nothing to look at during review — see design log.",
+
+  "existingAssignments": [],
+  "_existingAssignments_note": "Kept separate from sampleAssignments above because it serves a different purpose: the AssignmentModal wizard's (View 2, not yet built) duplicate-found interstitial. Once View 2 exists, it should check new employee+skill picks against the SAME live `assignments` state the dashboard renders (sampleAssignments + anything created interactively during the session) — not a second, separately-maintained list. This field is a placeholder until that wiring happens.",
+
+  "noContentMatchCase": {
+    "note": "All 5 real seeded skills have at least one matching Content row, so Step 3's 'No approved content found yet for this skill' branch can't be triggered from this demo data as-is. The branch is still a real, spec'd code path (content/service.py returns None when nothing clears the similarity threshold) and must still be built — just note it can't be demoed via seed data alone. If needed for a specific walkthrough, temporarily blank one skill's entry in contentMatches above."
+  }
+}

@@ -1,0 +1,1103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HR Dashboard - TalentPilot-AI</title>
+
+    <!-- Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Tailwind Config (Design Tokens — from _bmad-output/planning-artifacts/design-system.md) -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        talentpilot: {
+                            50: '#eff6ff',
+                            100: '#dbeafe',
+                            500: '#2563eb',
+                            600: '#1d4ed8',
+                            700: '#1e40af',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="min-h-screen bg-gray-50 font-sans">
+
+    <!-- ========================================================================
+         SECTION 1: PAGE SHELL & HEADER
+         Story: stories/HR-Dashboard.1-page-shell-header.md
+         ======================================================================== -->
+    <header class="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between">
+        <div class="flex items-center gap-8">
+            <div id="hr-dashboard-logo" class="font-bold text-lg text-gray-900">TalentPilot-AI</div>
+            <nav class="flex gap-6 text-sm">
+                <a id="hr-dashboard-nav-dashboard" href="#"
+                   class="text-talentpilot-600 font-medium border-b-2 border-talentpilot-600 pb-3 -mb-3">Dashboard</a>
+                <a id="hr-dashboard-nav-skills" href="#"
+                   class="text-gray-600 hover:text-gray-900 pb-3 -mb-3 transition-colors">Skills</a>
+            </nav>
+        </div>
+        <div class="relative">
+            <button id="hr-dashboard-user-menu-trigger" onclick="toggleUserMenu()"
+                    class="flex items-center gap-2 text-sm text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-talentpilot-500 rounded-lg">
+                <span id="hr-dashboard-user-avatar" class="w-8 h-8 rounded-full bg-talentpilot-100 flex items-center justify-center text-talentpilot-700 font-medium">&nbsp;</span>
+                <span id="hr-dashboard-user-name">&nbsp;</span>
+            </button>
+            <div id="hr-dashboard-user-menu-dropdown" hidden
+                 class="absolute right-0 mt-2 w-40 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+                <button id="hr-dashboard-user-menu-signout" onclick="handleSignOut()"
+                        class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg">
+                    Sign Out
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main id="hr-dashboard-main" class="px-6 pb-12">
+
+        <!-- ====================================================================
+             SECTION 2: TOOLBAR & TITLE ROW
+             Story: stories/HR-Dashboard.2-toolbar-title-row.md
+             ==================================================================== -->
+        <div class="py-3">
+            <button id="hr-dashboard-new-assignment-button" onclick="handleNewAssignmentClick()"
+                    class="bg-talentpilot-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-talentpilot-700 transition-colors">
+                + New Assignment
+            </button>
+        </div>
+
+        <div class="flex items-center justify-between mb-4">
+            <h2 id="hr-dashboard-title" class="text-2xl font-black text-gray-900">Skill Assignments</h2>
+            <span id="hr-dashboard-total-count" class="text-sm text-gray-500">Total: 0 assignments</span>
+        </div>
+
+        <!-- ====================================================================
+             SECTION 3: LOADING / EMPTY / ERROR STATES
+             Story: stories/HR-Dashboard.3-loading-empty-error-states.md
+             ==================================================================== -->
+        <div id="hr-dashboard-content">
+            <!-- Loading state -->
+            <div id="hr-dashboard-loading" class="space-y-3">
+                <div class="h-6 bg-gray-100 rounded animate-pulse w-full"></div>
+                <div class="h-6 bg-gray-100 rounded animate-pulse w-full"></div>
+                <div class="h-6 bg-gray-100 rounded animate-pulse w-full"></div>
+            </div>
+
+            <!-- Empty state -->
+            <div id="hr-dashboard-empty" hidden class="text-center py-12 border-2 border-dashed border-gray-200 rounded-lg text-gray-500">
+                No assignments yet — click <strong>+ New Assignment</strong> to get started
+            </div>
+
+            <!-- Error state -->
+            <div id="hr-dashboard-error" hidden class="text-center py-12 border-2 border-dashed border-red-200 rounded-lg">
+                <p class="text-red-700 mb-3">Couldn't load your assignments.</p>
+                <button id="hr-dashboard-error-retry" onclick="handleRetryLoad()"
+                        class="bg-talentpilot-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-talentpilot-700 transition-colors">
+                    Try again
+                </button>
+            </div>
+
+            <!-- Grid (Sections 4-5) -->
+            <div id="hr-dashboard-grid" hidden></div>
+        </div>
+
+        <!-- ====================================================================
+             SECTION 6: PAGINATION & FOOTER
+             Story: stories/HR-Dashboard.6-pagination-footer.md
+             ==================================================================== -->
+        <div id="hr-dashboard-pagination" style="display: none" class="flex items-center justify-center gap-2 mt-4 text-sm">
+            <button id="hr-dashboard-page-prev" onclick="handlePageChange(-1)"
+                    class="px-3 py-1 rounded border border-gray-200 text-gray-400 disabled:cursor-not-allowed hover:border-gray-300 disabled:hover:border-gray-200">
+                Previous
+            </button>
+            <button id="hr-dashboard-page-current" class="px-3 py-1 rounded border border-talentpilot-600 bg-talentpilot-50 text-talentpilot-700 font-medium">1</button>
+            <button id="hr-dashboard-page-next" onclick="handlePageChange(1)"
+                    class="px-3 py-1 rounded border border-gray-200 text-gray-400 disabled:cursor-not-allowed hover:border-gray-300 disabled:hover:border-gray-200">
+                Next
+            </button>
+        </div>
+        <p class="text-center text-xs text-gray-400 mt-8">App v0.1.0</p>
+
+        <!-- ====================================================================
+             SECTION 7: TOAST & LIVE ANNOUNCEMENTS
+             Story: stories/HR-Dashboard.7-toast-live-announcements.md
+             ==================================================================== -->
+        <div aria-live="polite" id="hr-dashboard-live-region" class="sr-only"></div>
+    </main>
+
+    <div id="hr-dashboard-toast" hidden role="status" aria-live="polite"
+         class="fixed inset-x-0 bottom-6 z-50 mx-auto w-fit max-w-[90vw] rounded-lg bg-gray-900 px-4 py-2 text-sm text-white shadow-lg">
+    </div>
+
+    <!-- ============================================================================
+         PROVENANCE DRILL-DOWN MODAL (scope addition, not in the original 7-section
+         plan — added after user reference screenshot of the real production modal)
+         Story: stories/HR-Dashboard.8-provenance-drilldown.md
+         ============================================================================ -->
+    <div id="hr-dashboard-drilldown-backdrop" style="display: none" onclick="if (event.target === event.currentTarget) closeDrillDown()"
+         class="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4">
+        <div class="w-full max-w-lg rounded-lg bg-white p-6 shadow-xl">
+            <div class="space-y-4">
+                <header>
+                    <h2 id="hr-dashboard-drilldown-title" class="text-lg font-bold text-gray-900"></h2>
+                    <div id="hr-dashboard-drilldown-status" class="mt-2"></div>
+                </header>
+                <div id="hr-dashboard-drilldown-provenance" class="space-y-1 text-sm text-gray-700"></div>
+                <div class="flex items-center justify-between pt-2 border-t border-gray-100">
+                    <div class="flex gap-2">
+                        <button id="hr-dashboard-drilldown-mark-ready" onclick="handleMarkAsReady()"></button>
+                    </div>
+                    <button id="hr-dashboard-drilldown-close" onclick="closeDrillDown()"
+                            class="bg-gray-100 text-gray-700 text-sm font-semibold px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors">
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================================
+         DELETE CONFIRMATION MODAL (scope addition, matches real production
+         DeleteAssignmentModal.tsx — added after user feedback that delete had
+         no confirmation step)
+         Story: stories/HR-Dashboard.9-delete-confirmation.md
+         ============================================================================ -->
+    <div id="hr-dashboard-delete-confirm-backdrop" style="display: none"
+         onclick="if (event.target === event.currentTarget) closeDeleteConfirm()"
+         class="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4">
+        <div class="w-full max-w-lg rounded-lg bg-white p-6 shadow-xl">
+            <div class="space-y-4">
+                <h2 class="text-lg font-bold text-gray-900">Remove this assignment?</h2>
+                <p id="hr-dashboard-delete-confirm-body" class="text-sm text-gray-700"></p>
+                <p id="hr-dashboard-delete-confirm-progress-warning" hidden class="text-sm text-gray-700"></p>
+                <div class="flex items-center justify-end gap-2 pt-2 border-t border-gray-100">
+                    <button id="hr-dashboard-delete-confirm-cancel" onclick="closeDeleteConfirm()"
+                            class="text-sm font-medium text-gray-600 hover:underline">
+                        Cancel
+                    </button>
+                    <button id="hr-dashboard-delete-confirm-submit" onclick="confirmDelete()"
+                            class="bg-red-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-red-700 transition-colors">
+                        Remove Assignment
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================================
+         VIEW 2: ASSIGN A NEW SKILL MODAL (3-step wizard, matches real
+         AssignmentModal.tsx — this is what "+ New Assignment" opens)
+         Story: stories/AssignModal.1-wizard.md
+         ============================================================================ -->
+    <div id="hr-dashboard-assign-modal-backdrop" style="display: none"
+         onclick="if (event.target === event.currentTarget) closeAssignModal()"
+         class="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4">
+        <div class="w-full max-w-lg rounded-lg bg-white p-6 shadow-xl">
+            <div class="mb-4 flex items-start justify-between">
+                <div>
+                    <h2 class="text-xl font-semibold">Assign a New Skill</h2>
+                    <p id="hr-dashboard-assign-modal-step-label" aria-live="polite" class="mt-1 text-sm text-gray-500">Step 1 of 3</p>
+                </div>
+                <button type="button" id="hr-dashboard-assign-modal-close" onclick="closeAssignModal()" aria-label="Close"
+                        class="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-talentpilot-500">
+                    &times;
+                </button>
+            </div>
+            <div id="hr-dashboard-assign-modal-body"></div>
+        </div>
+    </div>
+
+    <!-- ========================================================================
+         JAVASCRIPT - Shared Scripts
+         ======================================================================== -->
+    <script src="shared/init.js"></script>
+
+    <!-- ========================================================================
+         JAVASCRIPT - Page-Specific Script
+         ======================================================================== -->
+    <script>
+        /**
+         * View: HR Dashboard (Grid)
+         * Sections implemented so far: 1 (Page Shell & Header), 2 (Toolbar &
+         * Title Row), 3 (Loading / Empty / Error States)
+         */
+
+        // ================================================================
+        // STATE (Section 2, seeded in Section 3's fix)
+        // ================================================================
+        // In-memory assignment store for this prototype session. The real
+        // backend seeds no Assignment rows (only Employees/Skills/Content),
+        // so this loads DEMO_DATA.sampleAssignments — 5 SYNTHESIZED rows
+        // (see demo-data.json's _sampleAssignments_note), not real DB data —
+        // so the grid has something to render once Sections 4-5 exist.
+        let assignments = [];
+
+        // ================================================================
+        // INITIALIZATION
+        // ================================================================
+        // Shown when shared/init.js fails to fetch data/demo-data.json — most
+        // commonly because the page was opened via file:// instead of a local
+        // server. Overrides the generic Section 3 error box with a specific,
+        // actionable message instead of leaving the page stuck on the loading
+        // skeleton with no visible explanation.
+        window.onDemoDataLoadFailure = function () {
+            document.getElementById('hr-dashboard-error').querySelector('p').textContent =
+                "Demo data couldn't load — this page was opened directly (file://), which browsers block from fetching local files. Serve this folder with a local server (e.g. \"npx serve .\" or \"python -m http.server\" from this folder) and open the served http://localhost URL instead.";
+            document.getElementById('hr-dashboard-error-retry').hidden = true;
+            showOnly('hr-dashboard-error');
+        };
+
+        window.initPage = function () {
+            console.log('📄 HR Dashboard (Sections 1-2) loaded');
+
+            const user = window.DEMO_DATA && window.DEMO_DATA.currentUser;
+            if (!user) {
+                console.error('❌ No currentUser in demo data — header cannot render name/avatar');
+                return;
+            }
+
+            const firstName = user.name.split(' ')[0];
+            const initial = user.name.charAt(0).toUpperCase();
+
+            document.getElementById('hr-dashboard-user-avatar').textContent = initial;
+            document.getElementById('hr-dashboard-user-name').textContent = firstName;
+
+            console.log(`👤 Signed in as ${user.name} (${user.role})`);
+
+            assignments = (window.DEMO_DATA.sampleAssignments || []).slice();
+            console.log(`📋 Loaded ${assignments.length} sample assignments (synthesized — see demo-data.json note)`);
+
+            renderTotalCount();
+            simulateLoad();
+        };
+
+        // ================================================================
+        // LOADING / EMPTY / ERROR STATES (Section 3)
+        // ================================================================
+        // Simulated load — this prototype has no real backend, so "loading"
+        // is a short artificial delay and "error" only occurs if forced (see
+        // the __simulateError test hook below). Resolves to empty by default
+        // since `assignments` starts at [] (real backend seeds none either).
+        function simulateLoad(forceError = false) {
+            showOnly('hr-dashboard-loading');
+
+            window.setTimeout(() => {
+                if (forceError) {
+                    showOnly('hr-dashboard-error');
+                    return;
+                }
+                renderContent();
+            }, 400);
+        }
+
+        // Decides which of empty/grid to show based on current `assignments`
+        // state, and toggles pagination visibility alongside it.
+        function renderContent() {
+            const pagination = document.getElementById('hr-dashboard-pagination');
+            if (assignments.length === 0) {
+                showOnly('hr-dashboard-empty');
+                pagination.style.display = 'none';
+                return;
+            }
+            renderGrid();
+            showOnly('hr-dashboard-grid');
+            renderPaginationControls();
+            pagination.style.display = 'flex';
+        }
+
+        // ================================================================
+        // PAGINATION & FOOTER (Section 6, pulled forward alongside 4-5 per
+        // user's reference screenshot)
+        // ================================================================
+        const PAGE_SIZE = 50; // matches production's default page size
+        let currentPage = 1;
+
+        function totalPages() {
+            return Math.max(1, Math.ceil(assignments.length / PAGE_SIZE));
+        }
+
+        function handlePageChange(delta) {
+            const newPage = Math.max(1, Math.min(currentPage + delta, totalPages()));
+            if (newPage !== currentPage) {
+                currentPage = newPage;
+                renderGrid();
+            }
+            renderPaginationControls();
+        }
+
+        function renderPaginationControls() {
+            const pages = totalPages();
+            document.getElementById('hr-dashboard-page-current').textContent = currentPage;
+            document.getElementById('hr-dashboard-page-prev').disabled = currentPage === 1;
+            document.getElementById('hr-dashboard-page-next').disabled = currentPage >= pages;
+        }
+
+        // ================================================================
+        // ASSIGNMENT GRID — ACCORDION + TABLE (Sections 4-5, built together
+        // per user reference screenshot of the real production dashboard)
+        // ================================================================
+        const expandedGroups = new Set();
+
+        function toggleEmployeeGroup(employeeId) {
+            if (expandedGroups.has(employeeId)) {
+                expandedGroups.delete(employeeId);
+            } else {
+                expandedGroups.add(employeeId);
+            }
+            renderGrid();
+        }
+
+        function handleViewDetails(assignmentId) {
+            const row = assignments.find((a) => a.assignment_id === assignmentId);
+            if (row) openDrillDown(row);
+        }
+
+        // ================================================================
+        // PROVENANCE DRILL-DOWN MODAL (scope addition — see story file)
+        // Mirrors the real ProvenanceDrillDownModal.tsx read-only detail
+        // view exactly, using this session's actual assignment data.
+        // ================================================================
+        function openDrillDown(row) {
+            document.getElementById('hr-dashboard-drilldown-title').textContent = `${row.employee_name} — ${row.skill_name}`;
+            document.getElementById('hr-dashboard-drilldown-status').innerHTML = drilldownStatusBadgeHtml(row);
+            document.getElementById('hr-dashboard-drilldown-provenance').innerHTML = drilldownProvenanceHtml(row);
+
+            const markReadyBtn = document.getElementById('hr-dashboard-drilldown-mark-ready');
+            if (row.provenance === 'HR Override') {
+                markReadyBtn.textContent = 'Reverse Override';
+                markReadyBtn.className = 'text-sm font-medium text-red-600 hover:underline';
+            } else {
+                markReadyBtn.textContent = 'Mark as Ready';
+                markReadyBtn.className = 'text-sm font-medium text-talentpilot-600 hover:underline';
+            }
+
+            document.getElementById('hr-dashboard-drilldown-backdrop').style.display = 'flex';
+        }
+
+        function closeDrillDown() {
+            document.getElementById('hr-dashboard-drilldown-backdrop').style.display = 'none';
+        }
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && document.getElementById('hr-dashboard-drilldown-backdrop').style.display !== 'none') {
+                closeDrillDown();
+            }
+        });
+
+        // Deliberately a toast, not a real confirm flow — the real modal's
+        // Mark-as-Ready/Reverse-Override sub-views (reason textarea, submit,
+        // 4-branch reversal messaging) are a deeper feature than a single
+        // reference screenshot of the read-only detail view specified.
+        function handleMarkAsReady() {
+            showToast('Mark as Ready / Reverse Override — not part of this prototype yet');
+        }
+
+        // StatusBadge equivalent — YELLOW for In Progress, matching the real
+        // components/StatusBadge.tsx exactly. This is deliberately different
+        // from the dashboard table's own BLUE "In Progress" pill (Section 5)
+        // — that inconsistency is real in production too (design-system.md
+        // Notes #2), not a mistake introduced here.
+        function drilldownStatusBadgeHtml(row) {
+            const config = {
+                'Not Started': { bg: 'bg-gray-100', text: 'text-gray-800', icon: '○' },
+                'In Progress': { bg: 'bg-yellow-100', text: 'text-yellow-800', icon: '▶' },
+                'Completed': { bg: 'bg-green-100', text: 'text-green-800', icon: '✓' },
+            }[row.status];
+            const label = row.status === 'In Progress' && row.status_percentage
+                ? `${row.status} (${row.status_percentage}%)`
+                : row.status;
+            return `<span class="inline-flex items-center gap-1 px-3 py-1 rounded font-medium ${config.bg} ${config.text}"><span aria-hidden="true">${config.icon}</span><span>${label}</span></span>`;
+        }
+
+        function drilldownProvenanceHtml(row) {
+            const relative = formatRelativeTime(row.last_updated);
+            switch (row.provenance) {
+                case 'Verified':
+                    return `
+                        <p class="font-medium text-gray-900">✓ Verified via video playback</p>
+                        <p>Watch Progress: ${row.status_percentage ?? 0}%</p>
+                        <p>Last Updated: ${relative}</p>`;
+                case 'Self-reported':
+                    return `
+                        <p class="font-medium text-gray-900">📝 Self-reported</p>
+                        <p>Status: ${row.status}</p>
+                        <p>Last Updated: ${relative}</p>`;
+                case 'Needs Attention': {
+                    const staleDays = staleDaysSince(row.last_updated);
+                    const staleText = staleDays === 0
+                        ? "This status hasn't been updated today."
+                        : `This status hasn't been updated in ${staleDays} day${staleDays === 1 ? '' : 's'}.`;
+                    return `
+                        <p class="font-medium text-amber-700">⚠️ Needs Attention</p>
+                        <p>Status: ${row.status}</p>
+                        <p>Last Updated: ${relative}</p>
+                        <p>${staleText} Consider reaching out to ${row.employee_name} to confirm.</p>`;
+                }
+                case 'HR Override':
+                    return `
+                        <p class="font-medium text-gray-900">🔒 HR Override</p>
+                        <p>Override Status: ${row.status}</p>`;
+                case 'Not Started':
+                default:
+                    return `
+                        <p class="font-medium text-gray-900">No signal yet</p>
+                        <p>This assignment hasn't started — nothing has been watched or reported.</p>`;
+            }
+        }
+
+        // ================================================================
+        // DELETE CONFIRMATION (scope addition — matches real production
+        // DeleteAssignmentModal.tsx; see story HR-Dashboard.9)
+        // ================================================================
+        let pendingDeleteId = null;
+
+        function openDeleteConfirm(assignmentId) {
+            const row = assignments.find((a) => a.assignment_id === assignmentId);
+            if (!row) return;
+            pendingDeleteId = assignmentId;
+
+            document.getElementById('hr-dashboard-delete-confirm-body').textContent =
+                `${row.employee_name} — ${row.skill_name}`;
+
+            const warning = document.getElementById('hr-dashboard-delete-confirm-progress-warning');
+            const hasRecordedProgress = row.status !== 'Not Started';
+            if (hasRecordedProgress) {
+                const progressText = row.status === 'Completed' ? 'Completed' : `${row.status_percentage}% watched`;
+                warning.textContent = `This assignment has recorded progress (${progressText}). Removing it will take it off the dashboard; the history is retained for audit.`;
+                warning.hidden = false;
+            } else {
+                warning.hidden = true;
+            }
+
+            document.getElementById('hr-dashboard-delete-confirm-backdrop').style.display = 'flex';
+        }
+
+        function closeDeleteConfirm() {
+            pendingDeleteId = null;
+            document.getElementById('hr-dashboard-delete-confirm-backdrop').style.display = 'none';
+        }
+
+        function confirmDelete() {
+            if (!pendingDeleteId) return;
+            const assignmentId = pendingDeleteId;
+            closeDeleteConfirm();
+            handleDeleteRow(assignmentId);
+        }
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && document.getElementById('hr-dashboard-delete-confirm-backdrop').style.display !== 'none') {
+                closeDeleteConfirm();
+            }
+        });
+
+        function handleDeleteRow(assignmentId) {
+            const row = assignments.find((a) => a.assignment_id === assignmentId);
+            assignments = assignments.filter((a) => a.assignment_id !== assignmentId);
+            renderTotalCount();
+            if (row) {
+                const firstName = row.employee_name.split(' ')[0];
+                showToast(`${firstName} — ${row.skill_name} removed.`);
+                announceLive(`${row.employee_name} ${row.skill_name} assignment removed`);
+            }
+            if (assignments.length === 0) {
+                showOnly('hr-dashboard-empty');
+                document.getElementById('hr-dashboard-pagination').style.display = 'none';
+            } else {
+                renderGrid();
+                renderPaginationControls();
+            }
+        }
+
+        // ================================================================
+        // TOAST & LIVE ANNOUNCEMENTS (Section 7, pulled forward after
+        // delete/View-Details feedback was reported as "not functioning" —
+        // both were silent actions with no visible confirmation)
+        // ================================================================
+        let toastTimer = null;
+
+        function showToast(message) {
+            const toast = document.getElementById('hr-dashboard-toast');
+            toast.textContent = message;
+            toast.hidden = false;
+            if (toastTimer) window.clearTimeout(toastTimer);
+            toastTimer = window.setTimeout(() => {
+                toast.hidden = true;
+            }, 4000);
+        }
+
+        function announceLive(message) {
+            document.getElementById('hr-dashboard-live-region').textContent = message;
+        }
+
+        // Lightweight relative-time formatter (no date-fns bundled in this
+        // static prototype — production uses date-fns' formatDistanceToNow).
+        function formatRelativeTime(iso) {
+            const diffDays = staleDaysSince(iso);
+            if (diffDays <= 0) return 'today';
+            if (diffDays === 1) return '1 day ago';
+            if (diffDays < 30) return `${diffDays} days ago`;
+            const months = Math.floor(diffDays / 30);
+            if (months < 12) return months === 1 ? 'about 1 month ago' : `about ${months} months ago`;
+            const years = Math.floor(months / 12);
+            return years === 1 ? 'about 1 year ago' : `about ${years} years ago`;
+        }
+
+        function staleDaysSince(iso) {
+            const diffMs = Date.now() - new Date(iso).getTime();
+            return Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
+        }
+
+        function statusPillHtml(row) {
+            if (row.status === 'In Progress' && row.status_percentage !== null) {
+                return `<span class="bg-talentpilot-100 text-talentpilot-700 px-2 py-1 rounded whitespace-nowrap">In Progress (${row.status_percentage}%)</span>`;
+            }
+            if (row.status === 'Completed') {
+                return `<span class="bg-green-100 text-green-700 px-2 py-1 rounded">Completed</span>`;
+            }
+            return `<span class="bg-gray-100 text-gray-700 px-2 py-1 rounded">Not Started</span>`;
+        }
+
+        function progressCellHtml(row) {
+            if (row.status === 'In Progress' && row.status_percentage !== null) {
+                return `
+                    <div class="flex items-center gap-2">
+                        <div class="w-16 h-1 bg-gray-200 rounded-full overflow-hidden">
+                            <div class="h-full bg-talentpilot-600" style="width: ${row.status_percentage}%"></div>
+                        </div>
+                        <span class="text-xs text-gray-500">${row.status_percentage}%</span>
+                    </div>`;
+            }
+            if (row.status === 'Completed') {
+                return `
+                    <div class="flex items-center gap-2">
+                        <div class="w-16 h-1 bg-gray-200 rounded-full overflow-hidden">
+                            <div class="h-full bg-green-600" style="width: 100%"></div>
+                        </div>
+                        <span class="text-xs text-gray-500">100%</span>
+                    </div>`;
+            }
+            return `<span class="text-xs text-gray-400">-</span>`;
+        }
+
+        // User-requested simplification: relative time only, no "(N days
+        // stale)" suffix. Note: real production explicitly pairs the red
+        // styling with that text as a deliberate accessibility requirement
+        // ("never color-only" — see design-system.md Patterns) — this is a
+        // documented, intentional deviation for this prototype, not an
+        // oversight. Red styling is kept so staleness is still visible.
+        function lastUpdatedCellHtml(row) {
+            const relative = formatRelativeTime(row.last_updated);
+            return `<span class="text-gray-500">${relative}</span>`;
+        }
+
+        function groupAssignmentsByEmployee(rows) {
+            const grouped = new Map();
+            rows.forEach((row) => {
+                if (!grouped.has(row.employee_id)) grouped.set(row.employee_id, { name: row.employee_name, rows: [] });
+                grouped.get(row.employee_id).rows.push(row);
+            });
+            return grouped;
+        }
+
+        // Renders the employee-grouped accordion + table, matching the real
+        // production HR Dashboard's column layout: Assigned Skill, Status,
+        // Progress, Last Updated, Actions (+ delete icon column).
+        function renderGrid() {
+            const grid = document.getElementById('hr-dashboard-grid');
+            grid.className = 'bg-white rounded-lg overflow-hidden shadow-sm';
+
+            const grouped = groupAssignmentsByEmployee(assignments);
+            const sortedEmployeeIds = Array.from(grouped.keys()).sort((a, b) =>
+                grouped.get(a).name.localeCompare(grouped.get(b).name)
+            );
+
+            grid.innerHTML = sortedEmployeeIds.map((employeeId, index) => {
+                const group = grouped.get(employeeId);
+                const isExpanded = expandedGroups.has(employeeId);
+                const isLast = index === sortedEmployeeIds.length - 1;
+
+                const rowsHtml = group.rows.map((row) => `
+                    <tr class="border-b border-gray-200 hover:bg-gray-100 transition-colors align-middle">
+                        <td class="px-3 py-2 truncate align-middle">${row.skill_name}</td>
+                        <td class="px-3 py-2 text-left align-middle">
+                            <div class="inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium" role="status">
+                                ${statusPillHtml(row)}
+                            </div>
+                        </td>
+                        <td class="px-3 py-2 align-middle">${progressCellHtml(row)}</td>
+                        <td class="px-3 py-2 text-xs truncate align-middle" id="hr-dashboard-row-lastupdated-${row.assignment_id}">${lastUpdatedCellHtml(row)}</td>
+                        <td class="px-3 py-2 align-middle">
+                            <button id="hr-dashboard-row-viewdetails-${row.assignment_id}" onclick="handleViewDetails('${row.assignment_id}')"
+                                    class="text-talentpilot-600 hover:text-talentpilot-800 text-sm font-medium whitespace-nowrap"
+                                    aria-label="View details for ${row.employee_name} ${row.skill_name}">
+                                View Details
+                            </button>
+                        </td>
+                        <td class="px-3 py-2">
+                            <button id="hr-dashboard-row-delete-${row.assignment_id}" onclick="openDeleteConfirm('${row.assignment_id}')"
+                                    class="inline-flex items-center justify-center w-9 h-9 rounded-full text-red-600 hover:bg-red-100 hover:text-red-700 transition-colors"
+                                    aria-label="Remove assignment for ${row.employee_name} ${row.skill_name}" title="Delete">
+                                <svg viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5" aria-hidden="true">
+                                    <path fill-rule="evenodd" d="M8.75 1a.75.75 0 00-.75.75V3H4.5a.75.75 0 000 1.5h.352l.622 10.579A2.75 2.75 0 008.22 17.5h3.56a2.75 2.75 0 002.746-2.421L15.148 4.5H15.5a.75.75 0 000-1.5H12v-1.25a.75.75 0 00-.75-.75h-2.5zM10 4.5H8.5V2.5h3v2H10zM6.856 4.5h6.288l-.61 10.394a1.25 1.25 0 01-1.248 1.106H8.22a1.25 1.25 0 01-1.248-1.106L6.856 4.5zM8.5 7a.75.75 0 01.75.75v5a.75.75 0 01-1.5 0v-5A.75.75 0 018.5 7zm3 0a.75.75 0 01.75.75v5a.75.75 0 01-1.5 0v-5A.75.75 0 0111.5 7z" clip-rule="evenodd" />
+                                </svg>
+                            </button>
+                        </td>
+                    </tr>
+                `).join('');
+
+                return `
+                    <div id="hr-dashboard-employee-group-${employeeId}" class="border-b border-gray-200 ${isLast ? 'border-b-0' : ''}">
+                        <button onclick="toggleEmployeeGroup('${employeeId}')"
+                                class="w-full flex items-center justify-between px-4 py-3 text-left font-medium text-gray-900 hover:bg-gray-50 transition-colors">
+                            <span class="font-semibold">${group.name} (${group.rows.length} skill${group.rows.length === 1 ? '' : 's'})</span>
+                            <span id="hr-dashboard-employee-chevron-${employeeId}" class="text-gray-500 transition-transform ${isExpanded ? 'rotate-180' : ''}">&#9660;</span>
+                        </button>
+                        ${isExpanded ? `
+                            <div class="bg-gray-50 border-t border-gray-200">
+                                <div class="px-4 py-3">
+                                    <table class="w-full border-collapse text-sm" style="table-layout: fixed">
+                                        <colgroup>
+                                            <col style="width: 22%"><col style="width: 18%"><col style="width: 18%"><col style="width: 18%"><col style="width: 16%"><col style="width: 8%">
+                                        </colgroup>
+                                        <thead>
+                                            <tr class="border-b border-gray-300 text-left text-gray-600">
+                                                <th class="px-3 py-2 font-medium">Assigned Skill</th>
+                                                <th class="px-3 py-2 font-medium">Status</th>
+                                                <th class="px-3 py-2 font-medium">Progress</th>
+                                                <th class="px-3 py-2 font-medium">Last Updated</th>
+                                                <th class="px-3 py-2 font-medium">Actions</th>
+                                                <th class="px-3 py-2 font-medium"><span class="sr-only">Delete</span></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>${rowsHtml}</tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function showOnly(idToShow) {
+            ['hr-dashboard-loading', 'hr-dashboard-empty', 'hr-dashboard-error', 'hr-dashboard-grid'].forEach((id) => {
+                document.getElementById(id).hidden = id !== idToShow;
+            });
+        }
+
+        function handleRetryLoad() {
+            simulateLoad();
+        }
+
+        // Test-only console hook (not a UI element) so the error state can
+        // actually be seen during review, since there's no real backend to
+        // fail against. Documented in the story file, not a hidden feature.
+        window.__simulateError = () => simulateLoad(true);
+
+        // ================================================================
+        // TOOLBAR & TITLE ROW (Section 2)
+        // ================================================================
+        function getAssignmentCount() {
+            return assignments.length;
+        }
+
+        function renderTotalCount() {
+            const count = getAssignmentCount();
+            const label = count === 1 ? '1 assignment' : `${count} assignments`;
+            document.getElementById('hr-dashboard-total-count').textContent = `Total: ${label}`;
+        }
+
+        function handleNewAssignmentClick() {
+            openAssignModal();
+        }
+
+        // ================================================================
+        // VIEW 2: ASSIGN A NEW SKILL MODAL — 3-step wizard, matches real
+        // AssignmentModal.tsx (frontend/src/features/assignments/). Uses
+        // this session's actual `assignments` array for a real duplicate
+        // check, and DEMO_DATA.contentMatches for the content review step.
+        // ================================================================
+        let assignStep = 1;
+        let assignEmployeeSearch = '';
+        let assignEmployeeId = null;
+        let assignSkillSearch = '';
+        let assignSkillId = null;
+        let assignDuplicateFound = false;
+        let assignContent = undefined; // undefined = not fetched yet, null = no match, object = match
+        let assignSubmitting = false;
+        let assignEmployeeOpen = false;
+        let assignSkillOpen = false;
+
+        function openAssignModal() {
+            assignStep = 1;
+            assignEmployeeSearch = '';
+            assignEmployeeId = null;
+            assignSkillSearch = '';
+            assignSkillId = null;
+            assignDuplicateFound = false;
+            assignContent = undefined;
+            assignSubmitting = false;
+            assignEmployeeOpen = false;
+            assignSkillOpen = false;
+            document.getElementById('hr-dashboard-assign-modal-backdrop').style.display = 'flex';
+            renderAssignModal();
+        }
+
+        function closeAssignModal() {
+            if (assignSubmitting) return; // matches real component: no closing mid-submit
+            document.getElementById('hr-dashboard-assign-modal-backdrop').style.display = 'none';
+        }
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key !== 'Escape') return;
+            if (document.getElementById('hr-dashboard-assign-modal-backdrop').style.display === 'none') return;
+            // Escape closes an open dropdown first, not the whole modal —
+            // matches the real Combobox's stopPropagation behavior.
+            if (assignEmployeeOpen || assignSkillOpen) {
+                assignEmployeeOpen = false;
+                assignSkillOpen = false;
+                renderAssignModal();
+                return;
+            }
+            closeAssignModal();
+        });
+
+        // Closes an open combobox dropdown on outside click — the dropdown's
+        // own options are inside the same container, so clicking an option
+        // doesn't trigger this (selectAssign* closes it explicitly instead).
+        document.addEventListener('click', (event) => {
+            const employeeBox = document.getElementById('hr-dashboard-assign-employee-combobox');
+            if (assignEmployeeOpen && employeeBox && !employeeBox.contains(event.target)) {
+                assignEmployeeOpen = false;
+                renderAssignModal();
+            }
+            const skillBox = document.getElementById('hr-dashboard-assign-skill-combobox');
+            if (assignSkillOpen && skillBox && !skillBox.contains(event.target)) {
+                assignSkillOpen = false;
+                renderAssignModal();
+            }
+        });
+
+        function filteredEmployees() {
+            const q = assignEmployeeSearch.toLowerCase();
+            return ((window.DEMO_DATA && window.DEMO_DATA.employees) || []).filter((e) => !q || e.name.toLowerCase().includes(q));
+        }
+
+        function filteredSkills() {
+            const q = assignSkillSearch.toLowerCase();
+            return ((window.DEMO_DATA && window.DEMO_DATA.skills) || []).filter((s) => !q || s.name.toLowerCase().includes(q));
+        }
+
+        function formatIsoDuration(iso) {
+            const match = /^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/.exec(iso || '');
+            if (!match) return '';
+            const hours = parseInt(match[1] || '0', 10);
+            const minutes = parseInt(match[2] || '0', 10);
+            const totalMinutes = hours * 60 + minutes;
+            return totalMinutes > 0 ? `${totalMinutes} min` : '';
+        }
+
+        // Refocuses an input and restores cursor position after a full
+        // innerHTML re-render (which destroys and recreates the element) —
+        // without this, typing more than one character would lose focus.
+        function refocusInput(id, caretPos) {
+            const input = document.getElementById(id);
+            if (input) {
+                input.focus();
+                if (typeof caretPos === 'number') input.setSelectionRange(caretPos, caretPos);
+            }
+        }
+
+        function openAssignEmployeeDropdown() {
+            if (assignEmployeeOpen) return;
+            assignEmployeeOpen = true;
+            renderAssignModal();
+            refocusInput('hr-dashboard-assign-employee-search', assignEmployeeSearch.length);
+        }
+
+        function onAssignEmployeeSearch(value) {
+            assignEmployeeSearch = value;
+            assignEmployeeId = null;
+            assignEmployeeOpen = true;
+            renderAssignModal();
+            refocusInput('hr-dashboard-assign-employee-search', value.length);
+        }
+
+        function selectAssignEmployee(id) {
+            assignEmployeeId = id;
+            assignEmployeeOpen = false;
+            // Clear a previously-chosen skill (matches real component: reaching
+            // Step 1 again via Back shouldn't silently keep an old Step 2 pick).
+            assignSkillId = null;
+            assignSkillSearch = '';
+            renderAssignModal();
+        }
+
+        function goToStep2() {
+            if (!assignEmployeeId) return;
+            assignStep = 2;
+            assignSkillOpen = false;
+            renderAssignModal();
+        }
+
+        function goBackToStep1() {
+            assignStep = 1;
+            assignEmployeeOpen = false;
+            renderAssignModal();
+        }
+
+        function openAssignSkillDropdown() {
+            if (assignSkillOpen) return;
+            assignSkillOpen = true;
+            renderAssignModal();
+            refocusInput('hr-dashboard-assign-skill-search', assignSkillSearch.length);
+        }
+
+        function onAssignSkillSearch(value) {
+            assignSkillSearch = value;
+            assignSkillId = null;
+            assignSkillOpen = true;
+            renderAssignModal();
+            refocusInput('hr-dashboard-assign-skill-search', value.length);
+        }
+
+        function selectAssignSkill(id) {
+            assignSkillId = id;
+            assignSkillOpen = false;
+            renderAssignModal();
+        }
+
+        function continueFromStep2() {
+            if (!assignEmployeeId || !assignSkillId) return;
+            const duplicate = assignments.some((a) => a.employee_id === assignEmployeeId && a.skill_id === assignSkillId);
+            if (duplicate) {
+                assignDuplicateFound = true;
+                renderAssignModal();
+                return;
+            }
+            assignDuplicateFound = false;
+            advanceToStep3();
+        }
+
+        function assignAgain() {
+            assignDuplicateFound = false;
+            advanceToStep3();
+        }
+
+        function advanceToStep3() {
+            assignStep = 3;
+            assignContent = undefined;
+            renderAssignModal();
+            // Simulated async content fetch (real: matchContentForSkill API call).
+            window.setTimeout(() => {
+                assignContent = (window.DEMO_DATA.contentMatches && window.DEMO_DATA.contentMatches[assignSkillId]) || null;
+                renderAssignModal();
+            }, 400);
+        }
+
+        function backFromStep3() {
+            assignDuplicateFound = false;
+            assignSkillOpen = false;
+            assignStep = 2;
+            renderAssignModal();
+        }
+
+        function submitAssignment() {
+            if (assignSubmitting || assignContent === undefined) return;
+            assignSubmitting = true;
+            renderAssignModal();
+
+            window.setTimeout(() => {
+                const employee = ((window.DEMO_DATA && window.DEMO_DATA.employees) || []).find((e) => e.id === assignEmployeeId);
+                const skill = ((window.DEMO_DATA && window.DEMO_DATA.skills) || []).find((s) => s.id === assignSkillId);
+                const newRow = {
+                    assignment_id: `local-${Date.now()}`,
+                    employee_id: assignEmployeeId,
+                    employee_name: employee.name,
+                    skill_id: assignSkillId,
+                    skill_name: skill.name,
+                    status: 'Not Started',
+                    status_percentage: null,
+                    provenance: 'Not Started',
+                    last_updated: new Date().toISOString(),
+                };
+                assignments.push(newRow);
+                assignSubmitting = false;
+                closeAssignModal();
+                renderTotalCount();
+                renderContent();
+
+                const firstName = employee.name.split(' ')[0];
+                showToast(`✓ Skill assigned to ${firstName} — ${skill.name}`);
+                announceLive(`${employee.name} assigned ${skill.name}`);
+            }, 500);
+        }
+
+        function renderAssignModal() {
+            const body = document.getElementById('hr-dashboard-assign-modal-body');
+            document.getElementById('hr-dashboard-assign-modal-step-label').textContent = `Step ${assignStep} of 3`;
+
+            const employees = filteredEmployees();
+            const skills = filteredSkills();
+            const selectedEmployee = ((window.DEMO_DATA && window.DEMO_DATA.employees) || []).find((e) => e.id === assignEmployeeId);
+            const selectedSkill = ((window.DEMO_DATA && window.DEMO_DATA.skills) || []).find((s) => s.id === assignSkillId);
+
+            if (assignStep === 1) {
+                body.innerHTML = `
+                    <label class="mb-1 block text-sm font-medium text-gray-700">Who should learn this?</label>
+                    <div id="hr-dashboard-assign-employee-combobox" class="relative">
+                        <input id="hr-dashboard-assign-employee-search" type="text" placeholder="Select employee or search..."
+                               autocomplete="off"
+                               value="${selectedEmployee ? selectedEmployee.name : assignEmployeeSearch}"
+                               class="flex h-10 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-talentpilot-500"
+                               onfocus="openAssignEmployeeDropdown()"
+                               oninput="onAssignEmployeeSearch(this.value)">
+                        ${assignEmployeeOpen ? `
+                            <ul class="absolute z-10 mt-1 max-h-48 w-full overflow-auto rounded-lg border border-gray-200 bg-white shadow-lg">
+                                ${employees.length === 0 ? '<li class="px-3 py-2 text-sm text-gray-400">No results</li>' :
+                                    employees.map((e) => `
+                                        <li class="cursor-pointer px-3 py-2 text-sm hover:bg-gray-50 ${e.id === assignEmployeeId ? 'bg-talentpilot-50' : ''}"
+                                            onmousedown="event.preventDefault(); selectAssignEmployee('${e.id}')">
+                                            ${e.name}<span class="ml-1 text-gray-400">· ${e.role === 'HR_ADMIN' ? 'HR Admin' : 'Employee'}</span>
+                                        </li>`).join('')}
+                            </ul>` : ''}
+                    </div>
+                    <div class="mt-6 flex justify-end gap-2">
+                        <button onclick="closeAssignModal()" class="border border-gray-300 bg-white hover:bg-gray-50 text-sm font-medium px-4 py-2 rounded-lg">Cancel</button>
+                        <button ${assignEmployeeId ? '' : 'disabled'} onclick="goToStep2()"
+                                class="bg-talentpilot-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-talentpilot-700 disabled:opacity-50 disabled:pointer-events-none">
+                            Continue to Skill Selection
+                        </button>
+                    </div>`;
+                return;
+            }
+
+            if (assignStep === 2 && assignDuplicateFound) {
+                body.innerHTML = `
+                    <p role="alert" class="mb-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
+                        This skill is already assigned to ${selectedEmployee ? selectedEmployee.name : 'this employee'}.
+                    </p>
+                    <div class="flex justify-end gap-2">
+                        <button onclick="closeAssignModal()" class="border border-gray-300 bg-white hover:bg-gray-50 text-sm font-medium px-4 py-2 rounded-lg">View</button>
+                        <button onclick="assignAgain()" class="bg-talentpilot-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-talentpilot-700">Assign Again</button>
+                    </div>`;
+                return;
+            }
+
+            if (assignStep === 2 && !assignDuplicateFound) {
+                body.innerHTML = `
+                    <label class="mb-1 block text-sm font-medium text-gray-700">What skill?</label>
+                    <div id="hr-dashboard-assign-skill-combobox" class="relative">
+                        <input id="hr-dashboard-assign-skill-search" type="text" placeholder="Search for a skill or select from recommended..."
+                               autocomplete="off"
+                               value="${selectedSkill ? selectedSkill.name : assignSkillSearch}"
+                               class="flex h-10 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-talentpilot-500"
+                               onfocus="openAssignSkillDropdown()"
+                               oninput="onAssignSkillSearch(this.value)">
+                        ${assignSkillOpen ? `
+                            <ul class="absolute z-10 mt-1 max-h-48 w-full overflow-auto rounded-lg border border-gray-200 bg-white shadow-lg">
+                                ${skills.length === 0 ? '<li class="px-3 py-2 text-sm text-gray-400">No results</li>' :
+                                    skills.map((s) => `
+                                        <li class="cursor-pointer px-3 py-2 text-sm hover:bg-gray-50 ${s.id === assignSkillId ? 'bg-talentpilot-50' : ''}"
+                                            onmousedown="event.preventDefault(); selectAssignSkill('${s.id}')">
+                                            ${s.name}
+                                        </li>`).join('')}
+                            </ul>` : ''}
+                    </div>
+                    <div class="mt-6 flex justify-end gap-2">
+                        <button onclick="closeAssignModal()" class="border border-gray-300 bg-white hover:bg-gray-50 text-sm font-medium px-4 py-2 rounded-lg">Cancel</button>
+                        <button onclick="goBackToStep1()" class="border border-gray-300 bg-white hover:bg-gray-50 text-sm font-medium px-4 py-2 rounded-lg">Back</button>
+                        <button ${assignSkillId ? '' : 'disabled'} onclick="continueFromStep2()"
+                                class="bg-talentpilot-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-talentpilot-700 disabled:opacity-50 disabled:pointer-events-none">
+                            Review Content
+                        </button>
+                    </div>`;
+                return;
+            }
+
+            if (assignStep === 3) {
+                let contentHtml;
+                if (assignContent === undefined) {
+                    contentHtml = `<div class="animate-pulse rounded-lg border border-gray-200 p-4"><div class="h-4 w-1/2 rounded bg-gray-200"></div><div class="mt-2 h-3 w-1/3 rounded bg-gray-200"></div></div>`;
+                } else if (assignContent === null) {
+                    contentHtml = `<div class="rounded-lg border border-dashed border-gray-300 p-4 text-sm text-gray-500">No approved content found yet for this skill.</div>`;
+                } else {
+                    const c = assignContent;
+                    const thumb = c.metadata && c.metadata.video_id ? `https://img.youtube.com/vi/${c.metadata.video_id}/hqdefault.jpg` : null;
+                    const durationLabel = c.metadata ? formatIsoDuration(c.metadata.duration) : '';
+                    contentHtml = `
+                        <div class="rounded-lg border border-gray-200 p-4">
+                            ${thumb ? `<img src="${thumb}" alt="" class="mb-3 h-32 w-full rounded object-cover">` : ''}
+                            <div class="flex items-start justify-between">
+                                <div>
+                                    <p class="font-medium">${c.title}</p>
+                                    <p class="text-sm text-gray-500">${c.source === 'YOUTUBE' ? 'YouTube' : c.source}${durationLabel ? ` · ${durationLabel}` : ''}</p>
+                                </div>
+                                <span class="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">✓ Approved</span>
+                            </div>
+                            ${c.description ? `<p class="mt-2 text-sm text-gray-600">${c.description}</p>` : ''}
+                        </div>`;
+                }
+
+                body.innerHTML = `
+                    <p class="mb-2 text-sm font-medium text-gray-700">We've found the best match for this skill:</p>
+                    ${contentHtml}
+                    <div class="mt-4 rounded-lg bg-gray-50 p-3 text-sm text-gray-600">
+                        <p>Employee: ${selectedEmployee ? selectedEmployee.name : '—'}</p>
+                        <p>Skill: ${selectedSkill ? selectedSkill.name : '—'}</p>
+                        <p>Content: ${assignContent ? `${assignContent.title} (Approved)` : 'None'}</p>
+                        <p>Assignment Date: Today</p>
+                        <p>Status: Will be "Assigned · Awaiting first watch"</p>
+                    </div>
+                    <div class="mt-6 flex justify-end gap-2">
+                        <button ${assignSubmitting ? 'disabled' : ''} onclick="closeAssignModal()" class="border border-gray-300 bg-white hover:bg-gray-50 text-sm font-medium px-4 py-2 rounded-lg disabled:opacity-50">Cancel</button>
+                        <button ${assignSubmitting ? 'disabled' : ''} onclick="backFromStep3()" class="border border-gray-300 bg-white hover:bg-gray-50 text-sm font-medium px-4 py-2 rounded-lg disabled:opacity-50">Back</button>
+                        <button ${assignSubmitting || assignContent === undefined ? 'disabled' : ''} onclick="submitAssignment()"
+                                class="bg-talentpilot-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-talentpilot-700 disabled:opacity-50">
+                            ${assignSubmitting ? 'Assigning…' : (assignContent === null ? 'Assign without content' : 'Assign')}
+                        </button>
+                    </div>`;
+            }
+        }
+
+        // ================================================================
+        // UI INTERACTIONS
+        // ================================================================
+
+        // Toggles the user-menu dropdown.
+        function toggleUserMenu() {
+            const dropdown = document.getElementById('hr-dashboard-user-menu-dropdown');
+            dropdown.hidden = !dropdown.hidden;
+        }
+
+        // Closes the dropdown on outside click.
+        document.addEventListener('click', (event) => {
+            const trigger = document.getElementById('hr-dashboard-user-menu-trigger');
+            const dropdown = document.getElementById('hr-dashboard-user-menu-dropdown');
+            if (!dropdown.hidden && !trigger.contains(event.target) && !dropdown.contains(event.target)) {
+                dropdown.hidden = true;
+            }
+        });
+
+        // Prototype-only stand-in for real sign-out (no live auth session to tear down).
+        function handleSignOut() {
+            console.log('[prototype] Sign out clicked — would clear session and redirect to /login');
+            document.getElementById('hr-dashboard-user-menu-dropdown').hidden = true;
+        }
+    </script>
+</body>
+</html>

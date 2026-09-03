@@ -1,0 +1,413 @@
+# ============================================================================
+# PROTOTYPE WORK FILE: View 1 — HR Dashboard (Grid)
+# ============================================================================
+# Purpose: Complete planning document for section-by-section implementation
+# Created: 2026-09-03
+# Sources:
+#   - _bmad-output/planning-artifacts/specs/page-hr-dashboard.md
+#   - _bmad-output/planning-artifacts/design-system.md
+#   - Logical-View-Map.md (this folder)
+#   - Verified against frontend/src/features/dashboard/DashboardPage.tsx and
+#     frontend/src/pages/hr/Dashboard.tsx (real source, not guessed)
+# ============================================================================
+
+metadata:
+  view_name: "HR Dashboard (Grid)"
+  scenario: "01-Assign-New-Skill"
+  complexity: "medium"
+  estimated_sections: 7
+  estimated_time: "115 minutes"
+
+  device_compatibility:
+    type: "responsive"
+    primary_viewport: "1440px"
+    test_viewports:
+      - width: 390
+        height: 844
+        device: "Mobile (390px)"
+      - width: 768
+        height: 1024
+        device: "Tablet (768px)"
+      - width: 1440
+        height: 900
+        device: "Desktop (1440px)"
+    breakpoints: [768, 1024, 1280]
+    touch_optimized: true
+    hover_interactions: true
+
+  dependencies:
+    - "shared/prototype-api.js"
+    - "shared/init.js"
+    - "data/demo-data.json"
+
+# ============================================================================
+# DESIGN TOKENS (from _bmad-output/planning-artifacts/design-system.md)
+# ============================================================================
+
+design_tokens:
+  colors:
+    primary: "#1d4ed8"       # talentpilot-600
+    primary_hover: "#1e40af" # talentpilot-700
+    success: "#16a34a"       # green-600 (Completed states)
+    error: "#dc2626"         # red-600 (delete, errors)
+    warning: "#b45309"       # amber-700 (Needs Attention text)
+
+  tailwind_config:
+    theme_extend:
+      colors:
+        talentpilot:
+          50: "#eff6ff"
+          100: "#dbeafe"
+          500: "#2563eb"
+          600: "#1d4ed8"
+          700: "#1e40af"
+      fontFamily:
+        sans: "['Inter', 'system-ui', 'sans-serif']"
+
+  components_available:
+    - "toast (components/toast.js) — bottom-center, role=status aria-live=polite, 4s auto-dismiss"
+    - "status-badge (inline pattern per design-system.md — never color-only)"
+
+  design_system_note: >
+    Standardizing on talentpilot-* for every brand-blue use in this prototype
+    (buttons, active nav, links) rather than mixing in Tailwind's default
+    blue-* the way production does — see design-system.md Notes #1.
+
+# ============================================================================
+# VIEW REQUIREMENTS (from specification)
+# ============================================================================
+
+page_purpose: |
+  Let HR Admin Rita browse all skill assignments grouped by employee, see
+  status/progress/staleness at a glance, and launch the Assign New Skill
+  modal (View 2, built separately) via "+ New Assignment". This is the
+  scenario's entry point and the page the user lands back on after a
+  successful assignment.
+
+user_context:
+  - "User has just signed in as HR_ADMIN (Rita the Recommender) and landed on /hr/dashboard"
+  - "Real seed data (data/demo-data.json) provides 4 real employees + 5 real skills, but no seeded Assignments — the prototype's own in-session state is the source of dashboard rows"
+  - "User's current state: browsing the grid, about to click + New Assignment (hands off to View 2)"
+
+success_criteria:
+  - "All 4 employees' assignments (once created via View 2) render grouped and expandable"
+  - "Status/progress/staleness always shown with text, never color-only (design-system.md pattern)"
+  - "+ New Assignment button is present and wired to open View 2 once it exists"
+  - "Toast + refreshed grid appear after an assignment is created in View 2"
+
+# ============================================================================
+# DEMO DATA REQUIREMENTS
+# ============================================================================
+
+demo_data_needed:
+  current_user:
+    name: "Rita the Recommender"
+    email: "rita@sails.example.com"
+    role: "HR_ADMIN"
+  source: "design-artifacts/E-Development/01-Assign-New-Skill-Prototype/data/demo-data.json (real seed data, see file header)"
+  note: >
+    No Assignments are seeded (real backend doesn't seed them either) — the
+    grid starts empty until the user creates one via View 2. Empty state
+    must therefore be the true default render, not a rare edge case.
+
+# ============================================================================
+# OBJECT ID MAP
+# ============================================================================
+
+object_ids:
+  header:
+    - "hr-dashboard-logo"
+    - "hr-dashboard-nav-dashboard"
+    - "hr-dashboard-nav-skills"
+    - "hr-dashboard-user-menu-trigger"
+    - "hr-dashboard-user-menu-signout"
+
+  toolbar:
+    - "hr-dashboard-new-assignment-button"
+    - "hr-dashboard-title"
+    - "hr-dashboard-total-count"
+
+  states:
+    - "hr-dashboard-loading"
+    - "hr-dashboard-empty"
+    - "hr-dashboard-error"
+    - "hr-dashboard-error-retry"
+
+  grid:
+    - "hr-dashboard-employee-group-{employeeId}"
+    - "hr-dashboard-employee-chevron-{employeeId}"
+    - "hr-dashboard-row-{assignmentId}"
+    - "hr-dashboard-row-status-{assignmentId}"
+    - "hr-dashboard-row-progress-{assignmentId}"
+    - "hr-dashboard-row-lastupdated-{assignmentId}"
+    - "hr-dashboard-row-viewdetails-{assignmentId}"
+    - "hr-dashboard-row-delete-{assignmentId}"
+
+  pagination:
+    - "hr-dashboard-page-prev"
+    - "hr-dashboard-page-current"
+    - "hr-dashboard-page-next"
+
+  feedback:
+    - "hr-dashboard-toast"
+    - "hr-dashboard-live-region"
+
+# ============================================================================
+# SECTION BREAKDOWN (implementation order — user-approved 2026-09-03)
+# ============================================================================
+
+sections:
+  - id: "section-1"
+    name: "Page Shell & Header"
+    status: "complete"
+    completed_date: "2026-09-03"
+    actual_time: "~15 minutes"
+    issues_encountered: "None"
+    improvements_made: "Avatar initial/name set dynamically from DEMO_DATA.currentUser in initPage() instead of hardcoded, per story's own Tips note"
+    scope: "HTML skeleton, header bar with logo, primary nav (Dashboard active / Skills dead link), user menu dropdown with Sign Out"
+    files_affected: ["hr-dashboard.html"]
+    dependencies: []
+    object_ids:
+      - "hr-dashboard-logo"
+      - "hr-dashboard-nav-dashboard"
+      - "hr-dashboard-nav-skills"
+      - "hr-dashboard-user-menu-trigger"
+      - "hr-dashboard-user-menu-signout"
+    tailwind_classes:
+      - "Layout: min-h-screen, bg-gray-50, font-sans"
+      - "Header: bg-white, border-b, border-gray-200, px-6, py-3, flex, items-center, justify-between"
+      - "Active nav: text-talentpilot-600, font-medium, border-b-2, border-talentpilot-600"
+      - "User menu dropdown: absolute, right-0, mt-2, w-40, bg-white, border, rounded-lg, shadow-lg"
+    acceptance_criteria:
+      - "Header renders with logo, nav, and user menu at all 3 test viewports"
+      - "Clicking the avatar toggles the Sign Out dropdown"
+      - "Dashboard nav item shows active (underlined) state"
+    placeholder_message: "🚧 Building the dashboard shell..."
+
+  - id: "section-2"
+    name: "Toolbar & Title Row"
+    status: "complete"
+    completed_date: "2026-09-03"
+    actual_time: "~10 minutes"
+    issues_encountered: "None"
+    improvements_made: "None"
+    scope: "+ New Assignment button (wired later to View 2), Skill Assignments heading + total count"
+    files_affected: ["hr-dashboard.html"]
+    dependencies: ["section-1"]
+    object_ids:
+      - "hr-dashboard-new-assignment-button"
+      - "hr-dashboard-title"
+      - "hr-dashboard-total-count"
+    tailwind_classes:
+      - "Button: bg-talentpilot-600, text-white, text-sm, font-semibold, px-4, py-2, rounded-lg, hover:bg-talentpilot-700"
+      - "Title: text-2xl, font-black, text-gray-900"
+    acceptance_criteria:
+      - "+ New Assignment button present, click logs a placeholder console message until View 2 exists"
+      - "Total count reflects the demo data's current assignment count (0 on first load)"
+    placeholder_message: "🚧 Wiring up the toolbar..."
+
+  - id: "section-3"
+    name: "Loading / Empty / Error States"
+    status: "complete"
+    completed_date: "2026-09-03"
+    actual_time: "~15 minutes + 2 issue-fix rounds"
+    issues_encountered: "User reported 'sample data not showing' twice — resolved by adding sampleAssignments to demo-data.json, then superseded by an accelerated Section 4+5 build (real accordion+table) per user's reference screenshot"
+    improvements_made: "None beyond the issue fixes"
+    scope: "Skeleton loading rows, empty-grid message, error message + Retry — the three non-happy-path renders of the main content area"
+    files_affected: ["hr-dashboard.html", "data/demo-data.json"]
+    dependencies: ["section-2"]
+    object_ids:
+      - "hr-dashboard-loading"
+      - "hr-dashboard-empty"
+      - "hr-dashboard-error"
+      - "hr-dashboard-error-retry"
+    tailwind_classes:
+      - "Skeleton: animate-pulse, bg-gray-100, rounded"
+      - "Empty/Error box: text-center, py-12, border-2, border-dashed, rounded-lg"
+    acceptance_criteria:
+      - "Empty state is the true default (no seeded assignments) — verify it renders correctly, not just as an edge case"
+      - "Error state shows Retry, which re-triggers the loading state"
+    placeholder_message: "🚧 Building state handling..."
+
+  - id: "section-4"
+    name: "Assignment Grid — Accordion Structure"
+    status: "complete-pending-approval"
+    completed_date: "2026-09-03"
+    actual_time: "built together with section-5, in response to user's reference screenshot"
+    issues_encountered: "None — built ahead of schedule per explicit user direction, see story file process note"
+    improvements_made: "None"
+    scope: "Employee-grouped accordion shell: group header (name + skill count + chevron), expand/collapse behavior, alphabetical sort"
+    files_affected: ["hr-dashboard.html"]
+    dependencies: ["section-3"]
+    object_ids:
+      - "hr-dashboard-employee-group-{employeeId}"
+      - "hr-dashboard-employee-chevron-{employeeId}"
+    tailwind_classes:
+      - "Group header: w-full, flex, items-center, justify-between, px-4, py-3, hover:bg-gray-50"
+      - "Chevron: transition-transform, rotate-180 when expanded"
+    acceptance_criteria:
+      - "Groups render sorted alphabetically by employee name"
+      - "Click toggles expand/collapse independently per employee"
+      - "Collapsed by default on load (matches production)"
+    placeholder_message: "🚧 Building the assignment grid..."
+
+  - id: "section-5"
+    name: "Assignment Table Rows"
+    status: "complete-pending-approval"
+    completed_date: "2026-09-03"
+    actual_time: "built together with section-4, in response to user's reference screenshot"
+    issues_encountered: "None — View Details deliberately left as console placeholder (drill-down modal out of scenario scope); Delete works locally but has no toast yet (Section 7)"
+    improvements_made: "None"
+    scope: "Per-row table: skill name, status pill (never color-only), progress bar, last-updated + staleness flag, View Details link, delete icon button"
+    files_affected: ["hr-dashboard.html"]
+    dependencies: ["section-4"]
+    object_ids:
+      - "hr-dashboard-row-{assignmentId}"
+      - "hr-dashboard-row-status-{assignmentId}"
+      - "hr-dashboard-row-progress-{assignmentId}"
+      - "hr-dashboard-row-lastupdated-{assignmentId}"
+      - "hr-dashboard-row-viewdetails-{assignmentId}"
+      - "hr-dashboard-row-delete-{assignmentId}"
+    tailwind_classes:
+      - "Row: border-b, border-gray-200, hover:bg-gray-100"
+      - "Status pill: rounded-full, px-2, py-1, text-xs, font-medium (blue/green/gray by state — talentpilot-* not yellow, per design-system.md's flagged inconsistency)"
+      - "Staleness text: text-red-700, font-medium (paired with icon, never color-only)"
+    acceptance_criteria:
+      - "Status pill always includes text label, not color alone"
+      - "Staleness (Needs Attention) shows both red styling AND explicit day-count text"
+      - "View Details and delete icon are keyboard-reachable and labeled"
+    placeholder_message: "🚧 Building assignment rows..."
+
+  - id: "section-6"
+    name: "Pagination & Footer"
+    status: "complete-pending-approval"
+    completed_date: "2026-09-03"
+    actual_time: "pulled forward, built alongside the Section 2 button-placement fix"
+    issues_encountered: "User flagged pagination as missing right after the Section 4-5 review — pulled forward out of the original sequence"
+    improvements_made: "None"
+    scope: "Previous/current-page/Next controls, 'App v0.1.0' footer caption"
+    files_affected: ["hr-dashboard.html"]
+    dependencies: ["section-5"]
+    object_ids:
+      - "hr-dashboard-page-prev"
+      - "hr-dashboard-page-current"
+      - "hr-dashboard-page-next"
+    tailwind_classes:
+      - "Pagination button: px-3, py-1, rounded, border, border-gray-200, disabled:cursor-not-allowed"
+      - "Footer caption: text-center, text-xs, text-gray-400, mt-8"
+    acceptance_criteria:
+      - "Previous disabled on page 1, Next disabled on last page"
+      - "Footer caption renders at the bottom of the page"
+    placeholder_message: "🚧 Adding pagination..."
+
+  - id: "section-7"
+    name: "Toast & Live Announcements"
+    status: "complete-pending-approval"
+    completed_date: "2026-09-03"
+    actual_time: "pulled forward after Delete/View Details were reported as feeling non-functional"
+    issues_encountered: "Delete and View Details were both silent (console-log only or a barely-visible count update) — this section's toast directly resolves both"
+    improvements_made: "None"
+    scope: "Bottom-center success toast (auto-dismiss 4s) and hidden aria-live region announcing changes — cross-cutting, wired last so it can be triggered from any prior section's actions"
+    files_affected: ["hr-dashboard.html"]
+    dependencies: ["section-6"]
+    object_ids:
+      - "hr-dashboard-toast"
+      - "hr-dashboard-live-region"
+    tailwind_classes:
+      - "Toast: fixed, inset-x-0, bottom-6, mx-auto, w-fit, bg-gray-900, text-white, rounded-lg, shadow-lg"
+      - "Live region: sr-only"
+    acceptance_criteria:
+      - "Toast appears on assignment-created (once View 2 exists) and delete, auto-dismisses after 4s"
+      - "aria-live region present even though it has no visible content"
+    placeholder_message: "🚧 Wiring up toast + live announcements..."
+
+# ============================================================================
+# JAVASCRIPT REQUIREMENTS
+# ============================================================================
+
+javascript_functions:
+  initialization:
+    - "initPage() — loads demo-data.json via shared/init.js, renders initial (empty) grid"
+
+  state_handling:
+    - "renderLoading() / renderEmpty() / renderError() / renderGrid(assignments)"
+    - "handleRetry() — re-triggers the loading→loaded/error cycle"
+
+  ui_interactions:
+    - "toggleUserMenu()"
+    - "toggleEmployeeGroup(employeeId)"
+    - "handleSignOut() — clears session storage, redirects to a placeholder login state"
+    - "handleDeleteRow(assignmentId) — removes row from in-memory state, shows toast"
+
+  feedback:
+    - "showToast(message)"
+    - "announceLive(message) — writes to the aria-live region"
+
+# ============================================================================
+# NAVIGATION
+# ============================================================================
+
+navigation:
+  previous_page: "none (scenario entry point)"
+  next_page_success: "Assign New Skill Modal (View 2, same page — overlay, not a route change)"
+  next_page_cancel: "n/a"
+
+# ============================================================================
+# TESTING CHECKLIST
+# ============================================================================
+
+testing_checklist:
+  functionality:
+    - "[ ] Empty state renders correctly on first load (true default, not just an edge case)"
+    - "[ ] + New Assignment button present and clickable"
+    - "[ ] Accordion groups expand/collapse independently"
+    - "[ ] Status pills never rely on color alone"
+    - "[ ] Staleness flag shows explicit day-count text"
+    - "[ ] Pagination disables correctly at first/last page"
+    - "[ ] Toast auto-dismisses after 4s"
+
+  responsive_testing:
+    - "[ ] 390px (mobile) — no horizontal scroll, tap targets usable"
+    - "[ ] 768px (tablet) — breakpoint transition looks correct"
+    - "[ ] 1440px (desktop) — matches primary viewport intent"
+
+  code_quality:
+    - "[ ] All Object IDs present"
+    - "[ ] No console errors"
+    - "[ ] Tailwind classes match design-system.md tokens (talentpilot-*, not blue-*)"
+
+  accessibility:
+    - "[ ] Keyboard navigation works through header, toolbar, rows, pagination"
+    - "[ ] aria-live region present and updates on row changes"
+    - "[ ] Focus states visible (focus-visible:ring-2 ring-talentpilot-500)"
+
+# ============================================================================
+# MIGRATION NOTES (for production)
+# ============================================================================
+
+migration_todos:
+  - "Replace in-memory/sessionStorage state with real GET /api/dashboard (12s poll, per real DashboardPage.tsx)"
+  - "Wire delete to real DELETE endpoint + pagination-clamp logic (see page-hr-dashboard.md)"
+  - "Real production app already has this exact page — this prototype exists for iteration/testing, not first implementation. Diff against frontend/src/features/dashboard/DashboardPage.tsx before treating this as the build source."
+
+# ============================================================================
+# KNOWN ISSUES / EDGE CASES
+# ============================================================================
+
+edge_cases:
+  - "Grid starts empty every time (no seeded Assignments) — empty state must be a first-class render, not skipped"
+  - "Real production 'Skills' nav link is a dead href='#' — kept as-is for fidelity per page-hr-dashboard.md, not a bug to silently fix here"
+
+# ============================================================================
+# COMPLETION CRITERIA
+# ============================================================================
+
+definition_of_done:
+  - "All 7 sections implemented and tested"
+  - "All object IDs present and correct"
+  - "All acceptance criteria met"
+  - "Demo data (real seed data) loads automatically"
+  - "Empty/loading/error states all verified, not just the loaded state"
+  - "Toast + live region working"
+  - "Responsive at 390/768/1440px"
+  - "No console errors"
