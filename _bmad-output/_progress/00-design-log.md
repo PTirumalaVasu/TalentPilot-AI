@@ -2,7 +2,7 @@
 
 ## Current
 
-Phase 5: Agentic Development — [P] Prototyping. Scenario 01 (Assign a New Skill): approved in full. Scenario 02 (Watch Assigned Video): Content Discovery grid + inline video view approved in full. Both scenarios functionally complete pending any further requests or Step 5 Finalization.
+Phase 5: Agentic Development — [P] Prototyping. Scenario 01 (Assign a New Skill) and Scenario 02 (Watch Assigned Video) both approved in full. New epic proposed (not yet implemented): Skill Catalog Management (Skills tab).
 
 ## Design Loop Status
 
@@ -233,6 +233,17 @@ User: "looks good for me." Content Discovery (grid + inline video view) marked C
 **Overall state:** both scenarios from the Reverse Engineering activity's scenario docs are now built and approved — Scenario 01 (Assign a New Skill: HR Dashboard + Assign modal) and Scenario 02 (Watch Assigned Video: Content Discovery + inline video). Known open items carried forward, not silently dropped: the standalone `/assignments/:id/watch` route (possibly redundant with Mode B), real video-progress capture (no backend to post to), and the Mark-as-Ready/Reverse-Override confirm sub-flow in the Provenance Drill-Down modal.
 
 **Next:** Awaiting further direction — additional scenarios, Step 5 Finalization, or handoff.
+
+### 2026-09-03 — Epic proposed: Skill Catalog Management
+
+**Agent:** Implementation Partner (Phase 5)
+**Output:** `_bmad-output/planning-artifacts/epics/epic-skill-catalog-management.md`
+
+User asked to view/add skills via the HR Dashboard's "Skills" nav — currently a deliberate dead link in real production (captured that way during Reverse Engineering). Mid-implementation, user redirected to planning first: created an Epic (2 stories — view skill catalog, add a new skill) in Given/When/Then format matching this repo's `bmad-create-epics-and-stories` template convention, rather than continuing the in-progress code edit. Note: the real `epics.md` referenced throughout the codebase's own comments isn't present in this checkout, so this is numbered as a standalone epic rather than guessing a slot in that scheme.
+
+Flagged real-implementation gaps in the epic's Notes: no `POST /api/skills` endpoint exists today, skills need a generated embedding (not just name/description) for content-matching to work, no persistence in a static prototype.
+
+**Next:** Awaiting direction — implement the prototype's Skills tab per this epic, or continue with other work.
 
 ### 2026-09-03 — Phase 5: Reverse Engineering (Step 4: Extract Design System)
 
