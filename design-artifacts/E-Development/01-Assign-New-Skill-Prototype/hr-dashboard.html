@@ -45,9 +45,9 @@
         <div class="flex items-center gap-8">
             <div id="hr-dashboard-logo" class="font-bold text-lg text-gray-900">TalentPilot-AI</div>
             <nav class="flex gap-6 text-sm">
-                <a id="hr-dashboard-nav-dashboard" href="#"
+                <a id="hr-dashboard-nav-dashboard" href="#" onclick="switchMainView('dashboard'); return false;"
                    class="text-talentpilot-600 font-medium border-b-2 border-talentpilot-600 pb-3 -mb-3">Dashboard</a>
-                <a id="hr-dashboard-nav-skills" href="#"
+                <a id="hr-dashboard-nav-skills" href="#" onclick="switchMainView('skills'); return false;"
                    class="text-gray-600 hover:text-gray-900 pb-3 -mb-3 transition-colors">Skills</a>
             </nav>
         </div>
@@ -69,6 +69,7 @@
 
     <main id="hr-dashboard-main" class="px-6 pb-12">
 
+      <div id="hr-dashboard-view-dashboard">
         <!-- ====================================================================
              SECTION 2: TOOLBAR & TITLE ROW
              Story: stories/HR-Dashboard.2-toolbar-title-row.md
@@ -137,10 +138,129 @@
              Story: stories/HR-Dashboard.7-toast-live-announcements.md
              ==================================================================== -->
         <div aria-live="polite" id="hr-dashboard-live-region" class="sr-only"></div>
+      </div>
+
+      <!-- ====================================================================
+           SKILLS VIEW (implements epic-skill-catalog-management.md — the
+           "Skills" nav was a deliberate dead link in real production; this
+           builds it out per the epic's Story 1 + Story 2)
+           Story: stories/HR-Dashboard.10-skills-view.md
+           ==================================================================== -->
+      <div id="hr-dashboard-view-skills" style="display: none">
+        <div class="flex items-center justify-between mb-4">
+          <h2 id="hr-dashboard-skills-title" class="text-2xl font-black text-gray-900">Skills</h2>
+          <span id="hr-dashboard-skills-count" class="text-sm text-gray-500">Total: 0 skills</span>
+        </div>
+
+        <div id="hr-dashboard-skills-api-status-banner" class="mb-4"></div>
+
+        <!-- ====================================================================
+             ADD-SKILL FLOW (implements epic-automated-content-discovery.md
+             Stories 2-3, revised via Correct Course 2026-09-03): search is a
+             step BEFORE the skill exists; at least one candidate must be
+             approved before "+ Add Skill" is available. Stateful panel:
+             'form' -> 'searching' -> 'reviewing' -> (creates skill, resets).
+             Story: stories/HR-Dashboard.13-inline-content-approval.md
+             ==================================================================== -->
+        <div class="bg-white rounded-lg border border-gray-200 p-4 mb-6">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-sm font-semibold text-gray-900">Add a New Skill</h3>
+            <div class="flex items-center gap-2 text-xs">
+              <span id="hr-dashboard-api-keys-status" class="font-medium text-red-600">⚠ API keys not configured</span>
+              <button onclick="switchMainView('api-keys')" class="text-talentpilot-600 hover:underline font-medium">Configure API Keys →</button>
+            </div>
+          </div>
+          <div id="hr-dashboard-add-skill-panel"></div>
+        </div>
+
+        <div id="hr-dashboard-skills-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+      </div>
+
+      <!-- ====================================================================
+           API KEYS VIEW (epic-automated-content-discovery.md, Story 1) — a
+           MOCKUP settings screen. Real production must NEVER hold API keys
+           in a browser-editable form; see the epic's Story 1 Notes for why
+           this pattern is a security anti-pattern outside a demo.
+           Story: stories/HR-Dashboard.12-api-keys-view.md
+           ==================================================================== -->
+      <div id="hr-dashboard-view-api-keys" style="display: none">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-2xl font-black text-gray-900">API Keys</h2>
+          <button onclick="switchMainView('skills')" class="text-talentpilot-600 hover:underline text-sm font-medium">← Back to Skills</button>
+        </div>
+
+        <div id="hr-dashboard-apikeys-status-banner" class="mb-4"></div>
+
+        <div class="rounded-lg border border-red-200 bg-red-50 p-3 mb-6 text-xs text-red-800">
+          🔒 <strong>Mockup only — not a real security pattern.</strong> Real API keys must never be entered into or stored by a browser. A real implementation keeps these as server-side secrets (environment variables / a secrets manager), the same way this codebase's existing <code>YOUTUBE_API_KEY</code> works. This screen exists only so the "gate the Add Skill button" UX can be demoed.
+        </div>
+
+        <div class="bg-white rounded-lg border border-gray-200 p-4 max-w-lg space-y-4">
+          <div>
+            <label class="mb-1 flex items-center justify-between text-sm font-medium text-gray-700">
+              <span>YouTube API Key</span>
+              <span id="hr-dashboard-api-key-youtube-status" class="text-xs font-medium text-red-600">Not configured</span>
+            </label>
+            <input id="hr-dashboard-api-key-youtube" type="password" placeholder="Paste YouTube Data API v3 key"
+                   class="h-10 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-talentpilot-500">
+          </div>
+          <div>
+            <label class="mb-1 flex items-center justify-between text-sm font-medium text-gray-700">
+              <span>Udemy API Key</span>
+              <span id="hr-dashboard-api-key-udemy-status" class="text-xs font-medium text-red-600">Not configured</span>
+            </label>
+            <input id="hr-dashboard-api-key-udemy" type="password" placeholder="Paste Udemy API key"
+                   class="h-10 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-talentpilot-500">
+          </div>
+          <div class="flex justify-end">
+            <button id="hr-dashboard-save-api-keys-button" onclick="saveApiKeys()"
+                    class="bg-talentpilot-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-talentpilot-700 transition-colors">
+              Save API Keys
+            </button>
+          </div>
+        </div>
+      </div>
     </main>
 
     <div id="hr-dashboard-toast" hidden role="status" aria-live="polite"
          class="fixed inset-x-0 bottom-6 z-50 mx-auto w-fit max-w-[90vw] rounded-lg bg-gray-900 px-4 py-2 text-sm text-white shadow-lg">
+    </div>
+
+    <!-- ============================================================================
+         CANDIDATE PREVIEW MODAL (epic-automated-content-discovery.md Story 3
+         — user asked to view a reviewed link as a popup, not navigate away)
+         Story: stories/HR-Dashboard.13-inline-content-approval.md
+         ============================================================================ -->
+    <div id="hr-dashboard-candidate-preview-backdrop" style="display: none"
+         onclick="if (event.target === event.currentTarget) closeCandidatePreview()"
+         class="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4">
+        <div class="w-full max-w-lg rounded-lg bg-white p-6 shadow-xl">
+            <div class="mb-3 flex items-start justify-between">
+                <div class="min-w-0">
+                    <h2 id="hr-dashboard-candidate-preview-title" class="text-lg font-bold text-gray-900 truncate"></h2>
+                    <div id="hr-dashboard-candidate-preview-meta" class="mt-1 flex items-center gap-1.5"></div>
+                </div>
+                <button type="button" onclick="closeCandidatePreview()" aria-label="Close"
+                        class="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-talentpilot-500">
+                    &times;
+                </button>
+            </div>
+            <div class="aspect-video w-full rounded-lg bg-black flex flex-col items-center justify-center text-center px-6">
+                <span class="text-4xl mb-2">▶</span>
+                <p class="text-sm text-gray-300">Simulated preview — no real video exists for this fabricated search result.</p>
+            </div>
+            <p id="hr-dashboard-candidate-preview-url" class="mt-3 text-xs text-gray-500 truncate"></p>
+            <div class="mt-4 flex items-center justify-end gap-2">
+                <button id="hr-dashboard-candidate-preview-reject" onclick="rejectCandidateFromPreview()"
+                        class="text-sm font-medium text-gray-600 hover:underline">
+                    Reject
+                </button>
+                <button id="hr-dashboard-candidate-preview-approve" onclick="approveCandidateFromPreview()"
+                        class="bg-green-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-green-700 transition-colors">
+                    Approve
+                </button>
+            </div>
+        </div>
     </div>
 
     <!-- ============================================================================
@@ -246,6 +366,14 @@
         // so the grid has something to render once Sections 4-5 exist.
         let assignments = [];
 
+        // Shared skill catalog — read by the Skills view AND the Assign
+        // modal's skill picker, so a skill added on one is immediately
+        // assignable on the other (epic-skill-catalog-management.md,
+        // Story 2's third acceptance criterion). Session-only: no backend
+        // exists in this static prototype to persist additions.
+        let skills = [];
+        let mainView = 'dashboard'; // 'dashboard' | 'skills'
+
         // ================================================================
         // INITIALIZATION
         // ================================================================
@@ -281,9 +409,370 @@
             assignments = (window.DEMO_DATA.sampleAssignments || []).slice();
             console.log(`📋 Loaded ${assignments.length} sample assignments (synthesized — see demo-data.json note)`);
 
+            skills = (window.DEMO_DATA.skills || []).slice();
+            renderSkillsCount();
+            renderAddSkillPanel();
+
             renderTotalCount();
             simulateLoad();
         };
+
+        // ================================================================
+        // SKILLS VIEW (implements epic-skill-catalog-management.md)
+        // ================================================================
+        // Three views share one main area: 'dashboard' | 'skills' | 'api-keys'.
+        // 'api-keys' is reached only from the Skills view (no dedicated nav
+        // item), so it keeps "Skills" highlighted in the header nav.
+        function switchMainView(view) {
+            mainView = view;
+
+            document.getElementById('hr-dashboard-view-dashboard').style.display = view === 'dashboard' ? 'block' : 'none';
+            document.getElementById('hr-dashboard-view-skills').style.display = view === 'skills' ? 'block' : 'none';
+            document.getElementById('hr-dashboard-view-api-keys').style.display = view === 'api-keys' ? 'block' : 'none';
+
+            const dashboardNav = document.getElementById('hr-dashboard-nav-dashboard');
+            const skillsNav = document.getElementById('hr-dashboard-nav-skills');
+            const activeClasses = ['text-talentpilot-600', 'font-medium', 'border-b-2', 'border-talentpilot-600'];
+            const inactiveClasses = ['text-gray-600', 'hover:text-gray-900', 'transition-colors'];
+            const skillsActive = view === 'skills' || view === 'api-keys';
+
+            dashboardNav.classList.remove(...activeClasses, ...inactiveClasses);
+            dashboardNav.classList.add(...(skillsActive ? inactiveClasses : activeClasses));
+            skillsNav.classList.remove(...activeClasses, ...inactiveClasses);
+            skillsNav.classList.add(...(skillsActive ? activeClasses : inactiveClasses));
+
+            if (view === 'skills') { renderSkillsList(); renderAddSkillPanel(); }
+            if (view === 'api-keys') renderApiKeysView();
+        }
+
+        // ================================================================
+        // API KEYS (mockup) — epic-automated-content-discovery.md Story 1.
+        // SECURITY NOTE: this is a demo-only pattern. Real API keys must
+        // never be entered into or held by a browser — see the epic's
+        // Story 1 Notes. `apiKeys` here is in-memory only, lost on reload.
+        // ================================================================
+        let apiKeys = { youtube: '', udemy: '' };
+        const API_PROVIDERS = [
+            { key: 'youtube', label: 'YouTube' },
+            { key: 'udemy', label: 'Udemy' },
+        ];
+
+        function apiKeysConfigured() {
+            return Boolean(apiKeys.youtube && apiKeys.udemy);
+        }
+
+        // Notification banner: lists every provider's status individually
+        // (green = configured, red = not) so it's clear at a glance WHICH
+        // key is missing, not just that "something" is unconfigured.
+        // Rendered into both the Skills tab and the API Keys screen.
+        function apiKeysStatusBannerHtml() {
+            const allConfigured = API_PROVIDERS.every((p) => apiKeys[p.key]);
+            const items = API_PROVIDERS.map((p) => {
+                const configured = Boolean(apiKeys[p.key]);
+                return configured
+                    ? `<span class="inline-flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-700">✓ ${p.label} configured</span>`
+                    : `<span class="inline-flex items-center gap-1 rounded-full bg-red-100 px-2.5 py-1 text-xs font-medium text-red-700">✗ ${p.label} not configured</span>`;
+            }).join(' ');
+
+            const wrapperClass = allConfigured
+                ? 'rounded-lg border border-green-200 bg-green-50 p-3'
+                : 'rounded-lg border border-red-200 bg-red-50 p-3';
+            const heading = allConfigured
+                ? '<p class="text-sm font-semibold text-green-800 mb-2">✓ All API keys configured</p>'
+                : '<p class="text-sm font-semibold text-red-800 mb-2">⚠ Some API keys are not configured</p>';
+
+            return `<div class="${wrapperClass}">${heading}<div class="flex flex-wrap gap-2">${items}</div></div>`;
+        }
+
+        function renderApiKeysStatusBanners() {
+            const html = apiKeysStatusBannerHtml();
+            const skillsBanner = document.getElementById('hr-dashboard-skills-api-status-banner');
+            const apiKeysBanner = document.getElementById('hr-dashboard-apikeys-status-banner');
+            if (skillsBanner) skillsBanner.innerHTML = html;
+            if (apiKeysBanner) apiKeysBanner.innerHTML = html;
+        }
+
+        function saveApiKeys() {
+            apiKeys.youtube = document.getElementById('hr-dashboard-api-key-youtube').value.trim();
+            apiKeys.udemy = document.getElementById('hr-dashboard-api-key-udemy').value.trim();
+            renderApiKeysView();
+            updateAddSkillGate();
+            showToast(apiKeysConfigured() ? '✓ API keys saved — Add Skill is now enabled' : 'API keys saved (incomplete — both are required)');
+        }
+
+        function renderApiKeysView() {
+            document.getElementById('hr-dashboard-api-key-youtube-status').textContent = apiKeys.youtube ? 'Configured' : 'Not configured';
+            document.getElementById('hr-dashboard-api-key-youtube-status').className = `text-xs font-medium ${apiKeys.youtube ? 'text-green-600' : 'text-red-600'}`;
+            document.getElementById('hr-dashboard-api-key-udemy-status').textContent = apiKeys.udemy ? 'Configured' : 'Not configured';
+            document.getElementById('hr-dashboard-api-key-udemy-status').className = `text-xs font-medium ${apiKeys.udemy ? 'text-green-600' : 'text-red-600'}`;
+        }
+
+        // Gates the SEARCH step (epic-automated-content-discovery.md Story 1)
+        // — disabled with a visible reason until BOTH keys are configured.
+        // Only meaningful during the 'form' state (the search button only
+        // exists then) — null-safe since renderAddSkillPanel() may have the
+        // panel in a different state when this runs (e.g. keys saved while
+        // mid-review of a different skill's candidates).
+        function updateAddSkillGate() {
+            const configured = apiKeysConfigured();
+            const button = document.getElementById('hr-dashboard-search-content-button');
+            const reason = document.getElementById('hr-dashboard-add-skill-disabled-reason');
+            const status = document.getElementById('hr-dashboard-api-keys-status');
+
+            if (button) button.disabled = !configured;
+            if (reason) reason.textContent = configured ? '' : 'Configure API keys before searching for content';
+            if (status) {
+                status.textContent = configured ? '✓ API keys configured' : '⚠ API keys not configured';
+                status.className = `font-medium ${configured ? 'text-green-600' : 'text-red-600'}`;
+            }
+
+            renderApiKeysStatusBanners();
+        }
+
+        function renderSkillsCount() {
+            const count = skills.length;
+            document.getElementById('hr-dashboard-skills-count').textContent = `Total: ${count} skill${count === 1 ? '' : 's'}`;
+        }
+
+        function renderSkillsList() {
+            const list = document.getElementById('hr-dashboard-skills-list');
+            renderSkillsCount();
+
+            if (skills.length === 0) {
+                list.className = '';
+                list.innerHTML = `<div class="text-center py-12 border-2 border-dashed border-gray-200 rounded-lg text-gray-500 col-span-full">No skills yet — add one above.</div>`;
+                return;
+            }
+
+            list.className = 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4';
+            list.innerHTML = skills.map((s) => `
+                <div class="bg-white rounded-lg border border-gray-200 p-4">
+                    <h3 class="font-semibold text-gray-900">${s.name}</h3>
+                    <p class="text-sm text-gray-500 mt-1">${s.description || 'No description provided.'}</p>
+                </div>`).join('');
+        }
+
+        // ================================================================
+        // ADD-SKILL FLOW WITH INLINE CONTENT APPROVAL (implements
+        // epic-automated-content-discovery.md Stories 2-3, revised via
+        // /bmad-correct-course 2026-09-03: search runs BEFORE the skill
+        // exists, and at least one candidate must be approved before the
+        // skill can be created. Replaces the old "add first, review later
+        // on the skill's card" flow entirely — SIMULATED MOCKUP ONLY, no
+        // real network calls (see epic file for the actual backend design).
+        // ================================================================
+        let addSkillFlowState = 'form'; // 'form' | 'searching' | 'reviewing'
+        let addSkillDraft = { name: '', description: '' };
+        let addSkillCandidates = []; // { id, title, source, duration, approved }
+
+        function generateSimulatedCandidates(skillName) {
+            const stamp = Date.now();
+            const slug = skillName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+            return [
+                { id: `sim-${stamp}-1`, title: `${skillName} — Full Course for Beginners`, source: 'YOUTUBE', duration: 'PT45M', approved: false, url: `https://www.youtube.com/watch?v=SIMULATED_${slug}_1` },
+                { id: `sim-${stamp}-2`, title: `Learn ${skillName} in 20 Minutes`, source: 'YOUTUBE', duration: 'PT20M', approved: false, url: `https://www.youtube.com/watch?v=SIMULATED_${slug}_2` },
+                { id: `sim-${stamp}-3`, title: `${skillName} Masterclass`, source: 'UDEMY', duration: 'PT3H30M', approved: false, url: `https://www.udemy.com/course/SIMULATED-${slug}/` },
+            ];
+        }
+
+        function sourceBadgeHtml(source) {
+            return source === 'UDEMY'
+                ? `<span class="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">Udemy</span>`
+                : `<span class="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">YouTube</span>`;
+        }
+
+        function renderAddSkillPanel() {
+            const panel = document.getElementById('hr-dashboard-add-skill-panel');
+
+            if (addSkillFlowState === 'form') {
+                panel.innerHTML = `
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <input id="hr-dashboard-new-skill-name" type="text" placeholder="Skill name" value="${addSkillDraft.name}"
+                               class="h-10 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-talentpilot-500">
+                        <input id="hr-dashboard-new-skill-description" type="text" placeholder="Description (optional)" value="${addSkillDraft.description}"
+                               class="h-10 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-talentpilot-500">
+                    </div>
+                    <p id="hr-dashboard-new-skill-error" hidden class="mt-2 text-sm text-red-600"></p>
+                    <div class="mt-3 flex items-center justify-end gap-2">
+                        <p id="hr-dashboard-add-skill-disabled-reason" class="text-xs text-gray-500">Configure API keys before searching for content</p>
+                        <button id="hr-dashboard-search-content-button" onclick="triggerSkillSearch()" disabled
+                                class="bg-talentpilot-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-talentpilot-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-talentpilot-600">
+                            Search for Content
+                        </button>
+                    </div>`;
+                updateAddSkillGate();
+                return;
+            }
+
+            if (addSkillFlowState === 'searching') {
+                panel.innerHTML = `
+                    <p class="text-sm text-gray-700 mb-2">Searching for <strong>${addSkillDraft.name}</strong>...</p>
+                    <p class="text-xs font-medium text-amber-700 mb-2">🔍 SIMULATED: searching YouTube/Udemy...</p>
+                    <div class="h-3 bg-gray-100 rounded animate-pulse w-3/4"></div>`;
+                return;
+            }
+
+            // 'reviewing'
+            const approvedCount = addSkillCandidates.filter((c) => c.approved).length;
+            panel.innerHTML = `
+                <p class="text-sm text-gray-700 mb-1">Reviewing content for <strong>${addSkillDraft.name}</strong></p>
+                <p class="text-xs font-medium text-amber-700 mb-3">⚠️ SIMULATED results — not real search data. Approve at least one before you can add this skill.</p>
+                <div class="space-y-2 mb-3">
+                    ${addSkillCandidates.length === 0 ? '<p class="text-sm text-gray-500">No candidates found.</p>' :
+                        addSkillCandidates.map((c) => `
+                            <div class="flex items-center justify-between gap-2 rounded p-2 ${c.approved ? 'bg-green-50 border border-green-200' : 'bg-gray-50'}">
+                                <div class="min-w-0">
+                                    <div class="flex items-center gap-1.5">${sourceBadgeHtml(c.source)}<span class="text-xs text-gray-500">${formatIsoDuration(c.duration)}</span>${c.approved ? '<span class="text-xs font-medium text-green-700">✓ Approved</span>' : ''}</div>
+                                    <p class="text-sm text-gray-800 truncate mt-0.5">${c.title}</p>
+                                    <a href="#" onclick="event.preventDefault(); openCandidatePreview('${c.id}');" class="text-xs text-talentpilot-600 hover:underline truncate block" title="${c.url}">${c.url}</a>
+                                </div>
+                                <div class="flex gap-2 flex-shrink-0">
+                                    ${c.approved
+                                        ? `<button onclick="toggleCandidateApproval('${c.id}')" class="text-xs font-medium text-gray-500 hover:underline">Unapprove</button>`
+                                        : `<button onclick="toggleCandidateApproval('${c.id}')" class="text-xs font-medium text-green-700 hover:underline">Approve</button>
+                                           <button onclick="rejectCandidate('${c.id}')" class="text-xs font-medium text-gray-500 hover:underline">Reject</button>`}
+                                </div>
+                            </div>`).join('')}
+                </div>
+                <div class="flex items-center justify-end gap-2">
+                    <button onclick="cancelAddSkillFlow()" class="text-sm font-medium text-gray-600 hover:underline">Cancel</button>
+                    <button id="hr-dashboard-add-skill-button" onclick="finalizeAddSkill()" ${approvedCount === 0 ? 'disabled' : ''}
+                            class="bg-talentpilot-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-talentpilot-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-talentpilot-600">
+                        + Add Skill${approvedCount > 0 ? ` (${approvedCount} approved)` : ''}
+                    </button>
+                </div>`;
+        }
+
+        // epic-automated-content-discovery.md Story 2: validates the name,
+        // then searches BEFORE the skill exists — nothing is created yet.
+        function triggerSkillSearch() {
+            if (!apiKeysConfigured()) return; // defense in depth; button is also natively disabled
+
+            const nameInput = document.getElementById('hr-dashboard-new-skill-name');
+            const descriptionInput = document.getElementById('hr-dashboard-new-skill-description');
+            const errorEl = document.getElementById('hr-dashboard-new-skill-error');
+            const name = nameInput.value.trim();
+
+            if (!name) {
+                errorEl.textContent = 'Skill name is required.';
+                errorEl.hidden = false;
+                nameInput.focus();
+                return;
+            }
+
+            addSkillDraft = { name, description: descriptionInput.value.trim() };
+            addSkillFlowState = 'searching';
+            renderAddSkillPanel();
+
+            window.setTimeout(() => {
+                addSkillCandidates = generateSimulatedCandidates(addSkillDraft.name);
+                addSkillFlowState = 'reviewing';
+                renderAddSkillPanel();
+            }, 900);
+        }
+
+        // epic-automated-content-discovery.md Story 3: approve/reject don't
+        // touch the catalog yet — that only happens on finalizeAddSkill(),
+        // once at least one candidate is approved.
+        function toggleCandidateApproval(candidateId) {
+            const candidate = addSkillCandidates.find((c) => c.id === candidateId);
+            if (!candidate) return;
+            candidate.approved = !candidate.approved;
+            renderAddSkillPanel();
+        }
+
+        function rejectCandidate(candidateId) {
+            addSkillCandidates = addSkillCandidates.filter((c) => c.id !== candidateId);
+            renderAddSkillPanel();
+        }
+
+        // Candidate preview popup — user asked to view a reviewed link as a
+        // popup, not navigate to another page. Shows a placeholder (no real
+        // video exists for a fabricated URL) with Approve/Reject right in
+        // the popup, so reviewing and deciding can happen in one place.
+        let previewingCandidateId = null;
+
+        function openCandidatePreview(candidateId) {
+            const candidate = addSkillCandidates.find((c) => c.id === candidateId);
+            if (!candidate) return;
+            previewingCandidateId = candidateId;
+
+            document.getElementById('hr-dashboard-candidate-preview-title').textContent = candidate.title;
+            document.getElementById('hr-dashboard-candidate-preview-meta').innerHTML =
+                `${sourceBadgeHtml(candidate.source)}<span class="text-xs text-gray-500">${formatIsoDuration(candidate.duration)}</span>`;
+            document.getElementById('hr-dashboard-candidate-preview-url').textContent = candidate.url;
+
+            const approveBtn = document.getElementById('hr-dashboard-candidate-preview-approve');
+            approveBtn.textContent = candidate.approved ? 'Approved ✓ (click to unapprove)' : 'Approve';
+            approveBtn.className = candidate.approved
+                ? 'bg-gray-200 text-gray-700 text-sm font-semibold px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors'
+                : 'bg-green-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-green-700 transition-colors';
+
+            document.getElementById('hr-dashboard-candidate-preview-backdrop').style.display = 'flex';
+        }
+
+        function closeCandidatePreview() {
+            previewingCandidateId = null;
+            document.getElementById('hr-dashboard-candidate-preview-backdrop').style.display = 'none';
+        }
+
+        function approveCandidateFromPreview() {
+            if (!previewingCandidateId) return;
+            toggleCandidateApproval(previewingCandidateId); // re-renders the panel behind the popup
+            closeCandidatePreview();
+        }
+
+        function rejectCandidateFromPreview() {
+            if (!previewingCandidateId) return;
+            rejectCandidate(previewingCandidateId); // re-renders the panel behind the popup
+            closeCandidatePreview();
+        }
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && document.getElementById('hr-dashboard-candidate-preview-backdrop').style.display !== 'none') {
+                closeCandidatePreview();
+            }
+        });
+
+        function cancelAddSkillFlow() {
+            closeCandidatePreview(); // don't leave a stale preview open behind a reset panel
+            addSkillFlowState = 'form';
+            addSkillDraft = { name: '', description: '' };
+            addSkillCandidates = [];
+            renderAddSkillPanel();
+        }
+
+        // Story 2 AC3 (skill-catalog-management epic): creates the skill AND
+        // wires its first approved candidate into contentMatches in the same
+        // step — a skill and its approved content always come into being
+        // together, matching epic-automated-content-discovery.md Story 3.
+        function finalizeAddSkill() {
+            const approved = addSkillCandidates.filter((c) => c.approved);
+            if (approved.length === 0) return; // button is disabled for this case too
+
+            const newSkill = {
+                id: `local-skill-${Date.now()}`,
+                name: addSkillDraft.name,
+                description: addSkillDraft.description,
+            };
+            skills.push(newSkill);
+
+            const primary = approved[0];
+            window.DEMO_DATA.contentMatches = window.DEMO_DATA.contentMatches || {};
+            window.DEMO_DATA.contentMatches[newSkill.id] = {
+                title: primary.title,
+                source: primary.source,
+                url: primary.url,
+                description: 'Simulated content — added via the Automated Content Discovery mockup, not a real search result.',
+                metadata: { duration: primary.duration },
+            };
+
+            showToast(`✓ "${newSkill.name}" added with ${approved.length} approved content item${approved.length === 1 ? '' : 's'}`);
+            announceLive(`${newSkill.name} added to skills with approved content`);
+
+            cancelAddSkillFlow(); // resets the panel back to a fresh 'form' state
+            renderSkillsList();
+        }
 
         // ================================================================
         // LOADING / EMPTY / ERROR STATES (Section 3)
@@ -799,7 +1288,10 @@
 
         function filteredSkills() {
             const q = assignSkillSearch.toLowerCase();
-            return ((window.DEMO_DATA && window.DEMO_DATA.skills) || []).filter((s) => !q || s.name.toLowerCase().includes(q));
+            // Reads the shared `skills` array (not DEMO_DATA.skills directly)
+            // so a skill added via the Skills tab is immediately selectable
+            // here too — epic-skill-catalog-management.md Story 2, AC3.
+            return skills.filter((s) => !q || s.name.toLowerCase().includes(q));
         }
 
         function formatIsoDuration(iso) {
@@ -923,7 +1415,7 @@
 
             window.setTimeout(() => {
                 const employee = ((window.DEMO_DATA && window.DEMO_DATA.employees) || []).find((e) => e.id === assignEmployeeId);
-                const skill = ((window.DEMO_DATA && window.DEMO_DATA.skills) || []).find((s) => s.id === assignSkillId);
+                const skill = skills.find((s) => s.id === assignSkillId);
                 const newRow = {
                     assignment_id: `local-${Date.now()}`,
                     employee_id: assignEmployeeId,
@@ -954,7 +1446,7 @@
             const employees = filteredEmployees();
             const skills = filteredSkills();
             const selectedEmployee = ((window.DEMO_DATA && window.DEMO_DATA.employees) || []).find((e) => e.id === assignEmployeeId);
-            const selectedSkill = ((window.DEMO_DATA && window.DEMO_DATA.skills) || []).find((s) => s.id === assignSkillId);
+            const selectedSkill = skills.find((s) => s.id === assignSkillId);
 
             if (assignStep === 1) {
                 body.innerHTML = `

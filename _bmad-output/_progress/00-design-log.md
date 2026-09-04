@@ -2,7 +2,7 @@
 
 ## Current
 
-Phase 5: Agentic Development — [P] Prototyping. Scenario 01 (Assign a New Skill) and Scenario 02 (Watch Assigned Video) both approved in full. New epic proposed (not yet implemented): Skill Catalog Management (Skills tab).
+Phase 5: Agentic Development — [P] Prototyping. Scenarios 01 and 02 approved in full. Skill Catalog Management + Automated Content Discovery epics implemented and current (shared API keys, approval-gated skill creation with visible links). Correct Course Sprint Change Proposal (2026-09-03) approved — no further pending epic changes.
 
 ## Design Loop Status
 
@@ -244,6 +244,143 @@ User asked to view/add skills via the HR Dashboard's "Skills" nav — currently 
 Flagged real-implementation gaps in the epic's Notes: no `POST /api/skills` endpoint exists today, skills need a generated embedding (not just name/description) for content-matching to work, no persistence in a static prototype.
 
 **Next:** Awaiting direction — implement the prototype's Skills tab per this epic, or continue with other work.
+
+### 2026-09-03 — Phase 5: Prototyping (Skills View implemented — epic-skill-catalog-management.md)
+
+**Agent:** Implementation Partner (Phase 5)
+**Output:** `hr-dashboard.html` extended (new `#hr-dashboard-view-skills` container + `switchMainView`/`renderSkillsList`/`addNewSkill` logic), `stories/HR-Dashboard.10-skills-view.md`
+
+**Implemented both epic stories:** View the Skill Catalog (nav swap, card grid, live count) and Add a New Skill (validated form, immediate list update). The "Skills" nav link — a deliberate dead link in real production, captured that way during Reverse Engineering — now has a real destination, a documented, explicit deviation from that earlier fidelity decision.
+
+**Shared catalog:** the Assign New Skill wizard's skill picker (`filteredSkills()`, and two other lookups) now reads the same in-memory `skills` array as the Skills view, instead of `DEMO_DATA.skills` directly — a skill added via the Skills tab is immediately assignable, satisfying the epic's Story 2 third acceptance criterion.
+
+**Verification:** full-file scan for the `hidden`+`flex` bug (none), duplicate-ID scan (none), syntax check (clean) — same discipline applied to every prior addition.
+
+**Epic status updated** to `implemented-in-prototype`, cross-linked to this story file.
+
+**Next:** User review of the Skills tab (view, add, and its effect on the Assign wizard)
+
+### 2026-09-03 — Epic + simulated mockup: Automated Content Discovery
+
+**Agent:** Implementation Partner (Phase 5)
+**Output:** `_bmad-output/planning-artifacts/epics/epic-automated-content-discovery.md`, `hr-dashboard.html` extended, `stories/HR-Dashboard.11-content-discovery-mockup.md`
+
+User asked: adding a skill should sign into YouTube/Udemy and pull real content links. Explained this can't be a real, working feature in a static prototype (secrets can't live in client JS; browsers can't call those search APIs directly) — real production already has partial YouTube support (`app.content.cli ingest`, a `YOUTUBE_API_KEY`), but Udemy has zero existing integration. Asked which path to take; user chose both: Epic + Stories for real backend implementation, AND a simulated mockup in the prototype.
+
+**Epic** (2 detailed stories + 1 flagged-not-detailed): auto-search YouTube on skill creation, review/approve before content becomes assignable, and Udemy flagged as needing a discovery spike (no existing integration, licensing question — purchased seats vs. preview-only).
+
+**Mockup**: adding a skill now triggers a fake 900ms "search," surfaces 3 fabricated candidates (2 YouTube-labeled, 1 Udemy-labeled) with Approve/Reject, visibly labeled SIMULATED throughout (banner + inline labels) so it can't be mistaken for a working integration. Approving writes into the same `contentMatches` object the Assign wizard reads, closing the demo loop end to end.
+
+**Next:** User review of both the epic and the simulated mockup flow
+
+### 2026-09-03 — Epic extended + API Keys gate implemented
+
+**Agent:** Implementation Partner (Phase 5)
+**Output:** `epic-automated-content-discovery.md` updated (new Story 1, others renumbered 2-4), `hr-dashboard.html` extended, `stories/HR-Dashboard.12-api-keys-view.md`
+
+User: "Add button should be disabled till the api keys are configured... provide a new screen to add API keys." Inserted a new Story 1 into the epic (API key configuration is now the actual first prerequisite story; auto-search/review/Udemy renumbered 2-4). Story 1's Notes flag a real security concern proactively: entering raw API keys into a browser form is a demo-only pattern, never appropriate for production — real keys belong server-side (matching this codebase's existing `YOUTUBE_API_KEY` pattern).
+
+**Implemented in the prototype:** "+ Add Skill" now starts `disabled` (native attribute, not just styled), with a visible reason and a link to a new API Keys screen (YouTube + Udemy password inputs, status labels that never re-display the saved value, clearly labeled as a mockup with the same security caveat as the epic). Saving both non-empty keys enables the button; clearing one re-disables it — gate reads live state, not "was ever configured."
+
+**Verification:** same full-file discipline as every prior addition — no `hidden`+`flex` bug, no duplicate IDs, clean syntax check.
+
+**Next:** User review of the gated Add Skill flow and the new API Keys screen
+
+### 2026-09-03 — Epic updated: per-admin API key storage (requirements only)
+
+**Agent:** Implementation Partner (Phase 5)
+**Output:** `epic-automated-content-discovery.md` Story 1 rewritten
+
+User: "add a new table in the database to store the API keys against the admin user which admin user is login to the system those api keys should use." Rewrote Story 1 with a concrete data model: new `admin_api_keys` table (`employee_id` FK to the real `employees` table, `provider`, `encrypted_key`, `UNIQUE(employee_id, provider)`), keys owned per HR Admin rather than one shared/global key — searches (Story 2) now explicitly use the logged-in admin's own key. Added full security notes: encryption at rest, write-only API surface (never returns decrypted keys, even to the admin who set them), query scoping by session identity (never a client-supplied employee_id), and an audit-logging consideration.
+
+**No prototype code change** — this is a requirements-only update. The static prototype only ever has one logged-in user per scenario (no login-switching), so "per-admin" scoping has nothing to visually demonstrate; noted explicitly in the epic and the story file as a prototype tooling limitation, not a dropped requirement.
+
+**Next:** Awaiting further direction.
+
+### 2026-09-03 — Per-key status notification banner
+
+**Agent:** Implementation Partner (Phase 5)
+
+User: "show the notification message at the top which api is not configured... green... red." Added a status banner (list of individual provider pills — green "✓ YouTube configured" / red "✗ Udemy not configured", etc., inside a green- or red-bordered summary card) rendered at the top of both the Skills tab and the API Keys screen. Reused the existing `updateAddSkillGate()` call site (already runs on init and after every save) rather than adding new event wiring. Full verification clean (no `hidden`+`flex` bug, no duplicate IDs, syntax OK).
+
+**Next:** Awaiting further direction.
+
+### 2026-09-03 — Removed top-level "Simulated feature" banner
+
+**Agent:** Implementation Partner (Phase 5)
+
+User asked to remove the standalone amber banner above the Add Skill form. Removed — redundant with the per-candidate SIMULATED labels still shown during the discovery flow itself, so the honesty-about-mockup-data requirement is still met elsewhere. Syntax verified clean.
+
+**Next:** Awaiting further direction.
+
+### 2026-09-03 — Story added: Skill Creation Requires Configured API Keys
+
+**Agent:** Implementation Partner (Phase 5)
+**Output:** `epic-skill-catalog-management.md` — new Story 3
+
+User: "create a story for this Skills tab in the admin dashboard." The Skills tab's API-key gate + status banner had only been documented under `epic-automated-content-discovery.md` (a different epic, focused on the search feature) — added Story 3 to `epic-skill-catalog-management.md` describing the Skills-tab-visible behavior (banner, gate, live updates) directly where the feature actually lives, cross-referencing the other epic for the underlying data model rather than duplicating it.
+
+**Next:** Awaiting further direction.
+
+### 2026-09-03 — /bmad-correct-course: shared API keys + approval-gated skill creation
+
+**Agent:** Implementation Partner, running the Correct Course workflow (`/bmad-correct-course`)
+
+Ran the full Correct Course checklist (document discovery → trigger → epic impact → artifact conflicts → path forward). No PRD exists for this project — proceeded with the two Epics as the requirements baseline, per explicit user choice.
+
+**Two bundled scope changes to `epic-automated-content-discovery.md`:**
+1. API keys reverted from per-admin (`admin_api_keys`, added earlier the same day) to a single shared/org-level key (`integration_api_keys`, one row per provider) — user judgment call: the per-admin design was over-engineered relative to actual need.
+2. Content approval sequencing reversed: was "create skill first, review content afterward, optionally, per-card" → now "search before the skill exists, review inline, approve at least one before the skill can be created at all."
+
+**Updated:** both epics (Stories 1-3 of the content-discovery epic rewritten; Stories 2-3 of the skill-catalog epic reworded to match), `hr-dashboard.html`'s Add-Skill flow fully rebuilt as a 3-state panel (form → searching → reviewing) replacing the old per-card discovery UI, story files (`.11` marked superseded, new `.13` created), roadmap, and a formal Sprint Change Proposal (`sprint-change-proposal-2026-09-03.md`) per the workflow's required deliverable.
+
+**During review**, user asked for visible candidate links (not just title/source/duration) — added, non-navigating (shows a "simulated" toast on click rather than following a fake URL), carried through into the approved skill's content match. Epic, story file, and Sprint Change Proposal all updated to reflect this before final approval.
+
+Full verification re-run after each change (duplicate IDs, the `hidden`+`flex` bug pattern, syntax check) — all clean throughout.
+
+**Scope classification: Minor** (per the workflow's own routing) — implemented directly, no PM/Architect/PO handoff needed.
+
+**Next:** User review of the rebuilt flow in-browser; final sign-off on the Sprint Change Proposal.
+
+### 2026-09-03 — Candidate preview popup + server restart
+
+**Agent:** Implementation Partner (Phase 5)
+
+**"Page not loading" report**: both local servers (ports 8080/8081) had died — confirmed via `curl` (connection refused both), not a code issue (syntax-checked both prototype pages clean first). Restarted both; both responding 200 again.
+
+**Candidate preview popup**: user asked to view a reviewed link as a popup rather than navigating away — added `#hr-dashboard-candidate-preview-backdrop` (title, source/duration, honestly-labeled black placeholder — "no real video exists for this fabricated result," since these are invented URLs, unlike Scenario 02's real YouTube embeds), URL as text, and Approve/Reject directly in the popup delegating to the existing candidate-state functions. Built with `style.display` from the start. Epic Story 3 gained a new AC; `HR-Dashboard.13` updated. Full verification clean (no duplicate IDs, no `hidden`+`flex` bug, syntax OK).
+
+### 2026-09-03 — sprint-status.yaml created
+
+**Agent:** Implementation Partner (Phase 5)
+**Output:** `_bmad-output/implementation-artifacts/sprint-status.yaml`
+
+User asked for a sprint status file with the stories — this is the item Correct Course's checklist 6.4 marked N/A earlier (file didn't exist yet). Created at the canonical path (`{implementation_artifacts}/sprint-status.yaml` per `bmad-sprint-planning`'s own convention), following that skill's template format. Tracks both epics: **Epic 1** (Skill Catalog Management) — done, 3/3 stories done. **Epic 2** (Automated Content Discovery) — in-progress, 3/4 stories done, Story 4 (Udemy) backlog as it's explicitly flagged/undetailed. Noted this project's lack of a real `epics.md` (independently numbered epic-1/epic-2 rather than guessing a slot elsewhere) and that "done" means implemented+verified in the prototype, not shipped to production. Validated as well-formed YAML.
+
+### 2026-09-03 — Story 0 added: Skills Tab Navigation
+
+**Agent:** Implementation Partner (Phase 5)
+**Output:** `epic-skill-catalog-management.md` (new Story 0), `sprint-status.yaml` (new `1-0-skills-tab-navigation` entry), `HR-Dashboard.10-skills-view.md` (cross-reference note)
+
+User asked for a story covering the Skills tab implementation itself. That mechanism (the `mainView` state + `switchMainView()` view-switching) had been built as part of Story 1 but never given its own explicit AC — added as **Story 0: Add a Working Skills Tab to the Header Navigation**, the foundational story the other three depend on. Documentation-only — no code changed, since this functionality was already implemented in `HR-Dashboard.10-skills-view.md`; this just makes that scope explicit and traceable in the epic and sprint status.
+
+### 2026-09-03 — sprint-status.yaml correction: "done" was wrong
+
+**Agent:** Implementation Partner (Phase 5)
+
+User caught a real error: `sprint-status.yaml` marked stories "done" when only the prototype (`design-artifacts/`) was built — no backend/ or frontend/src/ code was ever touched for any of this Skills-tab or Content-Discovery work. "Done" implies shipped production code; that's not what happened.
+
+**Corrected**: all previously-"done" stories → `ready-for-dev` (fully specified + a working prototype exists to validate UX against, but zero real implementation). `epic-1` → `in-progress` (prototype work active, no real dev started), `epic-2` → `backlog` (same, plus Story 4 isn't even scoped). Added a prominent header comment block making the "prototype ≠ shipped" distinction explicit and hard to miss on a future read, and logged the correction itself as a completed action item in the file so the mistake and its fix are both traceable.
+
+**Next:** Awaiting further direction.
+
+### 2026-09-03 — /bmad-correct-course: approved, workflow complete
+
+**Agent:** Implementation Partner, Correct Course workflow
+
+User approved the Sprint Change Proposal. Marked `sprint-change-proposal-2026-09-03.md` as ✅ Approved. Checklist item 6.4 (update `sprint-status.yaml`) confirmed N/A — no such file exists in this project (no formal sprint tracking apparatus; consistent with there being no PRD). No further handoff needed — scope was Minor and implementation was already complete at approval time.
+
+**Summary**: 2 bundled epic changes (shared API keys, approval-gated skill creation with visible links) fully implemented, documented across both epics + 2 story files, and formally approved via Sprint Change Proposal.
 
 ### 2026-09-03 — Phase 5: Reverse Engineering (Step 4: Extract Design System)
 

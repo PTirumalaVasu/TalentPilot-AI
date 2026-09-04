@@ -1,0 +1,100 @@
+# Sprint Status — TalentPilot-AI
+#
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+#
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created, ready for development
+#   - in-progress: Developer actively working on implementation
+#   - review: Implementation complete, ready for review
+#   - done: Story completed
+#
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+#
+# Action Item Status:
+#   - open: Committed during a retrospective, not yet addressed
+#   - in-progress: Actively being worked on
+#   - done: Completed
+#
+# ============================================================================
+# IMPORTANT — READ BEFORE TRUSTING ANY "done" IN THIS FILE:
+#
+# "done" means the STORY IS SHIPPED IN REAL PRODUCTION CODE
+# (backend/, frontend/src/). Nothing below is done by that definition.
+#
+# Everything built so far lives only in design-artifacts/E-Development/ —
+# a static HTML/JS prototype with no backend calls, used to validate specs
+# and UX before real implementation starts. No backend/ or frontend/src/
+# file has been touched for any of this work.
+#
+# Corrected statuses below (an earlier version of this file wrongly marked
+# these "done", which conflated "prototype built and verified" with "real
+# implementation shipped" — flagged by the user, fixed here):
+#   - ready-for-dev: the story is fully specified (epic AC) AND a working
+#     prototype exists demonstrating the intended behavior — a real
+#     developer can pick this up and implement it against the real backend
+#     with a validated UX reference, but no real backend/production code
+#     exists yet.
+#   - backlog: not even prototyped yet, or explicitly flagged as needing
+#     further discovery before it can be scoped (e.g. Udemy integration).
+#
+# This project has no formal `epics.md` in this checkout (the real source
+# code's own comments reference one — "Story 5.1" etc. — that lives
+# elsewhere, not in this branch). The two epics below were authored during
+# Phase 5 Prototyping / a Correct Course pass this session, under
+# _bmad-output/planning-artifacts/epics/, numbered independently
+# (epic-1, epic-2) rather than guessing a slot in that other scheme.
+# ============================================================================
+
+generated: 2026-09-03 00:00
+last_updated: 2026-09-03 00:00
+project: TalentPilot-AI
+project_key: TPAI
+tracking_system: file-system
+story_location: "design-artifacts/E-Development/01-Assign-New-Skill-Prototype/stories/"
+
+development_status:
+  # ============================================================
+  # Epic 1 — _bmad-output/planning-artifacts/epics/epic-skill-catalog-management.md
+  # Goal: let an HR Admin view and extend the skill catalog from the
+  # dashboard's "Skills" tab (a deliberate dead link in real production).
+  # Real backend needs: POST /api/skills endpoint (none exists today —
+  # list_skills() is read-only), a DB write + migration, and embedding
+  # generation for new skills (see epic's Out of Scope/Notes).
+  # ============================================================
+  epic-1: in-progress   # prototype complete for all 4 stories; zero real backend/frontend work started
+  1-0-skills-tab-navigation: ready-for-dev              # prototype: HR-Dashboard.10-skills-view.md
+  1-1-view-skill-catalog: ready-for-dev                 # prototype: HR-Dashboard.10-skills-view.md
+  1-2-add-a-new-skill: ready-for-dev                    # prototype: HR-Dashboard.13-inline-content-approval.md (current; supersedes .10/.11's original flow)
+  1-3-skill-creation-requires-configured-api-keys: ready-for-dev  # prototype: HR-Dashboard.12-api-keys-view.md
+  epic-1-retrospective: optional
+
+  # ============================================================
+  # Epic 2 — _bmad-output/planning-artifacts/epics/epic-automated-content-discovery.md
+  # Goal: search YouTube/Udemy for content when a skill is created, with
+  # HR review/approval required before the skill can exist. Real backend
+  # needs: integration_api_keys table + encryption at rest, a real
+  # YouTube/Udemy search integration, and content_catalog writes — see
+  # each story's own Security/Data Model notes in the epic file. The
+  # prototype's version is a SIMULATED MOCKUP — no real network calls.
+  # ============================================================
+  epic-2: backlog   # fully prototyped/specified; zero real backend work started, and Story 4 isn't even scoped yet
+  2-1-configure-shared-api-key-per-integration: ready-for-dev       # prototype: HR-Dashboard.12-api-keys-view.md — revised via Correct Course: per-admin -> shared/org-level
+  2-2-search-for-content-before-skill-saved: ready-for-dev          # prototype: HR-Dashboard.13-inline-content-approval.md — revised via Correct Course: search moved before skill creation
+  2-3-approve-at-least-one-candidate-before-creation: ready-for-dev # prototype: HR-Dashboard.13-inline-content-approval.md — includes visible links + preview-popup updates
+  2-4-udemy-integration: backlog                                    # flagged, not detailed — needs a discovery spike (partnership/API choice, licensing) before it can even be scoped, let alone prototyped
+  epic-2-retrospective: optional
+
+# Action items committed during retrospectives (section created by the retrospective workflow)
+action_items:
+  - epic: 1
+    action: "sprint-status.yaml previously marked prototype-validated stories as 'done' — corrected to 'ready-for-dev' since no real backend/frontend implementation exists yet. Keep this distinction going forward: prototype verification (structural checks + syntax) is not the same as shipped production code."
+    owner: "Vasu"
+    status: done

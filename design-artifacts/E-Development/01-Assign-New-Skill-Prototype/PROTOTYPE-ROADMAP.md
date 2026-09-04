@@ -96,6 +96,10 @@ hr-dashboard.html
 |------|--------|----------|--------------|-------|
 | HR Dashboard (View 1) | ✅ Complete & Approved | 7/7 planned sections + 2 scope additions (Provenance Drill-Down, Delete Confirm) | 2026-09-03 | "Overall admin dashboard looks good for me" |
 | Assign New Skill Modal (View 2) | ✅ Built | 3-step wizard + real dropdown comboboxes | 2026-09-03 | No further issues reported after dropdown fix |
+| Skills View (View 3) | ✅ Built | Implements epic-skill-catalog-management.md | 2026-09-03 | Pending user review |
+| Content Discovery Mockup | ⚠️ Superseded | See "Inline Content Search + Approval Gate" below — replaced via /bmad-correct-course | 2026-09-03 | — |
+| API Keys View + Add Skill Gate | ✅ Built (mockup) | Implements epic Story 1 — shared org-level key (revised via /bmad-correct-course from per-admin) | 2026-09-03 | Pending user review |
+| Inline Content Search + Approval Gate | ✅ Built (simulated) | Implements epic Stories 2-3 (revised via /bmad-correct-course) — search-before-create, approve-at-least-one gates skill creation | 2026-09-03 | Pending user review |
 
 **Status Legend:** ✅ Complete · 🚧 In Progress · ⏸️ Not Started · 🔴 Blocked
 
