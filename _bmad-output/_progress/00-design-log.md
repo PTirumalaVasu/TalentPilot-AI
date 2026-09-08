@@ -145,6 +145,50 @@
 
 ---
 
+### 2026-09-08 — Phase 4: New Scenario 04 — Rita's Content Curation (Skills Tab spec)
+
+**Agent:** Freya (Suggest/Dream mode) with Claude Code
+**Scope:** New page spec for the Admin-Assisted Content Sourcing feature (PRD §4.6, FR-16–FR-19, added same day via `bmad-prd` update) — HR Admin credential management (YouTube personal key + Udemy org-wide credential), live search or manual link entry, review-and-approve, estimated days-to-complete.
+
+**Artifacts:**
+- `C-UX-Scenarios/04-ritas-content-curation/04-ritas-content-curation.md` — new scenario outline (Q1-Q8), ties to Trigger Map Objective 5 (fast/relevant content discovery)
+- `C-UX-Scenarios/04-ritas-content-curation/04.1-skills-content-sourcing/04.1-skills-content-sourcing.md` — full page spec: Skills List landing view, Content Lookup modal (search/manual-entry sub-views, per-source empty/error states, days-to-complete display rule), API Keys modal (personal vs. org-wide credential framing)
+- `C-UX-Scenarios/00-ux-scenarios.md` updated — Scenario 04 added to the master index (4 scenarios, 8 pages, 7/8 assigned)
+
+**Result:** Spec complete, not yet prototyped. This page also fulfills the existing "Skills" primary-nav item (`01.1-Skills-Dashboard.html`, renamed from "Assignments" earlier this session) — previously a stub route with no page behind it.
+
+**Next:** `wds-5-agentic-development` [P] Prototyping to build `04.1-Skills-Tab.html`, or continue refining the spec first.
+
+---
+
+### 2026-09-08 — Phase 4/5: Mock Screen Built — Skills Tab (04.1)
+
+**Agent:** Freya (mock screen, ad hoc — lighter than a full wds-5 build) with Claude Code
+
+**Artifacts:** `E-Development/01-Ritas-Trust-Call-Prototype/04.1-Skills-Tab.html` — `[MOVED same day]` initially scaffolded as its own folder (`04-Ritas-Content-Curation-Prototype/`, duplicating `shared/`+`components/`+`login.html` per the established per-folder convention), then merged into the existing Scenario 01 folder per user request — one prototype folder now serves both Scenario 01 and Scenario 04, sharing `shared/`/`components/`/`login.html`. 01.1's "Skills" nav link now points to `04.1-Skills-Tab.html` (was a `#` stub); 04.1's "Dashboard" nav link points back to `01.1-Skills-Dashboard.html`, both same-folder relative links now.
+
+**Result:** Single-file mock (inline mock data, no `demo-data.js`/`PrototypeAPI` dependency — lighter-weight than the fully-wired Scenario 01-03 prototypes) covering: Skills list (approved-content badges), Content Lookup modal (Search tab with YouTube/Udemy result cards + days-to-complete, Paste-a-link tab, Approve interaction), API Keys modal (personal YouTube key vs. org-wide Udemy credential framing). Not yet run through full state-by-state acceptance testing like Scenarios 01-03 — this is a visual mock, not a validated prototype.
+
+**Next:** Review the mock; if approved, promote to a fully-wired prototype (Loading/Empty/Error states, `PrototypeAPI` data layer) via `wds-5-agentic-development`, matching Scenario 01-03's rigor.
+
+**Revision (same day):** Landing view changed from a data table (Skill + count badge + Find Content) to a card grid — each Skill card now lists its actual approved Content links inline (source, clickable title, days-to-complete), not just a count. Reason: a count alone still required opening Content Lookup to see *what* was approved; the card answers "does this Skill already have something good?" at a glance. `04.1-Skills-Tab.html` and `04.1-skills-content-sourcing.md` both updated to match.
+
+**Revision (same day):** Card body simplified to show exactly **one** approved link (the most recently approved), never a list — mirrors FR-4's existing "exactly one recommendation per Skill" rule for Employee-facing Content Discovery. New PRD consequence added to FR-18.
+
+**Revision (same day):** New capability added — FR-20, "HR Admin creates a new Skill." Closes a real gap: no prior FR covered Skill creation (Skills only ever came from the seed script). `[+ New Skill]` button added to the toolbar; a New Skill modal (name required, description optional, duplicate-name detection) opens on click, and on create flows straight into the Content Lookup modal for the new Skill with the search term pre-filled — the "brand-new Skill, zero content" gap is closed at the moment of creation. `04.1-Skills-Tab.html` and `04.1-skills-content-sourcing.md` both updated; `prd.md` §4.6 gained FR-20.
+
+**Revision (same day):** Content links now open an in-app Watch Modal (embeds YouTube via iframe; explicit "preview not available" + Open-in-new-tab fallback for Udemy/manual) instead of a bare new-tab redirect — applies to both the pre-approval "View" action and an already-approved link on a Skill card. Corrected an earlier assumption that an established "opens in new tab" pattern existed elsewhere in the product for this — checked, and it didn't (the real video player was explicitly out of scope in every Employee-facing prototype too). `prd.md` FR-18 consequence corrected to match.
+
+**Revision (same day):** Full Skill CRUD added — FR-21 (edit) and FR-22 (delete), both permanently locked the moment a Skill is ever assigned to an Employee (a one-way gate, not a live assignment count, so historical Assignment/audit records always resolve to a stable Skill identity). Skill Card gained a utility row: unassigned Skills show Edit/Delete icon buttons; assigned Skills show a 🔒 "Locked — assigned to an Employee" indicator in their place. New/Edit Skill modal is shared (same fields, different title/submit copy/behavior); Delete requires confirmation, mirroring FR-15's Assignment-removal pattern. Delete is a hard delete (not soft like FR-15) since a deletable Skill has zero Assignments by definition. Mock data gained an `assigned` flag (4 of 10 seeded Skills marked assigned, independent of whether they have approved content, to demonstrate both axes). New PRD Open Question 16 flags that Skills has never had a proper owning module — now a real architecture gap given real HR-facing writes with a business-critical lock invariant, not yet resolved. `04.1-Skills-Tab.html` and `04.1-skills-content-sourcing.md` both updated; `prd.md` §4.6 gained FR-21/FR-22.
+
+**Revision (same day):** Edit (FR-21) merged into the Content Lookup Panel per direct feedback — editing a Skill now opens the same popup as Find Content (FR-17/18), showing a "Currently Approved" section (the existing link, if any) plus editable Name/Description fields at the top, plus the normal Search/Paste-a-link flow to find and approve a replacement. Replaces the standalone rename-only Edit modal built earlier the same day. New Skill Panel reverts to create-only (it still needs its own small modal, since a brand-new Skill has no content/name to look up yet). `04.1-Skills-Tab.html` and `04.1-skills-content-sourcing.md` both updated; `prd.md` FR-21 gained a consequence describing the merged flow.
+
+**Revision (same day):** Two more changes per direct feedback. (1) New FR-23: a "Reject" button added next to the Currently Approved link, letting Rita explicitly remove it independent of approving a replacement — no confirmation, works even on assigned/locked Skills (content-sourcing was never gated by the FR-21/22 identity lock, only rename/delete are). This reverses FR-18's old open assumption about removal mechanics. (2) The Skill card's "Find Content" footer button was removed for unassigned Skills (redundant with Edit, which opens the same panel) — but **kept for assigned/locked Skills**, since they have no Edit icon and would otherwise lose the ability to source/replace Content entirely; flagged this nuance rather than silently dropping the capability for already-assigned Skills, which is arguably the more important case. `prd.md` gained FR-23 plus a new FR-17 consequence documenting the entry-point split; `04.1-Skills-Tab.html` and `04.1-skills-content-sourcing.md` both updated.
+
+**Revision (same day):** "Find Content" removed from every card, including assigned/locked ones, per direct feedback overriding the tradeoff logged in the previous entry. Consequence, flagged rather than silently absorbed: **an assigned Skill now has no UI entry point into content-sourcing (FR-17/18/19/23) at all**, even though those FRs' own wording says the capability isn't gated by assignment status — only Skill identity (rename/delete) is. Logged as new PRD Open Question 17 with two unresolved options (narrow the FRs to unassigned Skills only, vs. design a different entry point e.g. from the Provenance Drill-Down modal, 01.2) — not decided here, not a blocker for the unassigned-Skill path. Also: the API Keys modal's Udemy row restructured (Client ID on its own row, Client secret + Save/Remove on a second row matching YouTube's row shape) and all three credential inputs given equal fixed width, per direct feedback. `prd.md`, `04.1-skills-content-sourcing.md`, and `04.1-Skills-Tab.html` all updated.
+
+---
+
 ## Key Decisions
 
 | Date | Decision | Phase | Contributors |
@@ -199,7 +243,8 @@
 - [x] Page 02.2 (Continue Watching) specification complete — resume interface with progress tracking
 - [x] Page 03.1 (Skill Assignment Flow) specification complete — multi-step form for Rita to assign skills
 - [x] Page 03.2 (Assignment Confirmation & Auto-Update) specification complete — dashboard confirmation with real-time updates
-- [ ] Wireframes and visual design (all 6 pages)
+- [x] Page 04.1 (Skills Tab / Content Sourcing) specification complete — skills list, credential management, search/manual-entry lookup, review-and-approve, days-to-complete estimate `[ADDED 2026-09-08]`
+- [ ] Wireframes and visual design (all 7 pages)
 - [ ] Component definitions and design system extraction
 - [ ] Real-time update architecture documentation
 - [ ] Accessibility verification and WCAG AA audit

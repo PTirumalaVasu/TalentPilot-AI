@@ -15,8 +15,11 @@
 | 01 | Rita's Trust Call | Rita the Referee | 2 | ⭐ P1 | ✅ Outlined |
 | 02 | Casey's Resume & Watch | Casey the Continuer | 2 | ⭐ P1 | ✅ Outlined |
 | 03 | Rita's Assignment & Track | Rita the Referee | 2 | ⭐ P1 | ✅ Outlined |
+| 04 | Rita's Content Curation | Rita the Referee | 1 | 🔹 P2 | ✅ Spec Complete |
 
-**Total Page Inventory:** 7 core views across 3 scenarios | **Total Scenarios:** 3
+**Total Page Inventory:** 8 core views across 4 scenarios | **Total Scenarios:** 4
+
+`[ADDED 2026-09-08]` Scenario 04 is new — added via `bmad-prd` update (PRD §4.6, FR-16–FR-19) after the original Phase 3 scenario set was outlined; it did not go through the original Phase 2/3 workshop sequence the same way 01–03 did, but follows the same Q1-Q8 Effect Mapping structure and ties to an existing Trigger Map objective (Objective 5, fast/relevant content discovery).
 
 ---
 
@@ -53,6 +56,15 @@
 
 **Key Interaction:** Rita clicks [+ New Assignment], selects employee and skill, system auto-links top-approved content, Rita confirms. New row appears on dashboard: `Assigned · Awaiting first watch`. Later, as Casey watches, row auto-updates to `Verified · [watch%]` without any action from Rita.
 
+### [04: Rita's Content Curation](04-ritas-content-curation/04-ritas-content-curation.md)
+**Persona:** Rita the Referee (PRIMARY 👥) — "Close a content gap myself, right now, without waiting on a batch job"
+**Pages:** Skills Tab (Content Sourcing)
+**User Value:** Sources a learning-content link (search YouTube/Udemy, or paste one directly) and approves it for a Skill in under a minute, instead of leaving an assignment contentless or waiting for the next ingestion run
+**Business Value:** Extends Objective 5 (fast/relevant content discovery) to cover the gap-filling case the primary AI-matched batch pipeline (§4.2) can't close same-day
+**Format:** Single page with two modal sub-flows (Content Lookup, API Keys)
+
+**Key Interaction:** Rita opens the Skills tab, sees every Skill with its approved-Content count, clicks "Find Content" on one with a gap, searches YouTube/Udemy (or pastes a link), reviews candidates with an estimated days-to-complete (at 5 hrs/day), and approves one — visible to Employees immediately, no batch job involved.
+
 ---
 
 ## Page Coverage Matrix
@@ -65,8 +77,9 @@
 | Resume/Continue Watching | 02 | Casey returns to assignment and resumes video at exact position (14:32); system tracks continued progress in real-time |
 | Skill Assignment Flow | 03 | Rita opens form, selects employee & skill, system auto-links approved content, Rita confirms assignment |
 | Assignment Confirmation & Auto-Update | 03 | New assignment row appears on dashboard; status shows `Assigned · Awaiting first watch` |
+| Skills Tab (Content Sourcing) | 04 | Rita searches YouTube/Udemy or pastes a link, reviews candidates with a days-to-complete estimate, approves one for a Skill |
 
-**Coverage:** 6/7 pages assigned to scenarios
+**Coverage:** 7/8 pages assigned to scenarios
 
 **Page Not Yet Assigned:** Needs Attention Filter View (skipped per user decision; integrated into Assignment Dashboard via direct drill-down on stale rows)
 
@@ -159,6 +172,7 @@ The design phase starts from Scenario 01, Step 01.1 (Assignment Dashboard) and p
 - [Scenario 01: Rita's Trust Call](01-ritas-trust-call/01-ritas-trust-call.md)
 - [Scenario 02: Casey's Resume & Watch](02-caseys-resume-and-watch/02-caseys-resume-and-watch.md)
 - [Scenario 03: Rita's Assignment & Track](03-ritas-assignment-and-track/03-ritas-assignment-and-track.md)
+- [Scenario 04: Rita's Content Curation](04-ritas-content-curation/04-ritas-content-curation.md)
 
 **By Page:**
 - [01.1 - Assignment Dashboard](01-ritas-trust-call/01.1-assignment-dashboard/01.1-assignment-dashboard.md)
@@ -167,6 +181,7 @@ The design phase starts from Scenario 01, Step 01.1 (Assignment Dashboard) and p
 - [02.2 - Resume/Continue Watching](02-caseys-resume-and-watch/02.2-resume-continue-watching/02.2-resume-continue-watching.md)
 - [03.1 - Skill Assignment Flow](03-ritas-assignment-and-track/03.1-skill-assignment-flow/03.1-skill-assignment-flow.md)
 - [03.2 - Assignment Confirmation & Auto-Update](03-ritas-assignment-and-track/03.2-assignment-confirmation-and-auto-update/03.2-assignment-confirmation-and-auto-update.md)
+- [04.1 - Skills Tab (Content Sourcing)](04-ritas-content-curation/04.1-skills-content-sourcing/04.1-skills-content-sourcing.md)
 
 ---
 
