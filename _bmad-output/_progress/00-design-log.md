@@ -374,6 +374,27 @@ User caught a real error: `sprint-status.yaml` marked stories "done" when only t
 
 **Next:** Awaiting further direction.
 
+### 2026-09-03 — Table schema added into the story file; stale per-admin section marked superseded
+
+**Agent:** Implementation Partner (Phase 5)
+
+User asked for the API-key table "against the user level" — checked first rather than silently reverting the already-approved shared-key design, since that's exactly what Correct Course had just changed. Clarified: they wanted the *current* (shared) table schema copied into `HR-Dashboard.12-api-keys-view.md` itself, not a design reversal.
+
+While there, found the story file still had its original "per-admin key storage" update section from *before* Correct Course — never updated when the design changed, so it was stale/contradicted the current epic. Marked it superseded (collapsed `<details>`, kept for history) and added the current `integration_api_keys` schema as the active section, cross-referencing the epic as the single source of truth for security/access-control details rather than duplicating those (to avoid the two copies drifting).
+
+**Next:** Awaiting further direction.
+
+### 2026-09-08 — Real backend story: create the integration_api_keys table
+
+**Agent:** Implementation Partner
+**Output:** `_bmad-output/implementation-artifacts/stories/2-1a-create-integration-api-keys-table.md`, `sprint-status.yaml` (new `2-1a` entry), `epic-automated-content-discovery.md` (cross-reference)
+
+First genuinely **real backend** story in this project — every prior story documented the `design-artifacts/` prototype. Checked the actual codebase before writing anything: confirmed Alembic (`backend/alembic/`, currently at `003_add_assignment_soft_delete.py`) as the migration tool, and that all core domain models (`Employee`, `Skill`, `ContentCatalog`, etc.) live in `backend/app/assignments/models.py` despite the module name — not a new `app/content/models.py` stub that turned out to be empty. Wrote a full reference migration + `IntegrationApiKey` model matching those exact conventions (named constraints, `Enum(..., name=...)` pattern, `UUID(as_uuid=True)` style), using the BMM story template (`bmad-create-story/template.md`) with real Tasks/Subtasks and Dev Notes/References citing exact source lines.
+
+Split out as its own story (`2-1a`) rather than folded into the existing `2-1` UI story, so a backend developer can implement just the table independently of — and as a prerequisite for — the API Keys screen's real persistence.
+
+**Next:** Awaiting further direction.
+
 ### 2026-09-03 — /bmad-correct-course: approved, workflow complete
 
 **Agent:** Implementation Partner, Correct Course workflow

@@ -53,6 +53,8 @@ CREATE TABLE integration_api_keys (
 
 One row per provider, full stop — `UNIQUE (provider)`. `updated_by` keeps an audit trail of who last changed a shared key without scoping access to them. Only `employees.role = 'HR_ADMIN'` may read status or write keys (enforce via this codebase's existing `require_hr_admin()` pattern, `backend/app/assignments/service.py`).
 
+**Real implementation story for just this table**: `_bmad-output/implementation-artifacts/stories/2-1a-create-integration-api-keys-table.md` (sprint-status.yaml: `2-1a-create-integration-api-keys-table`) — a real Alembic migration + SQLAlchemy model, verified against this codebase's actual migration tooling and model conventions (not assumed), split out so a backend developer can implement the table independently of the UI/gate work described below in this same Story 1.
+
 **Acceptance Criteria:**
 
 **Given** the organization has not configured both the YouTube and Udemy keys

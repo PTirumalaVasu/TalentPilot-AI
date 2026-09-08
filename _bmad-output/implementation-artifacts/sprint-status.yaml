@@ -59,6 +59,10 @@ project: TalentPilot-AI
 project_key: TPAI
 tracking_system: file-system
 story_location: "design-artifacts/E-Development/01-Assign-New-Skill-Prototype/stories/"
+# EXCEPTION: 2-1a-create-integration-api-keys-table is a REAL backend story,
+# not a prototype one — its file lives at
+# _bmad-output/implementation-artifacts/stories/2-1a-create-integration-api-keys-table.md
+# instead of the story_location above.
 
 development_status:
   # ============================================================
@@ -86,7 +90,8 @@ development_status:
   # prototype's version is a SIMULATED MOCKUP — no real network calls.
   # ============================================================
   epic-2: backlog   # fully prototyped/specified; zero real backend work started, and Story 4 isn't even scoped yet
-  2-1-configure-shared-api-key-per-integration: ready-for-dev       # prototype: HR-Dashboard.12-api-keys-view.md — revised via Correct Course: per-admin -> shared/org-level
+  2-1a-create-integration-api-keys-table: ready-for-dev             # REAL backend story (not prototype) — story_location below, migration + model spec'd, not yet written
+  2-1-configure-shared-api-key-per-integration: ready-for-dev       # prototype: HR-Dashboard.12-api-keys-view.md — revised via Correct Course: per-admin -> shared/org-level; depends on 2-1a for real storage
   2-2-search-for-content-before-skill-saved: ready-for-dev          # prototype: HR-Dashboard.13-inline-content-approval.md — revised via Correct Course: search moved before skill creation
   2-3-approve-at-least-one-candidate-before-creation: ready-for-dev # prototype: HR-Dashboard.13-inline-content-approval.md — includes visible links + preview-popup updates
   2-4-udemy-integration: backlog                                    # flagged, not detailed — needs a discovery spike (partnership/API choice, licensing) before it can even be scoped, let alone prototyped
