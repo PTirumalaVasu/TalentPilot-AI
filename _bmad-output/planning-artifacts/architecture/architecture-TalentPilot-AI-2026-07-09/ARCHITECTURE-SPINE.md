@@ -8,7 +8,7 @@ scope: 'Full MVP: 4 features / 14 FRs — Skill Assignment, AI Content Discovery
 status: final
 created: '2026-07-09'
 updated: '2026-09-08'
-binds: [FR-1, FR-2, FR-3, FR-4, FR-5, FR-6, FR-7, FR-8, FR-9, FR-10, FR-11, FR-12, FR-13, FR-14, FR-16, FR-17, FR-18]
+binds: [FR-1, FR-2, FR-3, FR-4, FR-5, FR-6, FR-7, FR-8, FR-9, FR-10, FR-11, FR-12, FR-13, FR-14, FR-16, FR-17, FR-17a, FR-18, FR-19, FR-20, FR-21, FR-22, FR-23]
 sources:
   - '_bmad-output/planning-artifacts/prds/prd-TalentPilot-AI-2026-07-09/prd.md'
   - '_bmad-output/planning-artifacts/prds/prd-TalentPilot-AI-2026-07-09/addendum.md'
@@ -28,7 +28,8 @@ companions: []
 | --- | --- | --- |
 | `auth/` | accounts, session/role gate | FR-13, FR-14 |
 | `assignments/` | `assignments` | FR-1, FR-2 |
-| `content/` | `content_catalog` (+ embeddings), `admin_api_keys`, `org_api_credentials`, batch ingestion job, admin live-lookup (YouTube + Udemy) | FR-3, FR-4, FR-16, FR-17, FR-18 |
+| `content/` | `content_catalog` (+ embeddings), `admin_api_keys`, `org_api_credentials`, batch ingestion job, admin live-lookup (YouTube + Udemy) | FR-3, FR-4, FR-16, FR-17, FR-17a, FR-18, FR-19, FR-23 |
+| `skills/` [NEW 2026-09-08] | `skills` (+ embeddings) | FR-20, FR-21, FR-22 |
 | `progress/` | `skill_progress`, `assignment_overrides`, readiness derivation | FR-5..FR-12 |
 | `dashboard` (read-composition, owns no table) | — | FR-8..FR-11 (HR read surface) |
 | `core/` | config, JWT/security, CORS, error contract | cross-cutting |
@@ -41,7 +42,7 @@ The durable heart — the calls a future builder cannot read off compliant code.
 
 ### AD-1 — Single-owner data modules
 
-- **Binds:** `assignments`, `content_catalog`, `skill_progress`, `assignment_overrides`; all modules
+- **Binds:** `assignments`, `content_catalog`, `skill_progress`, `assignment_overrides`, `skills` [ADDED 2026-09-08], `admin_api_keys`, `org_api_credentials`; all modules
 - **Prevents:** two features writing or reading one entity in incompatible ways; scattered table access that would make coaching-only and derivation-coherence unenforceable
 - **Rule:** each table has exactly one owning module (per the paradigm table). Only that module's Repository touches the table; every other feature goes through the owning module's Service API. No module imports, queries, or writes another module's tables directly. `[ADOPTED — user, this session]`
 
@@ -100,20 +101,25 @@ The durable heart — the calls a future builder cannot read off compliant code.
 
 - **Binds:** all modules
 - **Prevents:** dependency cycles and back-references that let the dashboard's read shape leak into the write-owning modules
-- **Rule:** dependencies point one way — the `dashboard` read-composition depends on `assignments` and `progress` read APIs; those modules never depend on the dashboard. `auth`/`core` is a cross-cutting dependency every protected module uses; it depends on none of them. Cross-module calls are Service-API only (AD-1). See diagram.
+- **Rule:** dependencies point one way — the `dashboard` read-composition depends on `assignments` and `progress` read APIs; those modules never depend on the dashboard. `auth`/`core` is a cross-cutting dependency every protected module uses; it depends on none of them. Cross-module calls are Service-API only (AD-1). `[UPDATED 2026-09-08]` `assignments/` also depends on `skills/` (AD-11 — sets `ever_assigned` on Assignment creation) and `content/` (batch-listing Skills for ingestion, AD-11 point 1); `skills/` and `content/` never depend back on `assignments/`. See diagram.
 
 ```mermaid
 graph TD
     Core["core/ + auth/ (session gate, config, error contract)"]
     Assign["assignments/"]
     Content["content/"]
+    Skills["skills/ (NEW)"]
     Progress["progress/"]
     Dash["dashboard (read-composition, no table)"]
 
     Dash --> Assign
     Dash --> Progress
+    Assign -. depends on .-> Content
+    Assign -. depends on .-> Skills
+    Content -. depends on .-> Skills
     Assign -. depends on .-> Core
     Content -. depends on .-> Core
+    Skills -. depends on .-> Core
     Progress -. depends on .-> Core
     Dash -. depends on .-> Core
 ```
@@ -124,12 +130,23 @@ graph TD
 - **Prevents:** YouTube-specific API details leaking into the capture/progress pipeline, blocking the locked future-Vimeo swap
 - **Rule:** the capture pipeline depends on an abstract **player-adapter interface** (normalized `position` + `event-time` + play/pause/ended events), never on YouTube's API surface directly. YouTube's polling `getCurrentTime()`/`onStateChange` lives only behind the adapter; a Vimeo (event-driven `timeupdate`) implementation must be swappable without touching `progress/`. The client-side flush on tab-close/visibilitychange via `sendBeacon` (FR-5, §8 reliability) is part of this boundary.
 
+### AD-11 — `skills/` is the sole owner of `skills`; the ever-assigned lock is a local flag, not a live cross-module check [NEW 2026-09-08]
+
+- **Binds:** FR-1 (reads), FR-3 (reads, via embedding), FR-20, FR-21, FR-22; `skills`, `skills/`, `assignments/`
+- **Prevents:** `skills` staying ownerless (resolves PRD Open Question 16 — until this decision, `Skill`'s ORM model physically lived in `assignments/models.py` with no real owning module, and `content/repository.py::list_all_skills()` read it directly as a documented, narrow AD-1 exception, Story 2.3 scope note 2); FR-21/FR-22's permanent-lock rule being enforced by a scattered/re-derivable check instead of one authoritative flag; a stale or racy cross-module query at edit/delete time
+- **Rule:**
+  1. **New module `skills/`** (Router→Service→Repository, per the paradigm table) becomes the sole owner of the `skills` table — the `Skill` ORM model migrates out of `assignments/models.py` into `skills/models.py`. `content/`'s existing `list_all_skills()` exception is retired, per Story 2.3's own forward guidance ("migrate this read call to go through that Service API instead of a direct query") — `content/` now calls `skills/`'s Service API (`skills.service.list_all_skills()`) instead of importing the ORM model directly.
+  2. **The permanent lock (FR-21/FR-22) is a local boolean, not a live join.** `skills` gains an `ever_assigned` column (boolean, default `false`, **never reset back to `false`** once set — the one-way gate FR-21/FR-22 require). `skills/`'s own edit/delete service methods check this local column; they never need to call out to `assignments/` to answer "has this Skill ever been assigned."
+  3. **`assignments/` sets the flag, not `skills/`.** When `assignments/`'s `create_assignment` flow successfully creates a new Assignment, it calls `skills.service.mark_ever_assigned(skill_id)` (a `skills/`-owned write, per AD-1 — `assignments/` never writes the `skills` table directly). This is the same shape as `assignments/`'s **existing** dependency on `content/` for FR-1/FR-2's content lookup (see AD-8 diagram) — `assignments/` already depends outward on peer modules for related reads/writes; this adds one more peer dependency in the same direction, not a new pattern.
+  4. **Embeddings stay `skills/`'s own concern**, mirroring `content/`'s pattern: `skills/service.py` calls `core/embedding.py::embed_text()` on create (FR-20) and on rename (FR-21, since a new name needs a new embedding for FR-3's semantic matching) — never inline in the router, never duplicated elsewhere.
+  5. **FR-17/FR-18/FR-19/FR-23 (content-sourcing/rejection) are Skill-agnostic w.r.t. `ever_assigned`** — nothing in `content/`'s admin-lookup path reads or checks that flag; the PRD is explicit those FRs are not gated by assignment status (only Skill *identity* — rename/delete — is). **PRD Open Question 17 stays open**: the current UX spec (04.1) has no entry point that reaches this path for an assigned Skill, but that is a UX/frontend gap, not a backend restriction — the backend must not be built to artificially require `ever_assigned = false`, since that would foreclose the correct fix (a UX entry point) later.
+
 ## Consistency Conventions
 
 | Concern | Convention |
 | --- | --- |
 | Backend modules | `app/{module}/` each with `router.py`, `service.py`, `repository.py`, `models.py` (SQLAlchemy), `schemas.py` (Pydantic). Cross-module access via Service API only. |
-| Naming | Tables snake_case plural (`assignments`, `skill_progress`, `content_catalog`, `assignment_overrides`, `admin_api_keys`). REST resources plural-noun, ≤2 levels deep (`/api/assignments`, `/api/skills/{id}/content`, `/api/assignments/{id}/progress`). Admin-only routes prefixed `/api/admin/...` and gated HR_ADMIN via AD-6 (`/api/admin/api-keys`, `/api/admin/skills/{id}/content-lookup`, `/api/admin/content/attach`). Frontend feature folders mirror backend module names. |
+| Naming | Tables snake_case plural (`assignments`, `skill_progress`, `content_catalog`, `assignment_overrides`, `admin_api_keys`, `org_api_credentials`, `skills`). REST resources plural-noun, ≤2 levels deep (`/api/assignments`, `/api/skills/{id}/content`, `/api/assignments/{id}/progress`). Admin-only routes prefixed `/api/admin/...` and gated HR_ADMIN via AD-6 (`/api/admin/api-keys`, `/api/admin/skills` [POST/PATCH/DELETE, FR-20/21/22], `/api/admin/skills/{id}/content-lookup`, `/api/admin/content/attach`, `/api/admin/content/{id}/reject` [FR-23]). Frontend feature folders mirror backend module names. |
 | IDs & time | Entity IDs opaque UUIDs; storage keys never leaked as API contract. All timestamps ISO-8601 UTC. Watch-progress writes carry an explicit client **event-time** field (AD-5 orders on it). |
 | API schemas | Pydantic request/response schemas kept separate from SQLAlchemy ORM models (storage shape must not leak into the contract). Client mirrors them as TS types in `src/types`. |
 | Errors | One JSON error contract (`status`, `code`, `message`, `timestamp`) via centralized FastAPI exception handlers; 422 on validation. A failed dashboard refresh after a successful save is a distinct **refresh error**, never a lost Assignment (FR-1). Empty vs error are distinct states, per condition (FR-4). |
@@ -236,6 +253,13 @@ erDiagram
         text encrypted_key
         uuid configured_by "attribution only, not ownership"
     }
+    skills {
+        uuid id
+        string name
+        string description
+        vector embedding
+        boolean ever_assigned "AD-11 -- one-way lock, set by assignments/"
+    }
 ```
 
 Note: `skill_progress` is keyed by `assignment_id` (not `user_id`+`skill_id` as DD-001 sketched) because FR-1 permits a second intentional Assignment of the same skill to the same Employee — the watch signal belongs to the Assignment, not the (employee, skill) pair.
@@ -246,11 +270,12 @@ Note: `skill_progress` is keyed by `assignment_id` (not `user_id`+`skill_id` as 
 backend/app/
   core/          # config, JWT/security, CORS, error handlers, secrets.py (Fernet encrypt/decrypt, AD-10)
   auth/          # login, session/role gate dependency (FR-13/14)
-  assignments/   # assignments table + FR-1/FR-2 flow
+  assignments/   # assignments table + FR-1/FR-2 flow; depends on content/ + skills/ (AD-8/AD-11)
+  skills/        # [NEW 2026-09-08] skills table + embeddings; CRUD (FR-20/21/22), ever_assigned lock (AD-11)
   content/       # content_catalog + embeddings + admin_api_keys + org_api_credentials; matching (FR-3),
                  # discovery list (FR-4); batch ingestion job (shared key, youtube_client.py);
-                 # admin key mgmt (FR-16) + live lookup/attach (FR-17/18) via youtube_client.py (per-admin)
-                 # + udemy_client.py (org-wide)
+                 # admin key mgmt (FR-16) + live lookup/attach (FR-17/17a/18/19) + reject (FR-23)
+                 # via youtube_client.py (per-admin) + udemy_client.py (org-wide); depends on skills/
   progress/      # skill_progress + assignment_overrides; capture (FR-5/6/7), readiness derivation (FR-8..12)
   dashboard/     # read-composition over assignments + progress (owns no table)
   main.py
@@ -279,7 +304,13 @@ frontend/src/
 | FR-13, FR-14 (session/role gate) | `auth/` + `core/` | AD-6 |
 | FR-16 (per-Admin + org-wide credential mgmt) | `content/` + `core/secrets.py` | AD-10 |
 | FR-17 (admin live content-link lookup, YouTube + Udemy) | `content/` (admin-lookup path) | AD-7 (admin-driven branches 2 & 3), AD-6 (HR_ADMIN gate) |
+| FR-17a (manual link entry) | `content/` | AD-7 (write-on-review-only) |
 | FR-18 (admin review + attach as Content) | `content/` | AD-7 (write-on-review-only), AD-1 |
+| FR-19 (days-to-complete estimate) | `content/` (display-only, no persistence) | — |
+| FR-20 (create Skill) | `skills/` | AD-11, AD-1 |
+| FR-21 (edit unassigned Skill) | `skills/` | AD-11 (`ever_assigned` gate) |
+| FR-22 (delete unassigned Skill) | `skills/` | AD-11 (`ever_assigned` gate) |
+| FR-23 (reject approved Content) | `content/` | AD-1; explicitly not gated by AD-11's `ever_assigned` (see AD-11 point 5) |
 
 ## Deferred
 
@@ -294,3 +325,5 @@ frontend/src/
 - **Udemy as a content source** (PRD Open Question 14) — **RESOLVED, in scope 2026-09-08.** Briefly deferred earlier the same day (Udemy's free Affiliate API is discontinued; the remaining APIs require a paid Udemy for Business subscription), then restored once SAILS confirmed it already holds that subscription — an existing cost, not new paid infrastructure. See AD-7 (admin-driven branch 3) and AD-10 (`org_api_credentials`) for the resulting design.
 - **Queue-to-batch alternative for admin lookup — considered twice, rejected both times.** Once for YouTube (AD-7's original amendment) and again for Udemy specifically (AD-7's extension) — an Admin's request enqueuing a row for the next batch run would keep AD-7 fully unamended, but breaks the "enter a skill, see links now" UX FR-17 was written for, and would make the two sources behave inconsistently within one feature. Logged here so the trade-off isn't silently forgotten if either carve-out ever proves operationally painful and this gets revisited.
 - **Concurrent-Admin rate-limit contention on `org_api_credentials`** — not proactively engineered against (no semaphore/local throttle), consistent with this project's small internal-pilot scale (a handful of HR Admins). If usage ever grows enough that concurrent Udemy lookups routinely collide on the org-wide rate limit, revisit AD-7 branch 3 for an explicit queueing/backoff layer at that point — premature to build now.
+- **`skills` module ownership** (PRD Open Question 16) — **RESOLVED 2026-09-08 via new AD-11.** New `skills/` module, `ever_assigned` boolean as the local, one-way lock flag; `content/`'s prior narrow read-only exception into `assignments.models.Skill` (Story 2.3, scope note 2) is retired in favor of a real Service API call.
+- **Content-sourcing entry point for an assigned Skill** (PRD Open Question 17) — **still open, not an architecture question.** AD-11 point 5 confirms FR-17/18/19/23 must stay assignment-status-agnostic at the backend/API level; what's missing is purely a UX entry point on the Skills tab (04.1) for an already-assigned Skill, deliberately left for product/UX to resolve rather than papered over here with a backend restriction that would foreclose the real fix.

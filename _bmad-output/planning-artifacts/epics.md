@@ -18,8 +18,11 @@ inputDocuments:
   - '_bmad-output/C-UX-Scenarios/01-ritas-trust-call/01-ritas-trust-call.md'
   - '_bmad-output/C-UX-Scenarios/02-caseys-resume-and-watch/02-caseys-resume-and-watch.md'
   - '_bmad-output/C-UX-Scenarios/03-ritas-assignment-and-track/03-ritas-assignment-and-track.md'
+  - '_bmad-output/C-UX-Scenarios/04-ritas-content-curation/04.1-skills-content-sourcing/04.1-skills-content-sourcing.md'
 projectName: 'TalentPilot-AI'
 extractedAt: '2026-07-09'
+extendedAt: '2026-09-08'
+extensionNote: 'Epic 6 (Admin-Assisted Content Sourcing, FR-16-23) added via bmad-create-epics-and-stories, extending scope on top of the original FR-1-14 extraction -- Epics 1-5 unchanged. FR-15 backfilled into the Requirements Inventory (was already realized by Stories 3.7/5.7, added earlier via bmad-correct-course without an inventory entry).'
 ---
 
 # TalentPilot-AI - Epic Breakdown
@@ -29,20 +32,23 @@ extractedAt: '2026-07-09'
 This document provides the complete epic and story breakdown for TalentPilot-AI, decomposing the requirements from the PRD, Architecture Spine, and UX Scenarios into implementable stories organized by the Architecture Spine's build order and feature-domain modules.
 
 **Extracted from:**
-- PRD: 14 Functional Requirements (FRs)
-- Architecture: 9 Architectural Decisions (ADs) governing 21 architectural requirements
-- UX Scenarios: 3 scenarios, 6 core pages, 24 UX design requirements
-- **Total Requirements: 75**
+- PRD: 23 Functional Requirements (FRs) — 14 original + FR-15 (backfilled) + FR-16-23 (Feature 4.6, added 2026-09-08)
+- Architecture: 11 Architectural Decisions (ADs) governing 23 architectural requirements
+- UX Scenarios: 4 scenarios, 7 core pages, 33 UX design requirements
+- **Total Requirements: 97** (75 original + 22 added/backfilled 2026-09-08 for Epic 6)
 
 ---
 
 ## Requirements Inventory
 
-### Functional Requirements (14 total)
+### Functional Requirements (23 total)
+
+`[UPDATED 2026-09-08]` Original extraction covered FR-1 through FR-14. FR-15 (Assignment soft-delete) was added later via `bmad-correct-course` directly into Epic 3/Epic 5 stories (3.7, 5.7) without a Requirements Inventory entry — backfilled here for completeness. FR-16 through FR-23 (Feature 4.6, Admin-Assisted Content Sourcing) were added via a `bmad-prd` update the same day as this extension; see `prd.md` §4.6 for full FR text.
 
 **Feature 4.1: Skill Assignment Flow**
 - FR-1: HR Admin assigns a Skill to an Employee
 - FR-2: HR Admin sees AI-recommended Content during assignment
+- FR-15: HR Admin removes an Assignment from the Dashboard (soft delete) — `[BACKFILLED]` realized by Stories 3.7/5.7
 
 **Feature 4.2: AI-Assisted Content Discovery**
 - FR-3: System matches Content to an assigned Skill (semantic matching)
@@ -64,9 +70,20 @@ This document provides the complete epic and story breakdown for TalentPilot-AI,
 - FR-13: System requires a valid authenticated session before any Assignment, Content, or Watch Progress data is served
 - FR-14: A session is scoped to exactly one role and, for Employees, exactly one identity
 
+**Feature 4.6: Admin-Assisted Content Sourcing** `[ADDED 2026-09-08]`
+- FR-16: HR Admin manages content-source API credentials (personal YouTube key, org-wide Udemy credential)
+- FR-17: HR Admin performs a live content-link lookup for a Skill (YouTube + Udemy)
+- FR-17a: HR Admin manually enters a content link, as an alternative to search
+- FR-18: HR Admin reviews and attaches a looked-up link as approved Content for a Skill
+- FR-19: System estimates days-to-complete for a candidate or attached Content item
+- FR-20: HR Admin creates a new Skill, flowing directly into content-sourcing
+- FR-21: HR Admin edits an unassigned Skill's name or description
+- FR-22: HR Admin deletes an unassigned Skill
+- FR-23: HR Admin rejects the currently approved Content link for a Skill
+
 ---
 
-### Non-Functional Requirements (16 total)
+### Non-Functional Requirements (18 total)
 
 **Latency:**
 - NFR-L1: Readiness Dashboard loads in under 2 seconds
@@ -105,9 +122,13 @@ This document provides the complete epic and story breakdown for TalentPilot-AI,
 **Feature-Specific (FR-4):**
 - NFR-F1: Content ingestion runs as a scheduled batch job, not live per-request search
 
+**Feature-Specific (Feature 4.6, Admin-Assisted Content Sourcing)** `[ADDED 2026-09-08]`:
+- NFR-SEC1: Per-Admin and org-wide content-source credentials are encrypted at rest, never logged, never returned in plaintext after initial submission (PRD §8 "Secret storage")
+- NFR-RES1: A single content source's failure during a live lookup never blocks results from another configured source; surfaced as a distinct, source-specific error (PRD §8 "Live-lookup resilience")
+
 ---
 
-### Architectural Requirements (21 total)
+### Architectural Requirements (23 total)
 
 **Architectural Invariants (binding all FRs):**
 - AR-1: Single-owner data modules — each table has exactly one owning module; all other features access via Service API (AD-1)
@@ -119,6 +140,8 @@ This document provides the complete epic and story breakdown for TalentPilot-AI,
 - AR-7: Content ingestion is batch-only; matching is filter-then-rank with a threshold (AD-7)
 - AR-8: Module dependency direction — dependencies point one way; `dashboard` depends on `assignments` and `progress` but never the reverse (AD-8)
 - AR-9: Video capture behind a player Adapter — YouTube-specific details encapsulated, future-proof for Vimeo swap (AD-9)
+- AR-22: Content-source API credentials encrypted at rest, module-owned (`admin_api_keys` per-admin, `org_api_credentials` org-wide), never exposed in plaintext after write (AD-10) `[ADDED 2026-09-08]`
+- AR-23: `skills` owned solely by `skills/`; the permanent create/edit/delete lock (FR-21/22) is a local `ever_assigned` boolean, set by `assignments/` — never a live cross-module check (AD-11) `[ADDED 2026-09-08]`
 
 **Data Model Consistency:**
 - AR-10: Entity IDs are opaque UUIDs; all timestamps ISO-8601 UTC
@@ -138,7 +161,7 @@ This document provides the complete epic and story breakdown for TalentPilot-AI,
 
 ---
 
-### UX Design Requirements (24 total)
+### UX Design Requirements (33 total)
 
 **Scenario-Driven Interaction Contracts:**
 - UX-DR1: Assignment Dashboard grid displays one row per Employee×Skill assignment with Status badge (Not Started / In Progress / Completed) as primary at-a-glance signal
@@ -174,6 +197,17 @@ This document provides the complete epic and story breakdown for TalentPilot-AI,
 - UX-DR23: HR Override can be reversed by HR Admin; if fresher Watch Progress arrives, both are visible in drill-down and override stands until explicitly changed
 - UX-DR24: All dynamic updates announced to screen readers (success toast, live row updates), not just visually rendered
 
+**Admin-Assisted Content Sourcing (04.1 Skills Tab)** `[ADDED 2026-09-08]`:
+- UX-DR25: Skills tab card grid shows one card per Skill with exactly one approved link (never a list), mirroring Content Discovery's "exactly one recommendation per Skill" rule (UX-DR3)
+- UX-DR26: Unassigned Skill cards show Edit/Delete icon actions; assigned/locked Skill cards show a 🔒 lock indicator with explicit "Locked — assigned to an Employee" text, never silently hidden with no explanation
+- UX-DR27: Content Lookup results always labeled "Search Results," never "Recommended" — visually distinct from the Employee-facing AI-matched Content surface
+- UX-DR28: Days-to-complete estimate shown only when a real duration is known, never guessed or shown as a placeholder
+- UX-DR29: Approving a candidate closes the Content Lookup panel immediately and returns to the Skills Card Grid with the updated card + a toast — no intermediate "approved, panel stays open" state
+- UX-DR30: Content links (candidate or already-approved) open an in-app Watch Modal — embeds the video when the source supports it, shows an explicit "preview not available" + Open-in-new-tab fallback otherwise — never a bare new-tab redirect
+- UX-DR31: Creating a new Skill flows directly into the Content Lookup panel with the entered name pre-filled as the search term — no separate "come back later to add content" step
+- UX-DR32: Delete Skill requires explicit confirmation (mirrors FR-15's soft-delete confirmation pattern); Reject Content does not (lower-stakes, immediately reversible by approving something else)
+- UX-DR33: `[Known gap, not resolved by this UX spec]` No entry point exists on an assigned/locked Skill's card into the Content Lookup panel — PRD Open Question 17, carried into story creation as an explicit deferred item, not silently built around
+
 ---
 
 ### FR Coverage Map
@@ -194,6 +228,16 @@ This document provides the complete epic and story breakdown for TalentPilot-AI,
 | FR-12 | `progress/` | Epic 5 | E5.S5 | Pending |
 | FR-13 | `auth/` + `core/` | Epic 1 | E1.S1, E1.S2 | Pending |
 | FR-14 | `auth/` + `core/` | Epic 1 | E1.S3, E1.S4 | Pending |
+| FR-15 | `assignments/` (backend) + frontend | Epic 3 / Epic 5 | E3.S7, E5.S7 | `[BACKFILLED]` Done |
+| FR-16 | `content/` + `core/secrets.py` | Epic 6 | E6.S5 | Pending |
+| FR-17 | `content/` (admin-lookup) | Epic 6 | E6.S6 | Pending |
+| FR-17a | `content/` (admin-lookup) | Epic 6 | E6.S7 | Pending |
+| FR-18 | `content/` | Epic 6 | E6.S8 | Pending |
+| FR-19 | `content/` (display-only) | Epic 6 | E6.S8 | Pending |
+| FR-20 | `skills/` | Epic 6 | E6.S1, E6.S2 | Pending |
+| FR-21 | `skills/` | Epic 6 | E6.S1, E6.S3 | Pending |
+| FR-22 | `skills/` | Epic 6 | E6.S1, E6.S3 | Pending |
+| FR-23 | `content/` | Epic 6 | E6.S9 | Pending |
 
 ---
 
@@ -206,6 +250,7 @@ Based on the Architecture Spine's module dependency order (AD-8) and the build-t
 3. **Epic 3: Skill Assignment Flow** — HR's entry point to the system (FR-1, FR-2)
 4. **Epic 4: Video Progress Capture & Resume** — Automatic signal generation (FR-5, FR-6, FR-7); YouTube Adapter dependency
 5. **Epic 5: Readiness Dashboard** — Composition of assignments + progress (FR-8 through FR-12); depends on all prior epics
+6. **Epic 6: Admin-Assisted Content Sourcing** `[ADDED 2026-09-08]` — HR Admin credential mgmt, live/manual content sourcing, Skill CRUD (FR-16 through FR-23); depends on Epic 1 (auth), Epic 2 (`content/` module + `youtube_client.py`/embedding), Epic 3 (`assignments/`, for the `ever_assigned` flag wiring, AD-11 point 3)
 
 ---
 
@@ -216,6 +261,7 @@ Based on the Architecture Spine's module dependency order (AD-8) and the build-t
 - **Epic 3:** Skill Assignment Flow & Content Review (FR-1, FR-2)
 - **Epic 4:** Video Progress Capture, Resume & Event-Time Ordering (FR-5, FR-6, FR-7; AR-5, AR-9)
 - **Epic 5:** Readiness Dashboard — Status, Provenance, Auto-Update & Override (FR-8 through FR-12; AR-2, AR-3, AR-4)
+- **Epic 6:** Admin-Assisted Content Sourcing (FR-16 through FR-23; AR-22, AR-23) `[ADDED 2026-09-08]`
 
 ---
 
@@ -2057,6 +2103,348 @@ So that I can remove an Assignment I no longer want tracked, without risking an 
 **Out of Scope (this story):** any restore/undo affordance for a deleted Assignment (locked sprint-change-proposal decision: "One-way from the UI in this change"); any change to which assignments are eligible for delete (backend Story 3.7 already allows any Status/Override state, no additional frontend restriction is added).
 
 ---
+
+## EPIC 6: Admin-Assisted Content Sourcing
+
+> Added via `bmad-prd` update + `bmad-architecture` update, 2026-09-08 — not in the original PRD/epics.md scope. Realizes FR-16 through FR-23 (PRD §4.6). See `_bmad-output/C-UX-Scenarios/04-ritas-content-curation/04.1-skills-content-sourcing/04.1-skills-content-sourcing.md` for the full UX spec this epic implements.
+
+**Epic Goal:** Let HR Admin manage the Skill catalog directly (create/edit/delete) and source learning content for any Skill on demand — live search (YouTube personal key, Udemy org-wide credential) or a pasted link — closing a content gap immediately instead of waiting on the next scheduled batch-ingestion run (Epic 2).
+
+**Owned by:** `skills/` module (NEW, AD-11) for Skill CRUD; `content/` module (extended) for credentials, live lookup, review/approve/reject
+
+**Binds:** FR-16, FR-17, FR-17a, FR-18, FR-19, FR-20, FR-21, FR-22, FR-23; AD-7 (admin-driven branches 2 & 3), AD-10, AD-11; AR-22, AR-23; NFR-SEC1, NFR-RES1; UX-DR25 through UX-DR33
+
+**Dependencies:** Epic 1 (authentication — every endpoint in this epic is HR_ADMIN-gated, AD-6); Epic 2 (`content/` module already exists — `youtube_client.py`, `core/embedding.py`, `content_catalog` table all extended here, not rebuilt); Epic 3 (`assignments/`'s `create_assignment` flow gets one new outbound call, Story 6.4)
+
+**Known, carried-forward gap (PRD Open Question 17, architecture AD-11 point 5):** this epic's backend/API is built assignment-status-agnostic for FR-17/18/19/23 — an assigned Skill is not blocked from content-sourcing at the API layer. The UX spec (04.1) currently has **no entry point** that reaches this path for an assigned Skill (the frontend story, 6.10, builds only what 04.1 actually specifies — the unassigned-Skill path via Edit). This is a known, explicitly-flagged product/UX gap, not something this epic's stories should silently work around by adding a backend restriction that isn't in the FRs.
+
+---
+
+### Story 6.1: `skills/` Module Foundation — Data Model, Migration & Embeddings
+
+As a **developer**,
+I want to establish `skills/` as the sole owning module for the `skills` table, migrating it out of `assignments/`,
+So that Skill CRUD (FR-20/21/22) has a real architectural home instead of the narrow, documented exceptions that existed before this epic (AD-11, resolving PRD Open Question 16).
+
+**Acceptance Criteria:**
+
+**Given** the `Skill` ORM model currently lives in `assignments/models.py` (Story 1.7), with `content/repository.py::list_all_skills()` reading it directly as a documented narrow AD-1 exception (Story 2.3, scope note 2)
+**When** I create the `skills/` module (`app/skills/{router.py, service.py, repository.py, models.py, schemas.py}`, per the paradigm table)
+**Then**:
+- `Skill` moves to `skills/models.py`; `assignments/models.py` no longer defines it (imports it from `skills/models.py` only for the FK relationship on `Assignment.skill_id`, never for writes)
+- The `skills` table gains one new column: `ever_assigned` (boolean, not null, default `false`) — the AD-11 lock flag
+- A new Alembic migration applies this column addition without data loss to existing seeded Skill rows (all default to `ever_assigned = false`, correct since no Skill row can retroactively know whether it's "ever been assigned" without a backfill query — this migration includes a one-time backfill: `UPDATE skills SET ever_assigned = true WHERE id IN (SELECT DISTINCT skill_id FROM assignments)`, so pre-existing seeded/assigned Skills aren't incorrectly editable post-migration)
+
+**Given** `content/repository.py::list_all_skills()` (Story 2.3's documented exception)
+**When** this story lands
+**Then** it's replaced with a call to `skills.service.list_all_skills()` (the new module's Service API) — `content/` no longer imports `Skill` or queries the `skills` table directly; the exception documented in Story 2.3's scope note 2 is retired
+
+**Given** `skills/service.py`
+**When** a Skill's name (and description, if present) changes — on create (Story 6.2) or rename (Story 6.3)
+**Then** it calls `core/embedding.py::embed_text()` on `f"{name}: {description or ''}"` (same truncation convention as `content/`'s `_build_embedding_text`, Story 2.3) and stores the resulting vector in `skills.embedding` — mirrors `content/`'s existing embedding-on-write pattern, never computed inline in the router
+
+**Out of Scope (this story):** the CRUD endpoints themselves (Stories 6.2/6.3) — this story is schema, migration, module scaffolding, and the embedding-write helper only.
+
+---
+
+### Story 6.2: Skill Creation Endpoint (FR-20)
+
+As an **HR Admin**,
+I want to create a new Skill by name, with an embedding computed automatically,
+So that a Skill I need doesn't have to wait for a database seed script, and the new Skill is immediately eligible for both admin-sourced (this epic) and future batch-matched (Epic 2) content.
+
+**Acceptance Criteria:**
+
+**Given** I am authenticated as HR_ADMIN
+**When** I call `POST /api/admin/skills` with `{ name: str, description: str | None }`
+**Then**:
+- `name` is required, non-empty; `description` is optional
+- The service checks for an existing Skill with the same name, **case-insensitive** — if found, returns `409 Conflict` with the existing Skill's `id`/`name` in the response body (never silently creates a duplicate; the frontend, Story 6.10, uses this to offer "Use existing skill")
+- If no conflict, creates the Skill (`ever_assigned = false`), computes its embedding (Story 6.1), and returns `201 Created` with the full `SkillResponse` (id, name, description, `ever_assigned: false`, no raw embedding vector in the response — same "no raw embedding in default responses" convention as `content/`'s `ContentResponse`)
+
+**Given** an EMPLOYEE session
+**When** it calls `POST /api/admin/skills`
+**Then** it returns `403 Forbidden` (AD-6, HR_ADMIN-only)
+
+**Out of Scope (this story):** the frontend's "flows directly into content-sourcing" behavior (UX-DR31) — that's Story 6.10's job, orchestrating this endpoint plus Story 6.6's lookup endpoint from the client side. This story is the create endpoint alone.
+
+---
+
+### Story 6.3: Skill Edit & Delete — Permanent Lock Enforcement (FR-21/22)
+
+As an **HR Admin**,
+I want to rename, re-describe, or delete a Skill — but only while it has never been assigned to an Employee,
+So that I can fix a mistake cleanly, while every Skill an Employee has ever been assigned keeps a stable identity for audit purposes.
+
+**Acceptance Criteria:**
+
+**Given** a Skill with `ever_assigned = false`
+**When** I call `PATCH /api/admin/skills/{id}` with `{ name?: str, description?: str }`
+**Then**:
+- If `name` changes, the same case-insensitive duplicate check as Story 6.2 applies, **excluding the Skill's own current name** (renaming "Python Basics" and resubmitting "Python Basics" is not a duplicate) — on conflict, `409 Conflict`, no redirect payload (unlike create, there's no sensible "use existing" merge when renaming an existing Skill into another Skill's name)
+- On success, the name/description update in place, the embedding is recomputed (Story 6.1) if `name` or `description` changed, and `200 OK` returns the updated `SkillResponse`
+
+**Given** a Skill with `ever_assigned = true`
+**When** I call `PATCH /api/admin/skills/{id}` or `DELETE /api/admin/skills/{id}`
+**Then** both return `403 Forbidden` with a clear error message (e.g., `"Skill has been assigned to an Employee and can no longer be edited or deleted"`) — never a silent no-op, never a 404 (the Skill exists, the action is disallowed, and the caller should be told why, matching UX-DR26's "never silently hidden with no explanation" principle carried through to the API's own error message)
+
+**Given** a Skill with `ever_assigned = false` and zero approved Content attached
+**When** I call `DELETE /api/admin/skills/{id}`
+**Then** the Skill row is **hard deleted** (no soft-delete/audit columns — unlike FR-15's Assignment soft-delete, a deletable Skill by definition has no Assignment history to preserve, per PRD FR-22's consequence and its logged `[ASSUMPTION]`) and returns `204 No Content`
+
+**Given** a Skill with `ever_assigned = false` **and** one or more admin-approved `content_catalog` rows attached (FR-18)
+**When** I call `DELETE /api/admin/skills/{id}`
+**Then** those `content_catalog` rows are deleted in the same transaction (cascade) — nothing else can reference them, since no Assignment exists for this Skill — before the Skill row itself is deleted; both succeed or both roll back together
+
+**Given** any of the above
+**When** an EMPLOYEE session calls either endpoint
+**Then** `403 Forbidden` (AD-6)
+
+---
+
+### Story 6.4: Wire `ever_assigned` Into Assignment Creation (AD-11 point 3)
+
+As a **developer**,
+I want `assignments/`'s Assignment-creation flow to set the target Skill's `ever_assigned` flag,
+So that Story 6.3's permanent lock actually engages the first time a Skill is assigned — without `skills/` ever needing to query `assignments` directly.
+
+**Acceptance Criteria:**
+
+**Given** `assignments/`'s existing `create_assignment` service method (Story 3.1, extended by Story 3.4)
+**When** an Assignment is successfully created for `(employee_id, skill_id)`
+**Then** it calls `skills.service.mark_ever_assigned(skill_id)` — a `skills/`-owned write (AD-1: `assignments/` never writes the `skills` table directly) — **after** the Assignment insert commits, in the same request but not the same DB transaction as a hard dependency (if the flag-set call fails, the Assignment itself must not be rolled back or lost; log and continue — a missed flag-set is a data-quality issue to reconcile, not grounds to lose a real Assignment, consistent with this codebase's existing "never lose an Assignment over a secondary failure" principle, AR-13)
+
+**Given** `mark_ever_assigned(skill_id)` is called for a Skill that already has `ever_assigned = true`
+**When** the flag-set executes
+**Then** it's a no-op (idempotent — re-assigning an already-assigned Skill, or a second intentional Assignment per FR-1, does not error)
+
+**Given** this dependency direction
+**When** reviewing `assignments/`'s existing module dependencies
+**Then** this is the **same shape** as `assignments/`'s pre-existing dependency on `content/` for FR-1/FR-2's content lookup (AD-8) — confirmed here, not a new architectural pattern, just one more peer-module call in the same direction.
+
+---
+
+### Story 6.5: Per-Admin & Org-Wide Credential Storage (FR-16, AD-10)
+
+As an **HR Admin**,
+I want to add, view the connection status of, and remove my own YouTube key and the shared Udemy credential,
+So that live content lookup (Story 6.6) has something to authenticate with, without ever seeing a previously-saved secret again.
+
+**Acceptance Criteria:**
+
+**Given** neither table exists yet
+**When** I write a new Alembic migration
+**Then** it creates both tables from AD-10:
+- `admin_api_keys`: `id` (UUID PK), `admin_id` (UUID, FK → `employees.id`), `source` (text), `encrypted_key` (text), `created_at`/`updated_at` (timestamptz) — `UNIQUE(admin_id, source)`
+- `org_api_credentials`: `id` (UUID PK), `source` (text), `encrypted_key` (text), `configured_by` (UUID, nullable FK → `employees.id`), `created_at`/`updated_at` (timestamptz) — `UNIQUE(source)`
+
+**And** the migration is purely additive (two new tables, no existing table touched) — no backfill needed, since no credentials have ever existed before this story
+
+**Given** the two new tables from AD-10 (now created by this story's own migration, above)
+**When** I implement `core/secrets.py`
+**Then** it provides `encrypt_secret(plaintext: str) -> str` / `decrypt_secret(ciphertext: str) -> str` using **Fernet** symmetric encryption (`cryptography` lib), keyed by a new required setting `ADMIN_KEY_ENCRYPTION_SECRET` (`core/config.py`) — deliberately separate from `JWT_SECRET` (AD-10) — and this module is generic/domain-free, called only from `content/repository.py`, never from a router
+
+**Given** I am authenticated as HR_ADMIN
+**When** I call `PUT /api/admin/api-keys/youtube` with `{ key: str }`
+**Then** my own `admin_api_keys` row (`admin_id` = my session identity, `source = "YOUTUBE"`) is created or replaced (encrypted via `core/secrets.py`), and `204 No Content` is returned — the key itself is never echoed back
+
+**Given** I am authenticated as HR_ADMIN
+**When** I call `PUT /api/admin/api-keys/udemy` with `{ client_id: str, client_secret: str }`
+**Then** the single `org_api_credentials` row (`source = "UDEMY"`) is created or replaced (both fields encrypted, `configured_by` = my session identity), regardless of which Admin configured it before me — this is deliberately org-wide, not scoped to my own admin identity (AD-10)
+
+**Given** either credential type
+**When** I call `GET /api/admin/api-keys`
+**Then** the response is `{ youtube: { configured: bool }, udemy: { configured: bool, configured_by: str | null, configured_at: str | null } }` — **never** the encrypted or decrypted key/secret value, in any field, under any condition
+
+**Given** either credential type
+**When** I call `DELETE /api/admin/api-keys/youtube` or `DELETE /api/admin/api-keys/udemy`
+**Then** the corresponding row is deleted and `204 No Content` returned; a subsequent `GET` shows `configured: false`
+
+**Given** an EMPLOYEE session
+**When** it calls any `/api/admin/api-keys/*` endpoint
+**Then** `403 Forbidden` (AD-6)
+
+---
+
+### Story 6.6: Live Content Search — YouTube (Per-Admin) & Udemy (Org-Wide) (FR-17, AD-7 branches 2 & 3)
+
+As an **HR Admin**,
+I want to search YouTube and/or Udemy for content matching a Skill, live, on demand,
+So that I can close a content gap for that Skill right now instead of waiting on the next scheduled batch run.
+
+**Acceptance Criteria:**
+
+**Given** the existing `content/youtube_client.py::search_videos(api_key, query, max_results)` (Story 2.3 — already takes a caller-supplied key)
+**When** I call `POST /api/admin/skills/{id}/content-lookup` with `{ query: str }` as HR_ADMIN
+**Then** the handler fetches **my own** YouTube key from `admin_api_keys` (Story 6.5) and passes it as `api_key` — it **never** reads or references `settings.YOUTUBE_API_KEY` (the shared batch key). This is the boundary AD-7's regression guard now checks (re-scoped from "never call `search_videos`" to "never reference `settings.YOUTUBE_API_KEY` from a router")
+
+**Given** I have no YouTube key configured
+**When** I call this endpoint requesting YouTube results
+**Then** the YouTube portion of the response is an explicit `{ source: "YOUTUBE", error: "no_credential" }` entry — not attempted, not a generic failure
+
+**Given** the org-wide Udemy credential (Story 6.5)
+**When** I call the same endpoint
+**Then** a new `content/udemy_client.py` (mirroring `youtube_client.py`'s shape: a search function + a dedicated rate-limit exception) is called with the **org's** decrypted `client_id`/`client_secret` — never a per-admin key, since Udemy for Business issues credentials per organization (AD-7 branch 3)
+
+**Given** a source's search fails (invalid/revoked credential, source API error, or a rate-limit response)
+**When** the failure occurs
+**Then** that source's entry in the response is a distinct error (`{ source: "...", error: "invalid_credential" | "rate_limited" | "source_error" }`) and the **other** source's results (if requested and configured) are unaffected — one source's failure never blocks the other (NFR-RES1)
+
+**Given** `udemy_client.py`'s rate-limit handling
+**When** Udemy returns a rate-limit response
+**Then** it's detected via Udemy's **own** signal (whatever real response shape Udemy returns for this — to be confirmed against Udemy's actual API docs during implementation, mirroring `youtube_client.py`'s `QuotaExceededError` pattern of trusting the source's real signal rather than a local counter) — no local call counter or concurrency semaphore is built (Deferred, AD-7's Deferred section: "premature to build now" at this pilot's scale)
+
+**Given** either source returns results
+**When** the response is assembled
+**Then** each result includes `{ title, source: "YOUTUBE" | "UDEMY", url, thumbnail_url, duration_hours | null }` — no `content_catalog` row is written by this endpoint (search-only; writing happens in Story 6.8's approve action)
+
+**Given** an EMPLOYEE session
+**When** it calls this endpoint
+**Then** `403 Forbidden` (AD-6)
+
+**Out of Scope (this story):** the "Currently Approved" section shown alongside search results in the UI (Story 6.10 reads it via a separate, existing read of `content_catalog` — this endpoint is search-only, it doesn't need to know what's already approved).
+
+---
+
+### Story 6.7: Manual Content Link Entry (FR-17a)
+
+As an **HR Admin**,
+I want to paste a content link directly, as an alternative to searching,
+So that I can attach something I already have in mind without depending on either source's search API.
+
+**Acceptance Criteria:**
+
+**Given** I am authenticated as HR_ADMIN
+**When** I call `POST /api/admin/skills/{id}/content-manual` with `{ url: str, title: str, duration_hours: float | None }`
+**Then**:
+- `url` and `title` are required; `duration_hours` is optional
+- **No call to `youtube_client.py` or `udemy_client.py` is made** — this path is proven to never touch either client (same test-level guarantee `content/service.py::manual_seed_content()` already has for the batch CLI's manual path, Story 2.3 Dev Notes: "a direct assertion... that the seed path works with `youtube_client` entirely unmocked/unpatched")
+- `url` is validated as a well-formed URL (client-side-equivalent format check only — no reachability/content check; HR Admin is responsible for the link being correct, per FR-17a's consequence)
+- The response is a candidate object shaped identically to Story 6.6's search results (`{ title, source: "MANUAL", url, duration_hours }`, no `thumbnail_url`) — same downstream review/approve treatment as a searched result (Story 6.8), never auto-attached
+
+**Given** an EMPLOYEE session
+**When** it calls this endpoint
+**Then** `403 Forbidden` (AD-6)
+
+---
+
+### Story 6.8: Review, Approve & Estimate Days-to-Complete (FR-18, FR-19)
+
+As an **HR Admin**,
+I want to approve one candidate as Content for a Skill, seeing an estimated days-to-complete first,
+So that Employees assigned that Skill see a real, HR-approved recommendation immediately — not through the batch job's schedule.
+
+**Acceptance Criteria:**
+
+**Given** `content_catalog` (Story 2.1) has no `attached_by`/`origin` columns yet, and its `source` enum/check-constraint only allows `YOUTUBE`/`MANUAL` (Story 2.1/2.3)
+**When** I write a new Alembic migration
+**Then** it adds, purely additively, no data loss to existing rows:
+- `attached_by` (UUID, nullable, FK → `employees.id`) — nullable because every pre-existing row came from the batch job, not an Admin
+- `origin` (text, not null, `DEFAULT 'BATCH'`) — every pre-existing row backfills to `'BATCH'` via the column default, correctly reflecting how they were actually populated; no explicit `UPDATE` needed since the default handles it
+- `source`'s allowed values extended to include `UDEMY` (if implemented as a Postgres `CHECK` constraint or native enum type, the migration alters it in place rather than dropping/recreating the column)
+
+**Given** the migration above has run
+**When** I call `POST /api/admin/content/attach` with `{ skill_id, title, source, url, duration_hours }` as HR_ADMIN
+**Then**:
+- A `content_catalog` row is created: `skill_id`, `title`, `url`, `source` (`YOUTUBE`/`UDEMY`/`MANUAL`), `type: "VIDEO"` (or a reasonable default — content type inference from source is out of scope, default to `VIDEO` for `YOUTUBE`/`UDEMY`, `MANUAL`, matching the existing `content_catalog.type` enum from Story 2.1), `origin: "ADMIN_LOOKUP"`, `attached_by: <my admin id>`, and (if `duration_hours` given) `content_metadata.duration_hours`
+- An embedding is computed for the title (+ description if the candidate has one) via `core/embedding.py::embed_text()`, same as any other `content_catalog` write (Story 2.1/2.3 precedent) — an admin-sourced Content row is still eligible for future FR-3 semantic matching, not exempted from it
+- The response is `201 Created` with the full `ContentResponse` (no raw embedding vector, per the existing convention)
+
+**Given** the response includes `duration_hours`
+**When** the client (Story 6.10) displays it
+**Then** the estimate is computed **client-side** (`ceil(duration_hours / 5)`) per FR-19 — this endpoint does not persist a computed "days to complete" value, since it's a pure, cheap derivation from `duration_hours` and persisting it would just be a second source of truth to keep in sync; `duration_hours` itself is persisted, the days-figure is not
+
+**Given** a candidate has no `duration_hours`
+**When** it's approved
+**Then** `content_metadata.duration_hours` is simply absent — the client omits the days-to-complete display entirely (never a guessed value, FR-19's consequence)
+
+**Given** an EMPLOYEE session
+**When** it calls `POST /api/admin/content/attach`
+**Then** `403 Forbidden` (AD-6)
+
+**Out of Scope (this story):** re-validating a candidate's URL/metadata server-side beyond what Stories 6.6/6.7 already returned — this endpoint trusts the client-supplied candidate object (which itself came from either a real search result or the format-checked manual-entry path); no separate server-side re-fetch.
+
+---
+
+### Story 6.9: Reject the Currently Approved Content Link (FR-23)
+
+As an **HR Admin**,
+I want to remove a Skill's currently-approved Content link outright, independent of approving a replacement,
+So that I can clear a bad or outdated link even if I don't have a replacement lined up yet.
+
+**Acceptance Criteria:**
+
+**Given** a Skill has an approved `content_catalog` row with `origin = "ADMIN_LOOKUP"` (the most recently attached one, per FR-18's "one at a time shown" summary-card rule — though multiple may exist in the data, per PRD FR-18's "one or more links may be attached")
+**When** I call `DELETE /api/admin/content/{content_id}/reject` as HR_ADMIN
+**Then** that `content_catalog` row is **hard deleted** (no soft-delete/audit columns, `[ASSUMPTION]` per PRD FR-23's consequence — consistent with Story 6.3's Skill-deletion reasoning: admin-sourced Content carries lighter audit weight than Assignment/watch-progress history) and `204 No Content` is returned
+
+**Given** rejecting a Content row
+**When** it succeeds
+**Then** no confirmation step is required (unlike Story 6.3's Skill deletion) — this is deliberately lower-friction, matching FR-23's "no confirmation step" consequence, since it's immediately reversible in spirit (the Admin can search and approve something else right away)
+
+**Given** this endpoint
+**When** called for a Skill regardless of its `ever_assigned` value
+**Then** it succeeds the same way either way — **not gated by Skill assignment/lock status** (AD-11 point 5, PRD FR-23's consequence) — the permanent lock (Story 6.3) applies only to the Skill's own identity (name/description/existence), never to its Content
+
+**Given** the `content_id` does not exist, or exists but does not belong to the given Skill / was not admin-sourced
+**When** the request is made
+**Then** `404 Not Found` — no distinction leaked between "doesn't exist" and "wrong skill" (same uniform-403/404 pattern already established for `assignments/`'s scoped lookups, Story 1.3)
+
+**Given** an EMPLOYEE session
+**When** it calls this endpoint
+**Then** `403 Forbidden` (AD-6)
+
+---
+
+### Story 6.10: Skills Tab Frontend — Card Grid, Content Lookup, API Keys, Watch Modal
+
+As an **HR Admin**,
+I want a single Skills tab where I can see every Skill, manage my/the org's credentials, and source or reject Content,
+So that I have one place to close content gaps without waiting on anyone else, per UX spec 04.1.
+
+**Acceptance Criteria:**
+
+**Given** UX spec `04.1-skills-content-sourcing.md`, Section "Main Content: Skills Card Grid"
+**When** the Skills tab (`/skills`) loads
+**Then** it renders one card per Skill (`GET` over Story 6.1's `skills.service.list_all_skills()`, extended to also return each Skill's current approved Content and `ever_assigned` status), showing: Skill name, an "✓ Approved"/"⚠ None yet" badge, exactly **one** approved link if any exists (the most recently approved — UX-DR25), and a utility row — Edit (✎) + Delete (🗑) icons for `ever_assigned = false` Skills, or a 🔒 "Locked — assigned to an Employee" indicator for `ever_assigned = true` Skills (UX-DR26)
+
+**Given** the toolbar
+**When** I click `[+ New Skill]`
+**Then** a modal opens (name required, description optional) calling Story 6.2's create endpoint; on success it closes and the Content Lookup panel (below) opens automatically for the new Skill with the entered name pre-filled as the search term (UX-DR31); on a `409` duplicate response, an inline notice offers "Use existing skill" (opens Content Lookup for the existing one instead)
+
+**Given** an unassigned Skill's card
+**When** I click ✎ Edit
+**Then** the Content Lookup panel opens (below) in edit mode: editable Name/Description fields (calling Story 6.3's `PATCH` on save, panel stays open afterward) plus everything the panel offers otherwise — this is the **only** entry point into content-sourcing for an unassigned Skill (no separate "Find Content" button exists, per the UX spec's same-day revision); 🗑 Delete opens a confirmation modal (Story 6.3's `DELETE`, requires explicit confirm, page-level toast on success)
+
+**Given** the Content Lookup panel (any entry — Edit, or the create-flow hand-off)
+**When** it opens for a Skill that already has an approved Content link
+**Then** a "Currently Approved" section renders above the search tabs (source, title as a button opening the Watch Modal below, days-to-complete if known) with a "Reject" button calling Story 6.9's endpoint (no confirmation; on success the section clears, the panel **stays open**, a page-level toast confirms) — UX-DR32
+
+**Given** the panel's Search tab
+**When** I toggle YouTube/Udemy (each disabled with an inline "Add a key" prompt if `GET /api/admin/api-keys` shows `configured: false` for that source) and submit
+**Then** it calls Story 6.6's lookup endpoint and renders result cards grouped by source, each labeled "Search Results" (never "Recommended," UX-DR27), with duration + days-to-complete (FR-19, computed client-side per Story 6.8) shown only when known (UX-DR28), a [View] button opening the Watch Modal, and an [Approve] button calling Story 6.8's attach endpoint
+
+**Given** the panel's "Paste a link" tab
+**When** I fill in URL/Title/optional-Duration and click "Review link"
+**Then** it calls Story 6.7's manual-entry endpoint and renders the resulting candidate with the identical View/Approve treatment as a searched result
+
+**Given** any [Approve] click (search result, manual entry, or otherwise)
+**When** the attach call succeeds
+**Then** the Content Lookup panel **closes immediately** (UX-DR29 — no intermediate "approved, panel stays open" state), the Skills Card Grid re-renders with that Skill's card now showing the new approved link, and a page-level toast confirms ("✓ Content approved for {Skill name}")
+
+**Given** any content link anywhere on this page (a search/manual/currently-approved candidate's [View], or an already-approved link on a Skill card)
+**When** clicked
+**Then** it opens the Watch Modal, in-app, with a close control (✕ / footer Close) — embeds via `<iframe src="https://www.youtube.com/embed/{id}">` when the URL is a recognizable YouTube link, otherwise shows an explicit "Preview not available for {source}" state with an "Open in new tab" fallback link (UX-DR30) — never a bare `target="_blank"` redirect
+
+**Given** the toolbar's "Manage API Keys" button
+**When** clicked
+**Then** the API Keys modal opens: YouTube row (personal key, password input + Save/Remove, status "Not connected"/"Connected"), Udemy row (Client ID on its own row, Client secret + Save/Remove on the row below it — matching the YouTube row's input+buttons shape, all three text inputs equal fixed width), status "Not connected"/"Connected by {name}, {date}" — wired to Story 6.5's endpoints
+
+**Given** UX spec 04.1's explicitly-flagged gap
+**When** a Skill has `ever_assigned = true`
+**Then** its card has **no** control that opens the Content Lookup panel — this story implements exactly what 04.1 currently specifies; it does not invent an entry point 04.1 doesn't define (PRD Open Question 17 stays open, tracked for a future story once product/UX resolves it)
+
+**Out of Scope (this story):** Loading/Empty/Error states for the Skills Card Grid and Content Lookup panel with full production-grade polish — the E-Development mock (`04.1-Skills-Tab.html`) demonstrates the happy path and interaction shape; this story's own state coverage should match this codebase's established Loading/Empty/Error rigor (e.g., Story 5.1/5.7's pattern) at implementation time, not just the mock's level.
 
 ---
 

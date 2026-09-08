@@ -15,8 +15,10 @@ from sqlalchemy import (
     Text,
     Boolean,
     Integer,
+    UniqueConstraint,
     func,
     true,
+    false,
 )
 from sqlalchemy.orm import relationship
 
@@ -49,6 +51,11 @@ class Skill(Base):
     description = Column(Text)
     embedding = Column(Vector(384), nullable=False)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    # AD-11 / Story 6.1: permanent, one-way lock -- set true by assignments/
+    # on first Assignment creation (Story 6.4), never reset back to false.
+    # Model relocates to a new skills/ module later in Story 6.1's full scope;
+    # this column-only addition just keeps the ORM in sync with migration 004.
+    ever_assigned = Column(Boolean, default=False, nullable=False, server_default=false())
 
     # Relationships
     content_items = relationship("ContentCatalog", back_populates="skill")
@@ -76,6 +83,31 @@ class ContentCatalog(Base):
     __table_args__ = (
         Index("idx_content_skill", "skill_id"),
         Index("idx_content_embedding", "embedding", postgresql_using="ivfflat"),
+    )
+
+
+class AdminApiKey(Base):
+    """Per-Admin content-source API key (AD-10, Story 6.5).
+
+    Personal to one HR Admin -- e.g. their own YouTube Data API key.
+    Encrypted at rest via core/secrets.py before being stored in
+    encrypted_key; never decrypted/returned outside content/'s own
+    repository layer (AD-10). Owned by content/ (AD-1); the model lives
+    here alongside Skill/ContentCatalog per this codebase's existing
+    everything-in-assignments/models.py convention, not content/models.py.
+    """
+
+    __tablename__ = "admin_api_keys"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    admin_id = Column(UUID(as_uuid=True), ForeignKey("employees.id"), nullable=False)
+    source = Column(String(50), nullable=False)  # "YOUTUBE" -- per-admin sources only, AD-10
+    encrypted_key = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("admin_id", "source", name="uq_admin_api_keys_admin_id_source"),
     )
 
 

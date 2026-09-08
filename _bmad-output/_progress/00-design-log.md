@@ -189,6 +189,18 @@
 
 ---
 
+### 2026-09-08 — Phase 6/Epics: Epic 6 (Admin-Assisted Content Sourcing) Created
+
+**Agent:** `bmad-create-epics-and-stories` (extension mode, not the skill's default from-scratch flow) with Claude Code
+
+**Pre-work:** Resolved the two open architecture/product gaps flagged during UX design before writing stories against them. PRD Open Question 16 (Skills has no owning module) resolved via new architecture decision **AD-11**: new `skills/` module, permanent edit/delete lock implemented as a local `ever_assigned` boolean set by `assignments/` (same dependency shape `assignments/` already has toward `content/`). PRD Open Question 17 (no UI entry point for an assigned Skill's content-sourcing) confirmed at the architecture level as a UX gap, not a backend one — stays open, not resolved.
+
+**Artifacts:** `_bmad-output/planning-artifacts/epics.md` — extended, not regenerated (Epics 1-5 untouched). New **Epic 6: Admin-Assisted Content Sourcing**, 10 stories (6.1 `skills/` module foundation & migration, 6.2 Skill creation, 6.3 Skill edit/delete + permanent lock, 6.4 wiring `ever_assigned` into Assignment creation, 6.5 credential storage, 6.6 live search YouTube+Udemy, 6.7 manual link entry, 6.8 review/approve/days-estimate, 6.9 reject content, 6.10 Skills Tab frontend). Requirements Inventory extended (FR-16-23 + backfilled FR-15, new NFRs, AR-22/23, UX-DR25-33), FR Coverage Map and Epic List updated. `ARCHITECTURE-SPINE.md` gained AD-11 plus frontmatter/paradigm-table/dependency-diagram/ER-diagram/source-tree/capability-map updates; `prd.md` Open Questions 16/17 updated to match. `project-context.md` updated with a full session-arc summary per this project's own mandatory-maintenance convention.
+
+**Next:** Route Epic 6 through `bmad-create-story`/`bmad-dev-story` for implementation, same as Epics 1-5. Resolve PRD Open Question 17 (assigned-Skill content-sourcing entry point) before Story 6.10's known gap needs closing.
+
+---
+
 ## Key Decisions
 
 | Date | Decision | Phase | Contributors |
