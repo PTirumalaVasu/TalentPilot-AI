@@ -4,7 +4,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.assignments.models import ContentCatalog, Skill
+from app.assignments.models import ContentCatalog
 
 # Cosine similarity a Content match must clear to be recommended (Story 2.4,
 # AD-7). Plain module constant, not a Settings field -- mirrors
@@ -75,23 +75,6 @@ async def create_content(db: AsyncSession, content_data: dict) -> ContentCatalog
     return content
 
 
-async def get_skill_embedding(db: AsyncSession, skill_id: UUID) -> list[float] | None:
-    """Read a Skill's embedding for matching (Story 2.4).
-
-    No `skills/` module/service exists yet (Story 3.2 is still backlog), so
-    this reads `Skill` directly from `app.assignments.models` -- the same
-    physical-location/logical-ownership split already established for
-    `ContentCatalog` above. Read-only, single-column; writes to `skills`
-    remain out of scope here.
-
-    Returns:
-        The embedding as a plain list[float], or None if the Skill doesn't exist.
-    """
-    result = await db.execute(select(Skill.embedding).where(Skill.id == skill_id))
-    embedding = result.scalar_one_or_none()
-    return embedding.tolist() if embedding is not None else None
-
-
 async def find_best_matching_content(
     db: AsyncSession,
     skill_id: UUID,
@@ -122,15 +105,3 @@ async def find_best_matching_content(
     )
     result = await db.execute(stmt)
     return result.scalar_one_or_none()
-async def list_all_skills(db: AsyncSession) -> list[Skill]:
-    """Read-only enumeration of all Skills, needed by the ingestion job to
-    know what to search YouTube for.
-
-    NOTE: `skills` is not in AD-1's "Binds" list -- no module has an
-    established owning repository for it yet (Epic 3's Skill Master Data
-    story is still backlog). This is a deliberate, narrow, documented
-    exception, not a precedent for other cross-table reads. Migrate this
-    call to a real Service API once one exists (Story 2.3 Scope Note 2).
-    """
-    result = await db.execute(select(Skill))
-    return list(result.scalars().all())

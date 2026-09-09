@@ -17,8 +17,9 @@ from contextlib import asynccontextmanager
 import pytest
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from app.assignments.models import ContentCatalog, Skill
-from app.content.repository import find_best_matching_content, get_skill_embedding
+from app.assignments.models import ContentCatalog
+from app.skills.models import Skill
+from app.content.repository import find_best_matching_content
 from app.content.service import match_content_for_skill, reembed_content_for_skill
 from app.core.config import settings
 from app.core.embedding import embed_text
@@ -198,13 +199,6 @@ async def test_service_returns_none_when_no_content_clears_threshold():
 
 
 # --- AC7: nonexistent skill -----------------------------------------------------
-
-
-async def test_get_skill_embedding_returns_none_for_nonexistent_skill():
-    async with _seeded_session() as session:
-        embedding = await get_skill_embedding(session, uuid.uuid4())
-
-        assert embedding is None
 
 
 async def test_service_returns_none_for_nonexistent_skill():

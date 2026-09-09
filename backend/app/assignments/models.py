@@ -18,11 +18,21 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
     true,
-    false,
 )
 from sqlalchemy.orm import relationship
 
 from app.core.db import Base
+# Whole-module import, not `from app.skills.models import Skill` -- registers
+# Skill with the shared declarative Base (so Assignment/ContentCatalog's
+# relationship(back_populates=...) can resolve the "Skill" string below)
+# without re-exposing `Skill` as an importable name on this module. Code
+# review (2026-09-09) found the `from ... import Skill` form silently kept
+# the pre-Story-6.1 `from app.assignments.models import Skill` path working
+# for any caller, undermining the whole point of relocating it -- verified
+# zero remaining call sites depended on that path before switching. Skill
+# itself now lives in app.skills.models (Story 6.1); assignments/ never
+# queries or writes the skills table directly (AD-1, AD-11).
+import app.skills.models  # noqa: F401
 
 
 class Employee(Base):
@@ -41,25 +51,6 @@ class Employee(Base):
     assignments_deleted = relationship("Assignment", back_populates="deleted_by_user", foreign_keys="Assignment.deleted_by")
     overrides_created = relationship("AssignmentOverride", back_populates="set_by_user", foreign_keys="AssignmentOverride.set_by")
     overrides_reversed = relationship("AssignmentOverride", back_populates="reversed_by_user", foreign_keys="AssignmentOverride.reversed_by")
-
-
-class Skill(Base):
-    __tablename__ = "skills"
-
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    name = Column(String(255), unique=True, nullable=False)
-    description = Column(Text)
-    embedding = Column(Vector(384), nullable=False)
-    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
-    # AD-11 / Story 6.1: permanent, one-way lock -- set true by assignments/
-    # on first Assignment creation (Story 6.4), never reset back to false.
-    # Model relocates to a new skills/ module later in Story 6.1's full scope;
-    # this column-only addition just keeps the ORM in sync with migration 004.
-    ever_assigned = Column(Boolean, default=False, nullable=False, server_default=false())
-
-    # Relationships
-    content_items = relationship("ContentCatalog", back_populates="skill")
-    assignments = relationship("Assignment", back_populates="skill")
 
 
 class ContentCatalog(Base):
@@ -93,8 +84,9 @@ class AdminApiKey(Base):
     Encrypted at rest via core/secrets.py before being stored in
     encrypted_key; never decrypted/returned outside content/'s own
     repository layer (AD-10). Owned by content/ (AD-1); the model lives
-    here alongside Skill/ContentCatalog per this codebase's existing
-    everything-in-assignments/models.py convention, not content/models.py.
+    here alongside ContentCatalog per this codebase's existing
+    everything-in-assignments/models.py convention, not content/models.py
+    (Skill itself moved out to app.skills.models in Story 6.1).
     """
 
     __tablename__ = "admin_api_keys"

@@ -22,7 +22,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from app.assignments.models import Skill
+from app.skills.models import Skill
 from app.core.config import settings
 from app.core.embedding import EMBEDDING_DIM
 from app.core.seeds import (

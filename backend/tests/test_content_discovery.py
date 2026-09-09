@@ -12,7 +12,8 @@ import pytest
 from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from app.assignments.models import ContentCatalog, Skill
+from app.assignments.models import ContentCatalog
+from app.skills.models import Skill
 from app.assignments.repository import create_assignment
 from app.assignments.service import list_my_assignments
 from app.auth.schemas import CurrentUser, Role

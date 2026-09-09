@@ -7,9 +7,17 @@ from sqlalchemy import func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.assignments.models import Assignment, Employee, Skill
+from app.assignments.models import Assignment, Employee
 from app.auth.schemas import CurrentUser, Role
 from app.core.errors import AppException
+# Read-only, single-query listing for the assignment modal's Step 2
+# combobox (Story 3.4) -- a narrow, pre-existing direct read against
+# `skills`, now `skills/`'s owned table (AD-11). Not migrated to
+# skills.service by this story (Story 6.1's own ACs scope the
+# content/repository.py::list_all_skills() replacement only); flagged here
+# as the same class of exception, left for a future story to route through
+# a real Service API call instead.
+from app.skills.models import Skill
 
 
 def _parse_user_id(current_user: CurrentUser) -> uuid.UUID:
@@ -51,7 +59,12 @@ async def list_employees(session: AsyncSession, *, search: str | None = None) ->
 
 async def list_skills(session: AsyncSession, *, search: str | None = None) -> list[Skill]:
     """Read-only skill directory listing for the assignment modal's Step 2
-    (Skill) combobox — no scoping (skills aren't employee-owned data)."""
+    (Skill) combobox — no scoping (skills aren't employee-owned data).
+
+    A narrow, documented AD-1 exception: `skills` is `skills/`'s owned
+    table (AD-11), and this reads it directly rather than through
+    `skills.service`. Not migrated by Story 6.1 (out of that story's own
+    scope — see the import comment above); left for a future story."""
     stmt = select(Skill)
     if search:
         pattern = f"%{search}%"

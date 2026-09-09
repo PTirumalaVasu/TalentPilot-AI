@@ -9,8 +9,8 @@ import uuid
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.assignments.models import Skill
-from app.content.repository import list_all_skills, list_content_by_skill
+from app.skills.models import Skill
+from app.content.repository import list_content_by_skill
 from app.content.schemas import ManualContentCreate
 from app.content.service import (
     _build_embedding_text,
@@ -46,15 +46,6 @@ def _fake_search_results(count: int, prefix: str = "vid") -> list[dict]:
         }
         for i in range(count)
     ]
-
-
-@pytest.mark.asyncio
-async def test_list_all_skills_returns_seeded_skills(db_session: AsyncSession):
-    """list_all_skills should return at least the seeded Skills."""
-    skills = await list_all_skills(db_session)
-
-    assert len(skills) >= 5
-    assert all(isinstance(s, Skill) for s in skills)
 
 
 @pytest.mark.asyncio

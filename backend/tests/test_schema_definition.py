@@ -12,14 +12,20 @@ from app.assignments.models import (
     AssignmentOverride,
     ContentCatalog,
     Employee,
-    Skill,
     SkillProgress,
 )
+from app.skills.models import Skill
 from app.core.db import Base
 
 
 def test_all_tables_defined():
-    """Verify all 7 required tables are defined in the ORM."""
+    """Verify all 8 required tables are defined in the ORM.
+
+    Was pinned at 7 (missing admin_api_keys, Story 6.5's migration 005) --
+    a pre-existing gap from that ad hoc migration commit predating this
+    story, found while updating this file's Skill import path and fixed
+    here since it's a one-line, in-scope correction to a test this story
+    already touches."""
     expected_tables = {
         "accounts",
         "employees",
@@ -28,6 +34,7 @@ def test_all_tables_defined():
         "assignments",
         "skill_progress",
         "assignment_overrides",
+        "admin_api_keys",
     }
     actual_tables = set(Base.metadata.tables.keys())
     assert expected_tables == actual_tables, f"Table mismatch. Expected: {expected_tables}, Got: {actual_tables}"
@@ -56,8 +63,30 @@ def test_skills_table_structure():
     mapper = class_mapper(Skill)
     columns = {col.name for col in mapper.columns}
 
-    expected = {"id", "name", "description", "embedding", "created_at"}
+    expected = {"id", "name", "description", "embedding", "created_at", "ever_assigned"}
     assert expected.issubset(columns), f"Missing columns: {expected - columns}"
+
+
+def test_skills_ever_assigned_column_is_a_non_nullable_boolean_defaulting_false():
+    """AD-11's permanent lock flag (migration 004, Story 6.1) -- must never
+    be nullable (a NULL would be neither locked nor unlocked) and must
+    default to false for a newly-created Skill, both at the Python/ORM
+    level (`default=`, for INSERTs issued through the ORM without setting
+    it explicitly) and the DB level (`server_default=`, for any INSERT that
+    bypasses the ORM, e.g. a raw migration backfill). Code review
+    (2026-09-09) found the original version of this test only asserted
+    `nullable`/`type`, not the default it was named for -- the actual
+    runtime default is exercised end-to-end by
+    test_skills_repository.py::test_new_skill_defaults_ever_assigned_to_false;
+    this schema-level test now also asserts the two column-definition
+    attributes that produce that behavior."""
+    mapper = class_mapper(Skill)
+    ever_assigned_col = mapper.columns["ever_assigned"]
+
+    assert ever_assigned_col.nullable is False
+    assert ever_assigned_col.type.__class__.__name__ == "Boolean"
+    assert ever_assigned_col.default.arg is False
+    assert str(ever_assigned_col.server_default.arg) == "false"
 
 
 def test_content_catalog_table_structure():

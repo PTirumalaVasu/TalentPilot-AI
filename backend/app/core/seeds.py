@@ -6,9 +6,10 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import Account
-from app.assignments.models import ContentCatalog, Employee, Skill
+from app.assignments.models import ContentCatalog, Employee
 from app.core.embedding import embed_text
 from app.core.seed_ids import CASEY_ID, JORDAN_ID, MORGAN_ID, RITA_ID, SAM_ID
+from app.skills.models import Skill
 
 SKILL_DATA_VIZ_ID = uuid.UUID("660e8400-e29b-41d4-a716-446655440001")
 SKILL_SALESFORCE_ID = uuid.UUID("660e8400-e29b-41d4-a716-446655440002")

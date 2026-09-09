@@ -4,7 +4,8 @@ import uuid
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.assignments.models import ContentCatalog, Skill
+from app.assignments.models import ContentCatalog
+from app.skills.models import Skill
 from app.content.service import get_content, list_content_for_skill
 from app.content.schemas import ContentResponse
 

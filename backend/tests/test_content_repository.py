@@ -4,7 +4,8 @@ import uuid
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.assignments.models import ContentCatalog, Skill
+from app.assignments.models import ContentCatalog
+from app.skills.models import Skill
 from app.content.repository import (
     get_content_by_id,
     list_content_by_skill,

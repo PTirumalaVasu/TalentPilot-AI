@@ -11,12 +11,12 @@ from sqlalchemy.pool import NullPool
 from app.auth.models import Account  # noqa: F401
 from app.assignments.models import (  # noqa: F401
     Employee,
-    Skill,
     ContentCatalog,
     Assignment,
     SkillProgress,
     AssignmentOverride,
 )
+from app.skills.models import Skill  # noqa: F401
 from app.core.seeds import run_seeds
 
 os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://talentpilot:sails123@localhost:5433/talentpilot")

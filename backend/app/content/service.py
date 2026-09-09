@@ -10,6 +10,7 @@ from app.content import youtube_client
 from app.content.schemas import ContentResponse, ManualContentCreate
 from app.core.config import settings
 from app.core.embedding import embed_text
+from app.skills import service as skills_service
 
 logger = logging.getLogger(__name__)
 
@@ -108,10 +109,10 @@ async def run_ingestion_job(
         )
 
     if skill_ids is not None:
-        all_skills = await repository.list_all_skills(db)
+        all_skills = await skills_service.list_all_skills(db)
         skills = [s for s in all_skills if s.id in set(skill_ids)]
     else:
-        skills = await repository.list_all_skills(db)
+        skills = await skills_service.list_all_skills(db)
 
     # Extract plain (id, name) pairs up front: a rollback() triggered by
     # any skill's failure expires every ORM object on the shared session,
@@ -255,7 +256,7 @@ async def match_content_for_skill(db: AsyncSession, skill_id: UUID) -> ContentRe
         exist or no Content clears the similarity threshold even after
         the re-embed retry.
     """
-    skill_embedding = await repository.get_skill_embedding(db, skill_id)
+    skill_embedding = await skills_service.get_skill_embedding(db, skill_id)
     if skill_embedding is None:
         return None
 
