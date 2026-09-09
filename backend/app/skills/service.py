@@ -14,7 +14,7 @@ from app.core.embedding import embed_text
 from app.core.errors import AppException
 from app.skills import repository
 from app.skills.models import Skill
-from app.skills.schemas import CreateSkillRequest, SkillResponse
+from app.skills.schemas import CreateSkillRequest, SkillResponse, UpdateSkillRequest
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +61,33 @@ def _conflict(existing: Skill) -> AppException:
         error_code="SKILL_NAME_CONFLICT",
         message=f"A skill named '{existing.name}' already exists",
         extra={"existing_skill": {"id": str(existing.id), "name": existing.name}},
+    )
+
+
+def _rename_conflict(existing: Skill) -> AppException:
+    # Deliberately no `extra` payload -- AC1 (rename) explicitly rules out
+    # the "redirect to existing skill" affordance create's 409 carries
+    # (Story 6.2); there's no sensible "use existing skill" merge action
+    # when renaming into another Skill's name.
+    return AppException(
+        status.HTTP_409_CONFLICT,
+        error_code="SKILL_NAME_CONFLICT",
+        message=f"A skill named '{existing.name}' already exists",
+    )
+
+
+def _not_found() -> AppException:
+    return AppException(status.HTTP_404_NOT_FOUND, error_code="SKILL_NOT_FOUND", message="Skill not found")
+
+
+def _locked() -> AppException:
+    # Exact wording from Story 6.3's AC2 -- never a silent no-op, never a
+    # 404 (the Skill exists, the action is disallowed and the caller is
+    # told why).
+    return AppException(
+        status.HTTP_403_FORBIDDEN,
+        error_code="SKILL_LOCKED",
+        message="Skill has been assigned to an Employee and can no longer be edited or deleted",
     )
 
 
@@ -113,3 +140,87 @@ async def create_skill_service(
         raise _conflict(existing) from None
 
     return SkillResponse.model_validate(skill)
+
+
+async def update_skill_service(
+    db: AsyncSession, *, current_user: CurrentUser, skill_id: UUID, request: UpdateSkillRequest
+) -> SkillResponse:
+    """Rename/re-describe a Skill (Story 6.3 AC1). HR_ADMIN-only, permanently
+    locked once `ever_assigned` is true (AC2, AD-11 point 2 -- a one-way
+    gate skills/ enforces locally, never re-derived from assignments/).
+
+    Only fields actually present in the request are touched
+    (`exclude_unset=True`) -- omitting a field leaves it unchanged, matching
+    standard PATCH semantics. The duplicate check excludes the Skill's own
+    row (AC1: resubmitting a Skill's current name is not a conflict with
+    itself), and the embedding is only recomputed if `name` or `description`
+    actually changes value, not merely because the field was present in the
+    request body.
+    """
+    require_hr_admin(current_user)
+
+    skill = await repository.get_skill_by_id(db, skill_id)
+    if skill is None:
+        raise _not_found()
+    if skill.ever_assigned:
+        raise _locked()
+
+    fields = request.model_dump(exclude_unset=True)
+    new_name = fields.get("name", skill.name)
+    new_description = fields.get("description", skill.description)
+    name_changed = "name" in fields and new_name != skill.name
+    description_changed = "description" in fields and new_description != skill.description
+
+    if name_changed:
+        existing = await repository.get_skill_by_name_ci(db, new_name)
+        if existing is not None and existing.id != skill.id:
+            raise _rename_conflict(existing)
+
+    updates: dict = {}
+    if name_changed:
+        updates["name"] = new_name
+    if description_changed:
+        updates["description"] = new_description
+    if name_changed or description_changed:
+        updates["embedding"] = embed_text(_build_embedding_text(new_name, new_description))
+
+    if not updates:
+        return SkillResponse.model_validate(skill)
+
+    try:
+        skill = await repository.update_skill(db, skill, updates)
+    except IntegrityError:
+        # Same concurrent-rename race as create_skill_service's insert path
+        # -- migration 006's functional unique index on lower(name) is the
+        # DB-level backstop this pre-check alone can't fully close.
+        await db.rollback()
+        existing = await repository.get_skill_by_name_ci(db, new_name)
+        if existing is None or existing.id == skill_id:
+            raise
+        raise _rename_conflict(existing) from None
+
+    return SkillResponse.model_validate(skill)
+
+
+async def delete_skill_service(db: AsyncSession, *, current_user: CurrentUser, skill_id: UUID) -> None:
+    """Hard-delete a Skill and its attached Content (Story 6.3 AC3/AC4).
+    HR_ADMIN-only, permanently locked once `ever_assigned` is true (AC2)."""
+    require_hr_admin(current_user)
+
+    skill = await repository.get_skill_by_id(db, skill_id)
+    if skill is None:
+        raise _not_found()
+    if skill.ever_assigned:
+        raise _locked()
+
+    try:
+        await repository.delete_skill(db, skill_id)
+    except IntegrityError:
+        # ever_assigned=false is only as reliable as whatever sets it true
+        # (Story 6.4, deferred per this story's review) -- if a real
+        # Assignment/Content still references this Skill despite the flag
+        # reading false, the DB's own RESTRICT FK is the real authority.
+        # Converting that violation to the same 403 a caller would have
+        # seen had the flag been accurate is more honest than a raw 500.
+        await db.rollback()
+        raise _locked() from None

@@ -1,4 +1,5 @@
-"""Tests for the skills module's service layer (Story 6.1, AD-11; Story 6.2, FR-20).
+"""Tests for the skills module's service layer (Story 6.1, AD-11; Story 6.2, FR-20;
+Story 6.3, FR-21/22).
 
 `_build_embedding_text` is the "embedding-write helper" this story is
 scoped to provide -- Story 6.2 (create) and Story 6.3 (rename) will call
@@ -23,17 +24,28 @@ from contextlib import asynccontextmanager
 from unittest import mock
 
 import pytest
-from sqlalchemy import delete
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
+from pydantic import ValidationError
+
+from app.assignments.models import Assignment, ContentCatalog
 from app.auth.schemas import CurrentUser, Role
 from app.core.config import settings
 from app.core.errors import AppException
+from app.core.seed_ids import CASEY_ID, RITA_ID
 from app.core.seeds import run_seeds
 from app.skills import repository as skills_repository
 from app.skills.models import Skill
-from app.skills.schemas import CreateSkillRequest
-from app.skills.service import _build_embedding_text, create_skill_service, get_skill_embedding, list_all_skills
+from app.skills.schemas import CreateSkillRequest, UpdateSkillRequest
+from app.skills.service import (
+    _build_embedding_text,
+    create_skill_service,
+    delete_skill_service,
+    get_skill_embedding,
+    list_all_skills,
+    update_skill_service,
+)
 
 # Per-test @pytest.mark.asyncio(loop_scope="module") below, not a blanket
 # module-level pytestmark (unlike test_skills_repository.py) -- this file
@@ -234,3 +246,355 @@ async def test_create_skill_service_rejects_employee_role():
             )
 
         assert exc_info.value.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# Story 6.3: update_skill_service / delete_skill_service
+# ---------------------------------------------------------------------------
+
+
+async def _create_unlocked_skill(session, *, name: str, description: str | None = "original description") -> Skill:
+    response = await create_skill_service(
+        session, current_user=_HR_ADMIN, request=CreateSkillRequest(name=name, description=description)
+    )
+    result = await session.execute(select(Skill).where(Skill.id == response.id))
+    return result.scalar_one()
+
+
+@pytest.mark.asyncio(loop_scope="module")
+async def test_update_skill_service_renames_and_recomputes_embedding():
+    name = f"Rename Source {uuid.uuid4().hex[:8]}"
+    new_name = f"Rename Target {uuid.uuid4().hex[:8]}"
+    async with _seeded_session() as session:
+        try:
+            skill = await _create_unlocked_skill(session, name=name)
+            original_embedding = await get_skill_embedding(session, skill.id)
+
+            response = await update_skill_service(
+                session,
+                current_user=_HR_ADMIN,
+                skill_id=skill.id,
+                request=UpdateSkillRequest(name=new_name, description="new description"),
+            )
+
+            assert response.name == new_name
+            assert response.description == "new description"
+            new_embedding = await get_skill_embedding(session, skill.id)
+            assert new_embedding != original_embedding
+        finally:
+            await session.execute(delete(Skill).where(Skill.name.in_([name, new_name])))
+            await session.commit()
+
+
+@pytest.mark.asyncio(loop_scope="module")
+async def test_update_skill_service_resubmitting_own_current_name_is_not_a_conflict():
+    name = f"Self Resubmit {uuid.uuid4().hex[:8]}"
+    async with _seeded_session() as session:
+        try:
+            skill = await _create_unlocked_skill(session, name=name)
+
+            response = await update_skill_service(
+                session,
+                current_user=_HR_ADMIN,
+                skill_id=skill.id,
+                request=UpdateSkillRequest(name=name),
+            )
+
+            assert response.name == name
+        finally:
+            await session.execute(delete(Skill).where(Skill.name == name))
+            await session.commit()
+
+
+@pytest.mark.asyncio(loop_scope="module")
+async def test_update_skill_service_unchanged_fields_do_not_recompute_embedding():
+    name = f"No Change {uuid.uuid4().hex[:8]}"
+    async with _seeded_session() as session:
+        try:
+            skill = await _create_unlocked_skill(session, name=name, description="same description")
+            original_embedding = await get_skill_embedding(session, skill.id)
+
+            await update_skill_service(
+                session,
+                current_user=_HR_ADMIN,
+                skill_id=skill.id,
+                request=UpdateSkillRequest(name=name, description="same description"),
+            )
+
+            unchanged_embedding = await get_skill_embedding(session, skill.id)
+            assert unchanged_embedding == original_embedding
+        finally:
+            await session.execute(delete(Skill).where(Skill.name == name))
+            await session.commit()
+
+
+@pytest.mark.asyncio(loop_scope="module")
+async def test_update_skill_service_partial_update_leaves_other_field_untouched():
+    name = f"Partial Update {uuid.uuid4().hex[:8]}"
+    async with _seeded_session() as session:
+        try:
+            skill = await _create_unlocked_skill(session, name=name, description="keep me")
+
+            response = await update_skill_service(
+                session,
+                current_user=_HR_ADMIN,
+                skill_id=skill.id,
+                request=UpdateSkillRequest(description="changed"),
+            )
+
+            assert response.name == name
+            assert response.description == "changed"
+        finally:
+            await session.execute(delete(Skill).where(Skill.name == name))
+            await session.commit()
+
+
+@pytest.mark.asyncio(loop_scope="module")
+async def test_update_skill_service_rejects_duplicate_name_excluding_self():
+    first_name = f"Duplicate Rename A {uuid.uuid4().hex[:8]}"
+    second_name = f"Duplicate Rename B {uuid.uuid4().hex[:8]}"
+    async with _seeded_session() as session:
+        try:
+            first = await _create_unlocked_skill(session, name=first_name)
+            second = await _create_unlocked_skill(session, name=second_name)
+
+            with pytest.raises(AppException) as exc_info:
+                await update_skill_service(
+                    session,
+                    current_user=_HR_ADMIN,
+                    skill_id=second.id,
+                    request=UpdateSkillRequest(name=first_name),
+                )
+
+            assert exc_info.value.status_code == 409
+            assert exc_info.value.error_code == "SKILL_NAME_CONFLICT"
+            # Unlike create's 409 (Story 6.2), rename's 409 carries no
+            # existing_skill redirect payload -- AC1's explicit "no
+            # redirect payload" requirement (code review, 2026-09-09).
+            assert exc_info.value.extra == {}
+        finally:
+            await session.execute(delete(Skill).where(Skill.name.in_([first_name, second_name])))
+            await session.commit()
+
+
+@pytest.mark.asyncio(loop_scope="module")
+async def test_update_skill_service_rejects_locked_skill():
+    name = f"Locked Update {uuid.uuid4().hex[:8]}"
+    async with _seeded_session() as session:
+        try:
+            skill = await _create_unlocked_skill(session, name=name)
+            skill.ever_assigned = True
+            await session.flush()
+
+            with pytest.raises(AppException) as exc_info:
+                await update_skill_service(
+                    session,
+                    current_user=_HR_ADMIN,
+                    skill_id=skill.id,
+                    request=UpdateSkillRequest(name="Should Not Apply"),
+                )
+
+            assert exc_info.value.status_code == 403
+            assert exc_info.value.error_code == "SKILL_LOCKED"
+        finally:
+            await session.execute(delete(Skill).where(Skill.name == name))
+            await session.commit()
+
+
+@pytest.mark.asyncio(loop_scope="module")
+async def test_update_skill_service_rejects_nonexistent_skill():
+    async with _seeded_session() as session:
+        with pytest.raises(AppException) as exc_info:
+            await update_skill_service(
+                session,
+                current_user=_HR_ADMIN,
+                skill_id=uuid.uuid4(),
+                request=UpdateSkillRequest(name="Whatever"),
+            )
+
+        assert exc_info.value.status_code == 404
+        assert exc_info.value.error_code == "SKILL_NOT_FOUND"
+
+
+@pytest.mark.asyncio(loop_scope="module")
+async def test_update_skill_service_rejects_employee_role():
+    name = f"Employee Update Attempt {uuid.uuid4().hex[:8]}"
+    async with _seeded_session() as session:
+        try:
+            skill = await _create_unlocked_skill(session, name=name)
+
+            with pytest.raises(AppException) as exc_info:
+                await update_skill_service(
+                    session,
+                    current_user=_EMPLOYEE,
+                    skill_id=skill.id,
+                    request=UpdateSkillRequest(name="New Name"),
+                )
+
+            assert exc_info.value.status_code == 403
+        finally:
+            await session.execute(delete(Skill).where(Skill.name == name))
+            await session.commit()
+
+
+@pytest.mark.asyncio(loop_scope="module")
+async def test_delete_skill_service_hard_deletes_skill_with_no_content():
+    name = f"Delete Empty {uuid.uuid4().hex[:8]}"
+    async with _seeded_session() as session:
+        skill = await _create_unlocked_skill(session, name=name)
+        skill_id = skill.id
+
+        await delete_skill_service(session, current_user=_HR_ADMIN, skill_id=skill_id)
+
+        result = await session.execute(select(Skill).where(Skill.id == skill_id))
+        assert result.scalar_one_or_none() is None
+
+
+@pytest.mark.asyncio(loop_scope="module")
+async def test_delete_skill_service_cascades_attached_content_catalog_rows():
+    name = f"Delete With Content {uuid.uuid4().hex[:8]}"
+    async with _seeded_session() as session:
+        skill = await _create_unlocked_skill(session, name=name)
+        content = ContentCatalog(
+            skill_id=skill.id,
+            title="Attached Content",
+            type="VIDEO",
+            url="https://example.com/video",
+            embedding=[0.1] * 384,
+            source="MANUAL",
+        )
+        session.add(content)
+        await session.flush()
+        content_id = content.id
+
+        await delete_skill_service(session, current_user=_HR_ADMIN, skill_id=skill.id)
+
+        skill_result = await session.execute(select(Skill).where(Skill.id == skill.id))
+        assert skill_result.scalar_one_or_none() is None
+        content_result = await session.execute(select(ContentCatalog).where(ContentCatalog.id == content_id))
+        assert content_result.scalar_one_or_none() is None
+
+
+@pytest.mark.asyncio(loop_scope="module")
+async def test_delete_skill_service_rejects_locked_skill():
+    name = f"Locked Delete {uuid.uuid4().hex[:8]}"
+    async with _seeded_session() as session:
+        try:
+            skill = await _create_unlocked_skill(session, name=name)
+            skill.ever_assigned = True
+            await session.flush()
+
+            with pytest.raises(AppException) as exc_info:
+                await delete_skill_service(session, current_user=_HR_ADMIN, skill_id=skill.id)
+
+            assert exc_info.value.status_code == 403
+            assert exc_info.value.error_code == "SKILL_LOCKED"
+
+            result = await session.execute(select(Skill).where(Skill.id == skill.id))
+            assert result.scalar_one_or_none() is not None
+        finally:
+            await session.execute(delete(Skill).where(Skill.name == name))
+            await session.commit()
+
+
+@pytest.mark.asyncio(loop_scope="module")
+async def test_delete_skill_service_rejects_nonexistent_skill():
+    async with _seeded_session() as session:
+        with pytest.raises(AppException) as exc_info:
+            await delete_skill_service(session, current_user=_HR_ADMIN, skill_id=uuid.uuid4())
+
+        assert exc_info.value.status_code == 404
+        assert exc_info.value.error_code == "SKILL_NOT_FOUND"
+
+
+@pytest.mark.asyncio(loop_scope="module")
+async def test_delete_skill_service_rejects_employee_role():
+    name = f"Employee Delete Attempt {uuid.uuid4().hex[:8]}"
+    async with _seeded_session() as session:
+        try:
+            skill = await _create_unlocked_skill(session, name=name)
+
+            with pytest.raises(AppException) as exc_info:
+                await delete_skill_service(session, current_user=_EMPLOYEE, skill_id=skill.id)
+
+            assert exc_info.value.status_code == 403
+
+            result = await session.execute(select(Skill).where(Skill.id == skill.id))
+            assert result.scalar_one_or_none() is not None
+        finally:
+            await session.execute(delete(Skill).where(Skill.name == name))
+            await session.commit()
+
+
+def test_update_skill_request_rejects_explicit_null_name():
+    # Code review, 2026-09-09: `name` is a required Skill-identity field --
+    # unlike `description`, an explicit `{"name": null}` must be rejected,
+    # not silently accepted as "no change."
+    with pytest.raises(ValidationError):
+        UpdateSkillRequest(name=None)
+
+
+def test_update_skill_request_omitted_name_is_fine():
+    # Omitting `name` entirely (as opposed to sending it as null) is the
+    # normal partial-update case and must not raise.
+    request = UpdateSkillRequest(description="only this changes")
+    assert "name" not in request.model_dump(exclude_unset=True)
+
+
+@pytest.mark.asyncio(loop_scope="module")
+async def test_update_skill_service_explicit_null_description_clears_it():
+    name = f"Null Description {uuid.uuid4().hex[:8]}"
+    async with _seeded_session() as session:
+        try:
+            skill = await _create_unlocked_skill(session, name=name, description="has a value")
+
+            response = await update_skill_service(
+                session, current_user=_HR_ADMIN, skill_id=skill.id, request=UpdateSkillRequest(description=None)
+            )
+
+            assert response.description is None
+        finally:
+            await session.execute(delete(Skill).where(Skill.name == name))
+            await session.commit()
+
+
+@pytest.mark.asyncio(loop_scope="module")
+async def test_delete_skill_service_converts_integrity_error_to_locked_403():
+    """Simulates the exact stale-flag scenario this story's code review
+    flagged as a decision-needed item (deferred to Story 6.4): a Skill
+    whose `ever_assigned` still reads `false` but which a real Assignment
+    already references (constructed directly here since `mark_ever_assigned`
+    doesn't exist yet). `delete_skill_service` must convert the resulting
+    FK RESTRICT violation into a clean 403, not an unhandled 500.
+
+    Setup is committed (not just flushed) in its own session first, so that
+    the expected `db.rollback()` inside `delete_skill_service`'s
+    `IntegrityError` handler only undoes the failed delete attempt, not the
+    Skill/Assignment fixture rows themselves -- mirrors how a real request
+    would hit this against already-committed data.
+    """
+    name = f"Stale Flag Delete {uuid.uuid4().hex[:8]}"
+    async with _session_factory() as setup_session:
+        skill = await _create_unlocked_skill(setup_session, name=name)
+        assert skill.ever_assigned is False
+        assignment = Assignment(employee_id=CASEY_ID, skill_id=skill.id, assigned_by=RITA_ID)
+        setup_session.add(assignment)
+        await setup_session.commit()
+        skill_id = skill.id
+
+    try:
+        async with _session_factory() as session:
+            with pytest.raises(AppException) as exc_info:
+                await delete_skill_service(session, current_user=_HR_ADMIN, skill_id=skill_id)
+
+            assert exc_info.value.status_code == 403
+            assert exc_info.value.error_code == "SKILL_LOCKED"
+
+        async with _session_factory() as verify_session:
+            result = await verify_session.execute(select(Skill).where(Skill.id == skill_id))
+            assert result.scalar_one_or_none() is not None
+    finally:
+        async with _session_factory() as cleanup_session:
+            await cleanup_session.execute(delete(Assignment).where(Assignment.skill_id == skill_id))
+            await cleanup_session.execute(delete(Skill).where(Skill.id == skill_id))
+            await cleanup_session.commit()
