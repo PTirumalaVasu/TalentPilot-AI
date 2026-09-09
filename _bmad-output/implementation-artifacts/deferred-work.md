@@ -1,5 +1,10 @@
 # Deferred Work Ledger
 
+## Deferred from: code review of 6-2-skill-creation-endpoint (2026-09-09)
+
+- **Custom blank-name validator message ("name must not be blank") is unreachable by any caller** [backend/app/core/errors.py, backend/app/skills/schemas.py] — `core/errors.py::validation_exception_handler` discards all Pydantic per-field detail and always returns a fixed generic message ("The request body failed validation") for every 422 across the entire app, for every schema. Pre-existing, app-wide shared-handler behavior; fixing it means redesigning a cross-cutting concern well beyond this story's scope. Revisit if a future story needs field-level validation error detail surfaced to API consumers.
+- **Case-insensitive duplicate check doesn't normalize Unicode form (NFC vs NFD) or apply full casefold** [backend/app/skills/repository.py::get_skill_by_name_ci] — visually-identical names in different Unicode normalization forms could both be created as distinct Skills. Low real-world likelihood for this admin-only, largely-English-language catalog; this codebase has no Unicode-normalization handling anywhere else either. Revisit if it ever surfaces in practice (e.g. once real multi-language Skill names are entered).
+
 ## Deferred from: code review of 6-1-skills-module-foundation-data-model-migration-embeddings (2026-09-09)
 
 - **`test_all_tables_defined`'s hardcoded exact-table-count set is a brittle pattern** [backend/tests/test_schema_definition.py] — this story bumped it 7→8 to fix an already-broken assertion (missing `admin_api_keys` from migration 005), but the underlying pattern (a hardcoded set that must be manually kept in sync with every migration) is unchanged and pre-existing. Story 6.5 (`org_api_credentials`) and 6.8 (`content_catalog` changes) will likely touch this same set — watch for a merge/rebase collision, and consider fixing the anti-pattern itself (derive the count from migration history, or drop the exact-count assertion) once a second story needs to edit it too.

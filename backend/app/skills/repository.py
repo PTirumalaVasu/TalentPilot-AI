@@ -2,7 +2,7 @@
 query the `skills` table directly (AD-1)."""
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.skills.models import Skill
@@ -36,3 +36,32 @@ async def get_skill_embedding(db: AsyncSession, skill_id: UUID) -> list[float] |
     result = await db.execute(select(Skill.embedding).where(Skill.id == skill_id))
     embedding = result.scalar_one_or_none()
     return embedding.tolist() if embedding is not None else None
+
+
+async def get_skill_by_name_ci(db: AsyncSession, name: str) -> Skill | None:
+    """Case-insensitive lookup by name (Story 6.2 AC1's duplicate check).
+
+    The `skills.name` column carries a case-sensitive DB unique constraint
+    only (models.py) -- this is the case-insensitive layer the create
+    endpoint checks *before* inserting, so a same-name-different-case
+    request gets a clean 409 rather than a raw IntegrityError.
+    """
+    result = await db.execute(select(Skill).where(func.lower(Skill.name) == func.lower(name)))
+    return result.scalar_one_or_none()
+
+
+async def create_skill(db: AsyncSession, skill_data: dict) -> Skill:
+    """Create a new Skill.
+
+    Args:
+        db: Async database session
+        skill_data: Dictionary with Skill fields (name, description, embedding, ever_assigned)
+
+    Returns:
+        Created Skill ORM instance with assigned ID
+    """
+    skill = Skill(**skill_data)
+    db.add(skill)
+    await db.flush()
+    await db.refresh(skill)
+    return skill
