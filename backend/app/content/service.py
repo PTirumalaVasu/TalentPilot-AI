@@ -19,6 +19,7 @@ from app.content.schemas import (
     ContentLookupResponse,
     ContentLookupSourceError,
     ContentResponse,
+    ManualContentCandidate,
     ManualContentCreate,
 )
 from app.core.config import settings
@@ -533,3 +534,34 @@ async def search_content_for_skill(
         errors.append(ContentLookupSourceError(source="UDEMY", error="source_error"))
 
     return ContentLookupResponse(results=results, errors=errors)
+
+
+# ---------------------------------------------------------------------------
+# Manual content entry (Story 6.7, FR-17a). No content_catalog row is ever
+# written by this path (same search-only invariant as search_content_for_skill
+# above) -- writing happens only on Story 6.8's (not yet built) approve
+# action. No youtube_client/udemy_client call is ever made either: unlike
+# search_content_for_skill, this function's body never references them at
+# all, mirroring manual_seed_content's existing guarantee (Story 2.3).
+# ---------------------------------------------------------------------------
+
+
+async def submit_manual_content(
+    db: AsyncSession,
+    *,
+    current_user: CurrentUser,
+    skill_id: UUID,
+    url: str,
+    title: str,
+    duration_hours: float | None,
+) -> ManualContentCandidate:
+    """Validates a manually-pasted content link against a Skill and echoes
+    it back as a review candidate (Story 6.7 AC1) -- no source API call, no
+    content_catalog write. HR_ADMIN-only."""
+    require_hr_admin(current_user)
+
+    skill = await skills_service.get_skill_by_id(db, skill_id)
+    if skill is None:
+        raise _not_found_skill()
+
+    return ManualContentCandidate(title=title, source="MANUAL", url=url, duration_hours=duration_hours)

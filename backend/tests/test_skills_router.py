@@ -697,3 +697,149 @@ async def test_content_lookup_rejects_missing_query():
             assert response.status_code == 422
     finally:
         await _delete_skill_by_name(name)
+
+
+# ---------------------------------------------------------------------------
+# Story 6.7: POST /api/admin/skills/{id}/content-manual
+# ---------------------------------------------------------------------------
+
+
+async def test_content_manual_as_hr_admin_returns_200_with_candidate_shape():
+    name = f"Content Manual Happy Path {uuid.uuid4().hex[:8]}"
+    try:
+        async with _client() as client:
+            await _login(client)
+            created = await client.post("/api/admin/skills", json={"name": name})
+            skill_id = created.json()["id"]
+
+            response = await client.post(
+                f"/api/admin/skills/{skill_id}/content-manual",
+                json={"url": "https://example.com/a-course", "title": "A Manual Course", "duration_hours": 4.0},
+            )
+
+            assert response.status_code == 200
+            body = response.json()
+            assert body == {
+                "title": "A Manual Course",
+                "source": "MANUAL",
+                "url": "https://example.com/a-course",
+                "duration_hours": 4.0,
+            }
+            assert "thumbnail_url" not in body
+    finally:
+        await _delete_skill_by_name(name)
+
+
+async def test_content_manual_duration_hours_omitted_defaults_to_null():
+    name = f"Content Manual No Duration {uuid.uuid4().hex[:8]}"
+    try:
+        async with _client() as client:
+            await _login(client)
+            created = await client.post("/api/admin/skills", json={"name": name})
+            skill_id = created.json()["id"]
+
+            response = await client.post(
+                f"/api/admin/skills/{skill_id}/content-manual",
+                json={"url": "https://example.com/a-course", "title": "A Manual Course"},
+            )
+
+            assert response.status_code == 200
+            assert response.json()["duration_hours"] is None
+    finally:
+        await _delete_skill_by_name(name)
+
+
+async def test_content_manual_as_employee_returns_403():
+    name = f"Content Manual Employee {uuid.uuid4().hex[:8]}"
+    try:
+        async with _client() as client:
+            await _login(client)
+            created = await client.post("/api/admin/skills", json={"name": name})
+            skill_id = created.json()["id"]
+
+            await _login(client, email="casey@sails.example.com")
+            response = await client.post(
+                f"/api/admin/skills/{skill_id}/content-manual",
+                json={"url": "https://example.com/a-course", "title": "A Manual Course"},
+            )
+
+            assert response.status_code == 403
+    finally:
+        await _delete_skill_by_name(name)
+
+
+async def test_content_manual_requires_authentication():
+    async with _client() as client:
+        response = await client.post(
+            f"/api/admin/skills/{uuid.uuid4()}/content-manual",
+            json={"url": "https://example.com/a-course", "title": "A Manual Course"},
+        )
+        assert response.status_code == 401
+
+
+async def test_content_manual_nonexistent_skill_returns_404():
+    async with _client() as client:
+        await _login(client)
+        response = await client.post(
+            f"/api/admin/skills/{uuid.uuid4()}/content-manual",
+            json={"url": "https://example.com/a-course", "title": "A Manual Course"},
+        )
+        assert response.status_code == 404
+
+
+async def test_content_manual_rejects_malformed_url():
+    name = f"Content Manual Bad URL {uuid.uuid4().hex[:8]}"
+    try:
+        async with _client() as client:
+            await _login(client)
+            created = await client.post("/api/admin/skills", json={"name": name})
+            skill_id = created.json()["id"]
+
+            response = await client.post(
+                f"/api/admin/skills/{skill_id}/content-manual",
+                json={"url": "not-a-url", "title": "A Manual Course"},
+            )
+
+            assert response.status_code == 422
+    finally:
+        await _delete_skill_by_name(name)
+
+
+async def test_content_manual_rejects_blank_title():
+    name = f"Content Manual Blank Title {uuid.uuid4().hex[:8]}"
+    try:
+        async with _client() as client:
+            await _login(client)
+            created = await client.post("/api/admin/skills", json={"name": name})
+            skill_id = created.json()["id"]
+
+            response = await client.post(
+                f"/api/admin/skills/{skill_id}/content-manual",
+                json={"url": "https://example.com/a-course", "title": "   "},
+            )
+
+            assert response.status_code == 422
+    finally:
+        await _delete_skill_by_name(name)
+
+
+async def test_content_manual_rejects_unknown_field():
+    name = f"Content Manual Unknown Field {uuid.uuid4().hex[:8]}"
+    try:
+        async with _client() as client:
+            await _login(client)
+            created = await client.post("/api/admin/skills", json={"name": name})
+            skill_id = created.json()["id"]
+
+            response = await client.post(
+                f"/api/admin/skills/{skill_id}/content-manual",
+                json={
+                    "url": "https://example.com/a-course",
+                    "title": "A Manual Course",
+                    "thumbnail_url": "https://example.com/x.png",
+                },
+            )
+
+            assert response.status_code == 422
+    finally:
+        await _delete_skill_by_name(name)

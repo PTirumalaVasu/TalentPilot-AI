@@ -1,6 +1,7 @@
 """Pydantic request/response schemas for the content module."""
 from datetime import datetime
 from typing import Any, Literal
+from urllib.parse import urlparse
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -192,3 +193,68 @@ class ContentLookupResponse(BaseModel):
 
     results: list[ContentLookupCandidate]
     errors: list[ContentLookupSourceError]
+
+
+# ---------------------------------------------------------------------------
+# Manual content entry (Story 6.7, FR-17a). No content_catalog row is ever
+# written from this path -- same search-only invariant as Story 6.6's
+# content-lookup, writing happens in Story 6.8's (not yet built) approve
+# action.
+# ---------------------------------------------------------------------------
+
+# Generous URL length bound (same reasoning as CREDENTIAL_MAX_LENGTH/
+# CONTENT_LOOKUP_QUERY_MAX_LENGTH above) -- a real URL is always well under
+# this; guards against an arbitrarily large payload.
+MANUAL_URL_MAX_LENGTH = 2048
+
+
+def _validate_url(value: str) -> str:
+    # Client-side-equivalent format check only (FR-17a's own consequence:
+    # "HR Admin is responsible for the link being correct") -- no
+    # reachability/content check. Requires an http(s) scheme and a
+    # non-empty host, rejecting everything else (bare strings, other
+    # schemes, scheme-only strings with no host).
+    stripped = value.strip()
+    parsed = urlparse(stripped)
+    if parsed.scheme not in ("http", "https") or not parsed.netloc:
+        raise ValueError("must be a well-formed http(s) URL")
+    return stripped
+
+
+class ManualContentEntryRequest(BaseModel):
+    """POST /api/admin/skills/{id}/content-manual body (Story 6.7 AC1)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    url: str = Field(min_length=1, max_length=MANUAL_URL_MAX_LENGTH)
+    title: str = Field(min_length=1, max_length=255)
+    # gt=0 rejects negative and zero values (code review, 2026-09-10) -- a
+    # direct API call could otherwise submit a non-positive duration_hours,
+    # which the frontend's numeric-only parser can never produce but the
+    # schema didn't guard against; would echo straight back and render as a
+    # nonsensical negative/zero days-to-complete estimate. Also rejects NaN,
+    # since `NaN > 0` is always False.
+    duration_hours: float | None = Field(default=None, gt=0)
+
+    @field_validator("url")
+    @classmethod
+    def url_must_be_well_formed(cls, value: str) -> str:
+        return _validate_url(value)
+
+    @field_validator("title")
+    @classmethod
+    def title_must_not_be_blank(cls, value: str) -> str:
+        return _reject_blank(value)
+
+
+class ManualContentCandidate(BaseModel):
+    """Response shape for a manually-entered candidate (Story 6.7 AC1).
+    Deliberately NOT a reuse of ContentLookupCandidate -- that schema's
+    docstring already flags this fork: same downstream review/approve
+    treatment, but no thumbnail_url field at all here (not just None),
+    since a manual entry never has one."""
+
+    title: str
+    source: Literal["MANUAL"] = "MANUAL"
+    url: str
+    duration_hours: float | None = None

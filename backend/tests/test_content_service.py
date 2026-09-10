@@ -18,6 +18,7 @@ from app.content.service import (
     search_content_for_skill,
     set_udemy_credential,
     set_youtube_key,
+    submit_manual_content,
 )
 from app.content.schemas import ContentResponse
 from app.content.udemy_client import InvalidCredentialError as UdemyInvalidCredentialError
@@ -519,6 +520,127 @@ async def test_search_content_for_skill_never_writes_content_catalog(db_session:
     monkeypatch.setattr("app.content.service.settings.UDEMY_ORGANIZATION_SUBDOMAIN", "sails")
 
     await search_content_for_skill(db_session, current_user=HR_ADMIN_USER, skill_id=skill.id, query="Python")
+
+    result = await db_session.execute(sa_select(ContentCatalog).where(ContentCatalog.skill_id == skill.id))
+    assert result.scalars().all() == []
+
+
+# ---------------------------------------------------------------------------
+# Manual content entry (Story 6.7, FR-17a)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_submit_manual_content_happy_path_with_duration(db_session: AsyncSession):
+    skill = await _create_skill(db_session)
+
+    candidate = await submit_manual_content(
+        db_session,
+        current_user=HR_ADMIN_USER,
+        skill_id=skill.id,
+        url="https://example.com/a-course",
+        title="A Manually Curated Course",
+        duration_hours=3.5,
+    )
+
+    assert candidate.title == "A Manually Curated Course"
+    assert candidate.source == "MANUAL"
+    assert candidate.url == "https://example.com/a-course"
+    assert candidate.duration_hours == 3.5
+    assert not hasattr(candidate, "thumbnail_url")
+
+
+@pytest.mark.asyncio
+async def test_submit_manual_content_happy_path_without_duration(db_session: AsyncSession):
+    skill = await _create_skill(db_session)
+
+    candidate = await submit_manual_content(
+        db_session,
+        current_user=HR_ADMIN_USER,
+        skill_id=skill.id,
+        url="https://example.com/a-course",
+        title="A Manually Curated Course",
+        duration_hours=None,
+    )
+
+    assert candidate.duration_hours is None
+
+
+@pytest.mark.asyncio
+async def test_submit_manual_content_nonexistent_skill_raises_404(db_session: AsyncSession):
+    with pytest.raises(AppException) as exc_info:
+        await submit_manual_content(
+            db_session,
+            current_user=HR_ADMIN_USER,
+            skill_id=uuid.uuid4(),
+            url="https://example.com/a-course",
+            title="A Course",
+            duration_hours=None,
+        )
+
+    assert exc_info.value.status_code == 404
+    assert exc_info.value.error_code == "SKILL_NOT_FOUND"
+
+
+@pytest.mark.asyncio
+async def test_submit_manual_content_as_employee_raises_403(db_session: AsyncSession):
+    skill = await _create_skill(db_session)
+
+    with pytest.raises(AppException) as exc_info:
+        await submit_manual_content(
+            db_session,
+            current_user=EMPLOYEE_USER,
+            skill_id=skill.id,
+            url="https://example.com/a-course",
+            title="A Course",
+            duration_hours=None,
+        )
+
+    assert exc_info.value.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_submit_manual_content_never_calls_youtube_or_udemy_client(
+    db_session: AsyncSession, monkeypatch
+):
+    """AC's own requirement -- this path must be proven to never touch
+    either source client, same test-level guarantee manual_seed_content()
+    already has (Story 2.3)."""
+    skill = await _create_skill(db_session)
+
+    def _fail_if_called(*args, **kwargs):
+        raise AssertionError("youtube_client/udemy_client must never be called by submit_manual_content")
+
+    monkeypatch.setattr("app.content.service.youtube_client.search_videos", _fail_if_called)
+    monkeypatch.setattr("app.content.service.youtube_client.get_video_durations", _fail_if_called)
+    monkeypatch.setattr("app.content.service.udemy_client.search_courses", _fail_if_called)
+
+    candidate = await submit_manual_content(
+        db_session,
+        current_user=HR_ADMIN_USER,
+        skill_id=skill.id,
+        url="https://example.com/a-course",
+        title="A Course",
+        duration_hours=None,
+    )
+
+    assert candidate.source == "MANUAL"
+
+
+@pytest.mark.asyncio
+async def test_submit_manual_content_never_writes_content_catalog(db_session: AsyncSession):
+    from sqlalchemy import select as sa_select
+
+    skill = await _create_skill(db_session)
+
+    await submit_manual_content(
+        db_session,
+        current_user=HR_ADMIN_USER,
+        skill_id=skill.id,
+        url="https://example.com/a-course",
+        title="A Course",
+        duration_hours=None,
+    )
 
     result = await db_session.execute(sa_select(ContentCatalog).where(ContentCatalog.skill_id == skill.id))
     assert result.scalars().all() == []

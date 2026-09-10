@@ -14,8 +14,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.schemas import CurrentUser
 from app.auth.service import get_current_user
-from app.content.schemas import ContentLookupRequest, ContentLookupResponse
-from app.content.service import search_content_for_skill
+from app.content.schemas import (
+    ContentLookupRequest,
+    ContentLookupResponse,
+    ManualContentCandidate,
+    ManualContentEntryRequest,
+)
+from app.content.service import search_content_for_skill, submit_manual_content
 from app.core.db import get_db
 from app.skills.schemas import CreateSkillRequest, SkillResponse, UpdateSkillRequest
 from app.skills.service import create_skill_service, delete_skill_service, update_skill_service
@@ -73,4 +78,25 @@ async def content_lookup_route(
     sub-resource (Story 6.6 Scope Note 2)."""
     return await search_content_for_skill(
         session, current_user=current_user, skill_id=skill_id, query=request.query
+    )
+
+
+@router.post("/{skill_id}/content-manual", response_model=ManualContentCandidate)
+async def content_manual_route(
+    skill_id: UUID,
+    request: ManualContentEntryRequest,
+    current_user: CurrentUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+) -> ManualContentCandidate:
+    """Manually-pasted content link, as an alternative to search (Story 6.7
+    AC1-AC3, FR-17a). Thin -- validation/logic lives in
+    content/service.py::submit_manual_content (AD-1), same composition as
+    content_lookup_route above."""
+    return await submit_manual_content(
+        session,
+        current_user=current_user,
+        skill_id=skill_id,
+        url=request.url,
+        title=request.title,
+        duration_hours=request.duration_hours,
     )

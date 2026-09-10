@@ -7,6 +7,7 @@ import { AssignmentWatch } from '@/pages/employee/AssignmentWatch';
 import { Dashboard } from '@/pages/hr/Dashboard';
 import { VideoPlayerDemo } from '@/pages/dev/VideoPlayerDemo';
 import { ApiKeysModalDemo } from '@/pages/dev/ApiKeysModalDemo';
+import { ManualContentEntryDemo } from '@/pages/dev/ManualContentEntryDemo';
 
 export function App() {
   return (
@@ -51,6 +52,14 @@ export function App() {
             element={
               <RequireAuth>
                 <ApiKeysModalDemo />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/dev/manual-content-entry-demo"
+            element={
+              <RequireAuth>
+                <ManualContentEntryDemo />
               </RequireAuth>
             }
           />

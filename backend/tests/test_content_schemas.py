@@ -10,6 +10,8 @@ from app.content.schemas import (
     ContentWithEmbedding,
     EmbeddingInput,
     EmbeddingOutput,
+    ManualContentCandidate,
+    ManualContentEntryRequest,
 )
 
 
@@ -142,3 +144,82 @@ def test_content_response_source_field_validation():
 
     with pytest.raises(ValidationError):
         ContentResponse.model_validate(invalid_content)
+
+
+# ---------------------------------------------------------------------------
+# Manual content entry (Story 6.7, FR-17a).
+# ---------------------------------------------------------------------------
+
+
+def test_manual_content_entry_request_accepts_valid_url():
+    request = ManualContentEntryRequest(
+        url="https://example.com/a-course", title="A Course", duration_hours=2.5
+    )
+    assert request.url == "https://example.com/a-course"
+    assert request.title == "A Course"
+    assert request.duration_hours == 2.5
+
+
+def test_manual_content_entry_request_duration_hours_optional():
+    request = ManualContentEntryRequest(url="https://example.com/a-course", title="A Course")
+    assert request.duration_hours is None
+
+
+@pytest.mark.parametrize(
+    "bad_url",
+    [
+        "not-a-url",
+        "example.com/no-scheme",
+        "ftp://example.com/file",  # wrong scheme
+        "https://",  # no netloc
+        "",
+    ],
+)
+def test_manual_content_entry_request_rejects_malformed_url(bad_url):
+    with pytest.raises(ValidationError):
+        ManualContentEntryRequest(url=bad_url, title="A Course")
+
+
+def test_manual_content_entry_request_rejects_blank_title():
+    with pytest.raises(ValidationError):
+        ManualContentEntryRequest(url="https://example.com/a-course", title="   ")
+
+
+def test_manual_content_entry_request_rejects_unknown_field():
+    with pytest.raises(ValidationError):
+        ManualContentEntryRequest(
+            url="https://example.com/a-course", title="A Course", thumbnail_url="https://example.com/x.png"
+        )
+
+
+@pytest.mark.parametrize("bad_duration", [-1, -0.5, 0])
+def test_manual_content_entry_request_rejects_non_positive_duration(bad_duration):
+    """Code review (2026-09-10): a direct API call could submit a negative
+    or zero duration_hours, which the frontend's numeric-only parser can
+    never produce but the schema didn't guard against -- would echo straight
+    back and render as a nonsensical negative/zero days-to-complete."""
+    with pytest.raises(ValidationError):
+        ManualContentEntryRequest(url="https://example.com/a-course", title="A Course", duration_hours=bad_duration)
+
+
+def test_manual_content_entry_request_rejects_url_over_max_length():
+    """Code review (2026-09-10): MANUAL_URL_MAX_LENGTH (2048) was defined
+    but never actually tested."""
+    too_long_url = "https://example.com/" + ("a" * 2048)
+    with pytest.raises(ValidationError):
+        ManualContentEntryRequest(url=too_long_url, title="A Course")
+
+
+def test_manual_content_entry_request_accepts_url_at_max_length():
+    at_limit_url = "https://example.com/" + ("a" * (2048 - len("https://example.com/")))
+    assert len(at_limit_url) == 2048
+    request = ManualContentEntryRequest(url=at_limit_url, title="A Course")
+    assert request.url == at_limit_url
+
+
+def test_manual_content_candidate_has_no_thumbnail_url_field():
+    candidate = ManualContentCandidate(
+        title="A Course", source="MANUAL", url="https://example.com/a-course", duration_hours=None
+    )
+    assert candidate.source == "MANUAL"
+    assert "thumbnail_url" not in ManualContentCandidate.model_fields
