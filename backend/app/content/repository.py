@@ -89,6 +89,35 @@ async def delete_content(db: AsyncSession, content_id: UUID) -> None:
     await db.execute(delete(ContentCatalog).where(ContentCatalog.id == content_id))
 
 
+async def list_admin_lookup_content_for_skills(
+    db: AsyncSession, skill_ids: list[UUID]
+) -> list[ContentCatalog]:
+    """All origin="ADMIN_LOOKUP" content_catalog rows for the given Skill
+    ids, ordered so the LAST row per skill_id is the most recently ingested
+    (Story 6.10 AC1) -- one bulk query instead of N+1 per-Skill lookups.
+    Callers pick the most recent row per skill_id themselves (e.g. by
+    overwriting a dict keyed on skill_id while iterating in this order).
+    Excludes BATCH-origin rows entirely -- those are never "approved" in
+    this epic's sense (Story 6.9's reject_content's identical origin filter).
+
+    Args:
+        db: Async database session
+        skill_ids: Skill ids to fetch admin-sourced content for
+
+    Returns:
+        List of ContentCatalog ORM instances, ordered by (skill_id,
+        ingested_at, id); empty list if skill_ids is empty or none match.
+    """
+    if not skill_ids:
+        return []
+    result = await db.execute(
+        select(ContentCatalog)
+        .where(ContentCatalog.skill_id.in_(skill_ids), ContentCatalog.origin == "ADMIN_LOOKUP")
+        .order_by(ContentCatalog.skill_id, ContentCatalog.ingested_at, ContentCatalog.id)
+    )
+    return list(result.scalars().all())
+
+
 async def find_best_matching_content(
     db: AsyncSession,
     skill_id: UUID,

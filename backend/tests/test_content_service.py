@@ -15,6 +15,7 @@ from app.content.service import (
     get_api_keys_status,
     get_content,
     list_content_for_skill,
+    list_skills_with_content,
     reject_content,
     remove_udemy_credential,
     remove_youtube_key,
@@ -23,7 +24,7 @@ from app.content.service import (
     set_youtube_key,
     submit_manual_content,
 )
-from app.content.schemas import ContentResponse
+from app.content.schemas import ContentResponse, SkillWithContentResponse
 from app.content.udemy_client import InvalidCredentialError as UdemyInvalidCredentialError
 from app.content.udemy_client import RateLimitExceededError
 from app.content.youtube_client import InvalidCredentialError as YoutubeInvalidCredentialError
@@ -1039,3 +1040,125 @@ async def test_reject_content_succeeds_regardless_of_skill_ever_assigned(db_sess
     await reject_content(db_session, current_user=HR_ADMIN_USER, content_id=attached.id)
 
     assert await repository.get_content_by_id(db_session, attached.id) is None
+
+
+# ---------------------------------------------------------------------------
+# Skills Card Grid list (Story 6.10 AC1/AC1a).
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_list_skills_with_content_returns_admin_lookup_content_as_approved(
+    db_session: AsyncSession,
+):
+    skill = await _create_skill(db_session)
+    attached = await attach_content(
+        db_session,
+        current_user=HR_ADMIN_USER,
+        skill_id=skill.id,
+        title="A Course",
+        source="MANUAL",
+        url="https://example.com/a-course",
+        duration_hours=2.0,
+    )
+
+    results = await list_skills_with_content(db_session, current_user=HR_ADMIN_USER)
+
+    match = next(r for r in results if r.id == skill.id)
+    assert isinstance(match, SkillWithContentResponse)
+    assert match.name == skill.name
+    assert match.ever_assigned is False
+    assert match.approved_content is not None
+    assert match.approved_content.id == attached.id
+    assert match.approved_content.title == "A Course"
+
+
+@pytest.mark.asyncio
+async def test_list_skills_with_content_ignores_batch_only_content(db_session: AsyncSession):
+    skill = await _create_skill(db_session)
+    batch_row = ContentCatalog(
+        skill_id=skill.id,
+        title="Batch Ingested Row",
+        description=None,
+        type="VIDEO",
+        url="https://example.com/batch",
+        embedding=[0.2] * 384,
+        source="YOUTUBE",
+        content_metadata=None,
+        origin="BATCH",
+    )
+    db_session.add(batch_row)
+    await db_session.flush()
+
+    results = await list_skills_with_content(db_session, current_user=HR_ADMIN_USER)
+
+    match = next(r for r in results if r.id == skill.id)
+    assert match.approved_content is None
+
+
+@pytest.mark.asyncio
+async def test_list_skills_with_content_picks_most_recently_ingested_admin_row(
+    db_session: AsyncSession,
+):
+    from datetime import datetime, timedelta, timezone
+
+    skill = await _create_skill(db_session)
+    now = datetime.now(timezone.utc)
+    older = ContentCatalog(
+        skill_id=skill.id,
+        title="Older Admin Row",
+        description=None,
+        type="VIDEO",
+        url="https://example.com/older",
+        embedding=[0.2] * 384,
+        source="MANUAL",
+        content_metadata=None,
+        origin="ADMIN_LOOKUP",
+        ingested_at=now - timedelta(hours=1),
+    )
+    newer = ContentCatalog(
+        skill_id=skill.id,
+        title="Newer Admin Row",
+        description=None,
+        type="VIDEO",
+        url="https://example.com/newer",
+        embedding=[0.2] * 384,
+        source="MANUAL",
+        content_metadata=None,
+        origin="ADMIN_LOOKUP",
+        ingested_at=now,
+    )
+    db_session.add_all([older, newer])
+    await db_session.flush()
+
+    results = await list_skills_with_content(db_session, current_user=HR_ADMIN_USER)
+
+    match = next(r for r in results if r.id == skill.id)
+    assert match.approved_content is not None
+    assert match.approved_content.title == "Newer Admin Row"
+
+
+@pytest.mark.asyncio
+async def test_list_skills_with_content_returns_ever_assigned_flag(db_session: AsyncSession):
+    skill = Skill(
+        name=f"List Skills Ever Assigned {uuid.uuid4().hex[:8]}",
+        description=None,
+        embedding=[0.1] * 384,
+        ever_assigned=True,
+    )
+    db_session.add(skill)
+    await db_session.flush()
+
+    results = await list_skills_with_content(db_session, current_user=HR_ADMIN_USER)
+
+    match = next(r for r in results if r.id == skill.id)
+    assert match.ever_assigned is True
+    assert match.approved_content is None
+
+
+@pytest.mark.asyncio
+async def test_list_skills_with_content_as_employee_raises_403(db_session: AsyncSession):
+    with pytest.raises(AppException) as exc_info:
+        await list_skills_with_content(db_session, current_user=EMPLOYEE_USER)
+
+    assert exc_info.value.status_code == 403

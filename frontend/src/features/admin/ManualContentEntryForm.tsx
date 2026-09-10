@@ -17,6 +17,13 @@ export interface ManualContentEntryFormProps {
    * generic toast message when omitted (Story 6.8 Scope Note 10).
    */
   skillName?: string;
+  /**
+   * Story 6.10 hook: called right after a successful attach, so a real
+   * Content Lookup Panel can close immediately (UX-DR29) and hand off to
+   * its own page-level toast/refresh instead of this component's internal
+   * one. Unused by this story's own dev demo page.
+   */
+  onApproved?: () => void;
 }
 
 function extractErrorMessage(err: unknown, fallback: string): string {
@@ -33,7 +40,7 @@ function extractErrorMessage(err: unknown, fallback: string): string {
  * 04.1-skills-content-sourcing.md's content-lookup-manual-* object IDs.
  * [Approve] calls Story 6.8's POST /api/admin/content/attach (FR-18).
  */
-export function ManualContentEntryForm({ skillId, skillName }: ManualContentEntryFormProps) {
+export function ManualContentEntryForm({ skillId, skillName, onApproved }: ManualContentEntryFormProps) {
   const [url, setUrl] = useState('');
   const [title, setTitle] = useState('');
   const [duration, setDuration] = useState('');
@@ -81,6 +88,7 @@ export function ManualContentEntryForm({ skillId, skillName }: ManualContentEntr
       });
       setApproved(true);
       setToastMessage(`✓ Content approved for ${skillName ?? 'this skill'}`);
+      onApproved?.();
     } catch (err) {
       setApproveError(extractErrorMessage(err, "Couldn't approve this — Try again"));
     } finally {

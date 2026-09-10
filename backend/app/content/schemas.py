@@ -41,6 +41,25 @@ class ContentResponse(BaseModel):
     metadata: dict[str, Any] | None = Field(default=None, validation_alias="content_metadata")
 
 
+class SkillWithContentResponse(BaseModel):
+    """GET /api/admin/skills response item (Story 6.10 AC1). Extends the
+    plain Skill shape with its currently-approved Content -- the most
+    recent origin="ADMIN_LOOKUP" content_catalog row, or None if it has
+    none yet (Scope Note 2: BATCH-ingested rows are never "approved" in
+    this epic's sense). Lives here, not skills/schemas.py, because it
+    embeds ContentResponse and AD-8 requires the Content->Skills dependency
+    arrow, never the reverse -- skills/router.py imports this the same way
+    it already imports ContentLookupResponse for its other sub-routes."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    name: str
+    description: str | None
+    ever_assigned: bool
+    approved_content: ContentResponse | None
+
+
 class ContentWithEmbedding(ContentResponse):
     """Content response WITH 384-dim embedding (debug/admin only, not default)."""
 

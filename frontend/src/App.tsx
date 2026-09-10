@@ -5,6 +5,7 @@ import { Login } from '@/pages/Login';
 import { ContentDiscovery } from '@/pages/employee/ContentDiscovery';
 import { AssignmentWatch } from '@/pages/employee/AssignmentWatch';
 import { Dashboard } from '@/pages/hr/Dashboard';
+import { SkillsPage } from '@/pages/hr/SkillsPage';
 import { VideoPlayerDemo } from '@/pages/dev/VideoPlayerDemo';
 import { ApiKeysModalDemo } from '@/pages/dev/ApiKeysModalDemo';
 import { ManualContentEntryDemo } from '@/pages/dev/ManualContentEntryDemo';
@@ -21,6 +22,14 @@ export function App() {
             element={
               <RequireAuth>
                 <Dashboard />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/skills"
+            element={
+              <RequireAuth>
+                <SkillsPage />
               </RequireAuth>
             }
           />

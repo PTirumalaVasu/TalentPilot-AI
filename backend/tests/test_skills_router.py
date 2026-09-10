@@ -843,3 +843,87 @@ async def test_content_manual_rejects_unknown_field():
             assert response.status_code == 422
     finally:
         await _delete_skill_by_name(name)
+
+
+# ---------------------------------------------------------------------------
+# List skills (Story 6.10 AC1/AC1a) -- GET /api/admin/skills.
+# ---------------------------------------------------------------------------
+
+
+async def test_list_skills_returns_extended_shape_for_a_mix_of_skills():
+    unassigned_name = f"Router List Unassigned {uuid.uuid4().hex[:8]}"
+    locked_name = f"Router List Locked {uuid.uuid4().hex[:8]}"
+    batch_only_name = f"Router List Batch Only {uuid.uuid4().hex[:8]}"
+    try:
+        async with _client() as client:
+            await _login(client)
+
+            unassigned = await client.post("/api/admin/skills", json={"name": unassigned_name})
+            unassigned_id = unassigned.json()["id"]
+            locked = await client.post("/api/admin/skills", json={"name": locked_name})
+            locked_id = locked.json()["id"]
+            await _lock_skill(locked_id)
+            batch_only = await client.post("/api/admin/skills", json={"name": batch_only_name})
+            batch_only_id = batch_only.json()["id"]
+
+            attach_response = await client.post(
+                "/api/admin/content/attach",
+                json={
+                    "skill_id": unassigned_id,
+                    "title": "Router List Admin Content",
+                    "source": "MANUAL",
+                    "url": "https://example.com/router-list-admin",
+                },
+            )
+            assert attach_response.status_code == 201
+
+            async with _session_factory() as session:
+                batch_row = ContentCatalog(
+                    skill_id=batch_only_id,
+                    title="Router List Batch Content",
+                    type="VIDEO",
+                    url="https://example.com/router-list-batch",
+                    embedding=[0.2] * 384,
+                    source="YOUTUBE",
+                    origin="BATCH",
+                )
+                session.add(batch_row)
+                await session.commit()
+
+            response = await client.get("/api/admin/skills")
+
+            assert response.status_code == 200
+            by_id = {row["id"]: row for row in response.json()}
+
+            unassigned_row = by_id[unassigned_id]
+            assert unassigned_row["ever_assigned"] is False
+            assert unassigned_row["approved_content"] is not None
+            assert unassigned_row["approved_content"]["title"] == "Router List Admin Content"
+            assert "embedding" not in unassigned_row["approved_content"]
+
+            locked_row = by_id[locked_id]
+            assert locked_row["ever_assigned"] is True
+            assert locked_row["approved_content"] is None
+
+            batch_only_row = by_id[batch_only_id]
+            assert batch_only_row["approved_content"] is None
+    finally:
+        await _delete_skill_by_name(unassigned_name)
+        await _delete_skill_by_name(locked_name)
+        await _delete_skill_by_name(batch_only_name)
+
+
+async def test_list_skills_as_employee_returns_403():
+    async with _client() as client:
+        await _login(client, email="casey@sails.example.com")
+
+        response = await client.get("/api/admin/skills")
+
+        assert response.status_code == 403
+
+
+async def test_list_skills_unauthenticated_returns_401():
+    async with _client() as client:
+        response = await client.get("/api/admin/skills")
+
+        assert response.status_code == 401

@@ -212,4 +212,61 @@ describe('ManualContentEntryForm', () => {
 
     expect(await screen.findByTestId('watch-modal-title')).toHaveTextContent('A Manual Course');
   });
+
+  it('calls onApproved after a successful attach when the prop is provided (Story 6.10)', async () => {
+    vi.mocked(reviewManualContent).mockResolvedValue({
+      title: 'A Manual Course',
+      source: 'MANUAL',
+      url: 'https://example.com/a-course',
+      duration_hours: null,
+    });
+    vi.mocked(attachContent).mockResolvedValue({
+      id: 'content-1',
+      skill_id: 'skill-1',
+      title: 'A Manual Course',
+      description: null,
+      type: 'VIDEO',
+      url: 'https://example.com/a-course',
+      source: 'MANUAL',
+      ingested_at: '2026-09-10T00:00:00Z',
+      metadata: null,
+    });
+    const onApproved = vi.fn();
+    const user = userEvent.setup();
+    render(<ManualContentEntryForm skillId="skill-1" onApproved={onApproved} />);
+
+    await fillAndSubmit(user, { url: 'https://example.com/a-course', title: 'A Manual Course' });
+    await screen.findByText('A Manual Course');
+    await user.click(screen.getByRole('button', { name: 'Approve' }));
+
+    await waitFor(() => expect(onApproved).toHaveBeenCalledTimes(1));
+  });
+
+  it('does not throw when onApproved is omitted and the attach succeeds', async () => {
+    vi.mocked(reviewManualContent).mockResolvedValue({
+      title: 'A Manual Course',
+      source: 'MANUAL',
+      url: 'https://example.com/a-course',
+      duration_hours: null,
+    });
+    vi.mocked(attachContent).mockResolvedValue({
+      id: 'content-1',
+      skill_id: 'skill-1',
+      title: 'A Manual Course',
+      description: null,
+      type: 'VIDEO',
+      url: 'https://example.com/a-course',
+      source: 'MANUAL',
+      ingested_at: '2026-09-10T00:00:00Z',
+      metadata: null,
+    });
+    const user = userEvent.setup();
+    render(<ManualContentEntryForm skillId="skill-1" />);
+
+    await fillAndSubmit(user, { url: 'https://example.com/a-course', title: 'A Manual Course' });
+    await screen.findByText('A Manual Course');
+    await user.click(screen.getByRole('button', { name: 'Approve' }));
+
+    expect(await screen.findByText('✓ Content approved for this skill')).toBeInTheDocument();
+  });
 });

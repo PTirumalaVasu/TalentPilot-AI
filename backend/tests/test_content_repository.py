@@ -10,6 +10,7 @@ from app.skills.models import Skill
 from app.content.repository import (
     get_content_by_id,
     list_content_by_skill,
+    list_admin_lookup_content_for_skills,
     create_content,
     delete_content,
     delete_admin_api_key,
@@ -221,6 +222,88 @@ async def test_delete_content_removes_the_row(db_session: AsyncSession):
 @pytest.mark.asyncio
 async def test_delete_content_for_nonexistent_id_does_not_raise(db_session: AsyncSession):
     await delete_content(db_session, uuid.uuid4())
+
+
+@pytest.mark.asyncio
+async def test_list_admin_lookup_content_for_skills_returns_empty_for_empty_input(
+    db_session: AsyncSession,
+):
+    """Empty skill_ids must short-circuit -- no IN () query error."""
+    assert await list_admin_lookup_content_for_skills(db_session, []) == []
+
+
+@pytest.mark.asyncio
+async def test_list_admin_lookup_content_for_skills_excludes_batch_origin_and_other_skills(
+    db_session: AsyncSession,
+):
+    from datetime import datetime, timedelta, timezone
+
+    unique_name = f"Admin Lookup Repository Test {uuid.uuid4().hex[:8]}"
+    other_name = f"Admin Lookup Repository Other {uuid.uuid4().hex[:8]}"
+    skill = Skill(name=unique_name, description=None, embedding=[0.1] * 384)
+    other_skill = Skill(name=other_name, description=None, embedding=[0.1] * 384)
+    db_session.add_all([skill, other_skill])
+    await db_session.flush()
+
+    now = datetime.now(timezone.utc)
+
+    batch_row = ContentCatalog(
+        skill_id=skill.id,
+        title="Batch Ingested Row",
+        description=None,
+        type="VIDEO",
+        url="https://example.com/batch",
+        embedding=[0.2] * 384,
+        source="YOUTUBE",
+        content_metadata=None,
+        origin="BATCH",
+        ingested_at=now - timedelta(days=1),
+    )
+    older_admin_row = ContentCatalog(
+        skill_id=skill.id,
+        title="Older Admin Row",
+        description=None,
+        type="VIDEO",
+        url="https://example.com/older",
+        embedding=[0.2] * 384,
+        source="MANUAL",
+        content_metadata=None,
+        origin="ADMIN_LOOKUP",
+        ingested_at=now - timedelta(hours=2),
+    )
+    newer_admin_row = ContentCatalog(
+        skill_id=skill.id,
+        title="Newer Admin Row",
+        description=None,
+        type="VIDEO",
+        url="https://example.com/newer",
+        embedding=[0.2] * 384,
+        source="MANUAL",
+        content_metadata=None,
+        origin="ADMIN_LOOKUP",
+        ingested_at=now,
+    )
+    other_skill_admin_row = ContentCatalog(
+        skill_id=other_skill.id,
+        title="Other Skill Admin Row",
+        description=None,
+        type="VIDEO",
+        url="https://example.com/other-skill",
+        embedding=[0.2] * 384,
+        source="MANUAL",
+        content_metadata=None,
+        origin="ADMIN_LOOKUP",
+        ingested_at=now,
+    )
+    db_session.add_all([batch_row, older_admin_row, newer_admin_row, other_skill_admin_row])
+    await db_session.flush()
+
+    results = await list_admin_lookup_content_for_skills(db_session, [skill.id])
+
+    titles = [row.title for row in results]
+    assert titles == ["Older Admin Row", "Newer Admin Row"]
+    assert "Batch Ingested Row" not in titles
+    assert "Other Skill Admin Row" not in titles
 
 
 # ---------------------------------------------------------------------------

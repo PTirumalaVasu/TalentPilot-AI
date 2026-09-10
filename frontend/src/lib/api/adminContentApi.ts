@@ -24,6 +24,39 @@ export async function reviewManualContent(
   return response.data;
 }
 
+export interface ContentLookupCandidate {
+  title: string;
+  source: 'YOUTUBE' | 'UDEMY';
+  url: string;
+  thumbnail_url: string | null;
+  duration_hours: number | null;
+}
+
+export interface ContentLookupSourceError {
+  source: 'YOUTUBE' | 'UDEMY';
+  error: 'no_credential' | 'invalid_credential' | 'rate_limited' | 'source_error';
+}
+
+export interface ContentLookupResponse {
+  results: ContentLookupCandidate[];
+  errors: ContentLookupSourceError[];
+}
+
+/**
+ * Story 6.6 (FR-17): live search across YouTube (per-admin key) and Udemy
+ * (org-wide credential) for a Skill. POST /api/admin/skills/{skillId}/content-lookup
+ * -- always 200; a source with no/invalid credential or a rate limit shows
+ * up as an `errors[]` entry, not an HTTP error. No content_catalog row is
+ * written by this call (search-only).
+ */
+export async function searchContentForSkill(skillId: string, query: string): Promise<ContentLookupResponse> {
+  const response = await apiClient.post<ContentLookupResponse>(
+    `/api/admin/skills/${skillId}/content-lookup`,
+    { query }
+  );
+  return response.data;
+}
+
 export interface ContentResponse {
   id: string;
   skill_id: string;

@@ -22,6 +22,7 @@ from app.content.schemas import (
     ContentResponse,
     ManualContentCandidate,
     ManualContentCreate,
+    SkillWithContentResponse,
 )
 from app.core.config import settings
 from app.core.embedding import embed_text
@@ -673,6 +674,51 @@ async def attach_content(
     )
     await db.commit()
     return ContentResponse.model_validate(content_orm)
+
+
+# ---------------------------------------------------------------------------
+# Skills Card Grid list (Story 6.10 AC1/AC1a). Composed here, not in
+# skills/service.py -- SkillWithContentResponse embeds ContentResponse, and
+# AD-8 requires the dependency arrow to point Content -> Skills, never back.
+# skills/router.py already imports from this module for two other Skill
+# sub-resource routes (content_lookup_route, content_manual_route) for the
+# identical reason; this follows that same composition.
+# ---------------------------------------------------------------------------
+
+
+async def list_skills_with_content(
+    db: AsyncSession, *, current_user: CurrentUser
+) -> list[SkillWithContentResponse]:
+    """Every Skill plus ever_assigned and its currently-approved Content, if
+    any -- the most recent origin="ADMIN_LOOKUP" content_catalog row (Scope
+    Note 2; BATCH-ingested rows, Epic 2's Employee-facing AI match, are
+    never "approved" in this epic's sense). One bulk content query across
+    all Skills (repository.list_admin_lookup_content_for_skills), not N+1
+    per-Skill lookups. HR_ADMIN-only (AD-6, AC1a) -- this list exposes
+    admin-sourced content-management state, consistent with every other
+    endpoint in this router."""
+    require_hr_admin(current_user)
+
+    skills = await skills_service.list_all_skills(db)
+    skill_ids = [skill.id for skill in skills]
+    admin_content = await repository.list_admin_lookup_content_for_skills(db, skill_ids)
+
+    # Ascending order (skill_id, ingested_at, id) means the last write per
+    # key below is the most recently ingested row for that Skill.
+    latest_by_skill: dict[UUID, ContentResponse] = {}
+    for content in admin_content:
+        latest_by_skill[content.skill_id] = ContentResponse.model_validate(content)
+
+    return [
+        SkillWithContentResponse(
+            id=skill.id,
+            name=skill.name,
+            description=skill.description,
+            ever_assigned=skill.ever_assigned,
+            approved_content=latest_by_skill.get(skill.id),
+        )
+        for skill in skills
+    ]
 
 
 # ---------------------------------------------------------------------------

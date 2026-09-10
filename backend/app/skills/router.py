@@ -19,13 +19,25 @@ from app.content.schemas import (
     ContentLookupResponse,
     ManualContentCandidate,
     ManualContentEntryRequest,
+    SkillWithContentResponse,
 )
-from app.content.service import search_content_for_skill, submit_manual_content
+from app.content.service import list_skills_with_content, search_content_for_skill, submit_manual_content
 from app.core.db import get_db
 from app.skills.schemas import CreateSkillRequest, SkillResponse, UpdateSkillRequest
 from app.skills.service import create_skill_service, delete_skill_service, update_skill_service
 
 router = APIRouter(dependencies=[Depends(get_current_user)])
+
+
+@router.get("", response_model=list[SkillWithContentResponse])
+async def list_skills_route(
+    current_user: CurrentUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+) -> list[SkillWithContentResponse]:
+    """Skills Card Grid (Story 6.10 AC1/AC1a) -- every Skill plus
+    ever_assigned and its currently-approved Content, if any. HR_ADMIN-only
+    via list_skills_with_content's require_hr_admin gate."""
+    return await list_skills_with_content(session, current_user=current_user)
 
 
 @router.post("", response_model=SkillResponse, status_code=status.HTTP_201_CREATED)
