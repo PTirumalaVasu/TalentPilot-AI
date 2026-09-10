@@ -78,6 +78,17 @@ async def create_content(db: AsyncSession, content_data: dict) -> ContentCatalog
     return content
 
 
+async def delete_content(db: AsyncSession, content_id: UUID) -> None:
+    """Hard delete a content_catalog row (Story 6.9 AC1). Core-level
+    delete(), not db.delete(<ORM object>), so the ORM's unit-of-work never
+    loads the row's `skill`/`assignments` relationships -- mirrors
+    skills/repository.py::delete_skill's identical reasoning. A nonexistent
+    content_id matches zero rows and is a silent no-op, same as
+    delete_admin_api_key/delete_org_api_credential below.
+    """
+    await db.execute(delete(ContentCatalog).where(ContentCatalog.id == content_id))
+
+
 async def find_best_matching_content(
     db: AsyncSession,
     skill_id: UUID,

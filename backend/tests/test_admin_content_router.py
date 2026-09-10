@@ -14,7 +14,9 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
+from app.assignments.models import Assignment, ContentCatalog
 from app.core.config import settings
+from app.core.seed_ids import CASEY_ID, RITA_ID
 from app.main import app
 from app.skills.models import Skill
 
@@ -273,6 +275,163 @@ async def test_attach_content_rejects_non_positive_duration():
             )
 
             assert response.status_code == 422
+    finally:
+        await _delete_skill_by_name(name)
+
+
+async def test_reject_content_happy_path_returns_204():
+    name = f"Reject Content Happy Path {uuid.uuid4().hex[:8]}"
+    try:
+        async with _client() as client:
+            await _login(client)
+            created = await client.post("/api/admin/skills", json={"name": name})
+            skill_id = created.json()["id"]
+            attached = await client.post(
+                "/api/admin/content/attach",
+                json={
+                    "skill_id": skill_id,
+                    "title": "A Course To Reject",
+                    "source": "MANUAL",
+                    "url": "https://example.com/a-course",
+                },
+            )
+            content_id = attached.json()["id"]
+
+            response = await client.delete(f"/api/admin/content/{content_id}/reject")
+
+            assert response.status_code == 204
+            assert response.content == b""
+
+            # Confirm the row is actually gone, not just a 204 lie.
+            reattempt = await client.delete(f"/api/admin/content/{content_id}/reject")
+            assert reattempt.status_code == 404
+    finally:
+        await _delete_skill_by_name(name)
+
+
+async def test_reject_content_as_employee_returns_403():
+    name = f"Reject Content Employee {uuid.uuid4().hex[:8]}"
+    try:
+        async with _client() as client:
+            await _login(client)
+            created = await client.post("/api/admin/skills", json={"name": name})
+            skill_id = created.json()["id"]
+            attached = await client.post(
+                "/api/admin/content/attach",
+                json={
+                    "skill_id": skill_id,
+                    "title": "A Course",
+                    "source": "MANUAL",
+                    "url": "https://example.com/a-course",
+                },
+            )
+            content_id = attached.json()["id"]
+
+            await _login(client, email="casey@sails.example.com")
+            response = await client.delete(f"/api/admin/content/{content_id}/reject")
+
+            assert response.status_code == 403
+    finally:
+        await _delete_skill_by_name(name)
+
+
+async def test_reject_content_requires_authentication():
+    async with _client() as client:
+        response = await client.delete(f"/api/admin/content/{uuid.uuid4()}/reject")
+        assert response.status_code == 401
+
+
+async def test_reject_content_nonexistent_id_returns_404():
+    async with _client() as client:
+        await _login(client)
+        response = await client.delete(f"/api/admin/content/{uuid.uuid4()}/reject")
+        assert response.status_code == 404
+
+
+async def test_reject_content_batch_sourced_row_returns_404():
+    """A row that isn't admin-sourced (origin != "ADMIN_LOOKUP") must 404,
+    same as a genuinely nonexistent content_id (Scope Note 2) -- seeded
+    directly via ORM since /attach always writes origin="ADMIN_LOOKUP"."""
+    name = f"Reject Content Batch Sourced {uuid.uuid4().hex[:8]}"
+    try:
+        async with _session_factory() as session:
+            skill = Skill(name=name, description="Test skill", embedding=[0.1] * 384)
+            session.add(skill)
+            await session.flush()
+            content = ContentCatalog(
+                skill_id=skill.id,
+                title="Batch Video",
+                description=None,
+                type="VIDEO",
+                url="https://youtube.com/watch?v=batch1",
+                embedding=[0.2] * 384,
+                source="YOUTUBE",
+                content_metadata={"video_id": "batch1"},
+                origin="BATCH",
+            )
+            session.add(content)
+            await session.commit()
+            content_id = content.id
+
+        async with _client() as client:
+            await _login(client)
+            response = await client.delete(f"/api/admin/content/{content_id}/reject")
+            assert response.status_code == 404
+    finally:
+        await _delete_skill_by_name(name)
+
+
+async def test_reject_content_succeeds_when_referenced_by_an_assignment_and_nulls_content_id():
+    """AC6/Scope Note 3: an Assignment.content_id pointing at the row being
+    rejected must not 500 -- migration 010's ON DELETE SET NULL nulls it out
+    instead."""
+    name = f"Reject Content Referenced By Assignment {uuid.uuid4().hex[:8]}"
+    try:
+        async with _client() as client:
+            await _login(client)
+            created = await client.post("/api/admin/skills", json={"name": name})
+            skill_id = created.json()["id"]
+            attached = await client.post(
+                "/api/admin/content/attach",
+                json={
+                    "skill_id": skill_id,
+                    "title": "A Course",
+                    "source": "MANUAL",
+                    "url": "https://example.com/a-course",
+                },
+            )
+            content_id = attached.json()["id"]
+
+            async with _session_factory() as session:
+                assignment = Assignment(
+                    employee_id=CASEY_ID,
+                    skill_id=uuid.UUID(skill_id),
+                    content_id=uuid.UUID(content_id),
+                    assigned_by=RITA_ID,
+                )
+                session.add(assignment)
+                await session.commit()
+                assignment_id = assignment.id
+
+            try:
+                response = await client.delete(f"/api/admin/content/{content_id}/reject")
+                assert response.status_code == 204
+
+                async with _session_factory() as session:
+                    refreshed = await session.get(Assignment, assignment_id)
+                    assert refreshed.content_id is None
+            finally:
+                # Unconditional, independent of the asserts above -- if an
+                # assertion fails, the Assignment row must still be removed
+                # here so the outer finally's _delete_skill_by_name (below)
+                # doesn't hit assignments_skill_id_fkey (no cascade) and
+                # mask the real failure behind an unrelated IntegrityError
+                # (review patch, 2026-09-10).
+                async with _session_factory() as session:
+                    leftover = await session.get(Assignment, assignment_id)
+                    if leftover is not None:
+                        await session.delete(leftover)
+                        await session.commit()
     finally:
         await _delete_skill_by_name(name)
 

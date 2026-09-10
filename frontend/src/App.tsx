@@ -8,6 +8,7 @@ import { Dashboard } from '@/pages/hr/Dashboard';
 import { VideoPlayerDemo } from '@/pages/dev/VideoPlayerDemo';
 import { ApiKeysModalDemo } from '@/pages/dev/ApiKeysModalDemo';
 import { ManualContentEntryDemo } from '@/pages/dev/ManualContentEntryDemo';
+import { CurrentlyApprovedContentDemo } from '@/pages/dev/CurrentlyApprovedContentDemo';
 
 export function App() {
   return (
@@ -60,6 +61,14 @@ export function App() {
             element={
               <RequireAuth>
                 <ManualContentEntryDemo />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/dev/currently-approved-content-demo"
+            element={
+              <RequireAuth>
+                <CurrentlyApprovedContentDemo />
               </RequireAuth>
             }
           />

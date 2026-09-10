@@ -15,6 +15,7 @@ from app.content.service import (
     get_api_keys_status,
     get_content,
     list_content_for_skill,
+    reject_content,
     remove_udemy_credential,
     remove_youtube_key,
     search_content_for_skill,
@@ -928,3 +929,113 @@ async def test_attach_content_as_employee_raises_403(db_session: AsyncSession):
         )
 
     assert exc_info.value.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# Reject content (Story 6.9, FR-23). Hard-deletes an admin-attached
+# content_catalog row, independent of approving a replacement.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_reject_content_happy_path_deletes_the_row(db_session: AsyncSession):
+    skill = await _create_skill(db_session)
+    attached = await attach_content(
+        db_session,
+        current_user=HR_ADMIN_USER,
+        skill_id=skill.id,
+        title="A Course To Reject",
+        source="MANUAL",
+        url="https://example.com/a-course",
+        duration_hours=None,
+    )
+
+    await reject_content(db_session, current_user=HR_ADMIN_USER, content_id=attached.id)
+
+    assert await repository.get_content_by_id(db_session, attached.id) is None
+
+
+@pytest.mark.asyncio
+async def test_reject_content_nonexistent_id_raises_404(db_session: AsyncSession):
+    with pytest.raises(AppException) as exc_info:
+        await reject_content(db_session, current_user=HR_ADMIN_USER, content_id=uuid.uuid4())
+
+    assert exc_info.value.status_code == 404
+    assert exc_info.value.error_code == "CONTENT_NOT_FOUND"
+
+
+@pytest.mark.asyncio
+async def test_reject_content_batch_sourced_row_raises_404_not_deleted(db_session: AsyncSession):
+    """A row seeded with origin="BATCH" (the ingestion job's default, never
+    ADMIN_LOOKUP) must 404 -- same uniform not-found treatment as a
+    genuinely nonexistent content_id (Scope Note 2), and must NOT be
+    deleted."""
+    skill = await _create_skill(db_session)
+    content = ContentCatalog(
+        skill_id=skill.id,
+        title="Batch Ingested Video",
+        description=None,
+        type="VIDEO",
+        url="https://youtube.com/watch?v=batch123",
+        embedding=[0.3] * 384,
+        source="YOUTUBE",
+        content_metadata={"video_id": "batch123"},
+        origin="BATCH",
+    )
+    db_session.add(content)
+    await db_session.flush()
+
+    with pytest.raises(AppException) as exc_info:
+        await reject_content(db_session, current_user=HR_ADMIN_USER, content_id=content.id)
+
+    assert exc_info.value.status_code == 404
+    assert exc_info.value.error_code == "CONTENT_NOT_FOUND"
+    assert await repository.get_content_by_id(db_session, content.id) is not None
+
+
+@pytest.mark.asyncio
+async def test_reject_content_as_employee_raises_403(db_session: AsyncSession):
+    skill = await _create_skill(db_session)
+    attached = await attach_content(
+        db_session,
+        current_user=HR_ADMIN_USER,
+        skill_id=skill.id,
+        title="A Course",
+        source="MANUAL",
+        url="https://example.com/a-course",
+        duration_hours=None,
+    )
+
+    with pytest.raises(AppException) as exc_info:
+        await reject_content(db_session, current_user=EMPLOYEE_USER, content_id=attached.id)
+
+    assert exc_info.value.status_code == 403
+    # Row must be untouched by a rejected (403) attempt.
+    assert await repository.get_content_by_id(db_session, attached.id) is not None
+
+
+@pytest.mark.asyncio
+async def test_reject_content_succeeds_regardless_of_skill_ever_assigned(db_session: AsyncSession):
+    """PRD FR-23 / AD-11 point 5: rejecting Content is never gated by the
+    Skill's ever_assigned lock -- unlike Story 6.3's Skill-identity lock."""
+    skill = Skill(
+        name=f"Ever Assigned Skill {uuid.uuid4().hex[:8]}",
+        description="Story 6.9 test skill",
+        embedding=[0.1] * 384,
+        ever_assigned=True,
+    )
+    db_session.add(skill)
+    await db_session.flush()
+    attached = await attach_content(
+        db_session,
+        current_user=HR_ADMIN_USER,
+        skill_id=skill.id,
+        title="A Course",
+        source="MANUAL",
+        url="https://example.com/a-course",
+        duration_hours=None,
+    )
+
+    await reject_content(db_session, current_user=HR_ADMIN_USER, content_id=attached.id)
+
+    assert await repository.get_content_by_id(db_session, attached.id) is None

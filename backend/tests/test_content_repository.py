@@ -11,6 +11,7 @@ from app.content.repository import (
     get_content_by_id,
     list_content_by_skill,
     create_content,
+    delete_content,
     delete_admin_api_key,
     delete_org_api_credential,
     get_admin_api_key,
@@ -183,6 +184,43 @@ async def test_create_content_persists_and_returns_orm(db_session: AsyncSession)
     # Verify it was actually persisted
     await db_session.refresh(result)
     assert result.id is not None
+
+
+# ---------------------------------------------------------------------------
+# Reject content (Story 6.9, FR-23)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_delete_content_removes_the_row(db_session: AsyncSession):
+    unique_name = f"Reject Repository Test {uuid.uuid4().hex[:8]}"
+    skill = Skill(name=unique_name, description="Test skill", embedding=[0.1] * 384)
+    db_session.add(skill)
+    await db_session.flush()
+
+    content = ContentCatalog(
+        skill_id=skill.id,
+        title="A Course To Reject",
+        description=None,
+        type="VIDEO",
+        url="https://example.com/a-course",
+        embedding=[0.2] * 384,
+        source="MANUAL",
+        content_metadata=None,
+        origin="ADMIN_LOOKUP",
+    )
+    db_session.add(content)
+    await db_session.flush()
+    content_id = content.id
+
+    await delete_content(db_session, content_id)
+
+    assert await get_content_by_id(db_session, content_id) is None
+
+
+@pytest.mark.asyncio
+async def test_delete_content_for_nonexistent_id_does_not_raise(db_session: AsyncSession):
+    await delete_content(db_session, uuid.uuid4())
 
 
 # ---------------------------------------------------------------------------

@@ -404,6 +404,12 @@ def _not_found_skill() -> AppException:
     return AppException(status.HTTP_404_NOT_FOUND, error_code="SKILL_NOT_FOUND", message="Skill not found")
 
 
+def _not_found_content() -> AppException:
+    # Distinct resource/message from _not_found_skill() above -- Story 6.9's
+    # reject endpoint 404s on content_id, not skill_id.
+    return AppException(status.HTTP_404_NOT_FOUND, error_code="CONTENT_NOT_FOUND", message="Content not found")
+
+
 async def _get_source_credential(db: AsyncSession, *, admin_id: UUID, source: str) -> str | dict | None:
     """CREDENTIAL_SCOPE = {YOUTUBE: PER_ADMIN, UDEMY: ORG_WIDE} (AD-10) --
     the one place that decides which repository function to call per
@@ -667,3 +673,27 @@ async def attach_content(
     )
     await db.commit()
     return ContentResponse.model_validate(content_orm)
+
+
+# ---------------------------------------------------------------------------
+# Reject content (Story 6.9, FR-23). Hard-deletes an admin-attached
+# content_catalog row outright, independent of approving a replacement.
+# Not gated by the Skill's ever_assigned flag at all (AD-11 point 5) -- this
+# function never looks at the Skill row or its lock.
+# ---------------------------------------------------------------------------
+
+
+async def reject_content(db: AsyncSession, *, current_user: CurrentUser, content_id: UUID) -> None:
+    """Hard-deletes a Content row previously approved via attach_content
+    (Story 6.9 AC1-AC5). HR_ADMIN-only. 404s uniformly whether content_id
+    doesn't exist or exists but wasn't admin-sourced (origin != "ADMIN_LOOKUP")
+    -- there is no skill_id in this endpoint's signature to additionally
+    scope by (Scope Note 2)."""
+    require_hr_admin(current_user)
+
+    content = await repository.get_content_by_id(db, content_id)
+    if content is None or content.origin != "ADMIN_LOOKUP":
+        raise _not_found_content()
+
+    await repository.delete_content(db, content_id)
+    await db.commit()

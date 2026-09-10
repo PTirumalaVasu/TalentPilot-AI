@@ -51,3 +51,12 @@ export async function attachContent(body: {
   const response = await apiClient.post<ContentResponse>('/api/admin/content/attach', body);
   return response.data;
 }
+
+/**
+ * Story 6.9 (FR-23): rejects (hard-deletes) a previously-approved Content
+ * row. DELETE /api/admin/content/{contentId}/reject -- 204/no body on
+ * success, independent of approving a replacement.
+ */
+export async function rejectContent(contentId: string): Promise<void> {
+  await apiClient.delete(`/api/admin/content/${contentId}/reject`);
+}

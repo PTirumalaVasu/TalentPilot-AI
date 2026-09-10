@@ -1,11 +1,13 @@
-"""HTTP routes for approving/attaching reviewed content candidates (Story
-6.8, FR-18). Mounted separately from content/router.py (which owns
+"""HTTP routes for approving/rejecting reviewed content candidates (Stories
+6.8/6.9, FR-18/FR-23). Mounted separately from content/router.py (which owns
 /api/content) and skills/router.py (which owns /api/admin/skills/{id}/...
 sub-resources) at /api/admin/content -- the architecture spine's own
-Consistency Conventions table names this exact route. Mirrors
+Consistency Conventions table names both these exact routes. Mirrors
 content/admin_api_keys_router.py's shape exactly: own file, own prefix,
 thin routes calling straight into content/service.py.
 """
+from uuid import UUID
+
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -36,3 +38,15 @@ async def attach_content_route(
         url=request.url,
         duration_hours=request.duration_hours,
     )
+
+
+@router.delete("/{content_id}/reject", status_code=status.HTTP_204_NO_CONTENT)
+async def reject_content_route(
+    content_id: UUID,
+    current_user: CurrentUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+) -> None:
+    """Rejects (hard-deletes) a previously-approved Content row (Story 6.9
+    AC1-AC5). Thin -- the actual delete logic lives in
+    content/service.py::reject_content (AD-1)."""
+    await content_service.reject_content(session, current_user=current_user, content_id=content_id)
