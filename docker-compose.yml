@@ -27,6 +27,7 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://talentpilot:sails123@postgres:5432/talentpilot
       JWT_SECRET: ${JWT_SECRET:-test-secret-key-for-development-only}
+      ADMIN_KEY_ENCRYPTION_SECRET: ${ADMIN_KEY_ENCRYPTION_SECRET:-test-encryption-secret-for-development-only}
       ALLOWED_ORIGINS: http://localhost:8080
       COOKIE_SECURE: "false"
       YOUTUBE_API_KEY: ${YOUTUBE_API_KEY:-}

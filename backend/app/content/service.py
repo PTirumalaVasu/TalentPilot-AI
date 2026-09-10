@@ -1,10 +1,13 @@
 """Service layer for the content module. Cross-module callers must go through here (AD-1)."""
 import datetime
 import logging
+from dataclasses import dataclass
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth.schemas import CurrentUser
+from app.auth.service import require_hr_admin
 from app.content import repository
 from app.content import youtube_client
 from app.content.schemas import ContentResponse, ManualContentCreate
@@ -270,3 +273,81 @@ async def match_content_for_skill(db: AsyncSession, skill_id: UUID) -> ContentRe
         return None
 
     return ContentResponse.model_validate(content_orm)
+
+
+# ---------------------------------------------------------------------------
+# Admin/org API credential management (AD-10, Story 6.5). Every function
+# below calls require_hr_admin(current_user) first (AD-6) -- this is the
+# service-layer gate this codebase uses everywhere else (skills/service.py),
+# not a router-level Depends. None of these ever import app.assignments --
+# resolving the Udemy "configured by" display name happens at the router
+# layer instead (Scope Note 5), the same composition shape auth/router.py's
+# get_me_route already uses.
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class ApiKeysStatusRaw:
+    """Internal status shape -- content/admin_api_keys_router.py composes
+    this into the public ApiKeysStatusResponse, resolving
+    udemy_configured_by_id to a display name itself."""
+
+    youtube_configured: bool
+    udemy_configured: bool
+    udemy_configured_by_id: UUID | None
+    udemy_configured_at: datetime.datetime | None
+
+
+async def set_youtube_key(db: AsyncSession, *, current_user: CurrentUser, key: str) -> None:
+    """Save/replace the caller's own YouTube key (Story 6.5 AC3)."""
+    require_hr_admin(current_user)
+    await repository.upsert_admin_api_key(
+        db, admin_id=UUID(current_user.user_id), source="YOUTUBE", plaintext_key=key
+    )
+
+
+async def remove_youtube_key(db: AsyncSession, *, current_user: CurrentUser) -> None:
+    """Remove the caller's own YouTube key (Story 6.5 AC5)."""
+    require_hr_admin(current_user)
+    await repository.delete_admin_api_key(db, admin_id=UUID(current_user.user_id), source="YOUTUBE")
+
+
+async def set_udemy_credential(db: AsyncSession, *, current_user: CurrentUser, client_id: str, client_secret: str) -> None:
+    """Save/replace the single org-wide Udemy credential (Story 6.5 AC4) --
+    deliberately not scoped to the caller's own identity beyond attribution
+    (AD-10: org-wide, not personal)."""
+    require_hr_admin(current_user)
+    await repository.upsert_org_api_credential(
+        db,
+        source="UDEMY",
+        client_id=client_id,
+        client_secret=client_secret,
+        configured_by=UUID(current_user.user_id),
+    )
+
+
+async def remove_udemy_credential(db: AsyncSession, *, current_user: CurrentUser) -> None:
+    """Remove the org-wide Udemy credential (Story 6.5 AC5) -- any HR Admin
+    may remove it, not just whoever configured it (same org-wide scoping as
+    set_udemy_credential)."""
+    require_hr_admin(current_user)
+    await repository.delete_org_api_credential(db, source="UDEMY")
+
+
+async def get_api_keys_status(db: AsyncSession, *, current_user: CurrentUser) -> ApiKeysStatusRaw:
+    """Read-only status for both credential types (Story 6.5 AC6) -- never
+    returns the encrypted or decrypted value, only configured-or-not plus
+    Udemy's raw attribution id/timestamp (the router resolves the id to a
+    display name)."""
+    require_hr_admin(current_user)
+    admin_id = UUID(current_user.user_id)
+
+    youtube_row = await repository.get_admin_api_key(db, admin_id=admin_id, source="YOUTUBE")
+    udemy_row = await repository.get_org_api_credential(db, source="UDEMY")
+
+    return ApiKeysStatusRaw(
+        youtube_configured=youtube_row is not None,
+        udemy_configured=udemy_row is not None,
+        udemy_configured_by_id=udemy_row.configured_by if udemy_row else None,
+        udemy_configured_at=udemy_row.updated_at if udemy_row else None,
+    )

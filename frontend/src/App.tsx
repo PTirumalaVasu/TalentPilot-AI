@@ -6,6 +6,7 @@ import { ContentDiscovery } from '@/pages/employee/ContentDiscovery';
 import { AssignmentWatch } from '@/pages/employee/AssignmentWatch';
 import { Dashboard } from '@/pages/hr/Dashboard';
 import { VideoPlayerDemo } from '@/pages/dev/VideoPlayerDemo';
+import { ApiKeysModalDemo } from '@/pages/dev/ApiKeysModalDemo';
 
 export function App() {
   return (
@@ -42,6 +43,14 @@ export function App() {
             element={
               <RequireAuth>
                 <VideoPlayerDemo />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/dev/api-keys-modal-demo"
+            element={
+              <RequireAuth>
+                <ApiKeysModalDemo />
               </RequireAuth>
             }
           />

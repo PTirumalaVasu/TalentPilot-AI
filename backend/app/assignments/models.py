@@ -103,6 +103,42 @@ class AdminApiKey(Base):
     )
 
 
+class OrgApiCredential(Base):
+    """Org-wide content-source credential (AD-10, Story 6.5) -- one row per
+    source, shared across all HR Admins (unlike AdminApiKey's per-admin
+    scoping). Udemy only, v1. `configured_by` is attribution only ("connected
+    by {name},"), not an ownership scope -- any HR Admin may replace this row.
+
+    Judgment call (Story 6.5 Dev Notes/Scope Note 3): AD-10's schema for this
+    table defines a single `encrypted_key` text column, but the Udemy
+    credential is a client_id/client_secret *pair*. Both values are packed
+    into one JSON string (`{"client_id": ..., "client_secret": ...}`) before
+    being Fernet-encrypted as a single blob into `encrypted_key`, rather than
+    adding a second column AD-10 never specified. A future reader (Story 6.6,
+    which needs to decrypt+parse this to actually call Udemy) must
+    `json.loads()` the decrypted value, not treat it as a bare secret string.
+    """
+
+    __tablename__ = "org_api_credentials"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    source = Column(String(50), nullable=False)  # "UDEMY" -- org-wide sources only, AD-10
+    encrypted_key = Column(Text, nullable=False)
+    # ondelete="SET NULL" (code review, 2026-09-10): configured_by is
+    # attribution-only, not an ownership scope (see docstring above) --
+    # deleting the referenced Employee should null the attribution, not
+    # block the delete with a RESTRICT violation. Unreachable today (no
+    # employee-delete endpoint exists anywhere in this codebase) but matches
+    # the column's own stated, nullable design intent.
+    configured_by = Column(UUID(as_uuid=True), ForeignKey("employees.id", ondelete="SET NULL"), nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("source", name="uq_org_api_credentials_source"),
+    )
+
+
 class Assignment(Base):
     __tablename__ = "assignments"
 

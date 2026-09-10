@@ -26,6 +26,7 @@ def test_load_settings_succeeds_with_required_vars(monkeypatch):
 def test_cookie_settings_defaults(monkeypatch):
     monkeypatch.setenv("DATABASE_URL", "postgresql+asyncpg://u:p@localhost:5432/db")
     monkeypatch.setenv("JWT_SECRET", "test-secret")
+    monkeypatch.setenv("ADMIN_KEY_ENCRYPTION_SECRET", "test-encryption-secret")
     monkeypatch.delenv("SESSION_COOKIE_NAME", raising=False)
     monkeypatch.delenv("COOKIE_SECURE", raising=False)
 
@@ -40,6 +41,7 @@ def test_youtube_api_key_defaults_to_none_app_boots_without_it(monkeypatch):
     ingestion CLI needs this key, not request-serving."""
     monkeypatch.setenv("DATABASE_URL", "postgresql+asyncpg://u:p@localhost:5432/db")
     monkeypatch.setenv("JWT_SECRET", "test-secret")
+    monkeypatch.setenv("ADMIN_KEY_ENCRYPTION_SECRET", "test-encryption-secret")
     monkeypatch.delenv("YOUTUBE_API_KEY", raising=False)
 
     settings = load_settings(_env_file=None)

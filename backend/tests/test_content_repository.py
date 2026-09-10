@@ -5,11 +5,18 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.assignments.models import ContentCatalog
+from app.core.seed_ids import CASEY_ID, RITA_ID
 from app.skills.models import Skill
 from app.content.repository import (
     get_content_by_id,
     list_content_by_skill,
     create_content,
+    delete_admin_api_key,
+    delete_org_api_credential,
+    get_admin_api_key,
+    get_org_api_credential,
+    upsert_admin_api_key,
+    upsert_org_api_credential,
 )
 
 
@@ -174,3 +181,122 @@ async def test_create_content_persists_and_returns_orm(db_session: AsyncSession)
     # Verify it was actually persisted
     await db_session.refresh(result)
     assert result.id is not None
+
+
+# ---------------------------------------------------------------------------
+# Admin/org API credential storage (AD-10, Story 6.5)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_upsert_admin_api_key_then_get_round_trips(db_session: AsyncSession):
+    await upsert_admin_api_key(db_session, admin_id=RITA_ID, source="YOUTUBE", plaintext_key="my-yt-key")
+
+    row = await get_admin_api_key(db_session, admin_id=RITA_ID, source="YOUTUBE")
+
+    assert row is not None
+    assert row.admin_id == RITA_ID
+    assert row.source == "YOUTUBE"
+    # Never stored in plaintext.
+    assert row.encrypted_key != "my-yt-key"
+
+
+@pytest.mark.asyncio
+async def test_upsert_admin_api_key_twice_replaces_not_duplicates(db_session: AsyncSession):
+    await upsert_admin_api_key(db_session, admin_id=RITA_ID, source="YOUTUBE", plaintext_key="first-key")
+    await upsert_admin_api_key(db_session, admin_id=RITA_ID, source="YOUTUBE", plaintext_key="second-key")
+
+    row = await get_admin_api_key(db_session, admin_id=RITA_ID, source="YOUTUBE")
+
+    from app.core.secrets import decrypt_secret
+
+    assert decrypt_secret(row.encrypted_key) == "second-key"
+
+
+@pytest.mark.asyncio
+async def test_get_admin_api_key_returns_none_when_not_configured(db_session: AsyncSession):
+    row = await get_admin_api_key(db_session, admin_id=CASEY_ID, source="YOUTUBE")
+    assert row is None
+
+
+@pytest.mark.asyncio
+async def test_delete_admin_api_key_removes_the_row(db_session: AsyncSession):
+    await upsert_admin_api_key(db_session, admin_id=RITA_ID, source="YOUTUBE", plaintext_key="a-key")
+
+    await delete_admin_api_key(db_session, admin_id=RITA_ID, source="YOUTUBE")
+
+    assert await get_admin_api_key(db_session, admin_id=RITA_ID, source="YOUTUBE") is None
+
+
+@pytest.mark.asyncio
+async def test_delete_admin_api_key_for_nonexistent_row_does_not_raise(db_session: AsyncSession):
+    await delete_admin_api_key(db_session, admin_id=RITA_ID, source="YOUTUBE")
+
+
+@pytest.mark.asyncio
+async def test_upsert_org_api_credential_then_get_round_trips(db_session: AsyncSession):
+    await upsert_org_api_credential(
+        db_session, source="UDEMY", client_id="client-abc", client_secret="secret-xyz", configured_by=RITA_ID
+    )
+
+    row = await get_org_api_credential(db_session, source="UDEMY")
+
+    assert row is not None
+    assert row.source == "UDEMY"
+    assert row.configured_by == RITA_ID
+    assert row.encrypted_key != "client-abc"
+    assert row.encrypted_key != "secret-xyz"
+
+
+@pytest.mark.asyncio
+async def test_upsert_org_api_credential_packs_both_fields_into_one_encrypted_blob(db_session: AsyncSession):
+    import json
+
+    from app.core.secrets import decrypt_secret
+
+    await upsert_org_api_credential(
+        db_session, source="UDEMY", client_id="client-abc", client_secret="secret-xyz", configured_by=RITA_ID
+    )
+
+    row = await get_org_api_credential(db_session, source="UDEMY")
+    decrypted = json.loads(decrypt_secret(row.encrypted_key))
+
+    assert decrypted == {"client_id": "client-abc", "client_secret": "secret-xyz"}
+
+
+@pytest.mark.asyncio
+async def test_upsert_org_api_credential_replaces_regardless_of_who_configured_it_before(db_session: AsyncSession):
+    await upsert_org_api_credential(
+        db_session, source="UDEMY", client_id="first-id", client_secret="first-secret", configured_by=RITA_ID
+    )
+    # A different admin (Casey -- role doesn't matter at the repository
+    # layer, only the FK) replaces the same org-wide row.
+    await upsert_org_api_credential(
+        db_session, source="UDEMY", client_id="second-id", client_secret="second-secret", configured_by=CASEY_ID
+    )
+
+    row = await get_org_api_credential(db_session, source="UDEMY")
+
+    assert row.configured_by == CASEY_ID
+
+
+@pytest.mark.asyncio
+async def test_get_org_api_credential_returns_none_when_not_configured(db_session: AsyncSession):
+    row = await get_org_api_credential(db_session, source="UDEMY")
+    assert row is None
+
+
+@pytest.mark.asyncio
+async def test_delete_org_api_credential_removes_the_row(db_session: AsyncSession):
+    await upsert_org_api_credential(
+        db_session, source="UDEMY", client_id="id", client_secret="secret", configured_by=RITA_ID
+    )
+
+    await delete_org_api_credential(db_session, source="UDEMY")
+
+    assert await get_org_api_credential(db_session, source="UDEMY") is None
+
+
+@pytest.mark.asyncio
+async def test_delete_org_api_credential_for_nonexistent_row_does_not_raise(db_session: AsyncSession):
+    await delete_org_api_credential(db_session, source="UDEMY")

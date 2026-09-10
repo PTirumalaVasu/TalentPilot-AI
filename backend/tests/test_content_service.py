@@ -5,9 +5,23 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.assignments.models import ContentCatalog
+from app.auth.schemas import CurrentUser, Role
+from app.core.errors import AppException
+from app.core.seed_ids import CASEY_ID, RITA_ID
 from app.skills.models import Skill
-from app.content.service import get_content, list_content_for_skill
+from app.content.service import (
+    get_api_keys_status,
+    get_content,
+    list_content_for_skill,
+    remove_udemy_credential,
+    remove_youtube_key,
+    set_udemy_credential,
+    set_youtube_key,
+)
 from app.content.schemas import ContentResponse
+
+HR_ADMIN_USER = CurrentUser(role=Role.HR_ADMIN, user_id=str(RITA_ID))
+EMPLOYEE_USER = CurrentUser(role=Role.EMPLOYEE, user_id=str(CASEY_ID))
 
 
 @pytest.mark.asyncio
@@ -170,3 +184,97 @@ async def test_service_orm_to_pydantic_field_mapping(db_session: AsyncSession):
         "duration": 1200,
         "views": 1000,
     }
+
+
+# ---------------------------------------------------------------------------
+# Admin/org API credential management (AD-10, Story 6.5)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_set_youtube_key_as_hr_admin_persists_it(db_session: AsyncSession):
+    await set_youtube_key(db_session, current_user=HR_ADMIN_USER, key="a-real-key")
+
+    status = await get_api_keys_status(db_session, current_user=HR_ADMIN_USER)
+    assert status.youtube_configured is True
+
+
+@pytest.mark.asyncio
+async def test_set_youtube_key_as_employee_raises_403(db_session: AsyncSession):
+    with pytest.raises(AppException) as exc_info:
+        await set_youtube_key(db_session, current_user=EMPLOYEE_USER, key="a-key")
+    assert exc_info.value.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_remove_youtube_key_as_hr_admin_clears_it(db_session: AsyncSession):
+    await set_youtube_key(db_session, current_user=HR_ADMIN_USER, key="a-key")
+
+    await remove_youtube_key(db_session, current_user=HR_ADMIN_USER)
+
+    status = await get_api_keys_status(db_session, current_user=HR_ADMIN_USER)
+    assert status.youtube_configured is False
+
+
+@pytest.mark.asyncio
+async def test_remove_youtube_key_as_employee_raises_403(db_session: AsyncSession):
+    with pytest.raises(AppException) as exc_info:
+        await remove_youtube_key(db_session, current_user=EMPLOYEE_USER)
+    assert exc_info.value.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_set_udemy_credential_as_hr_admin_persists_it(db_session: AsyncSession):
+    await set_udemy_credential(
+        db_session, current_user=HR_ADMIN_USER, client_id="client-1", client_secret="secret-1"
+    )
+
+    status = await get_api_keys_status(db_session, current_user=HR_ADMIN_USER)
+    assert status.udemy_configured is True
+    assert status.udemy_configured_by_id == RITA_ID
+    assert status.udemy_configured_at is not None
+
+
+@pytest.mark.asyncio
+async def test_set_udemy_credential_as_employee_raises_403(db_session: AsyncSession):
+    with pytest.raises(AppException) as exc_info:
+        await set_udemy_credential(
+            db_session, current_user=EMPLOYEE_USER, client_id="client-1", client_secret="secret-1"
+        )
+    assert exc_info.value.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_remove_udemy_credential_as_hr_admin_clears_it(db_session: AsyncSession):
+    await set_udemy_credential(
+        db_session, current_user=HR_ADMIN_USER, client_id="client-1", client_secret="secret-1"
+    )
+
+    await remove_udemy_credential(db_session, current_user=HR_ADMIN_USER)
+
+    status = await get_api_keys_status(db_session, current_user=HR_ADMIN_USER)
+    assert status.udemy_configured is False
+
+
+@pytest.mark.asyncio
+async def test_remove_udemy_credential_as_employee_raises_403(db_session: AsyncSession):
+    with pytest.raises(AppException) as exc_info:
+        await remove_udemy_credential(db_session, current_user=EMPLOYEE_USER)
+    assert exc_info.value.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_get_api_keys_status_as_employee_raises_403(db_session: AsyncSession):
+    with pytest.raises(AppException) as exc_info:
+        await get_api_keys_status(db_session, current_user=EMPLOYEE_USER)
+    assert exc_info.value.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_get_api_keys_status_when_nothing_configured_reports_false(db_session: AsyncSession):
+    status = await get_api_keys_status(db_session, current_user=HR_ADMIN_USER)
+
+    assert status.youtube_configured is False
+    assert status.udemy_configured is False
+    assert status.udemy_configured_by_id is None
+    assert status.udemy_configured_at is None

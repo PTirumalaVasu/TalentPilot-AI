@@ -19,13 +19,11 @@ from app.core.db import Base
 
 
 def test_all_tables_defined():
-    """Verify all 8 required tables are defined in the ORM.
+    """Verify all 9 required tables are defined in the ORM.
 
-    Was pinned at 7 (missing admin_api_keys, Story 6.5's migration 005) --
-    a pre-existing gap from that ad hoc migration commit predating this
-    story, found while updating this file's Skill import path and fixed
-    here since it's a one-line, in-scope correction to a test this story
-    already touches."""
+    Was pinned at 7 (missing admin_api_keys, Story 6.1 note on migration
+    005), then 8 (missing org_api_credentials, this story's migration 008)
+    -- bumped again here for the same reason: a new table this story adds."""
     expected_tables = {
         "accounts",
         "employees",
@@ -35,6 +33,7 @@ def test_all_tables_defined():
         "skill_progress",
         "assignment_overrides",
         "admin_api_keys",
+        "org_api_credentials",
     }
     actual_tables = set(Base.metadata.tables.keys())
     assert expected_tables == actual_tables, f"Table mismatch. Expected: {expected_tables}, Got: {actual_tables}"

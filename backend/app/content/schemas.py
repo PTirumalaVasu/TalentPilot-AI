@@ -3,7 +3,18 @@ from datetime import datetime
 from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+
+def _reject_blank(value: str) -> str:
+    # Mirrors skills/schemas.py::_reject_blank -- Field(min_length=1) alone
+    # would accept a whitespace-only value, which the ACs' "non-empty"
+    # requirement means to exclude (Story 6.5, UX spec's Form Validation
+    # section: "required non-empty string/both required non-empty").
+    stripped = value.strip()
+    if not stripped:
+        raise ValueError("must not be blank")
+    return stripped
 
 
 class ContentResponse(BaseModel):
@@ -63,3 +74,63 @@ class ManualContentCreate(BaseModel):
     type: Literal["VIDEO", "DOCUMENT", "WEBSITE"]
     description: str | None = None
     source: Literal["MANUAL"] = "MANUAL"
+
+
+# Upper bound on submitted credential values (code review, 2026-09-10) --
+# real API keys/secrets are always well under this; guards against an
+# arbitrarily large payload being accepted and encrypted/stored with no
+# application-level limit. Same lesson Story 6.2's review already applied to
+# CreateSkillRequest.name (max_length=255 there), sized generously here since
+# a real-world API credential is unpredictable in exact format/length.
+CREDENTIAL_MAX_LENGTH = 4096
+
+
+class SetYoutubeKeyRequest(BaseModel):
+    """PUT /api/admin/api-keys/youtube body (Story 6.5, FR-16). No format
+    validation beyond non-blank -- a real invalid/revoked key surfaces its
+    error at first search (Story 6.6), per the UX spec's own Form Validation
+    section, not here."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    key: str = Field(min_length=1, max_length=CREDENTIAL_MAX_LENGTH)
+
+    @field_validator("key")
+    @classmethod
+    def key_must_not_be_blank(cls, value: str) -> str:
+        return _reject_blank(value)
+
+
+class SetUdemyCredentialRequest(BaseModel):
+    """PUT /api/admin/api-keys/udemy body (Story 6.5, FR-16). Both fields
+    required non-blank; no further format validation (same rationale as
+    SetYoutubeKeyRequest)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    client_id: str = Field(min_length=1, max_length=CREDENTIAL_MAX_LENGTH)
+    client_secret: str = Field(min_length=1, max_length=CREDENTIAL_MAX_LENGTH)
+
+    @field_validator("client_id", "client_secret")
+    @classmethod
+    def fields_must_not_be_blank(cls, value: str) -> str:
+        return _reject_blank(value)
+
+
+class YoutubeKeyStatus(BaseModel):
+    configured: bool
+
+
+class UdemyCredentialStatus(BaseModel):
+    configured: bool
+    configured_by: str | None = None
+    configured_at: str | None = None
+
+
+class ApiKeysStatusResponse(BaseModel):
+    """GET /api/admin/api-keys response (Story 6.5, FR-16). Never carries the
+    encrypted or decrypted key/secret value, in any field, under any
+    condition -- only configured-or-not + attribution metadata."""
+
+    youtube: YoutubeKeyStatus
+    udemy: UdemyCredentialStatus

@@ -1,10 +1,13 @@
 """Repository layer for the content module. Only this module's own code may query its tables."""
+import json
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import delete, func, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.assignments.models import ContentCatalog
+from app.assignments.models import AdminApiKey, ContentCatalog, OrgApiCredential
+from app.core.secrets import encrypt_secret
 
 # Cosine similarity a Content match must clear to be recommended (Story 2.4,
 # AD-7). Plain module constant, not a Settings field -- mirrors
@@ -104,4 +107,66 @@ async def find_best_matching_content(
         .limit(1)
     )
     result = await db.execute(stmt)
+    return result.scalar_one_or_none()
+
+
+# ---------------------------------------------------------------------------
+# Admin/org API credential storage (AD-10, Story 6.5). encrypt_secret() is
+# called only here, in the repository -- content/service.py never sees
+# ciphertext, per the epic's own wording (Story 6.5 Scope Note 2).
+# ---------------------------------------------------------------------------
+
+
+async def upsert_admin_api_key(db: AsyncSession, *, admin_id: UUID, source: str, plaintext_key: str) -> None:
+    """Create or replace a per-admin credential (Story 6.5 AC3). Postgres
+    ON CONFLICT on the (admin_id, source) unique constraint (migration 005)
+    -- a plain INSERT would raise IntegrityError on a second save for the
+    same admin+source instead of replacing it, which the AC requires."""
+    encrypted = encrypt_secret(plaintext_key)
+    stmt = pg_insert(AdminApiKey).values(admin_id=admin_id, source=source, encrypted_key=encrypted)
+    # onupdate=func.now() (the model's ORM-level default) never fires for a
+    # Core-level execute() like this one -- set it explicitly, same reasoning
+    # as skills/repository.py's Core-UPDATE precedent.
+    stmt = stmt.on_conflict_do_update(
+        index_elements=[AdminApiKey.admin_id, AdminApiKey.source],
+        set_={"encrypted_key": encrypted, "updated_at": func.now()},
+    )
+    await db.execute(stmt)
+
+
+async def delete_admin_api_key(db: AsyncSession, *, admin_id: UUID, source: str) -> None:
+    await db.execute(delete(AdminApiKey).where(AdminApiKey.admin_id == admin_id, AdminApiKey.source == source))
+
+
+async def get_admin_api_key(db: AsyncSession, *, admin_id: UUID, source: str) -> AdminApiKey | None:
+    result = await db.execute(
+        select(AdminApiKey).where(AdminApiKey.admin_id == admin_id, AdminApiKey.source == source)
+    )
+    return result.scalar_one_or_none()
+
+
+async def upsert_org_api_credential(
+    db: AsyncSession, *, source: str, client_id: str, client_secret: str, configured_by: UUID
+) -> None:
+    """Create or replace the single org-wide credential row for `source`
+    (Story 6.5 AC4) -- both fields are packed into one JSON blob before
+    encryption (see OrgApiCredential's docstring for why). Postgres
+    ON CONFLICT on the `source` unique constraint (migration 008) replaces
+    the row regardless of which Admin configured it before, per AC4's
+    "regardless of which Admin configured it before me"."""
+    encrypted = encrypt_secret(json.dumps({"client_id": client_id, "client_secret": client_secret}))
+    stmt = pg_insert(OrgApiCredential).values(source=source, encrypted_key=encrypted, configured_by=configured_by)
+    stmt = stmt.on_conflict_do_update(
+        index_elements=[OrgApiCredential.source],
+        set_={"encrypted_key": encrypted, "configured_by": configured_by, "updated_at": func.now()},
+    )
+    await db.execute(stmt)
+
+
+async def delete_org_api_credential(db: AsyncSession, *, source: str) -> None:
+    await db.execute(delete(OrgApiCredential).where(OrgApiCredential.source == source))
+
+
+async def get_org_api_credential(db: AsyncSession, *, source: str) -> OrgApiCredential | None:
+    result = await db.execute(select(OrgApiCredential).where(OrgApiCredential.source == source))
     return result.scalar_one_or_none()
