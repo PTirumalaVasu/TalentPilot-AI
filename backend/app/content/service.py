@@ -4,6 +4,7 @@ import datetime
 import logging
 import re
 from dataclasses import dataclass
+from urllib.parse import parse_qs, urlparse
 from uuid import UUID
 
 from fastapi import status
@@ -565,3 +566,104 @@ async def submit_manual_content(
         raise _not_found_skill()
 
     return ManualContentCandidate(title=title, source="MANUAL", url=url, duration_hours=duration_hours)
+
+
+# ---------------------------------------------------------------------------
+# Attach content (Story 6.8, FR-18/FR-19). Unlike search_content_for_skill/
+# submit_manual_content above, this is the actual write/approve action any
+# reviewed candidate (searched or manual) needs -- writes content_catalog
+# with origin="ADMIN_LOOKUP" and attached_by set, distinguishing it from the
+# batch job's rows (origin="BATCH", attached_by=None).
+# ---------------------------------------------------------------------------
+
+
+_YOUTUBE_HOSTS = {"youtube.com", "www.youtube.com", "youtu.be"}
+
+
+def _extract_youtube_video_id(url: str) -> str | None:
+    """Best-effort extraction of a YouTube video id from a `watch?v=` or
+    `youtu.be/` URL (review patch, 2026-09-10) -- without this,
+    ingest_content_for_skill's de-dup check (content_metadata.get("video_id"))
+    can't recognize an admin-attached video and would re-ingest it as a
+    duplicate row on the next batch run. Hostname-checked, not substring-
+    matched (same lesson as ContentPreviewModal.tsx's Story 6.7 review
+    patch) -- a URL that merely contains "youtube.com" in a query param
+    must not be misidentified. Returns None (not a guess) for anything
+    unrecognized, matching FR-17a's "no data beats a guessed one" principle."""
+    parsed = urlparse(url)
+    if parsed.hostname not in _YOUTUBE_HOSTS:
+        return None
+    if parsed.hostname == "youtu.be":
+        video_id = parsed.path.lstrip("/")
+        return video_id or None
+    return parse_qs(parsed.query).get("v", [None])[0]
+
+
+def _build_attach_content_metadata(
+    *, source: str, url: str, duration_hours: float | None
+) -> dict | None:
+    """content_metadata for an attach_content write (review patch,
+    2026-09-10). Two independent concerns, both additive so neither
+    displaces the other:
+    - `duration_hours` (epics AC's literal field name) alongside `duration`
+      in whole seconds -- the key/unit ProgressRepository.parse_duration_seconds/
+      get_video_duration (AD-3's single derivation authority for dashboard
+      Status/percent) actually reads. Without `duration`, every Assignment
+      on this Content would be stuck "In Progress" at 0% forever.
+    - `video_id` for a recognized YOUTUBE url, so the batch ingestion job's
+      de-dup check doesn't re-ingest the same video.
+    Returns None (not `{}`) when there's nothing to record, matching every
+    other content_metadata writer in this module."""
+    metadata: dict = {}
+    if duration_hours is not None:
+        metadata["duration_hours"] = duration_hours
+        metadata["duration"] = round(duration_hours * 3600)
+    if source == "YOUTUBE":
+        video_id = _extract_youtube_video_id(url)
+        if video_id:
+            metadata["video_id"] = video_id
+    return metadata or None
+
+
+async def attach_content(
+    db: AsyncSession,
+    *,
+    current_user: CurrentUser,
+    skill_id: UUID,
+    title: str,
+    source: str,
+    url: str,
+    duration_hours: float | None,
+) -> ContentResponse:
+    """Approves a reviewed candidate as Content for a Skill (Story 6.8
+    AC2-AC6). HR_ADMIN-only. `type` is always hardcoded "VIDEO" -- content
+    type inference from source is out of scope (epics AC's own wording).
+    No `description` is embedded: neither candidate shape that can reach
+    this endpoint (ContentLookupCandidate, ManualContentCandidate) carries
+    one."""
+    require_hr_admin(current_user)
+
+    skill = await skills_service.get_skill_by_id(db, skill_id)
+    if skill is None:
+        raise _not_found_skill()
+
+    embedding = embed_text(_build_embedding_text(title, None))
+    content_orm = await repository.create_content(
+        db,
+        {
+            "skill_id": skill_id,
+            "title": title,
+            "description": None,
+            "type": "VIDEO",
+            "url": url,
+            "embedding": embedding,
+            "source": source,
+            "content_metadata": _build_attach_content_metadata(
+                source=source, url=url, duration_hours=duration_hours
+            ),
+            "attached_by": UUID(current_user.user_id),
+            "origin": "ADMIN_LOOKUP",
+        },
+    )
+    await db.commit()
+    return ContentResponse.model_validate(content_orm)

@@ -63,9 +63,15 @@ class ContentCatalog(Base):
     type = Column(Enum("VIDEO", "DOCUMENT", "WEBSITE", name="content_type_enum"), nullable=False)
     url = Column(String(500), nullable=False)
     embedding = Column(Vector(384), nullable=False)
-    source = Column(Enum("YOUTUBE", "MANUAL", name="content_source_enum"), nullable=False)
+    source = Column(Enum("YOUTUBE", "UDEMY", "MANUAL", name="content_source_enum"), nullable=False)
     ingested_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     content_metadata = Column(JSON, name="metadata")
+    # Story 6.8 (FR-18): attached_by is nullable -- every pre-existing row
+    # came from the batch job, not an Admin. origin distinguishes how a row
+    # was populated ('BATCH' default vs. 'ADMIN_LOOKUP' for this endpoint's
+    # writes) -- Story 6.9's reject endpoint filters on this.
+    attached_by = Column(UUID(as_uuid=True), ForeignKey("employees.id"), nullable=True)
+    origin = Column(Text, nullable=False, server_default="BATCH")
 
     # Relationships
     skill = relationship("Skill", back_populates="content_items")

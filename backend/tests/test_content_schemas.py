@@ -6,6 +6,7 @@ import pytest
 from pydantic import ValidationError
 
 from app.content.schemas import (
+    AttachContentRequest,
     ContentResponse,
     ContentWithEmbedding,
     EmbeddingInput,
@@ -121,8 +122,10 @@ def test_content_response_type_field_validation():
         ContentResponse.model_validate(invalid_content)
 
 
-def test_content_response_source_field_validation():
-    """ContentResponse source field should only accept YOUTUBE or MANUAL."""
+@pytest.mark.parametrize("source", ["YOUTUBE", "UDEMY", "MANUAL"])
+def test_content_response_source_field_validation(source):
+    """ContentResponse source field accepts YOUTUBE, UDEMY (Story 6.8), or
+    MANUAL -- and rejects anything else."""
     valid_content = {
         "id": uuid.uuid4(),
         "skill_id": uuid.uuid4(),
@@ -130,13 +133,13 @@ def test_content_response_source_field_validation():
         "description": None,
         "type": "VIDEO",
         "url": "https://youtube.com/watch?v=test",
-        "source": "MANUAL",  # Valid
+        "source": source,
         "ingested_at": datetime.now(timezone.utc),
         "metadata": None,
     }
 
     response = ContentResponse.model_validate(valid_content)
-    assert response.source == "MANUAL"
+    assert response.source == source
 
     # Invalid source should fail validation
     invalid_content = valid_content.copy()
@@ -223,3 +226,74 @@ def test_manual_content_candidate_has_no_thumbnail_url_field():
     )
     assert candidate.source == "MANUAL"
     assert "thumbnail_url" not in ManualContentCandidate.model_fields
+
+
+# ---------------------------------------------------------------------------
+# Attach content (Story 6.8, FR-18).
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("source", ["YOUTUBE", "UDEMY", "MANUAL"])
+def test_attach_content_request_accepts_valid_sources(source):
+    request = AttachContentRequest(
+        skill_id=uuid.uuid4(),
+        title="A Course",
+        source=source,
+        url="https://example.com/a-course",
+        duration_hours=2.5,
+    )
+    assert request.source == source
+    assert request.duration_hours == 2.5
+
+
+def test_attach_content_request_duration_hours_optional():
+    request = AttachContentRequest(
+        skill_id=uuid.uuid4(), title="A Course", source="MANUAL", url="https://example.com/a-course"
+    )
+    assert request.duration_hours is None
+
+
+def test_attach_content_request_rejects_invalid_source():
+    with pytest.raises(ValidationError):
+        AttachContentRequest(
+            skill_id=uuid.uuid4(), title="A Course", source="VIMEO", url="https://example.com/a-course"
+        )
+
+
+def test_attach_content_request_rejects_blank_title():
+    with pytest.raises(ValidationError):
+        AttachContentRequest(
+            skill_id=uuid.uuid4(), title="   ", source="MANUAL", url="https://example.com/a-course"
+        )
+
+
+@pytest.mark.parametrize(
+    "bad_url",
+    ["not-a-url", "example.com/no-scheme", "ftp://example.com/file", "https://", ""],
+)
+def test_attach_content_request_rejects_malformed_url(bad_url):
+    with pytest.raises(ValidationError):
+        AttachContentRequest(skill_id=uuid.uuid4(), title="A Course", source="MANUAL", url=bad_url)
+
+
+@pytest.mark.parametrize("bad_duration", [-1, -0.5, 0])
+def test_attach_content_request_rejects_non_positive_duration(bad_duration):
+    with pytest.raises(ValidationError):
+        AttachContentRequest(
+            skill_id=uuid.uuid4(),
+            title="A Course",
+            source="MANUAL",
+            url="https://example.com/a-course",
+            duration_hours=bad_duration,
+        )
+
+
+def test_attach_content_request_rejects_unknown_field():
+    with pytest.raises(ValidationError):
+        AttachContentRequest(
+            skill_id=uuid.uuid4(),
+            title="A Course",
+            source="MANUAL",
+            url="https://example.com/a-course",
+            type="VIDEO",
+        )

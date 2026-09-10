@@ -5,13 +5,15 @@ import { ManualContentEntryForm } from '@/features/admin/ManualContentEntryForm'
 
 vi.mock('@/lib/api/adminContentApi', () => ({
   reviewManualContent: vi.fn(),
+  attachContent: vi.fn(),
 }));
 
-import { reviewManualContent } from '@/lib/api/adminContentApi';
+import { reviewManualContent, attachContent } from '@/lib/api/adminContentApi';
 
 describe('ManualContentEntryForm', () => {
   beforeEach(() => {
     vi.mocked(reviewManualContent).mockReset();
+    vi.mocked(attachContent).mockReset();
   });
 
   async function fillAndSubmit(
@@ -76,20 +78,121 @@ describe('ManualContentEntryForm', () => {
     expect(screen.queryByText('A Manual Course')).not.toBeInTheDocument();
   });
 
-  it('the Approve button on the candidate card is disabled', async () => {
+  it('Approve calls attachContent with the expected body, shows the Toast, and disables the button on success', async () => {
+    vi.mocked(reviewManualContent).mockResolvedValue({
+      title: 'A Manual Course',
+      source: 'MANUAL',
+      url: 'https://example.com/a-course',
+      duration_hours: 5,
+    });
+    vi.mocked(attachContent).mockResolvedValue({
+      id: 'content-1',
+      skill_id: 'skill-1',
+      title: 'A Manual Course',
+      description: null,
+      type: 'VIDEO',
+      url: 'https://example.com/a-course',
+      source: 'MANUAL',
+      ingested_at: '2026-09-10T00:00:00Z',
+      metadata: { duration_hours: 5 },
+    });
+    const user = userEvent.setup();
+    render(<ManualContentEntryForm skillId="skill-1" skillName="Data Visualization" />);
+
+    await fillAndSubmit(user, { url: 'https://example.com/a-course', title: 'A Manual Course', duration: '5h' });
+    await screen.findByText('A Manual Course');
+
+    await user.click(screen.getByRole('button', { name: 'Approve' }));
+
+    await waitFor(() =>
+      expect(attachContent).toHaveBeenCalledWith({
+        skill_id: 'skill-1',
+        title: 'A Manual Course',
+        source: 'MANUAL',
+        url: 'https://example.com/a-course',
+        duration_hours: 5,
+      })
+    );
+    expect(await screen.findByText('✓ Content approved for Data Visualization')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Approve/ })).toBeDisabled();
+  });
+
+  it('falls back to a generic Toast message when no skillName is supplied', async () => {
     vi.mocked(reviewManualContent).mockResolvedValue({
       title: 'A Manual Course',
       source: 'MANUAL',
       url: 'https://example.com/a-course',
       duration_hours: null,
     });
+    vi.mocked(attachContent).mockResolvedValue({
+      id: 'content-1',
+      skill_id: 'skill-1',
+      title: 'A Manual Course',
+      description: null,
+      type: 'VIDEO',
+      url: 'https://example.com/a-course',
+      source: 'MANUAL',
+      ingested_at: '2026-09-10T00:00:00Z',
+      metadata: null,
+    });
     const user = userEvent.setup();
     render(<ManualContentEntryForm skillId="skill-1" />);
 
     await fillAndSubmit(user, { url: 'https://example.com/a-course', title: 'A Manual Course' });
-
     await screen.findByText('A Manual Course');
-    expect(screen.getByRole('button', { name: 'Approve' })).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: 'Approve' }));
+
+    expect(await screen.findByText('✓ Content approved for this skill')).toBeInTheDocument();
+  });
+
+  it('shows an inline error and leaves Approve clickable when the attach call fails', async () => {
+    vi.mocked(reviewManualContent).mockResolvedValue({
+      title: 'A Manual Course',
+      source: 'MANUAL',
+      url: 'https://example.com/a-course',
+      duration_hours: null,
+    });
+    vi.mocked(attachContent).mockRejectedValue(new Error('boom'));
+    const user = userEvent.setup();
+    render(<ManualContentEntryForm skillId="skill-1" />);
+
+    await fillAndSubmit(user, { url: 'https://example.com/a-course', title: 'A Manual Course' });
+    await screen.findByText('A Manual Course');
+    await user.click(screen.getByRole('button', { name: 'Approve' }));
+
+    expect(await screen.findByText(/Couldn't approve this/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Approve' })).not.toBeDisabled();
+  });
+
+  it('clears a stale approval Toast when a new review starts (review patch, 2026-09-10)', async () => {
+    vi.mocked(reviewManualContent).mockResolvedValue({
+      title: 'A Manual Course',
+      source: 'MANUAL',
+      url: 'https://example.com/a-course',
+      duration_hours: null,
+    });
+    vi.mocked(attachContent).mockResolvedValue({
+      id: 'content-1',
+      skill_id: 'skill-1',
+      title: 'A Manual Course',
+      description: null,
+      type: 'VIDEO',
+      url: 'https://example.com/a-course',
+      source: 'MANUAL',
+      ingested_at: '2026-09-10T00:00:00Z',
+      metadata: null,
+    });
+    const user = userEvent.setup();
+    render(<ManualContentEntryForm skillId="skill-1" />);
+
+    await fillAndSubmit(user, { url: 'https://example.com/a-course', title: 'A Manual Course' });
+    await screen.findByText('A Manual Course');
+    await user.click(screen.getByRole('button', { name: 'Approve' }));
+    expect(await screen.findByText('✓ Content approved for this skill')).toBeInTheDocument();
+
+    await fillAndSubmit(user, { url: 'https://example.com/another-course', title: 'Another Course' });
+
+    expect(screen.queryByText('✓ Content approved for this skill')).not.toBeInTheDocument();
   });
 
   it('opens the preview modal from the View button', async () => {

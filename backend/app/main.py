@@ -7,6 +7,7 @@ from starlette.middleware.cors import CORSMiddleware
 from app.assignments.router import router as assignments_router
 from app.auth.router import router as auth_router
 from app.content.admin_api_keys_router import router as admin_api_keys_router
+from app.content.admin_content_router import router as admin_content_router
 from app.content.router import router as content_router
 from app.core.config import settings
 from app.core.db import async_session_factory
@@ -47,6 +48,7 @@ app.include_router(progress_router, tags=["progress"])
 app.include_router(dashboard_router, prefix="/api/dashboard", tags=["dashboard"])
 app.include_router(skills_router, prefix="/api/admin/skills", tags=["skills"])
 app.include_router(admin_api_keys_router, prefix="/api/admin/api-keys", tags=["admin-api-keys"])
+app.include_router(admin_content_router, prefix="/api/admin/content", tags=["admin-content"])
 
 
 @app.get("/")

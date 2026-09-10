@@ -23,3 +23,31 @@ export async function reviewManualContent(
   );
   return response.data;
 }
+
+export interface ContentResponse {
+  id: string;
+  skill_id: string;
+  title: string;
+  description: string | null;
+  type: string;
+  url: string;
+  source: 'YOUTUBE' | 'UDEMY' | 'MANUAL';
+  ingested_at: string;
+  metadata: Record<string, unknown> | null;
+}
+
+/**
+ * Story 6.8 (FR-18): approves a reviewed candidate (searched or manual) as
+ * Content for a Skill. POST /api/admin/content/attach -- writes a
+ * content_catalog row, unlike Story 6.6/6.7's search-only endpoints.
+ */
+export async function attachContent(body: {
+  skill_id: string;
+  title: string;
+  source: 'YOUTUBE' | 'UDEMY' | 'MANUAL';
+  url: string;
+  duration_hours: number | null;
+}): Promise<ContentResponse> {
+  const response = await apiClient.post<ContentResponse>('/api/admin/content/attach', body);
+  return response.data;
+}

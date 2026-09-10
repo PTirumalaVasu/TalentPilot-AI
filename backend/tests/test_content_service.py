@@ -9,7 +9,9 @@ from app.auth.schemas import CurrentUser, Role
 from app.core.errors import AppException
 from app.core.seed_ids import CASEY_ID, RITA_ID
 from app.skills.models import Skill
+from app.content import repository
 from app.content.service import (
+    attach_content,
     get_api_keys_status,
     get_content,
     list_content_for_skill,
@@ -771,3 +773,158 @@ async def test_search_content_for_skill_udemy_result_with_missing_url_is_skipped
     assert len(response.results) == 1
     assert response.results[0].title == "Good Course"
     assert response.results[0].url == "https://sails.udemy.com/course/good-course/"
+
+
+# ---------------------------------------------------------------------------
+# Attach content (Story 6.8, FR-18/FR-19). Writes a content_catalog row --
+# the actual approve action any candidate (searched or manual) needs.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("source", ["UDEMY", "MANUAL"])
+async def test_attach_content_happy_path_with_duration(db_session: AsyncSession, source):
+    skill = await _create_skill(db_session)
+
+    response = await attach_content(
+        db_session,
+        current_user=HR_ADMIN_USER,
+        skill_id=skill.id,
+        title="A Great Course",
+        source=source,
+        url="https://example.com/a-course",
+        duration_hours=3.5,
+    )
+
+    assert isinstance(response, ContentResponse)
+    assert response.title == "A Great Course"
+    assert response.source == source
+    assert response.url == "https://example.com/a-course"
+    assert response.type == "VIDEO"
+
+    content_orm = await repository.get_content_by_id(db_session, response.id)
+    assert content_orm.skill_id == skill.id
+    assert content_orm.origin == "ADMIN_LOOKUP"
+    assert content_orm.attached_by == RITA_ID
+    # duration_hours: literal per epics AC text. duration (seconds): the key
+    # ProgressRepository.parse_duration_seconds/get_video_duration (AD-3's
+    # single derivation authority for dashboard Status/percent) actually
+    # reads -- without it, every Assignment on this Content would be stuck
+    # "In Progress" at 0% forever (review patch, 2026-09-10).
+    assert content_orm.content_metadata == {"duration_hours": 3.5, "duration": 12600}
+    assert content_orm.embedding is not None
+
+
+@pytest.mark.asyncio
+async def test_attach_content_youtube_source_includes_video_id_for_batch_dedup(db_session: AsyncSession):
+    """Review patch (2026-09-10): without video_id in content_metadata,
+    ingest_content_for_skill's de-dup check (content_metadata.get("video_id"))
+    can't recognize an admin-attached video and would re-ingest it as a
+    duplicate row on the next batch run."""
+    skill = await _create_skill(db_session)
+
+    response = await attach_content(
+        db_session,
+        current_user=HR_ADMIN_USER,
+        skill_id=skill.id,
+        title="A Great Video",
+        source="YOUTUBE",
+        url="https://www.youtube.com/watch?v=abc123XYZ_",
+        duration_hours=1.0,
+    )
+
+    content_orm = await repository.get_content_by_id(db_session, response.id)
+    assert content_orm.content_metadata == {
+        "duration_hours": 1.0,
+        "duration": 3600,
+        "video_id": "abc123XYZ_",
+    }
+
+
+@pytest.mark.asyncio
+async def test_attach_content_youtube_short_url_extracts_video_id(db_session: AsyncSession):
+    skill = await _create_skill(db_session)
+
+    response = await attach_content(
+        db_session,
+        current_user=HR_ADMIN_USER,
+        skill_id=skill.id,
+        title="A Great Video",
+        source="YOUTUBE",
+        url="https://youtu.be/abc123XYZ_",
+        duration_hours=None,
+    )
+
+    content_orm = await repository.get_content_by_id(db_session, response.id)
+    assert content_orm.content_metadata == {"video_id": "abc123XYZ_"}
+
+
+@pytest.mark.asyncio
+async def test_attach_content_youtube_unrecognized_url_omits_video_id_without_crashing(db_session: AsyncSession):
+    skill = await _create_skill(db_session)
+
+    response = await attach_content(
+        db_session,
+        current_user=HR_ADMIN_USER,
+        skill_id=skill.id,
+        title="A Great Video",
+        source="YOUTUBE",
+        url="https://example.com/not-actually-youtube",
+        duration_hours=None,
+    )
+
+    content_orm = await repository.get_content_by_id(db_session, response.id)
+    assert content_orm.content_metadata is None
+
+
+@pytest.mark.asyncio
+async def test_attach_content_without_duration_omits_metadata(db_session: AsyncSession):
+    skill = await _create_skill(db_session)
+
+    response = await attach_content(
+        db_session,
+        current_user=HR_ADMIN_USER,
+        skill_id=skill.id,
+        title="A Great Course",
+        source="MANUAL",
+        url="https://example.com/a-course",
+        duration_hours=None,
+    )
+
+    content_orm = await repository.get_content_by_id(db_session, response.id)
+    assert content_orm.content_metadata is None
+
+
+@pytest.mark.asyncio
+async def test_attach_content_nonexistent_skill_raises_404(db_session: AsyncSession):
+    with pytest.raises(AppException) as exc_info:
+        await attach_content(
+            db_session,
+            current_user=HR_ADMIN_USER,
+            skill_id=uuid.uuid4(),
+            title="A Course",
+            source="MANUAL",
+            url="https://example.com/a-course",
+            duration_hours=None,
+        )
+
+    assert exc_info.value.status_code == 404
+    assert exc_info.value.error_code == "SKILL_NOT_FOUND"
+
+
+@pytest.mark.asyncio
+async def test_attach_content_as_employee_raises_403(db_session: AsyncSession):
+    skill = await _create_skill(db_session)
+
+    with pytest.raises(AppException) as exc_info:
+        await attach_content(
+            db_session,
+            current_user=EMPLOYEE_USER,
+            skill_id=skill.id,
+            title="A Course",
+            source="MANUAL",
+            url="https://example.com/a-course",
+            duration_hours=None,
+        )
+
+    assert exc_info.value.status_code == 403

@@ -4,12 +4,19 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { FormErrorText } from '@/components/ui/form-error-text';
 import { Card, CardContent } from '@/components/ui/card';
+import { Toast } from '@/components/ui/toast';
 import { ContentPreviewModal } from '@/features/admin/ContentPreviewModal';
-import { reviewManualContent, type ManualContentCandidate } from '@/lib/api/adminContentApi';
+import { reviewManualContent, attachContent, type ManualContentCandidate } from '@/lib/api/adminContentApi';
 import { parseDurationToHours, estimateDaysToComplete } from '@/lib/utils/duration';
 
 export interface ManualContentEntryFormProps {
   skillId: string;
+  /**
+   * Not collected by this story's dev demo page -- Story 6.10's real Skills
+   * Card Grid will pass the real Skill name once it exists. Falls back to a
+   * generic toast message when omitted (Story 6.8 Scope Note 10).
+   */
+  skillName?: string;
 }
 
 function extractErrorMessage(err: unknown, fallback: string): string {
@@ -24,10 +31,9 @@ function extractErrorMessage(err: unknown, fallback: string): string {
  * The Content Lookup Panel's "Paste a link" tab (Story 6.7, FR-17a), built
  * as a standalone component ahead of Story 6.10's real panel -- matches
  * 04.1-skills-content-sourcing.md's content-lookup-manual-* object IDs.
- * [Approve] on the resulting candidate is intentionally disabled: it would
- * call Story 6.8's POST /api/admin/content/attach, which doesn't exist yet.
+ * [Approve] calls Story 6.8's POST /api/admin/content/attach (FR-18).
  */
-export function ManualContentEntryForm({ skillId }: ManualContentEntryFormProps) {
+export function ManualContentEntryForm({ skillId, skillName }: ManualContentEntryFormProps) {
   const [url, setUrl] = useState('');
   const [title, setTitle] = useState('');
   const [duration, setDuration] = useState('');
@@ -35,11 +41,18 @@ export function ManualContentEntryForm({ skillId }: ManualContentEntryFormProps)
   const [error, setError] = useState<string | null>(null);
   const [candidate, setCandidate] = useState<ManualContentCandidate | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [approving, setApproving] = useState(false);
+  const [approved, setApproved] = useState(false);
+  const [approveError, setApproveError] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   async function handleReview() {
     setSubmitting(true);
     setError(null);
     setCandidate(null);
+    setApproved(false);
+    setApproveError(null);
+    setToastMessage(null);
     try {
       const result = await reviewManualContent(skillId, {
         url,
@@ -51,6 +64,27 @@ export function ManualContentEntryForm({ skillId }: ManualContentEntryFormProps)
       setError(extractErrorMessage(err, "Couldn't review this link. Check the URL and try again."));
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleApprove() {
+    if (!candidate) return;
+    setApproving(true);
+    setApproveError(null);
+    try {
+      await attachContent({
+        skill_id: skillId,
+        title: candidate.title,
+        source: candidate.source,
+        url: candidate.url,
+        duration_hours: candidate.duration_hours,
+      });
+      setApproved(true);
+      setToastMessage(`✓ Content approved for ${skillName ?? 'this skill'}`);
+    } catch (err) {
+      setApproveError(extractErrorMessage(err, "Couldn't approve this — Try again"));
+    } finally {
+      setApproving(false);
     }
   }
 
@@ -125,16 +159,19 @@ export function ManualContentEntryForm({ skillId }: ManualContentEntryFormProps)
               </Button>
               <Button
                 size="sm"
-                disabled
-                title="Available once Story 6.8 ships"
+                onClick={handleApprove}
+                disabled={approving || approved}
                 data-testid="content-lookup-btn-approve"
               >
-                Approve
+                {approved ? 'Approved' : approving ? 'Approving…' : 'Approve'}
               </Button>
             </div>
+            {approveError && <FormErrorText>{approveError}</FormErrorText>}
           </CardContent>
         </Card>
       )}
+
+      <Toast message={toastMessage} onDismiss={() => setToastMessage(null)} />
 
       {candidate && (
         <ContentPreviewModal

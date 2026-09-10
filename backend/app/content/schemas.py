@@ -29,7 +29,7 @@ class ContentResponse(BaseModel):
     description: str | None
     type: Literal["VIDEO", "DOCUMENT", "WEBSITE"]
     url: str
-    source: Literal["YOUTUBE", "MANUAL"]
+    source: Literal["YOUTUBE", "UDEMY", "MANUAL"]
     ingested_at: datetime
     # validation_alias (not alias): accept the ORM's content_metadata attribute
     # name on input, but serialize as "metadata" -- the intended public field
@@ -258,3 +258,37 @@ class ManualContentCandidate(BaseModel):
     source: Literal["MANUAL"] = "MANUAL"
     url: str
     duration_hours: float | None = None
+
+
+# ---------------------------------------------------------------------------
+# Attach content (Story 6.8, FR-18/FR-19). Writes a content_catalog row --
+# unlike Story 6.6/6.7's search-only candidates, this is the actual approve
+# action any candidate (searched or manual) eventually needs.
+# ---------------------------------------------------------------------------
+
+
+class AttachContentRequest(BaseModel):
+    """POST /api/admin/content/attach body (Story 6.8 AC2). No `description`
+    field: neither ContentLookupCandidate (Story 6.6) nor ManualContentCandidate
+    (Story 6.7) -- the only two candidate shapes that can reach this endpoint
+    today -- carries one, so there is nothing for a caller to actually supply.
+    No `type` field either: always hardcoded to "VIDEO" in the service layer,
+    never client-supplied (epics AC's own wording)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    skill_id: UUID
+    title: str = Field(min_length=1, max_length=255)
+    source: Literal["YOUTUBE", "UDEMY", "MANUAL"]
+    url: str = Field(min_length=1, max_length=MANUAL_URL_MAX_LENGTH)
+    duration_hours: float | None = Field(default=None, gt=0)
+
+    @field_validator("title")
+    @classmethod
+    def title_must_not_be_blank(cls, value: str) -> str:
+        return _reject_blank(value)
+
+    @field_validator("url")
+    @classmethod
+    def url_must_be_well_formed(cls, value: str) -> str:
+        return _validate_url(value)
