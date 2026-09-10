@@ -40,6 +40,7 @@ from app.content.service import match_content_for_skill
 from app.core.errors import AppException
 from app.progress.repository import ProgressRepository
 from app.progress.service import ProgressService, ProvenanceDetail
+from app.skills.service import mark_ever_assigned
 
 logger = logging.getLogger(__name__)
 
@@ -97,6 +98,31 @@ async def create_assignment_service(
         content_id=request.content_id,
         assigned_by=_parse_user_id(current_user),
     )
+
+    # AD-11 point 3: sets skills.ever_assigned, the permanent lock Story 6.3
+    # enforces. Isolated in its own SAVEPOINT (not the outer request
+    # transaction) so a failure here can never roll back or lose the
+    # Assignment just flushed above -- a missed flag-set is a data-quality
+    # issue to reconcile, not grounds to lose a real Assignment (AR-13).
+    # Verified (code review, 2026-09-09): a real DB error inside the
+    # SAVEPOINT (e.g. a constraint violation) leaves session.is_active
+    # True and the outer transaction still commits cleanly -- that's the
+    # realistic/recoverable failure class this guards. If the session is
+    # NOT active afterward, the underlying connection/transaction itself
+    # is broken (e.g. a dropped connection) and no isolation can save the
+    # Assignment either way -- re-raise so the request fails cleanly
+    # instead of silently proceeding on a corrupted session that would
+    # likely fail get_db's own commit anyway.
+    try:
+        async with session.begin_nested():
+            await mark_ever_assigned(session, assignment.skill_id)
+    except Exception:
+        logger.exception(
+            "Failed to mark skill %s as ever_assigned after creating assignment %s",
+            assignment.skill_id, assignment.id,
+        )
+        if not session.is_active:
+            raise
 
     return AssignmentResponse(
         id=assignment.id,

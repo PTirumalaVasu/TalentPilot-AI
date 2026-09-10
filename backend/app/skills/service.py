@@ -55,6 +55,17 @@ async def get_skill_embedding(db: AsyncSession, skill_id: UUID) -> list[float] |
     return await repository.get_skill_embedding(db, skill_id)
 
 
+async def mark_ever_assigned(db: AsyncSession, skill_id: UUID) -> None:
+    """Set the one-way `ever_assigned` lock flag (Story 6.4 AC1, AD-11
+    point 3). Same shape as `content.service.match_content_for_skill`: no
+    `current_user`, no auth check here -- the only caller,
+    `assignments.service.create_assignment_service`, already gated on
+    `require_hr_admin` before reaching this. Idempotent by construction
+    (repository.mark_ever_assigned's conditional UPDATE) -- safe to call
+    on an already-locked Skill (AC2)."""
+    await repository.mark_ever_assigned(db, skill_id)
+
+
 def _conflict(existing: Skill) -> AppException:
     return AppException(
         status.HTTP_409_CONFLICT,

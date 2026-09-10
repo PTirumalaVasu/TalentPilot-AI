@@ -44,6 +44,7 @@ from app.skills.service import (
     delete_skill_service,
     get_skill_embedding,
     list_all_skills,
+    mark_ever_assigned,
     update_skill_service,
 )
 
@@ -121,6 +122,48 @@ async def test_service_get_skill_embedding_round_trips_through_repository():
 
         assert embedding is not None
         assert len(embedding) == 384
+
+
+@pytest.mark.asyncio(loop_scope="module")
+async def test_service_mark_ever_assigned_flips_false_to_true():
+    """Story 6.4 AC1 -- thin pass-through to the repository, same shape as
+    content.service.match_content_for_skill (no current_user, no auth
+    check -- the caller, assignments/service.py, already gated on
+    require_hr_admin)."""
+    async with _seeded_session() as session:
+        skill = Skill(
+            name=f"Mark Assigned Skill {uuid.uuid4().hex[:8]}",
+            description="Service-layer mark_ever_assigned test",
+            embedding=[0.1] * 384,
+        )
+        session.add(skill)
+        await session.flush()
+        assert skill.ever_assigned is False
+
+        await mark_ever_assigned(session, skill.id)
+        await session.refresh(skill)
+
+        assert skill.ever_assigned is True
+
+
+@pytest.mark.asyncio(loop_scope="module")
+async def test_service_mark_ever_assigned_is_idempotent():
+    """Story 6.4 AC2 -- calling it again on an already-locked Skill is a
+    no-op, not an error."""
+    async with _seeded_session() as session:
+        skill = Skill(
+            name=f"Already Locked Skill {uuid.uuid4().hex[:8]}",
+            description="Service-layer idempotency test",
+            embedding=[0.1] * 384,
+            ever_assigned=True,
+        )
+        session.add(skill)
+        await session.flush()
+
+        await mark_ever_assigned(session, skill.id)
+        await session.refresh(skill)
+
+        assert skill.ever_assigned is True
 
 
 _HR_ADMIN = CurrentUser(role=Role.HR_ADMIN, user_id=str(uuid.uuid4()))

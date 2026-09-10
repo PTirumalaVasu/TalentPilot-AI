@@ -2,7 +2,7 @@
 query the `skills` table directly (AD-1)."""
 from uuid import UUID
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.skills.models import Skill
@@ -98,3 +98,22 @@ async def delete_skill(db: AsyncSession, skill_id: UUID) -> None:
     (AD-1/AD-8: `skills/` must not depend on `content/`).
     """
     await db.execute(delete(Skill).where(Skill.id == skill_id))
+
+
+async def mark_ever_assigned(db: AsyncSession, skill_id: UUID) -> None:
+    """Set a Skill's one-way `ever_assigned` lock flag (Story 6.4 AC1,
+    AD-11 point 3). `assignments/` calls this after successfully creating
+    an Assignment for the Skill.
+
+    A single conditional UPDATE, not a SELECT-then-UPDATE: matching zero
+    rows (already True, or a nonexistent skill_id) is a silent, idempotent
+    success (AC2) -- never raises.
+
+    No trailing flush(): this is a Core-level UPDATE, already sent to the
+    DB synchronously by execute() -- there's no pending ORM-tracked object
+    for flush() to synchronize (unlike update_skill's pattern, which
+    mutates a loaded ORM object and needs it).
+    """
+    await db.execute(
+        update(Skill).where(Skill.id == skill_id, Skill.ever_assigned.is_(False)).values(ever_assigned=True)
+    )

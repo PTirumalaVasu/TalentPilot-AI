@@ -21,7 +21,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from app.core.config import settings
 from app.core.seeds import run_seeds
 from app.skills.models import Skill
-from app.skills.repository import get_skill_embedding, list_all_skills
+from app.skills.repository import get_skill_embedding, list_all_skills, mark_ever_assigned
 
 pytestmark = pytest.mark.asyncio(loop_scope="module")
 
@@ -97,4 +97,39 @@ async def test_new_skill_defaults_ever_assigned_to_false():
         await session.refresh(skill)
 
         assert skill.ever_assigned is False
+
+
+async def test_mark_ever_assigned_flips_false_to_true():
+    """Story 6.4 AC1 -- the write path assignments/ calls after creating an
+    Assignment."""
+    async with _seeded_session() as session:
+        skill = await _make_skill(session)
+        assert skill.ever_assigned is False
+
+        await mark_ever_assigned(session, skill.id)
+        await session.refresh(skill)
+
+        assert skill.ever_assigned is True
+
+
+async def test_mark_ever_assigned_is_a_no_op_when_already_true():
+    """Story 6.4 AC2 -- idempotent: calling it again on an already-locked
+    Skill must not error and must leave the flag True."""
+    async with _seeded_session() as session:
+        skill = await _make_skill(session)
+        await mark_ever_assigned(session, skill.id)
+        await session.refresh(skill)
+        assert skill.ever_assigned is True
+
+        await mark_ever_assigned(session, skill.id)
+        await session.refresh(skill)
+
+        assert skill.ever_assigned is True
+
+
+async def test_mark_ever_assigned_does_not_raise_for_nonexistent_skill():
+    """A conditional UPDATE matching zero rows (bad/stale skill_id) is a
+    silent success, not an error -- Story 6.4 Scope Note 4."""
+    async with _seeded_session() as session:
+        await mark_ever_assigned(session, uuid.uuid4())
 
