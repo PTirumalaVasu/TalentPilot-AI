@@ -15,10 +15,15 @@ from app.content.service import (
     list_content_for_skill,
     remove_udemy_credential,
     remove_youtube_key,
+    search_content_for_skill,
     set_udemy_credential,
     set_youtube_key,
 )
 from app.content.schemas import ContentResponse
+from app.content.udemy_client import InvalidCredentialError as UdemyInvalidCredentialError
+from app.content.udemy_client import RateLimitExceededError
+from app.content.youtube_client import InvalidCredentialError as YoutubeInvalidCredentialError
+from app.content.youtube_client import QuotaExceededError
 
 HR_ADMIN_USER = CurrentUser(role=Role.HR_ADMIN, user_id=str(RITA_ID))
 EMPLOYEE_USER = CurrentUser(role=Role.EMPLOYEE, user_id=str(CASEY_ID))
@@ -278,3 +283,369 @@ async def test_get_api_keys_status_when_nothing_configured_reports_false(db_sess
     assert status.udemy_configured is False
     assert status.udemy_configured_by_id is None
     assert status.udemy_configured_at is None
+
+
+# ---------------------------------------------------------------------------
+# Live content lookup (Story 6.6, FR-17)
+# ---------------------------------------------------------------------------
+
+
+async def _create_skill(db_session: AsyncSession) -> Skill:
+    skill = Skill(
+        name=f"Content Lookup Skill {uuid.uuid4().hex[:8]}",
+        description="Story 6.6 test skill",
+        embedding=[0.1] * 384,
+    )
+    db_session.add(skill)
+    await db_session.flush()
+    return skill
+
+
+def _fake_youtube_search(api_key, query, max_results):
+    return [
+        {
+            "video_id": "yt123",
+            "title": "YouTube Result",
+            "description": "desc",
+            "thumbnail_url": "https://img.example.com/yt123.jpg",
+        }
+    ]
+
+
+def _fake_youtube_durations(api_key, video_ids):
+    return {"yt123": "PT10M30S"}
+
+
+def _fake_udemy_search(client_id, client_secret, query, max_results):
+    return [
+        {
+            "course_id": 999,
+            "title": "Udemy Result",
+            "url": "/course/udemy-result/",
+            "thumbnail_url": "https://img.udemy.com/999.jpg",
+            "content_info": "5.5 total hours",
+        }
+    ]
+
+
+@pytest.mark.asyncio
+async def test_search_content_for_skill_happy_path_both_sources(db_session: AsyncSession, monkeypatch):
+    skill = await _create_skill(db_session)
+    await set_youtube_key(db_session, current_user=HR_ADMIN_USER, key="yt-key")
+    await set_udemy_credential(db_session, current_user=HR_ADMIN_USER, client_id="cid", client_secret="csecret")
+    monkeypatch.setattr("app.content.service.youtube_client.search_videos", _fake_youtube_search)
+    monkeypatch.setattr("app.content.service.youtube_client.get_video_durations", _fake_youtube_durations)
+    monkeypatch.setattr("app.content.service.udemy_client.search_courses", _fake_udemy_search)
+    monkeypatch.setattr("app.content.service.settings.UDEMY_ORGANIZATION_SUBDOMAIN", "sails")
+
+    response = await search_content_for_skill(
+        db_session, current_user=HR_ADMIN_USER, skill_id=skill.id, query="Data Visualization"
+    )
+
+    assert response.errors == []
+    assert len(response.results) == 2
+    by_source = {r.source: r for r in response.results}
+    assert by_source["YOUTUBE"].title == "YouTube Result"
+    assert by_source["YOUTUBE"].url == "https://www.youtube.com/watch?v=yt123"
+    assert by_source["YOUTUBE"].duration_hours == pytest.approx(10 / 60 + 30 / 3600)
+    assert by_source["UDEMY"].title == "Udemy Result"
+    assert by_source["UDEMY"].url == "https://sails.udemy.com/course/udemy-result/"
+    assert by_source["UDEMY"].duration_hours == pytest.approx(5.5)
+
+
+@pytest.mark.asyncio
+async def test_search_content_for_skill_youtube_only_configured_udemy_no_credential(
+    db_session: AsyncSession, monkeypatch
+):
+    skill = await _create_skill(db_session)
+    await set_youtube_key(db_session, current_user=HR_ADMIN_USER, key="yt-key")
+    monkeypatch.setattr("app.content.service.youtube_client.search_videos", _fake_youtube_search)
+    monkeypatch.setattr("app.content.service.youtube_client.get_video_durations", _fake_youtube_durations)
+
+    response = await search_content_for_skill(
+        db_session, current_user=HR_ADMIN_USER, skill_id=skill.id, query="Python"
+    )
+
+    assert len(response.results) == 1
+    assert response.results[0].source == "YOUTUBE"
+    assert [e.model_dump() for e in response.errors] == [{"source": "UDEMY", "error": "no_credential"}]
+
+
+@pytest.mark.asyncio
+async def test_search_content_for_skill_neither_configured_reports_both_no_credential(db_session: AsyncSession):
+    skill = await _create_skill(db_session)
+
+    response = await search_content_for_skill(
+        db_session, current_user=HR_ADMIN_USER, skill_id=skill.id, query="Python"
+    )
+
+    assert response.results == []
+    errors_by_source = {e.source: e.error for e in response.errors}
+    assert errors_by_source == {"YOUTUBE": "no_credential", "UDEMY": "no_credential"}
+
+
+@pytest.mark.asyncio
+async def test_search_content_for_skill_youtube_quota_does_not_block_udemy(db_session: AsyncSession, monkeypatch):
+    skill = await _create_skill(db_session)
+    await set_youtube_key(db_session, current_user=HR_ADMIN_USER, key="yt-key")
+    await set_udemy_credential(db_session, current_user=HR_ADMIN_USER, client_id="cid", client_secret="csecret")
+
+    def _raise_quota(api_key, query, max_results):
+        raise QuotaExceededError("quota exhausted")
+
+    monkeypatch.setattr("app.content.service.youtube_client.search_videos", _raise_quota)
+    monkeypatch.setattr("app.content.service.udemy_client.search_courses", _fake_udemy_search)
+    monkeypatch.setattr("app.content.service.settings.UDEMY_ORGANIZATION_SUBDOMAIN", "sails")
+
+    response = await search_content_for_skill(
+        db_session, current_user=HR_ADMIN_USER, skill_id=skill.id, query="Python"
+    )
+
+    assert len(response.results) == 1
+    assert response.results[0].source == "UDEMY"
+    assert [e.model_dump() for e in response.errors] == [{"source": "YOUTUBE", "error": "rate_limited"}]
+
+
+@pytest.mark.asyncio
+async def test_search_content_for_skill_udemy_rate_limited_does_not_block_youtube(
+    db_session: AsyncSession, monkeypatch
+):
+    skill = await _create_skill(db_session)
+    await set_youtube_key(db_session, current_user=HR_ADMIN_USER, key="yt-key")
+    await set_udemy_credential(db_session, current_user=HR_ADMIN_USER, client_id="cid", client_secret="csecret")
+
+    def _raise_rate_limited(client_id, client_secret, query, max_results):
+        raise RateLimitExceededError("rate limited")
+
+    monkeypatch.setattr("app.content.service.youtube_client.search_videos", _fake_youtube_search)
+    monkeypatch.setattr("app.content.service.youtube_client.get_video_durations", _fake_youtube_durations)
+    monkeypatch.setattr("app.content.service.udemy_client.search_courses", _raise_rate_limited)
+
+    response = await search_content_for_skill(
+        db_session, current_user=HR_ADMIN_USER, skill_id=skill.id, query="Python"
+    )
+
+    assert len(response.results) == 1
+    assert response.results[0].source == "YOUTUBE"
+    assert [e.model_dump() for e in response.errors] == [{"source": "UDEMY", "error": "rate_limited"}]
+
+
+@pytest.mark.asyncio
+async def test_search_content_for_skill_youtube_invalid_credential(db_session: AsyncSession, monkeypatch):
+    skill = await _create_skill(db_session)
+    await set_youtube_key(db_session, current_user=HR_ADMIN_USER, key="revoked-key")
+
+    def _raise_invalid(api_key, query, max_results):
+        raise YoutubeInvalidCredentialError("bad key")
+
+    monkeypatch.setattr("app.content.service.youtube_client.search_videos", _raise_invalid)
+
+    response = await search_content_for_skill(
+        db_session, current_user=HR_ADMIN_USER, skill_id=skill.id, query="Python"
+    )
+
+    assert {"source": "YOUTUBE", "error": "invalid_credential"} in [e.model_dump() for e in response.errors]
+
+
+@pytest.mark.asyncio
+async def test_search_content_for_skill_udemy_invalid_credential(db_session: AsyncSession, monkeypatch):
+    skill = await _create_skill(db_session)
+    await set_udemy_credential(db_session, current_user=HR_ADMIN_USER, client_id="bad", client_secret="bad")
+
+    def _raise_invalid(client_id, client_secret, query, max_results):
+        raise UdemyInvalidCredentialError("bad credential")
+
+    monkeypatch.setattr("app.content.service.udemy_client.search_courses", _raise_invalid)
+
+    response = await search_content_for_skill(
+        db_session, current_user=HR_ADMIN_USER, skill_id=skill.id, query="Python"
+    )
+
+    assert {"source": "UDEMY", "error": "invalid_credential"} in [e.model_dump() for e in response.errors]
+
+
+@pytest.mark.asyncio
+async def test_search_content_for_skill_source_error_on_unexpected_exception(db_session: AsyncSession, monkeypatch):
+    skill = await _create_skill(db_session)
+    await set_youtube_key(db_session, current_user=HR_ADMIN_USER, key="yt-key")
+
+    def _raise_generic(api_key, query, max_results):
+        raise Exception("boom")
+
+    monkeypatch.setattr("app.content.service.youtube_client.search_videos", _raise_generic)
+
+    response = await search_content_for_skill(
+        db_session, current_user=HR_ADMIN_USER, skill_id=skill.id, query="Python"
+    )
+
+    assert {"source": "YOUTUBE", "error": "source_error"} in [e.model_dump() for e in response.errors]
+
+
+@pytest.mark.asyncio
+async def test_search_content_for_skill_nonexistent_skill_raises_404(db_session: AsyncSession):
+    with pytest.raises(AppException) as exc_info:
+        await search_content_for_skill(
+            db_session, current_user=HR_ADMIN_USER, skill_id=uuid.uuid4(), query="Python"
+        )
+
+    assert exc_info.value.status_code == 404
+    assert exc_info.value.error_code == "SKILL_NOT_FOUND"
+
+
+@pytest.mark.asyncio
+async def test_search_content_for_skill_as_employee_raises_403(db_session: AsyncSession):
+    skill = await _create_skill(db_session)
+
+    with pytest.raises(AppException) as exc_info:
+        await search_content_for_skill(
+            db_session, current_user=EMPLOYEE_USER, skill_id=skill.id, query="Python"
+        )
+
+    assert exc_info.value.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_search_content_for_skill_never_writes_content_catalog(db_session: AsyncSession, monkeypatch):
+    """Search-only (AC/Scope Note 9) -- writing only ever happens in
+    Story 6.8's (not yet built) approve action."""
+    from sqlalchemy import select as sa_select
+
+    skill = await _create_skill(db_session)
+    await set_youtube_key(db_session, current_user=HR_ADMIN_USER, key="yt-key")
+    await set_udemy_credential(db_session, current_user=HR_ADMIN_USER, client_id="cid", client_secret="csecret")
+    monkeypatch.setattr("app.content.service.youtube_client.search_videos", _fake_youtube_search)
+    monkeypatch.setattr("app.content.service.youtube_client.get_video_durations", _fake_youtube_durations)
+    monkeypatch.setattr("app.content.service.udemy_client.search_courses", _fake_udemy_search)
+    monkeypatch.setattr("app.content.service.settings.UDEMY_ORGANIZATION_SUBDOMAIN", "sails")
+
+    await search_content_for_skill(db_session, current_user=HR_ADMIN_USER, skill_id=skill.id, query="Python")
+
+    result = await db_session.execute(sa_select(ContentCatalog).where(ContentCatalog.skill_id == skill.id))
+    assert result.scalars().all() == []
+
+
+# ---------------------------------------------------------------------------
+# Code review patches (2026-09-10): credential-decrypt isolation, graceful
+# duration-lookup degradation, malformed-candidate skipping.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_search_content_for_skill_youtube_decrypt_failure_reports_source_error_udemy_unaffected(
+    db_session: AsyncSession, monkeypatch
+):
+    """A decrypt_secret() failure fetching the YouTube credential must be
+    classified as YOUTUBE source_error, not propagate and 500 the whole
+    request -- and must not block Udemy's results (NFR-RES1)."""
+    skill = await _create_skill(db_session)
+    await set_youtube_key(db_session, current_user=HR_ADMIN_USER, key="yt-key")
+    await set_udemy_credential(db_session, current_user=HR_ADMIN_USER, client_id="cid", client_secret="csecret")
+
+    async def _raise_decrypt_failure(db, *, admin_id):
+        raise Exception("corrupted ciphertext")
+
+    monkeypatch.setattr("app.content.service.repository.get_decrypted_admin_youtube_key", _raise_decrypt_failure)
+    monkeypatch.setattr("app.content.service.udemy_client.search_courses", _fake_udemy_search)
+    monkeypatch.setattr("app.content.service.settings.UDEMY_ORGANIZATION_SUBDOMAIN", "sails")
+
+    response = await search_content_for_skill(
+        db_session, current_user=HR_ADMIN_USER, skill_id=skill.id, query="Python"
+    )
+
+    assert len(response.results) == 1
+    assert response.results[0].source == "UDEMY"
+    assert [e.model_dump() for e in response.errors] == [{"source": "YOUTUBE", "error": "source_error"}]
+
+
+@pytest.mark.asyncio
+async def test_search_content_for_skill_udemy_decrypt_failure_does_not_discard_youtube_results(
+    db_session: AsyncSession, monkeypatch
+):
+    """A decrypt failure fetching the Udemy credential (evaluated *after*
+    YouTube's results are already computed) must not discard the
+    already-successful YOUTUBE results -- the historical bug this patch
+    fixes."""
+    skill = await _create_skill(db_session)
+    await set_youtube_key(db_session, current_user=HR_ADMIN_USER, key="yt-key")
+    await set_udemy_credential(db_session, current_user=HR_ADMIN_USER, client_id="cid", client_secret="csecret")
+    monkeypatch.setattr("app.content.service.youtube_client.search_videos", _fake_youtube_search)
+    monkeypatch.setattr("app.content.service.youtube_client.get_video_durations", _fake_youtube_durations)
+
+    async def _raise_decrypt_failure(db):
+        raise Exception("corrupted ciphertext")
+
+    monkeypatch.setattr("app.content.service.repository.get_decrypted_org_udemy_credential", _raise_decrypt_failure)
+
+    response = await search_content_for_skill(
+        db_session, current_user=HR_ADMIN_USER, skill_id=skill.id, query="Python"
+    )
+
+    assert len(response.results) == 1
+    assert response.results[0].source == "YOUTUBE"
+    assert [e.model_dump() for e in response.errors] == [{"source": "UDEMY", "error": "source_error"}]
+
+
+@pytest.mark.asyncio
+async def test_search_content_for_skill_duration_lookup_failure_still_returns_search_results(
+    db_session: AsyncSession, monkeypatch
+):
+    """A get_video_durations() failure after a successful search_videos()
+    call must degrade gracefully (duration_hours=None) rather than
+    discarding the already-fetched search results."""
+    skill = await _create_skill(db_session)
+    await set_youtube_key(db_session, current_user=HR_ADMIN_USER, key="yt-key")
+    monkeypatch.setattr("app.content.service.youtube_client.search_videos", _fake_youtube_search)
+
+    def _raise_durations_failure(api_key, video_ids):
+        raise Exception("network hiccup")
+
+    monkeypatch.setattr("app.content.service.youtube_client.get_video_durations", _raise_durations_failure)
+
+    response = await search_content_for_skill(
+        db_session, current_user=HR_ADMIN_USER, skill_id=skill.id, query="Python"
+    )
+
+    assert [e.model_dump() for e in response.errors] == [{"source": "UDEMY", "error": "no_credential"}]
+    assert len(response.results) == 1
+    assert response.results[0].title == "YouTube Result"
+    assert response.results[0].duration_hours is None
+
+
+@pytest.mark.asyncio
+async def test_search_content_for_skill_udemy_result_with_missing_url_is_skipped(
+    db_session: AsyncSession, monkeypatch
+):
+    """A Udemy course result with a missing/None url must be skipped, not
+    turned into a garbage link like 'https://sails.udemy.comNone'."""
+    skill = await _create_skill(db_session)
+    await set_udemy_credential(db_session, current_user=HR_ADMIN_USER, client_id="cid", client_secret="csecret")
+
+    def _udemy_search_with_one_missing_url(client_id, client_secret, query, max_results):
+        return [
+            {
+                "course_id": 1,
+                "title": "Good Course",
+                "url": "/course/good-course/",
+                "thumbnail_url": None,
+                "content_info": None,
+            },
+            {
+                "course_id": 2,
+                "title": "Broken Course",
+                "url": None,
+                "thumbnail_url": None,
+                "content_info": None,
+            },
+        ]
+
+    monkeypatch.setattr("app.content.service.udemy_client.search_courses", _udemy_search_with_one_missing_url)
+    monkeypatch.setattr("app.content.service.settings.UDEMY_ORGANIZATION_SUBDOMAIN", "sails")
+
+    response = await search_content_for_skill(
+        db_session, current_user=HR_ADMIN_USER, skill_id=skill.id, query="Python"
+    )
+
+    assert [e.model_dump() for e in response.errors] == [{"source": "YOUTUBE", "error": "no_credential"}]
+    assert len(response.results) == 1
+    assert response.results[0].title == "Good Course"
+    assert response.results[0].url == "https://sails.udemy.com/course/good-course/"

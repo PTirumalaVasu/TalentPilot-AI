@@ -15,9 +15,28 @@ class QuotaExceededError(Exception):
     draws from a separate, much larger quota bucket and never raises this."""
 
 
+class InvalidCredentialError(Exception):
+    """Raised on a 400 response whose body names reason 'keyInvalid' or
+    'badRequest' -- an invalid or revoked API key (Story 6.6, [ASSUMPTION]:
+    YouTube's documented invalid-API-key signal, not verified against a
+    live revoked key during implementation). Story 6.6's live per-admin
+    lookup is the first caller that needs this distinguished from a
+    generic search.list failure -- run_ingestion_job's existing
+    `except Exception` catch-all still catches it unchanged (it subclasses
+    Exception), so this is purely additive for the pre-existing ingestion
+    path."""
+
+
 def _is_quota_exceeded(body: dict) -> bool:
     errors = body.get("error", {}).get("errors", [])
     return any(err.get("reason") == "quotaExceeded" for err in errors)
+
+
+def _is_invalid_key(status_code: int, body: dict) -> bool:
+    if status_code != 400:
+        return False
+    errors = body.get("error", {}).get("errors", [])
+    return any(err.get("reason") in ("keyInvalid", "badRequest") for err in errors)
 
 
 def search_videos(
@@ -49,6 +68,10 @@ def search_videos(
         if response.status_code == 403 and _is_quota_exceeded(body):
             raise QuotaExceededError(
                 f"YouTube search.list quota exceeded: {body.get('error', {}).get('message', '')}"
+            )
+        if _is_invalid_key(response.status_code, body):
+            raise InvalidCredentialError(
+                f"YouTube search.list rejected the API key: {body.get('error', {}).get('message', '')}"
             )
         raise Exception(
             f"YouTube search.list failed ({response.status_code}): "

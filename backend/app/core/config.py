@@ -16,6 +16,14 @@ class Settings(BaseSettings):
     SESSION_COOKIE_NAME: str = "access_token"
     COOKIE_SECURE: bool = True
     YOUTUBE_API_KEY: str | None = None
+    # Udemy for Business portal addressing (Story 6.6) -- separate from the
+    # client_id/client_secret credential stored in org_api_credentials (Story
+    # 6.5), since Udemy for Business assigns the organization subdomain/
+    # account id per-portal, not per-credential. Optional: unset simply makes
+    # udemy_client.search_courses() fail with a source_error classification
+    # rather than blocking app startup (mirrors YOUTUBE_API_KEY's optional style).
+    UDEMY_ORGANIZATION_SUBDOMAIN: str | None = None
+    UDEMY_ACCOUNT_ID: str | None = None
 
     @property
     def allowed_origins_list(self) -> list[str]:

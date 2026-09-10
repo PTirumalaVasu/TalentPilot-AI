@@ -42,6 +42,7 @@ from app.skills.service import (
     _build_embedding_text,
     create_skill_service,
     delete_skill_service,
+    get_skill_by_id,
     get_skill_embedding,
     list_all_skills,
     mark_ever_assigned,
@@ -122,6 +123,35 @@ async def test_service_get_skill_embedding_round_trips_through_repository():
 
         assert embedding is not None
         assert len(embedding) == 384
+
+
+@pytest.mark.asyncio(loop_scope="module")
+async def test_service_get_skill_by_id_returns_none_for_nonexistent_skill():
+    """Story 6.6, Scope Note 2 -- thin wrapper content/service.py's
+    search_content_for_skill will use for its 404 check, mirroring
+    get_skill_embedding's existing shape exactly."""
+    async with _seeded_session() as session:
+        skill = await get_skill_by_id(session, uuid.uuid4())
+
+        assert skill is None
+
+
+@pytest.mark.asyncio(loop_scope="module")
+async def test_service_get_skill_by_id_round_trips_through_repository():
+    async with _seeded_session() as session:
+        created = Skill(
+            name=f"Get By Id Skill {uuid.uuid4().hex[:8]}",
+            description="get_skill_by_id round trip test",
+            embedding=[0.33] * 384,
+        )
+        session.add(created)
+        await session.flush()
+
+        skill = await get_skill_by_id(session, created.id)
+
+        assert skill is not None
+        assert skill.id == created.id
+        assert skill.name == created.name
 
 
 @pytest.mark.asyncio(loop_scope="module")

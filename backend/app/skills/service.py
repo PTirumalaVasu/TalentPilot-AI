@@ -55,6 +55,14 @@ async def get_skill_embedding(db: AsyncSession, skill_id: UUID) -> list[float] |
     return await repository.get_skill_embedding(db, skill_id)
 
 
+async def get_skill_by_id(db: AsyncSession, skill_id: UUID) -> Skill | None:
+    """A single Skill (or None), for `content/`'s live content-lookup
+    endpoint (Story 6.6) to run its own 404 check without importing
+    `skills.repository`/`Skill` directly (AD-1). Mirrors
+    get_skill_embedding's existing thin-wrapper shape."""
+    return await repository.get_skill_by_id(db, skill_id)
+
+
 async def mark_ever_assigned(db: AsyncSession, skill_id: UUID) -> None:
     """Set the one-way `ever_assigned` lock flag (Story 6.4 AC1, AD-11
     point 3). Same shape as `content.service.match_content_for_skill`: no

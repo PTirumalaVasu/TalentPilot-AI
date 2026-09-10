@@ -7,7 +7,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.assignments.models import AdminApiKey, ContentCatalog, OrgApiCredential
-from app.core.secrets import encrypt_secret
+from app.core.secrets import decrypt_secret, encrypt_secret
 
 # Cosine similarity a Content match must clear to be recommended (Story 2.4,
 # AD-7). Plain module constant, not a Settings field -- mirrors
@@ -170,3 +170,34 @@ async def delete_org_api_credential(db: AsyncSession, *, source: str) -> None:
 async def get_org_api_credential(db: AsyncSession, *, source: str) -> OrgApiCredential | None:
     result = await db.execute(select(OrgApiCredential).where(OrgApiCredential.source == source))
     return result.scalar_one_or_none()
+
+
+# ---------------------------------------------------------------------------
+# Decrypt-and-return credential functions (Story 6.6). The first callers in
+# this codebase to call decrypt_secret() in a live code path (Story 6.5 Dev
+# Notes' explicit forward note) -- content/service.py never sees ciphertext,
+# same repository-only decrypt boundary Story 6.5 established.
+# ---------------------------------------------------------------------------
+
+
+async def get_decrypted_admin_youtube_key(db: AsyncSession, *, admin_id: UUID) -> str | None:
+    """The caller's own YouTube key, decrypted (AD-7 branch 2: per-admin
+    credential). None if not configured -- this IS the "no_credential"
+    signal, same as Story 6.5's get_api_keys_status (no separate
+    `configured` column)."""
+    row = await get_admin_api_key(db, admin_id=admin_id, source="YOUTUBE")
+    if row is None:
+        return None
+    return decrypt_secret(row.encrypted_key)
+
+
+async def get_decrypted_org_udemy_credential(db: AsyncSession) -> dict | None:
+    """The single org-wide Udemy credential, decrypted and unpacked (AD-7
+    branch 3: org-wide credential). Story 6.5 packed {client_id,
+    client_secret} into one encrypted JSON blob (OrgApiCredential's
+    docstring) -- this is the first caller that needs to unpack it. None
+    if not configured."""
+    row = await get_org_api_credential(db, source="UDEMY")
+    if row is None:
+        return None
+    return json.loads(decrypt_secret(row.encrypted_key))

@@ -14,6 +14,8 @@ from app.content.repository import (
     delete_admin_api_key,
     delete_org_api_credential,
     get_admin_api_key,
+    get_decrypted_admin_youtube_key,
+    get_decrypted_org_udemy_credential,
     get_org_api_credential,
     upsert_admin_api_key,
     upsert_org_api_credential,
@@ -300,3 +302,44 @@ async def test_delete_org_api_credential_removes_the_row(db_session: AsyncSessio
 @pytest.mark.asyncio
 async def test_delete_org_api_credential_for_nonexistent_row_does_not_raise(db_session: AsyncSession):
     await delete_org_api_credential(db_session, source="UDEMY")
+
+
+# ---------------------------------------------------------------------------
+# Story 6.6: decrypt-and-return credential functions -- the first callers
+# in this codebase to call decrypt_secret() in a live code path (Story 6.5
+# Dev Notes' explicit forward note).
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_get_decrypted_admin_youtube_key_returns_plaintext_when_configured(db_session: AsyncSession):
+    await upsert_admin_api_key(db_session, admin_id=RITA_ID, source="YOUTUBE", plaintext_key="my-real-yt-key")
+
+    key = await get_decrypted_admin_youtube_key(db_session, admin_id=RITA_ID)
+
+    assert key == "my-real-yt-key"
+
+
+@pytest.mark.asyncio
+async def test_get_decrypted_admin_youtube_key_returns_none_when_not_configured(db_session: AsyncSession):
+    key = await get_decrypted_admin_youtube_key(db_session, admin_id=CASEY_ID)
+
+    assert key is None
+
+
+@pytest.mark.asyncio
+async def test_get_decrypted_org_udemy_credential_returns_both_fields_when_configured(db_session: AsyncSession):
+    await upsert_org_api_credential(
+        db_session, source="UDEMY", client_id="real-client-id", client_secret="real-client-secret", configured_by=RITA_ID
+    )
+
+    credential = await get_decrypted_org_udemy_credential(db_session)
+
+    assert credential == {"client_id": "real-client-id", "client_secret": "real-client-secret"}
+
+
+@pytest.mark.asyncio
+async def test_get_decrypted_org_udemy_credential_returns_none_when_not_configured(db_session: AsyncSession):
+    credential = await get_decrypted_org_udemy_credential(db_session)
+
+    assert credential is None

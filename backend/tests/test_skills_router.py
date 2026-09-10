@@ -14,7 +14,7 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from app.assignments.models import ContentCatalog
+from app.assignments.models import AdminApiKey, ContentCatalog, OrgApiCredential
 from app.core.config import settings
 from app.main import app
 from app.skills.models import Skill
@@ -442,3 +442,258 @@ async def test_delete_skill_requires_authentication():
     async with _client() as client:
         response = await client.delete(f"/api/admin/skills/{uuid.uuid4()}")
         assert response.status_code == 401
+
+
+# ---------------------------------------------------------------------------
+# Story 6.6: POST /api/admin/skills/{id}/content-lookup
+# ---------------------------------------------------------------------------
+
+
+async def _clear_credentials() -> None:
+    async with _session_factory() as session:
+        await session.execute(delete(AdminApiKey).where(AdminApiKey.source == "YOUTUBE"))
+        await session.execute(delete(OrgApiCredential).where(OrgApiCredential.source == "UDEMY"))
+        await session.commit()
+
+
+def _fake_youtube_search(api_key, query, max_results):
+    return [
+        {
+            "video_id": "router-yt-1",
+            "title": "Router YouTube Result",
+            "description": "desc",
+            "thumbnail_url": "https://img.example.com/router-yt-1.jpg",
+        }
+    ]
+
+
+def _fake_youtube_durations(api_key, video_ids):
+    return {"router-yt-1": "PT5M0S"}
+
+
+def _fake_udemy_search(client_id, client_secret, query, max_results):
+    return [
+        {
+            "course_id": 555,
+            "title": "Router Udemy Result",
+            "url": "/course/router-udemy-result/",
+            "thumbnail_url": "https://img.udemy.com/555.jpg",
+            "content_info": "2 total hours",
+        }
+    ]
+
+
+async def test_content_lookup_as_hr_admin_with_both_sources_configured_returns_both(monkeypatch):
+    name = f"Content Lookup Both {uuid.uuid4().hex[:8]}"
+    monkeypatch.setattr("app.content.service.youtube_client.search_videos", _fake_youtube_search)
+    monkeypatch.setattr("app.content.service.youtube_client.get_video_durations", _fake_youtube_durations)
+    monkeypatch.setattr("app.content.service.udemy_client.search_courses", _fake_udemy_search)
+    monkeypatch.setattr("app.content.service.settings.UDEMY_ORGANIZATION_SUBDOMAIN", "sails")
+    try:
+        async with _client() as client:
+            await _login(client)
+            created = await client.post("/api/admin/skills", json={"name": name})
+            skill_id = created.json()["id"]
+
+            await client.put("/api/admin/api-keys/youtube", json={"key": "a-real-yt-key"})
+            await client.put(
+                "/api/admin/api-keys/udemy", json={"client_id": "cid", "client_secret": "csecret"}
+            )
+
+            response = await client.post(
+                f"/api/admin/skills/{skill_id}/content-lookup", json={"query": "Python"}
+            )
+
+            assert response.status_code == 200
+            body = response.json()
+            assert body["errors"] == []
+            sources = {r["source"] for r in body["results"]}
+            assert sources == {"YOUTUBE", "UDEMY"}
+            youtube_result = next(r for r in body["results"] if r["source"] == "YOUTUBE")
+            assert youtube_result["url"] == "https://www.youtube.com/watch?v=router-yt-1"
+            udemy_result = next(r for r in body["results"] if r["source"] == "UDEMY")
+            assert udemy_result["url"] == "https://sails.udemy.com/course/router-udemy-result/"
+    finally:
+        await _delete_skill_by_name(name)
+        await _clear_credentials()
+
+
+async def test_content_lookup_with_no_credentials_configured_returns_no_credential_errors():
+    name = f"Content Lookup No Creds {uuid.uuid4().hex[:8]}"
+    try:
+        async with _client() as client:
+            await _login(client)
+            created = await client.post("/api/admin/skills", json={"name": name})
+            skill_id = created.json()["id"]
+
+            response = await client.post(
+                f"/api/admin/skills/{skill_id}/content-lookup", json={"query": "Python"}
+            )
+
+            assert response.status_code == 200
+            body = response.json()
+            assert body["results"] == []
+            errors_by_source = {e["source"]: e["error"] for e in body["errors"]}
+            assert errors_by_source == {"YOUTUBE": "no_credential", "UDEMY": "no_credential"}
+    finally:
+        await _delete_skill_by_name(name)
+
+
+async def test_content_lookup_youtube_rate_limited_response_shape(monkeypatch):
+    """Code review (2026-09-10): the rate_limited/invalid_credential/
+    source_error variants were previously only exercised at the
+    service-unit level -- this asserts the real HTTP response shape."""
+    from app.content.youtube_client import QuotaExceededError
+
+    name = f"Content Lookup Rate Limited {uuid.uuid4().hex[:8]}"
+
+    def _raise_quota(api_key, query, max_results):
+        raise QuotaExceededError("quota exhausted")
+
+    monkeypatch.setattr("app.content.service.youtube_client.search_videos", _raise_quota)
+    try:
+        async with _client() as client:
+            await _login(client)
+            created = await client.post("/api/admin/skills", json={"name": name})
+            skill_id = created.json()["id"]
+            await client.put("/api/admin/api-keys/youtube", json={"key": "a-key"})
+
+            response = await client.post(
+                f"/api/admin/skills/{skill_id}/content-lookup", json={"query": "Python"}
+            )
+
+            assert response.status_code == 200
+            body = response.json()
+            assert body["results"] == []
+            errors_by_source = {e["source"]: e["error"] for e in body["errors"]}
+            assert errors_by_source["YOUTUBE"] == "rate_limited"
+    finally:
+        await _delete_skill_by_name(name)
+        await _clear_credentials()
+
+
+async def test_content_lookup_udemy_invalid_credential_response_shape(monkeypatch):
+    from app.content.udemy_client import InvalidCredentialError
+
+    name = f"Content Lookup Invalid Cred {uuid.uuid4().hex[:8]}"
+
+    def _raise_invalid(client_id, client_secret, query, max_results):
+        raise InvalidCredentialError("bad credential")
+
+    monkeypatch.setattr("app.content.service.udemy_client.search_courses", _raise_invalid)
+    try:
+        async with _client() as client:
+            await _login(client)
+            created = await client.post("/api/admin/skills", json={"name": name})
+            skill_id = created.json()["id"]
+            await client.put(
+                "/api/admin/api-keys/udemy", json={"client_id": "cid", "client_secret": "csecret"}
+            )
+
+            response = await client.post(
+                f"/api/admin/skills/{skill_id}/content-lookup", json={"query": "Python"}
+            )
+
+            assert response.status_code == 200
+            body = response.json()
+            assert body["results"] == []
+            errors_by_source = {e["source"]: e["error"] for e in body["errors"]}
+            assert errors_by_source["UDEMY"] == "invalid_credential"
+    finally:
+        await _delete_skill_by_name(name)
+        await _clear_credentials()
+
+
+async def test_content_lookup_source_error_response_shape(monkeypatch):
+    name = f"Content Lookup Source Error {uuid.uuid4().hex[:8]}"
+
+    def _raise_generic(api_key, query, max_results):
+        raise Exception("boom")
+
+    monkeypatch.setattr("app.content.service.youtube_client.search_videos", _raise_generic)
+    try:
+        async with _client() as client:
+            await _login(client)
+            created = await client.post("/api/admin/skills", json={"name": name})
+            skill_id = created.json()["id"]
+            await client.put("/api/admin/api-keys/youtube", json={"key": "a-key"})
+
+            response = await client.post(
+                f"/api/admin/skills/{skill_id}/content-lookup", json={"query": "Python"}
+            )
+
+            assert response.status_code == 200
+            body = response.json()
+            assert body["results"] == []
+            errors_by_source = {e["source"]: e["error"] for e in body["errors"]}
+            assert errors_by_source["YOUTUBE"] == "source_error"
+    finally:
+        await _delete_skill_by_name(name)
+        await _clear_credentials()
+
+
+async def test_content_lookup_as_employee_returns_403():
+    name = f"Content Lookup Employee {uuid.uuid4().hex[:8]}"
+    try:
+        async with _client() as client:
+            await _login(client)
+            created = await client.post("/api/admin/skills", json={"name": name})
+            skill_id = created.json()["id"]
+
+            await _login(client, email="casey@sails.example.com")
+            response = await client.post(
+                f"/api/admin/skills/{skill_id}/content-lookup", json={"query": "Python"}
+            )
+
+            assert response.status_code == 403
+    finally:
+        await _delete_skill_by_name(name)
+
+
+async def test_content_lookup_requires_authentication():
+    async with _client() as client:
+        response = await client.post(
+            f"/api/admin/skills/{uuid.uuid4()}/content-lookup", json={"query": "Python"}
+        )
+        assert response.status_code == 401
+
+
+async def test_content_lookup_nonexistent_skill_returns_404():
+    async with _client() as client:
+        await _login(client)
+        response = await client.post(
+            f"/api/admin/skills/{uuid.uuid4()}/content-lookup", json={"query": "Python"}
+        )
+        assert response.status_code == 404
+
+
+async def test_content_lookup_rejects_blank_query():
+    name = f"Content Lookup Blank Query {uuid.uuid4().hex[:8]}"
+    try:
+        async with _client() as client:
+            await _login(client)
+            created = await client.post("/api/admin/skills", json={"name": name})
+            skill_id = created.json()["id"]
+
+            response = await client.post(
+                f"/api/admin/skills/{skill_id}/content-lookup", json={"query": "   "}
+            )
+
+            assert response.status_code == 422
+    finally:
+        await _delete_skill_by_name(name)
+
+
+async def test_content_lookup_rejects_missing_query():
+    name = f"Content Lookup Missing Query {uuid.uuid4().hex[:8]}"
+    try:
+        async with _client() as client:
+            await _login(client)
+            created = await client.post("/api/admin/skills", json={"name": name})
+            skill_id = created.json()["id"]
+
+            response = await client.post(f"/api/admin/skills/{skill_id}/content-lookup", json={})
+
+            assert response.status_code == 422
+    finally:
+        await _delete_skill_by_name(name)

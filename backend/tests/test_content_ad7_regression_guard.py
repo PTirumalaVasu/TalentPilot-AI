@@ -1,30 +1,30 @@
-"""AD-7 regression guard (Story 2.3, AC6): content ingestion must never be
-triggered by a live request. Mirrors test_embedding.py's
-test_no_router_file_calls_embed_text_directly pattern."""
+"""AD-7 regression guard (Story 2.3, AC6; re-scoped Story 6.6 per the
+architecture spine's 2026-09-08 amendment): batch ingestion (the shared
+settings.YOUTUBE_API_KEY, run_ingestion_job) must never be triggered by a
+live request. Mirrors test_embedding.py's
+test_no_router_file_calls_embed_text_directly pattern.
+
+Story 6.6 adds a live, per-admin/org-wide-credential search path
+(skills/router.py -> content/service.py::search_content_for_skill ->
+youtube_client.search_videos / udemy_client.search_courses) that is
+legitimate and must NOT trip this guard -- the boundary this guard
+protects was never "no router may reach search_videos", it was "no router
+may trigger batch ingestion or read the shared YOUTUBE_API_KEY". The
+original, pre-Story-6.6 version of this guard banned the `search_videos`
+symbol and any `app.content.youtube_client` import outright, which was
+accurate only because no live per-request search path existed yet."""
 from pathlib import Path
 
 BACKEND_APP_DIR = Path(__file__).resolve().parent.parent / "app"
-FORBIDDEN_SYMBOLS = ("run_ingestion_job", "search_videos")
-# youtube_client is ingestion-only end to end (no router has any legitimate
-# reason to import it), so banning the whole module is correct there. Unlike
-# youtube_client, app.content.service also holds legitimate read-only
-# functions real routes need (e.g. match_content_for_skill, Story 3.4) --
-# banning the entire module import would false-positive on those, so
-# ingestion-from-service is caught via FORBIDDEN_SYMBOLS (which also blocks
-# an aliased `from app.content.service import run_ingestion_job as _rij`)
-# instead of a blanket import-source ban.
-FORBIDDEN_IMPORT_SOURCES = (
-    "app.content.youtube_client",
-    "app.content import youtube_client",
-)
+FORBIDDEN_SYMBOLS = ("run_ingestion_job", "settings.YOUTUBE_API_KEY")
 
 
 def test_no_router_or_main_file_triggers_ingestion():
-    """run_ingestion_job/search_videos must be called only from
-    content/cli.py and this story's own tests -- never from any router.py
-    or main.py. Also blocks the module-level import (even aliased), since a
-    literal-symbol grep alone would miss `from app.content.service import
-    run_ingestion_job as _rij; _rij(...)`."""
+    """run_ingestion_job (batch ingestion) and settings.YOUTUBE_API_KEY
+    (the shared batch key) must never appear in any router.py or main.py --
+    the live per-admin/org-wide-credential search path (Story 6.6) reaches
+    search_videos/udemy_client.search_courses only transitively, through
+    content/service.py, and is unaffected by this guard."""
     router_files = list(BACKEND_APP_DIR.glob("*/router.py"))
     main_files = [BACKEND_APP_DIR / "main.py"]
 
@@ -37,10 +37,7 @@ def test_no_router_or_main_file_triggers_ingestion():
         for symbol in FORBIDDEN_SYMBOLS:
             if symbol in content:
                 offending.append(f"{f}: {symbol}")
-        for source in FORBIDDEN_IMPORT_SOURCES:
-            if source in content:
-                offending.append(f"{f}: imports from {source}")
 
     assert not offending, (
-        f"Ingestion job must not be called from router/main files (AD-7): {offending}"
+        f"Batch ingestion / the shared YOUTUBE_API_KEY must not be referenced from router/main files (AD-7): {offending}"
     )

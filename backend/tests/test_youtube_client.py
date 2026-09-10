@@ -6,6 +6,7 @@ YOUTUBE_API_KEY needed.
 import pytest
 
 from app.content.youtube_client import (
+    InvalidCredentialError,
     QuotaExceededError,
     get_video_durations,
     search_videos,
@@ -106,6 +107,52 @@ def test_search_videos_raises_generic_exception_on_other_error(monkeypatch):
 
     assert not isinstance(exc_info.value, QuotaExceededError)
     assert "Invalid query parameter" in str(exc_info.value)
+
+
+def test_search_videos_raises_invalid_credential_on_400_key_invalid_body(monkeypatch):
+    """Story 6.6 (AC's invalid_credential classification) -- a 400 response
+    whose body names reason 'keyInvalid' must raise InvalidCredentialError
+    specifically, not the generic Exception the pre-Story-6.6 code raised
+    for every non-quota error."""
+    fake_body = {
+        "error": {
+            "code": 400,
+            "message": "API key not valid. Please pass a valid API key.",
+            "errors": [{"domain": "global", "reason": "badRequest"}],
+        }
+    }
+
+    def fake_get(url, params=None, timeout=None):
+        return _FakeResponse(400, fake_body)
+
+    monkeypatch.setattr("app.content.youtube_client.requests.get", fake_get)
+
+    with pytest.raises(InvalidCredentialError):
+        search_videos(api_key="revoked-key", query="Python", max_results=3)
+
+
+def test_search_videos_generic_400_error_still_raises_plain_exception_not_invalid_credential(monkeypatch):
+    """Regression guard: the existing generic-Exception path (400 with an
+    unrelated reason, e.g. a malformed query) must NOT be reclassified as
+    InvalidCredentialError just because it shares the 400 status code."""
+    fake_body = {
+        "error": {
+            "code": 400,
+            "message": "Invalid query parameter",
+            "errors": [{"domain": "youtube.parameter", "reason": "invalidQuery"}],
+        }
+    }
+
+    def fake_get(url, params=None, timeout=None):
+        return _FakeResponse(400, fake_body)
+
+    monkeypatch.setattr("app.content.youtube_client.requests.get", fake_get)
+
+    with pytest.raises(Exception) as exc_info:
+        search_videos(api_key="fake-key", query="???", max_results=3)
+
+    assert not isinstance(exc_info.value, InvalidCredentialError)
+    assert not isinstance(exc_info.value, QuotaExceededError)
 
 
 def test_get_video_durations_parses_response_into_dict(monkeypatch):

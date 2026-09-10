@@ -134,3 +134,61 @@ class ApiKeysStatusResponse(BaseModel):
 
     youtube: YoutubeKeyStatus
     udemy: UdemyCredentialStatus
+
+
+# ---------------------------------------------------------------------------
+# Live content lookup (Story 6.6, FR-17). No content_catalog row is ever
+# written from this path -- search-only, writing happens in Story 6.8's
+# (not yet built) approve action.
+# ---------------------------------------------------------------------------
+
+# Query length bound -- no epic-specified limit; sized generously (same
+# reasoning as CREDENTIAL_MAX_LENGTH above) since a real search phrase is
+# always well under this.
+CONTENT_LOOKUP_QUERY_MAX_LENGTH = 500
+
+
+class ContentLookupRequest(BaseModel):
+    """POST /api/admin/skills/{id}/content-lookup body (Story 6.6 AC1)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    query: str = Field(min_length=1, max_length=CONTENT_LOOKUP_QUERY_MAX_LENGTH)
+
+    @field_validator("query")
+    @classmethod
+    def query_must_not_be_blank(cls, value: str) -> str:
+        return _reject_blank(value)
+
+
+class ContentLookupCandidate(BaseModel):
+    """One search result, from either source. Shaped identically to Story
+    6.7's manual-entry candidate (source="MANUAL" there, no thumbnail_url)
+    so both flow through the same downstream review/approve treatment
+    (Story 6.8)."""
+
+    title: str
+    source: Literal["YOUTUBE", "UDEMY"]
+    url: str
+    thumbnail_url: str | None = None
+    duration_hours: float | None = None
+
+
+class ContentLookupSourceError(BaseModel):
+    """One source's distinct failure (Story 6.6 AC's error union) -- the
+    other source's results, if any, are unaffected (NFR-RES1)."""
+
+    source: Literal["YOUTUBE", "UDEMY"]
+    error: Literal["no_credential", "invalid_credential", "rate_limited", "source_error"]
+
+
+class ContentLookupResponse(BaseModel):
+    """GET.../content-lookup response. Flat, not nested per-source
+    (Story 6.6 Scope Note 7 -- the epics AC describes per-source results/
+    errors but doesn't pin an exact envelope): successful sources
+    contribute tagged candidates to `results`, failed/unconfigured sources
+    contribute one entry each to `errors`. A caller groups by
+    `result.source` client-side if it needs per-source sections."""
+
+    results: list[ContentLookupCandidate]
+    errors: list[ContentLookupSourceError]

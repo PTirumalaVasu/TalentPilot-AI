@@ -1,18 +1,29 @@
 """Service layer for the content module. Cross-module callers must go through here (AD-1)."""
+import asyncio
 import datetime
 import logging
+import re
 from dataclasses import dataclass
 from uuid import UUID
 
+from fastapi import status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.schemas import CurrentUser
 from app.auth.service import require_hr_admin
 from app.content import repository
+from app.content import udemy_client
 from app.content import youtube_client
-from app.content.schemas import ContentResponse, ManualContentCreate
+from app.content.schemas import (
+    ContentLookupCandidate,
+    ContentLookupResponse,
+    ContentLookupSourceError,
+    ContentResponse,
+    ManualContentCreate,
+)
 from app.core.config import settings
 from app.core.embedding import embed_text
+from app.core.errors import AppException
 from app.skills import service as skills_service
 
 logger = logging.getLogger(__name__)
@@ -351,3 +362,174 @@ async def get_api_keys_status(db: AsyncSession, *, current_user: CurrentUser) ->
         udemy_configured_by_id=udemy_row.configured_by if udemy_row else None,
         udemy_configured_at=udemy_row.updated_at if udemy_row else None,
     )
+
+
+# ---------------------------------------------------------------------------
+# Live content lookup (Story 6.6, FR-17, AD-7 branches 2 & 3). Search-only --
+# no content_catalog row is ever written here (Story 6.8's approve action
+# owns that). Both sources are always attempted (Scope Note 8); one
+# source's failure never blocks the other (NFR-RES1).
+# ---------------------------------------------------------------------------
+
+# Live interactive search, distinct from ingestion's MAX_RESULTS_PER_SKILL=3
+# (youtube_client's own constant, sized for curated auto-ingestion) -- an
+# Admin reviewing search results benefits from seeing more candidates.
+CONTENT_LOOKUP_MAX_RESULTS = 5
+
+_ISO8601_DURATION_RE = re.compile(r"^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$")
+
+
+def _parse_iso8601_duration_hours(duration: str | None) -> float | None:
+    """YouTube's videos.list returns an ISO-8601 duration (e.g. 'PT10M32S').
+    Story 6.6 is the first caller that needs it as a float hours value --
+    ingest_content_for_skill above just stores the raw string. Returns None
+    on a missing/unparseable value, never a guessed one."""
+    if not duration:
+        return None
+    match = _ISO8601_DURATION_RE.match(duration)
+    if not match:
+        return None
+    hours, minutes, seconds = (int(g) if g else 0 for g in match.groups())
+    return hours + minutes / 60 + seconds / 3600
+
+
+def _not_found_skill() -> AppException:
+    # Mirrors skills/service.py's own _not_found() -- not imported directly
+    # since that's a private helper of a different module; small,
+    # intentional duplication rather than a cross-module import for a
+    # two-line error constructor (matches this codebase's general
+    # preference for explicit per-module error helpers).
+    return AppException(status.HTTP_404_NOT_FOUND, error_code="SKILL_NOT_FOUND", message="Skill not found")
+
+
+async def _get_source_credential(db: AsyncSession, *, admin_id: UUID, source: str) -> str | dict | None:
+    """CREDENTIAL_SCOPE = {YOUTUBE: PER_ADMIN, UDEMY: ORG_WIDE} (AD-10) --
+    the one place that decides which repository function to call per
+    source. Never decrypts itself; both repository functions already
+    return plaintext/None (Story 6.5's decrypt-only-in-repository
+    boundary, Scope Note 3)."""
+    if source == "YOUTUBE":
+        return await repository.get_decrypted_admin_youtube_key(db, admin_id=admin_id)
+    if source == "UDEMY":
+        return await repository.get_decrypted_org_udemy_credential(db)
+    raise ValueError(f"unknown content source: {source}")
+
+
+def _search_youtube(api_key: str, query: str) -> list[ContentLookupCandidate]:
+    search_results = youtube_client.search_videos(
+        api_key=api_key, query=query, max_results=CONTENT_LOOKUP_MAX_RESULTS
+    )
+    if not search_results:
+        return []
+
+    video_ids = [r["video_id"] for r in search_results]
+    try:
+        durations = youtube_client.get_video_durations(api_key=api_key, video_ids=video_ids)
+    except Exception:
+        # A duration-lookup failure (e.g. a transient network hiccup) after
+        # a successful search must not discard the already-fetched search
+        # results (code review, 2026-09-10) -- degrade to no duration for
+        # this batch rather than failing the whole branch.
+        logger.exception("YouTube duration lookup failed; returning results without durations")
+        durations = {}
+
+    return [
+        ContentLookupCandidate(
+            title=result["title"],
+            source="YOUTUBE",
+            url=f"https://www.youtube.com/watch?v={result['video_id']}",
+            thumbnail_url=result.get("thumbnail_url"),
+            duration_hours=_parse_iso8601_duration_hours(durations.get(result["video_id"])),
+        )
+        for result in search_results
+    ]
+
+
+def _search_udemy(credential: dict, query: str) -> list[ContentLookupCandidate]:
+    search_results = udemy_client.search_courses(
+        client_id=credential["client_id"],
+        client_secret=credential["client_secret"],
+        query=query,
+        max_results=CONTENT_LOOKUP_MAX_RESULTS,
+    )
+    subdomain = settings.UDEMY_ORGANIZATION_SUBDOMAIN
+
+    candidates = []
+    for result in search_results:
+        if not result.get("url"):
+            # A course with no url can't produce a usable link (code
+            # review, 2026-09-10) -- skip it rather than emitting a
+            # garbage "https://{subdomain}.udemy.comNone" string with no
+            # error surfaced.
+            logger.warning(
+                "Skipping Udemy course result with missing url: course_id=%s", result.get("course_id")
+            )
+            continue
+        candidates.append(
+            ContentLookupCandidate(
+                title=result["title"],
+                source="UDEMY",
+                url=f"https://{subdomain}.udemy.com{result['url']}",
+                thumbnail_url=result.get("thumbnail_url"),
+                duration_hours=udemy_client.parse_content_info_to_hours(result.get("content_info")),
+            )
+        )
+    return candidates
+
+
+async def search_content_for_skill(
+    db: AsyncSession, *, current_user: CurrentUser, skill_id: UUID, query: str
+) -> ContentLookupResponse:
+    """Live, on-demand search across YouTube (per-admin key) and Udemy
+    (org-wide credential) for a Skill (Story 6.6 AC1-AC7). HR_ADMIN-only.
+    Both sources are always attempted; a missing credential, an invalid/
+    revoked one, a rate limit, or any other source failure each produce a
+    distinct per-source error entry rather than blocking the whole
+    request or the other source's results (NFR-RES1)."""
+    require_hr_admin(current_user)
+    admin_id = UUID(current_user.user_id)
+
+    skill = await skills_service.get_skill_by_id(db, skill_id)
+    if skill is None:
+        raise _not_found_skill()
+
+    results: list[ContentLookupCandidate] = []
+    errors: list[ContentLookupSourceError] = []
+
+    # Each source's credential fetch AND search now run inside the same
+    # try/except (code review, 2026-09-10) -- a decrypt_secret()/json.loads()
+    # failure fetching a credential is a source_error like any other search
+    # failure, not an unhandled exception that 500s the whole request and
+    # discards the other source's (possibly already-computed) results.
+    # Blocking, synchronous network I/O (_search_youtube/_search_udemy) runs
+    # via asyncio.to_thread so a slow external API never stalls the event
+    # loop for other concurrent requests.
+    try:
+        youtube_key = await _get_source_credential(db, admin_id=admin_id, source="YOUTUBE")
+        if youtube_key is None:
+            errors.append(ContentLookupSourceError(source="YOUTUBE", error="no_credential"))
+        else:
+            results.extend(await asyncio.to_thread(_search_youtube, youtube_key, query))
+    except youtube_client.QuotaExceededError:
+        errors.append(ContentLookupSourceError(source="YOUTUBE", error="rate_limited"))
+    except youtube_client.InvalidCredentialError:
+        errors.append(ContentLookupSourceError(source="YOUTUBE", error="invalid_credential"))
+    except Exception:
+        logger.exception("YouTube content lookup failed for skill_id=%s", skill_id)
+        errors.append(ContentLookupSourceError(source="YOUTUBE", error="source_error"))
+
+    try:
+        udemy_credential = await _get_source_credential(db, admin_id=admin_id, source="UDEMY")
+        if udemy_credential is None:
+            errors.append(ContentLookupSourceError(source="UDEMY", error="no_credential"))
+        else:
+            results.extend(await asyncio.to_thread(_search_udemy, udemy_credential, query))
+    except udemy_client.RateLimitExceededError:
+        errors.append(ContentLookupSourceError(source="UDEMY", error="rate_limited"))
+    except udemy_client.InvalidCredentialError:
+        errors.append(ContentLookupSourceError(source="UDEMY", error="invalid_credential"))
+    except Exception:
+        logger.exception("Udemy content lookup failed for skill_id=%s", skill_id)
+        errors.append(ContentLookupSourceError(source="UDEMY", error="source_error"))
+
+    return ContentLookupResponse(results=results, errors=errors)

@@ -14,6 +14,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.schemas import CurrentUser
 from app.auth.service import get_current_user
+from app.content.schemas import ContentLookupRequest, ContentLookupResponse
+from app.content.service import search_content_for_skill
 from app.core.db import get_db
 from app.skills.schemas import CreateSkillRequest, SkillResponse, UpdateSkillRequest
 from app.skills.service import create_skill_service, delete_skill_service, update_skill_service
@@ -54,3 +56,21 @@ async def delete_skill_route(
     """Hard-deletes a Skill and its attached Content (Story 6.3 AC3/AC4) --
     403 if the Skill is permanently locked (AC2)."""
     await delete_skill_service(session, current_user=current_user, skill_id=skill_id)
+
+
+@router.post("/{skill_id}/content-lookup", response_model=ContentLookupResponse)
+async def content_lookup_route(
+    skill_id: UUID,
+    request: ContentLookupRequest,
+    current_user: CurrentUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+) -> ContentLookupResponse:
+    """Live search across YouTube (per-admin key) and Udemy (org-wide
+    credential) for a Skill (Story 6.6 AC1-AC7). Thin -- the actual
+    search/credential logic lives in content/service.py (AD-1: only
+    content/ may import youtube_client/udemy_client/the credential
+    tables); this route only exists here because the URL is a Skill
+    sub-resource (Story 6.6 Scope Note 2)."""
+    return await search_content_for_skill(
+        session, current_user=current_user, skill_id=skill_id, query=request.query
+    )
