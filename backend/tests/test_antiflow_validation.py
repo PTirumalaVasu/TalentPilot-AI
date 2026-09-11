@@ -16,7 +16,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.assignments.models import Assignment, ContentCatalog, Employee
+from app.assignments.models import Assignment, ContentCatalog
+from app.employees.models import Employee
 from app.skills.models import Skill
 from app.progress.service import ProgressService
 from app.progress.schemas import SkillProgressResponse

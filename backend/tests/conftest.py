@@ -10,12 +10,12 @@ from sqlalchemy.pool import NullPool
 # noqa: F401 - imported for side-effects
 from app.auth.models import Account  # noqa: F401
 from app.assignments.models import (  # noqa: F401
-    Employee,
     ContentCatalog,
     Assignment,
     SkillProgress,
     AssignmentOverride,
 )
+from app.employees.models import Employee  # noqa: F401
 from app.skills.models import Skill  # noqa: F401
 from app.core.seeds import run_seeds
 

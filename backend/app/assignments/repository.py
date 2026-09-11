@@ -7,8 +7,9 @@ from sqlalchemy import func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.assignments.models import Assignment, Employee
+from app.assignments.models import Assignment
 from app.auth.schemas import CurrentUser, Role
+from app.employees.models import Employee
 from app.core.errors import AppException
 # Read-only, single-query listing for the assignment modal's Step 2
 # combobox (Story 3.4) -- a narrow, pre-existing direct read against

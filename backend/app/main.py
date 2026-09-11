@@ -15,6 +15,7 @@ from app.core.embedding import load_embedding_model
 from app.core.errors import register_exception_handlers
 from app.core.seeds import run_seeds
 from app.dashboard.router import router as dashboard_router
+from app.employees.router import router as employees_router
 from app.progress.router import router as progress_router
 from app.progress.my_assignments import router as my_assignments_router
 from app.skills.router import router as skills_router
@@ -47,6 +48,7 @@ app.include_router(content_router, prefix="/api/content", tags=["content"])
 app.include_router(progress_router, tags=["progress"])
 app.include_router(dashboard_router, prefix="/api/dashboard", tags=["dashboard"])
 app.include_router(skills_router, prefix="/api/admin/skills", tags=["skills"])
+app.include_router(employees_router, prefix="/api/admin/employees", tags=["employees"])
 app.include_router(admin_api_keys_router, prefix="/api/admin/api-keys", tags=["admin-api-keys"])
 app.include_router(admin_content_router, prefix="/api/admin/content", tags=["admin-content"])
 

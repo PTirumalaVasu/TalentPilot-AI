@@ -6,9 +6,11 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import Account
-from app.assignments.models import ContentCatalog, Employee
+from app.assignments.models import ContentCatalog
 from app.core.embedding import embed_text
 from app.core.seed_ids import CASEY_ID, JORDAN_ID, MORGAN_ID, RITA_ID, SAM_ID
+from app.employees.models import Employee
+from app.employees.service import hash_password
 from app.skills.models import Skill
 
 SKILL_DATA_VIZ_ID = uuid.UUID("660e8400-e29b-41d4-a716-446655440001")
@@ -25,33 +27,44 @@ async def seed_employees(session: AsyncSession) -> None:
     if existing.scalar():
         return
 
+    # employee_code values match migration 011's backfill for pre-existing
+    # rows (Story 7.1) -- EMP-0001..EMP-0005, ordered by core/seed_ids.py's
+    # declared UUID order (RITA, CASEY, MORGAN, JORDAN, SAM), not by
+    # created_at (all 5 rows share one insert/flush, so created_at isn't
+    # guaranteed distinct). Kept identical here so a fresh-DB seed run and
+    # migration 011's backfill of a pre-011 database always agree.
     employees = [
         Employee(
             id=RITA_ID,
+            employee_code="EMP-0001",
             name="Rita the Recommender",
             email="rita@sails.example.com",
             role="HR_ADMIN",
         ),
         Employee(
             id=CASEY_ID,
+            employee_code="EMP-0002",
             name="Casey the Continuer",
             email="casey@sails.example.com",
             role="EMPLOYEE",
         ),
         Employee(
             id=MORGAN_ID,
+            employee_code="EMP-0003",
             name="Morgan the Motivated",
             email="morgan@sails.example.com",
             role="EMPLOYEE",
         ),
         Employee(
             id=JORDAN_ID,
+            employee_code="EMP-0004",
             name="Jordan the Juggernaut",
             email="jordan@sails.example.com",
             role="EMPLOYEE",
         ),
         Employee(
             id=SAM_ID,
+            employee_code="EMP-0005",
             name="Sam the Stellar",
             email="sam@sails.example.com",
             role="EMPLOYEE",
@@ -266,37 +279,42 @@ async def create_default_accounts(session: AsyncSession) -> None:
     if existing.scalar():
         return
 
-    # In a real app, passwords would be hashed with bcrypt or similar
-    # For now, use a simple mock hash ("demo123" -> hash)
+    # Story 7.1: previously a hardcoded placeholder hash with valid bcrypt
+    # *shape* only (verified via bcrypt.checkpw to NOT actually validate
+    # against "demo123") -- replaced with a real hash computed via
+    # employees.service.hash_password (the same helper Stories 7.2/7.6 will
+    # call for real Employee-created passwords), so Account-backed login
+    # actually works once a future story wires authenticate() to check it.
+    demo_password_hash = hash_password("demo123")
     accounts = [
         Account(
             id=RITA_ID,
             email="rita@sails.example.com",
-            password_hash="$2b$12$Ej1cKPsyxQqFWK/8PHT0d.c0yoIbR1Z2r.uV5XvDWMmr.B8xN3RBG",  # bcrypt("demo123")
+            password_hash=demo_password_hash,
             role="HR_ADMIN",
         ),
         Account(
             id=CASEY_ID,
             email="casey@sails.example.com",
-            password_hash="$2b$12$Ej1cKPsyxQqFWK/8PHT0d.c0yoIbR1Z2r.uV5XvDWMmr.B8xN3RBG",
+            password_hash=demo_password_hash,
             role="EMPLOYEE",
         ),
         Account(
             id=MORGAN_ID,
             email="morgan@sails.example.com",
-            password_hash="$2b$12$Ej1cKPsyxQqFWK/8PHT0d.c0yoIbR1Z2r.uV5XvDWMmr.B8xN3RBG",
+            password_hash=demo_password_hash,
             role="EMPLOYEE",
         ),
         Account(
             id=JORDAN_ID,
             email="jordan@sails.example.com",
-            password_hash="$2b$12$Ej1cKPsyxQqFWK/8PHT0d.c0yoIbR1Z2r.uV5XvDWMmr.B8xN3RBG",
+            password_hash=demo_password_hash,
             role="EMPLOYEE",
         ),
         Account(
             id=SAM_ID,
             email="sam@sails.example.com",
-            password_hash="$2b$12$Ej1cKPsyxQqFWK/8PHT0d.c0yoIbR1Z2r.uV5XvDWMmr.B8xN3RBG",
+            password_hash=demo_password_hash,
             role="EMPLOYEE",
         ),
     ]

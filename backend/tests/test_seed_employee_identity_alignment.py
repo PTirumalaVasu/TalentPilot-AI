@@ -20,9 +20,9 @@ from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from app.assignments.models import Employee
 from app.auth.repository import _MOCK_ACCOUNTS, find_account
 from app.core.config import settings
+from app.employees.models import Employee
 from app.core.seed_ids import RITA_ID
 from app.core.seeds import run_seeds, seed_employees
 

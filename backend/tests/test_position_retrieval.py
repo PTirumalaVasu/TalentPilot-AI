@@ -17,7 +17,8 @@ from datetime import datetime, timezone
 from uuid import UUID, uuid4
 from sqlalchemy import select
 
-from app.assignments.models import Employee, Assignment, ContentCatalog, SkillProgress
+from app.assignments.models import Assignment, ContentCatalog, SkillProgress
+from app.employees.models import Employee
 from app.skills.models import Skill
 from app.auth.schemas import CurrentUser
 from app.core.seed_ids import CASEY_ID

@@ -10,8 +10,9 @@ test_needs_attention_derivation.py)."""
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
-from app.assignments.models import Assignment, AssignmentOverride, Employee, SkillProgress
+from app.assignments.models import Assignment, AssignmentOverride, SkillProgress
 from app.assignments.schemas import AssignmentStatus
+from app.employees.models import Employee
 from app.progress.service import ProgressService
 
 NOW = datetime(2026, 7, 11, 12, 0, 0, tzinfo=timezone.utc)

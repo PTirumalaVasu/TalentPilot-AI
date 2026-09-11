@@ -11,9 +11,9 @@ from app.assignments.models import (
     Assignment,
     AssignmentOverride,
     ContentCatalog,
-    Employee,
     SkillProgress,
 )
+from app.employees.models import Employee
 from app.skills.models import Skill
 from app.core.db import Base
 
@@ -49,12 +49,64 @@ def test_accounts_table_structure():
 
 
 def test_employees_table_structure():
-    """Verify Employee model defines correct columns."""
+    """Verify Employee model defines correct columns, including the
+    Employee Roster Management profile fields added by Story 7.1
+    (migration 011)."""
     mapper = class_mapper(Employee)
     columns = {col.name for col in mapper.columns}
 
-    expected = {"id", "name", "email", "role", "created_at"}
+    expected = {
+        "id", "name", "email", "role", "created_at",
+        "employee_code", "phone", "experience", "technologies", "position",
+        "project", "manager_name", "location", "department", "updated_at",
+        "archived_at",
+    }
     assert expected.issubset(columns), f"Missing columns: {expected - columns}"
+
+
+def test_employees_employee_code_is_required_and_unique():
+    """FR-24: Employee ID/Code is required and unique, at the ORM level --
+    matches this file's existing pure-ORM-metadata style (e.g. Skill.name's
+    identical unique=True/nullable=False declaration). The DB-level named
+    constraint (migration 011's uq_employees_employee_code) is what
+    actually enforces this in Postgres; this test checks the ORM column
+    definition that produces it."""
+    mapper = class_mapper(Employee)
+    employee_code_col = mapper.columns["employee_code"]
+    assert employee_code_col.nullable is False
+    assert employee_code_col.unique is True
+
+
+def test_department_is_distinct_from_group():
+    """`department` (Story 7.1) is a new, distinct column -- NOT a reuse of
+    the pre-existing `group` column (addendum.md's open question,
+    resolved: see Story 7.1 Dev Notes). Both stay independently nullable;
+    `group` is untouched by Employee Roster Management."""
+    mapper = class_mapper(Employee)
+    department_col = mapper.columns["department"]
+    group_col = mapper.columns["group"]
+
+    assert department_col is not group_col
+    assert department_col.nullable is True
+    assert group_col.nullable is True
+
+
+def test_employees_archived_at_is_nullable_soft_delete_flag():
+    """FR-27: null = active, non-null = archived."""
+    mapper = class_mapper(Employee)
+    archived_at_col = mapper.columns["archived_at"]
+    assert archived_at_col.nullable is True
+
+
+def test_accounts_id_references_employees():
+    """AR-24: Account.id must be a real FK to employees.id (migration 011),
+    formalizing the identity link the seed data already assumed. Checked
+    via the ORM Column's declared ForeignKey, matching this file's
+    established pure-ORM-metadata style rather than a live DB inspector."""
+    mapper = class_mapper(Account)
+    id_col = mapper.columns["id"]
+    target_tables = {fk.column.table.name for fk in id_col.foreign_keys}
+    assert "employees" in target_tables, f"Expected accounts.id to FK to employees, got: {target_tables}"
 
 
 def test_skills_table_structure():

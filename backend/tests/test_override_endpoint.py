@@ -11,8 +11,9 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from app.assignments.models import Assignment, AssignmentOverride, ContentCatalog, Employee, SkillProgress
+from app.assignments.models import Assignment, AssignmentOverride, ContentCatalog, SkillProgress
 from app.core.config import settings
+from app.employees.models import Employee
 from app.core.security import create_access_token
 from app.core.seed_ids import CASEY_ID
 from app.core.seeds import SKILL_DATA_VIZ_ID
@@ -48,6 +49,7 @@ async def _create_hr_admin() -> uuid.UUID:
         session.add(
             Employee(
                 id=employee_id,
+                employee_code=f"TST-{employee_id.hex[:8]}",
                 name="Other HR Admin",
                 email=f"other-hr-{employee_id}@sails.example.com",
                 role="HR_ADMIN",

@@ -17,9 +17,10 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from app.assignments.models import AdminApiKey, Employee, OrgApiCredential
+from app.assignments.models import AdminApiKey, OrgApiCredential
 from app.auth.repository import _MOCK_ACCOUNTS
 from app.core.config import settings
+from app.employees.models import Employee
 from app.core.secrets import decrypt_secret
 from app.core.seed_ids import RITA_ID
 from app.main import app
@@ -61,7 +62,13 @@ async def _create_second_hr_admin(email: str, name: str) -> uuid.UUID:
     `_delete_second_hr_admin`."""
     employee_id = uuid.uuid4()
     async with _session_factory() as session:
-        session.add(Employee(id=employee_id, name=name, email=email, role="HR_ADMIN"))
+        session.add(Employee(
+            id=employee_id,
+            employee_code=f"TST-{employee_id.hex[:8]}",
+            name=name,
+            email=email,
+            role="HR_ADMIN",
+        ))
         await session.commit()
     _MOCK_ACCOUNTS[email] = {"password": "demo123", "role": "HR_ADMIN", "user_id": str(employee_id)}
     return employee_id

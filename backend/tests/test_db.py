@@ -23,7 +23,7 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from app.assignments.models import Employee
+from app.employees.models import Employee
 from app.core.config import settings
 from app.core.db import engine as shared_engine
 from app.core.db import get_db
@@ -39,10 +39,11 @@ async def test_get_db_commits_on_successful_completion():
     await shared_engine.dispose()
     unique_email = f"commit-test-{uuid.uuid4().hex[:8]}@example.com"
     new_id = uuid.uuid4()
+    unique_code = f"TST-{uuid.uuid4().hex[:8]}"
 
     gen = get_db()
     session = await gen.__anext__()
-    session.add(Employee(id=new_id, name="Commit Test", email=unique_email, role="EMPLOYEE"))
+    session.add(Employee(id=new_id, employee_code=unique_code, name="Commit Test", email=unique_email, role="EMPLOYEE"))
     await session.flush()
 
     with pytest.raises(StopAsyncIteration):
@@ -68,10 +69,11 @@ async def test_get_db_rolls_back_on_exception():
     await shared_engine.dispose()
     unique_email = f"rollback-test-{uuid.uuid4().hex[:8]}@example.com"
     new_id = uuid.uuid4()
+    unique_code = f"TST-{uuid.uuid4().hex[:8]}"
 
     gen = get_db()
     session = await gen.__anext__()
-    session.add(Employee(id=new_id, name="Rollback Test", email=unique_email, role="EMPLOYEE"))
+    session.add(Employee(id=new_id, employee_code=unique_code, name="Rollback Test", email=unique_email, role="EMPLOYEE"))
     await session.flush()
 
     with pytest.raises(RuntimeError):

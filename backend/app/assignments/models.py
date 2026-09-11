@@ -22,35 +22,21 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship
 
 from app.core.db import Base
-# Whole-module import, not `from app.skills.models import Skill` -- registers
-# Skill with the shared declarative Base (so Assignment/ContentCatalog's
-# relationship(back_populates=...) can resolve the "Skill" string below)
-# without re-exposing `Skill` as an importable name on this module. Code
-# review (2026-09-09) found the `from ... import Skill` form silently kept
-# the pre-Story-6.1 `from app.assignments.models import Skill` path working
-# for any caller, undermining the whole point of relocating it -- verified
-# zero remaining call sites depended on that path before switching. Skill
-# itself now lives in app.skills.models (Story 6.1); assignments/ never
-# queries or writes the skills table directly (AD-1, AD-11).
+# Whole-module imports, not `from app.skills.models import Skill` / `from
+# app.employees.models import Employee` -- registers Skill/Employee with the
+# shared declarative Base (so this module's own relationship(...) calls can
+# resolve those string names) without re-exposing either name as importable
+# from this module. Code review (2026-09-09) found the `from ... import
+# Skill` form silently kept the pre-Story-6.1 `from app.assignments.models
+# import Skill` path working for any caller, undermining the whole point of
+# relocating it -- verified zero remaining call sites depended on that path
+# before switching, and Employee's relocation (Story 7.1) uses the correct
+# whole-module form from the start rather than repeating that mistake. Skill
+# lives in app.skills.models (Story 6.1); Employee lives in
+# app.employees.models (Story 7.1); assignments/ never queries or writes the
+# skills or employees tables directly (AD-1, AD-11, AR-24).
 import app.skills.models  # noqa: F401
-
-
-class Employee(Base):
-    __tablename__ = "employees"
-
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    name = Column(String(255), nullable=False)
-    email = Column(String(255), unique=True, nullable=False, index=True)
-    role = Column(Enum("HR_ADMIN", "EMPLOYEE", name="role_enum"), nullable=False)
-    group = Column(String(255), nullable=True)
-    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
-
-    # Relationships
-    assignments = relationship("Assignment", back_populates="employee", foreign_keys="Assignment.employee_id")
-    assignments_created = relationship("Assignment", back_populates="assigned_by_user", foreign_keys="Assignment.assigned_by")
-    assignments_deleted = relationship("Assignment", back_populates="deleted_by_user", foreign_keys="Assignment.deleted_by")
-    overrides_created = relationship("AssignmentOverride", back_populates="set_by_user", foreign_keys="AssignmentOverride.set_by")
-    overrides_reversed = relationship("AssignmentOverride", back_populates="reversed_by_user", foreign_keys="AssignmentOverride.reversed_by")
+import app.employees.models  # noqa: F401
 
 
 class ContentCatalog(Base):
