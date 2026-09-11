@@ -87,6 +87,9 @@ export function SkillsPage() {
             <Link to="/skills" className="pb-3 -mb-3 border-b-2 border-blue-600 font-medium text-blue-600">
               Skills
             </Link>
+            <Link to="/employees" className="pb-3 -mb-3 text-gray-600 transition-colors hover:text-gray-900">
+              Employees
+            </Link>
           </nav>
         </div>
         <div className="relative">

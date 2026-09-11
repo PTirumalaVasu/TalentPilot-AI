@@ -12,10 +12,22 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.schemas import CurrentUser
 from app.auth.service import get_current_user
 from app.core.db import get_db
-from app.employees.schemas import CreateEmployeeRequest, EmployeeCreatedResponse
-from app.employees.service import create_employee_service
+from app.employees.schemas import CreateEmployeeRequest, EmployeeCreatedResponse, EmployeeResponse
+from app.employees.service import create_employee_service, list_employees_service
 
 router = APIRouter(dependencies=[Depends(get_current_user)])
+
+
+@router.get("", response_model=list[EmployeeResponse])
+async def list_employees_route(
+    current_user: CurrentUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+) -> list[EmployeeResponse]:
+    """Employees roster (Story 7.3 AC1/AC3/AC4, FR-25) -- HR_ADMIN-only via
+    list_employees_service's require_hr_admin gate. Returns the full roster
+    (active and archived); search/filter/pagination/"show archived" are all
+    client-side (Story 7.3 Scope Note 2)."""
+    return await list_employees_service(session, current_user=current_user)
 
 
 @router.post("", response_model=EmployeeCreatedResponse, status_code=status.HTTP_201_CREATED)

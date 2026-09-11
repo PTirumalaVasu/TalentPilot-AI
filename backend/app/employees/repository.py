@@ -17,6 +17,18 @@ from app.auth import repository as auth_repository
 from app.employees.models import Employee
 
 
+async def list_all_employees(db: AsyncSession) -> list[Employee]:
+    """Full roster read (Story 7.3, FR-25) -- every Employee, active and
+    archived alike. No `archived_at` filter: the frontend's "show archived"
+    toggle decides what to display, not this query (mirrors
+    skills/repository.py::list_all_skills's shape -- AD-1, `employees/` is
+    the sole owner of `employees` table reads). Ordered by `employee_code`
+    for deterministic client-side pagination -- unlike list_all_skills
+    (unordered, backs a grid), this backs a paginated table."""
+    result = await db.execute(select(Employee).order_by(Employee.employee_code))
+    return list(result.scalars().all())
+
+
 async def get_employee_by_code(db: AsyncSession, employee_code: str) -> Employee | None:
     """Exact-match lookup by employee_code (Story 7.2 AC2's duplicate check).
 

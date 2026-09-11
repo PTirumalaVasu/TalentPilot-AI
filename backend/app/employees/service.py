@@ -50,6 +50,18 @@ def generate_password() -> str:
     return "".join(secrets.choice(_PASSWORD_ALPHABET) for _ in range(_PASSWORD_LENGTH))
 
 
+async def list_employees_service(db: AsyncSession, *, current_user: CurrentUser) -> list[EmployeeResponse]:
+    """Full Employee roster (Story 7.3, FR-25) -- HR_ADMIN-only (AD-6/FR-14),
+    mirrors content.service.list_skills_with_content's require_hr_admin
+    gate. Search/filter/pagination are deliberately not implemented here --
+    the frontend fetches this full list once and does all of that
+    client-side (Story 7.3 Scope Note 2), matching the SkillsPage/Story 6.10
+    precedent."""
+    require_hr_admin(current_user)
+    employees = await repository.list_all_employees(db)
+    return [EmployeeResponse.model_validate(employee) for employee in employees]
+
+
 def _code_conflict(employee_code: str) -> AppException:
     return AppException(
         status.HTTP_409_CONFLICT,

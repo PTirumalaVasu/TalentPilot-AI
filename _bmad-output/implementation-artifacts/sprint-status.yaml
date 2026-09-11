@@ -251,7 +251,7 @@ development_status:
   epic-7: in-progress
   7-1-employees-module-foundation-schema-migration-and-credential-reconciliation: done
   7-2-hr-admin-creates-a-new-employee-record: done
-  7-3-hr-admin-views-the-employee-roster: backlog
+  7-3-hr-admin-views-the-employee-roster: done
   7-4-hr-admin-edits-an-employee-record: backlog
   7-5-hr-admin-deletes-or-archives-an-employee-record: backlog
   7-6-hr-admin-regenerates-an-employees-password: backlog

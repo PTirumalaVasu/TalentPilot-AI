@@ -7,6 +7,7 @@ this file creates (NOT the shared db_session fixture, which wipes the whole
 dev DB on teardown).
 """
 import uuid
+from datetime import datetime, timezone
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -286,3 +287,140 @@ async def test_create_employee_rejects_unknown_field():
             },
         )
         assert response.status_code == 422
+
+
+# --- Story 7.3: GET /api/admin/employees (roster, FR-25) ---------------------
+
+
+async def test_list_employees_returns_full_roster_with_all_fields():
+    # Code review (Story 7.3): the original version of this test only
+    # checked field *presence*, not that values actually round-trip -- a
+    # mapping bug (e.g. two columns swapped in EmployeeResponse) would have
+    # passed undetected. Populate every optional field on employee A and
+    # assert each one explicitly.
+    code_a = f"TST-{uuid.uuid4().hex[:8]}"
+    code_b = f"TST-{uuid.uuid4().hex[:8]}"
+    email_a = f"{code_a.lower()}@example.com"
+    try:
+        async with _client() as client:
+            await _login(client)
+            await client.post(
+                "/api/admin/employees",
+                json={
+                    "employee_code": code_a,
+                    "name": "Roster A",
+                    "email": email_a,
+                    "phone": "555-0100",
+                    "experience": "5 years",
+                    "technologies": "Python, React",
+                    "position": "Engineer",
+                    "project": "Project Phoenix",
+                    "manager_name": "Alex Manager",
+                    "location": "Remote",
+                    "department": "Engineering",
+                },
+            )
+            await client.post(
+                "/api/admin/employees",
+                json={"employee_code": code_b, "name": "Roster B", "email": f"{code_b.lower()}@example.com"},
+            )
+
+            response = await client.get("/api/admin/employees")
+
+            assert response.status_code == 200
+            body = response.json()
+            codes = [e["employee_code"] for e in body]
+            assert code_a in codes
+            assert code_b in codes
+
+            entry = next(e for e in body if e["employee_code"] == code_a)
+            assert entry["employee_code"] == code_a
+            assert entry["name"] == "Roster A"
+            assert entry["email"] == email_a
+            assert entry["role"] == "EMPLOYEE"
+            assert entry["phone"] == "555-0100"
+            assert entry["experience"] == "5 years"
+            assert entry["technologies"] == "Python, React"
+            assert entry["position"] == "Engineer"
+            assert entry["project"] == "Project Phoenix"
+            assert entry["manager_name"] == "Alex Manager"
+            assert entry["location"] == "Remote"
+            assert entry["department"] == "Engineering"
+            assert entry["archived_at"] is None
+            for field in ("id", "created_at", "updated_at"):
+                assert field in entry
+            assert "generated_password" not in entry
+            assert "password" not in entry
+            assert "password_hash" not in entry
+    finally:
+        await _delete_employee_by_code(code_a)
+        await _delete_employee_by_code(code_b)
+
+
+async def test_list_employees_includes_archived_rows_unfiltered():
+    # Story 7.5 (archive) doesn't exist yet -- set archived_at directly to
+    # prove the endpoint itself applies no archived_at filter (Scope Note 2 /
+    # Task 1: filtering is the frontend's job).
+    code = f"TST-{uuid.uuid4().hex[:8]}"
+    try:
+        async with _client() as client:
+            await _login(client)
+            created = await client.post(
+                "/api/admin/employees",
+                json={"employee_code": code, "name": "Archived Row", "email": f"{code.lower()}@example.com"},
+            )
+            employee_id = created.json()["id"]
+
+        async with _session_factory() as session:
+            result = await session.execute(select(Employee).where(Employee.id == employee_id))
+            employee = result.scalar_one()
+            employee.archived_at = datetime.now(timezone.utc)
+            await session.commit()
+
+        async with _client() as client:
+            await _login(client)
+            response = await client.get("/api/admin/employees")
+            assert response.status_code == 200
+            entry = next(e for e in response.json() if e["employee_code"] == code)
+            assert entry["archived_at"] is not None
+    finally:
+        await _delete_employee_by_code(code)
+
+
+async def test_list_employees_ordered_by_employee_code_ascending():
+    prefix = uuid.uuid4().hex[:8]
+    code_z = f"TST-{prefix}-Z"
+    code_a = f"TST-{prefix}-A"
+    try:
+        async with _client() as client:
+            await _login(client)
+            # Create in descending order to prove the response isn't just
+            # insertion/created_at order.
+            await client.post(
+                "/api/admin/employees",
+                json={"employee_code": code_z, "name": "Z Employee", "email": f"{prefix.lower()}-z@example.com"},
+            )
+            await client.post(
+                "/api/admin/employees",
+                json={"employee_code": code_a, "name": "A Employee", "email": f"{prefix.lower()}-a@example.com"},
+            )
+
+            response = await client.get("/api/admin/employees")
+            codes = [e["employee_code"] for e in response.json() if e["employee_code"] in (code_z, code_a)]
+            assert codes == [code_a, code_z]
+    finally:
+        await _delete_employee_by_code(code_a)
+        await _delete_employee_by_code(code_z)
+
+
+async def test_list_employees_as_employee_returns_403():
+    async with _client() as client:
+        await _login(client, email="casey@sails.example.com")
+        response = await client.get("/api/admin/employees")
+        assert response.status_code == 403
+
+
+async def test_list_employees_requires_authentication():
+    async with _client() as client:
+        response = await client.get("/api/admin/employees")
+        assert response.status_code == 401
