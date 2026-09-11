@@ -1,0 +1,398 @@
+# ============================================================================
+# PROTOTYPE WORK FILE: 05.1 Employees Tab (single view, hosts 05.2/05.3 as modals)
+# ============================================================================
+# Purpose: Complete planning document for section-by-section implementation
+# Created: 2026-09-11
+# Page Specs:
+#   ../../C-UX-Scenarios/05-ritas-roster-management/05.1-employees-roster/05.1-employees-roster.md
+#   ../../C-UX-Scenarios/05-ritas-roster-management/05.2-create-employee/05.2-create-employee.md
+#   ../../C-UX-Scenarios/05-ritas-roster-management/05.3-password-reveal/05.3-password-reveal.md
+# ============================================================================
+
+metadata:
+  page_number: "05.1"
+  page_name: "Employees Tab"
+  scenario: "05-Ritas-Roster-Management"
+  complexity: "medium"
+  estimated_sections: 8
+  estimated_time: "150 minutes"
+
+  device_compatibility:
+    type: "responsive"
+    primary_viewport: "1440px"
+    test_viewports:
+      - width: 375
+        height: 812
+        device: "iPhone SE / small mobile"
+      - width: 768
+        height: 1024
+        device: "iPad (tablet breakpoint)"
+      - width: 1280
+        height: 800
+        device: "Small desktop"
+      - width: 1440
+        height: 900
+        device: "Primary desktop (base spec target)"
+    breakpoints: [768, 1024, 1280]
+    touch_optimized: true
+    hover_interactions: true
+
+  dependencies:
+    - "shared/auth.js"
+    - "shared/init.js"
+    - "shared/prototype-api.js"
+    - "shared/utils.js"
+    - "data/demo-data.js"
+    - "components/dev-mode.css"
+    - "components/dev-mode.js"
+
+# ============================================================================
+# DESIGN TOKENS (Tailwind Config) — matches 01.1/04.1 exactly
+# ============================================================================
+
+design_tokens:
+  colors:
+    primary: "#1d4ed8"
+    primary_hover: "#1e40af"
+    success: "#2b8a3e"
+    error: "#c92a2a"
+
+  tailwind_config:
+    theme_extend:
+      colors:
+        "talentpilot":
+          50: "#eff6ff"
+          100: "#dbeafe"
+          500: "#2563eb"
+          600: "#1d4ed8"
+          700: "#1e40af"
+      fontFamily:
+        sans: "['Inter', 'system-ui', 'sans-serif']"
+
+  components_available:
+    - "dev-mode-toggle (components/dev-mode.js + dev-mode.css)"
+
+# ============================================================================
+# PAGE REQUIREMENTS (from specification)
+# ============================================================================
+
+page_purpose: |
+  Rita sees the current Employee roster and onboards a new hire — creating
+  their Employee record and getting them a working login — in about two
+  minutes, without it becoming a second system she has to maintain.
+
+user_context:
+  - "Rita is already authenticated (HR role) and on the Dashboard"
+  - "A new hire (Taylor Brooks) starts Monday and isn't in the system yet"
+  - "The existing roster (Casey/Morgan/Jordan/Sam) is the canon demo data already used across every other prototype in this project"
+
+success_criteria:
+  - "Rita can create a new Employee with only 3 required fields (ID/Code, Name, Email)"
+  - "A system-generated password is shown exactly once, never re-displayable after Done"
+  - "Edit, Regenerate Password, and Delete/Archive are all reachable from the roster, with Delete/Archive branching copy based on whether the Employee has assignment history"
+  - "The new left-pane nav (Dashboard/Skills/Employees) collapses sensibly below 768px"
+
+# ============================================================================
+# DEMO DATA REQUIREMENTS
+# ============================================================================
+
+demo_data_needed:
+  current_user:
+    firstName: "Rita"
+    lastName: "the Referee"
+    email: "rita@sailssoftware.com"
+    role: "HR"
+
+  employees_preseeded: "Casey the Continuer, Morgan, Jordan, Sam — see data/demo-data.js"
+
+  example_submission:
+    employeeCode: "EMP-1005"
+    firstName: "Taylor"
+    lastName: "Brooks"
+    email: "taylor.brooks@sailssoftware.com"
+    position: "Software Engineer"
+    department: "Engineering"
+
+# ============================================================================
+# OBJECT ID MAP (all interactive elements, from the 3 page specs)
+# ============================================================================
+
+object_ids:
+  nav_shell:
+    - "app-nav-sidebar"
+    - "app-nav-logo"
+    - "app-nav-link-dashboard"
+    - "app-nav-link-skills"
+    - "app-nav-link-employees"
+    - "app-topbar-user-menu"
+
+  toolbar:
+    - "employees-tab-heading-title"
+    - "employees-tab-summary-count"
+    - "employees-tab-search-input"
+    - "employees-tab-filter-department"
+    - "employees-tab-filter-position"
+    - "employees-tab-toggle-archived"
+    - "employees-tab-view-toggle"
+    - "employees-tab-btn-new-employee"
+
+  list:
+    - "employees-table"
+    - "employees-grid"
+    - "employees-table-pagination"
+    - "employees-grid-pagination"
+
+  create_employee_modal:
+    - "create-emp-id"
+    - "create-emp-name"
+    - "create-emp-email"
+    - "create-emp-position"
+    - "create-emp-department"
+    - "create-emp-phone"
+    - "create-emp-location"
+    - "create-emp-manager"
+    - "create-emp-project"
+    - "create-emp-technologies"
+    - "create-emp-experience"
+    - "create-emp-duplicate-notice"
+    - "create-employee-btn-submit"
+
+  password_reveal_modal:
+    - "password-reveal-title"
+    - "password-reveal-summary"
+    - "password-reveal-value"
+    - "password-reveal-btn-copy"
+    - "password-reveal-recovery-note"
+    - "password-reveal-btn-done"
+
+  edit_employee_modal:
+    - "edit-employee-id-readonly"
+    - "edit-employee-fields"
+    - "edit-employee-btn-save"
+
+  regen_password_modal:
+    - "regen-password-heading"
+    - "regen-password-summary"
+    - "regen-password-btn-confirm"
+
+  delete_archive_modal:
+    - "delete-employee-heading"
+    - "delete-employee-summary-hard"
+    - "delete-employee-summary-archive"
+    - "delete-employee-btn-confirm"
+
+# ============================================================================
+# SECTION BREAKDOWN (implementation order — as approved)
+# ============================================================================
+
+sections:
+  - id: "section-1"
+    name: "Left Nav Pane + Top Bar"
+    scope: "New shared shell (FR-29): fixed left sidebar (logo, Dashboard/Skills/Employees links, Employees active), slim top bar with user menu only"
+    files_affected: ["05.1-Employees-Tab.html"]
+    dependencies: ["shared/auth.js"]
+    object_ids: ["app-nav-sidebar", "app-nav-logo", "app-nav-link-dashboard", "app-nav-link-skills", "app-nav-link-employees", "app-topbar-user-menu"]
+    tailwind_classes:
+      - "Sidebar: w-56 (desktop), bg-white, border-r, flex flex-col"
+      - "Active link: bg-talentpilot-50, text-talentpilot-700, font-medium"
+      - "Top bar: bg-white, border-b, px-6, py-3, flex justify-end"
+    acceptance_criteria:
+      - "Sidebar shows all 3 links with Employees visually active"
+      - "Top bar shows only the user menu, no nav links"
+      - "requireRole('HR') gate redirects to login.html when unauthenticated"
+    placeholder_message: "🚧 Building the navigation shell..."
+
+  - id: "section-2"
+    name: "Toolbar + Table/Card view + pagination"
+    scope: "Page heading, summary count, search/filters/archived-toggle, view toggle, table view (default) with 5 preseeded employees, card view (toggle), 15/page pagination"
+    files_affected: ["05.1-Employees-Tab.html"]
+    dependencies: ["data/demo-data.js"]
+    object_ids: ["employees-tab-heading-title", "employees-tab-summary-count", "employees-tab-search-input", "employees-tab-filter-department", "employees-tab-filter-position", "employees-tab-toggle-archived", "employees-tab-view-toggle", "employees-tab-btn-new-employee", "employees-table", "employees-grid", "employees-table-pagination"]
+    tailwind_classes:
+      - "Table: w-full, bg-white, border, rounded-lg"
+      - "Card grid: grid-cols-1 md:grid-cols-2 xl:grid-cols-3, gap-4"
+    acceptance_criteria:
+      - "Table is the default view; toggling to Card view preserves search/filter/page state"
+      - "Search, Department filter, Position filter, and Show Archived all filter the list correctly"
+      - "Pagination shows 15 records/page (moot with 4 seed employees, but the control renders and is exercised via a quick synthetic 20-employee test during acceptance testing)"
+    placeholder_message: "🚧 Building the roster list..."
+
+  - id: "section-3"
+    name: "Create Employee Panel"
+    scope: "Modal with 11 fields (3 required), inline duplicate-notice, submit handler"
+    files_affected: ["05.1-Employees-Tab.html"]
+    dependencies: []
+    object_ids: ["create-emp-id", "create-emp-name", "create-emp-email", "create-emp-position", "create-emp-department", "create-emp-phone", "create-emp-location", "create-emp-manager", "create-emp-project", "create-emp-technologies", "create-emp-experience", "create-emp-duplicate-notice", "create-employee-btn-submit"]
+    tailwind_classes:
+      - "Modal: fixed inset-0, bg-black/40, max-w-lg"
+      - "Grid: grid-cols-2 gap-3 for the field layout"
+    acceptance_criteria:
+      - "Submitting with ID/Name/Email blank shows the required-fields notice"
+      - "Submitting a duplicate ID or Email (against Taylor Brooks or the preseeded roster) shows the duplicate notice"
+      - "Valid submit closes this modal and opens Password Reveal"
+    placeholder_message: "🚧 Building the Create Employee form..."
+
+  - id: "section-4"
+    name: "Password Reveal Panel"
+    scope: "One-time password display, copy-to-clipboard, recovery note pointing to Regenerate — shared between Create and Regenerate flows"
+    files_affected: ["05.1-Employees-Tab.html"]
+    dependencies: []
+    object_ids: ["password-reveal-title", "password-reveal-summary", "password-reveal-value", "password-reveal-btn-copy", "password-reveal-recovery-note", "password-reveal-btn-done"]
+    tailwind_classes:
+      - "Password field: font-mono, bg-gray-50, border, rounded-lg"
+    acceptance_criteria:
+      - "Title reads 'Employee created' when opened via Create, 'Password regenerated' when opened via Regenerate — FIXES the Phase 4 mock's hardcoded-title gap (see PROTOTYPE-ROADMAP.md Backlog #1)"
+      - "Copy button copies the exact displayed password and shows a toast"
+      - "Done closes the modal and returns to the roster with the new/updated record visible"
+    placeholder_message: "🚧 Building the password reveal..."
+
+  - id: "section-5"
+    name: "Edit Employee Panel"
+    scope: "Edit modal, all fields except Employee ID/Code (read-only)"
+    files_affected: ["05.1-Employees-Tab.html"]
+    dependencies: []
+    object_ids: ["edit-employee-id-readonly", "edit-employee-fields", "edit-employee-btn-save"]
+    tailwind_classes:
+      - "Read-only field: bg-gray-50, text-gray-500, border-gray-200"
+    acceptance_criteria:
+      - "Employee ID/Code renders read-only, never editable"
+      - "Saving updates the roster row/card in place without a full page reload"
+    placeholder_message: "🚧 Building Edit Employee..."
+
+  - id: "section-6"
+    name: "Regenerate Password + Delete/Archive Confirmations"
+    scope: "Regenerate confirmation (hands off to section 4's modal), Delete/Archive confirmation with server-decided branching copy"
+    files_affected: ["05.1-Employees-Tab.html"]
+    dependencies: []
+    object_ids: ["regen-password-heading", "regen-password-summary", "regen-password-btn-confirm", "delete-employee-heading", "delete-employee-summary-hard", "delete-employee-summary-archive", "delete-employee-btn-confirm"]
+    tailwind_classes:
+      - "Confirm button (delete): bg-red-600, hover:bg-red-700"
+      - "Confirm button (regenerate): bg-talentpilot-600"
+    acceptance_criteria:
+      - "An Employee with hasAssignments=true shows the archive copy and 'Archive Employee' button label"
+      - "An Employee with hasAssignments=false shows the hard-delete copy and 'Remove Employee' button label"
+      - "Confirming archive keeps the record (status → Archived); confirming hard-delete removes it from the demo data array"
+    placeholder_message: "🚧 Building Regenerate + Delete/Archive..."
+
+  - id: "section-7"
+    name: "Responsive states"
+    scope: "Left nav collapses to a hamburger/icon rail below 768px; table view becomes horizontally scrollable or auto-switches to card view below 1024px; toolbar wraps sensibly at tablet width"
+    files_affected: ["05.1-Employees-Tab.html"]
+    dependencies: []
+    object_ids: []
+    tailwind_classes:
+      - "Sidebar: hidden md:flex, plus a mobile hamburger trigger below 768px"
+      - "Toolbar: flex-wrap for tablet/mobile"
+    acceptance_criteria:
+      - "375px, 768px, 1280px, 1440px viewports all render without horizontal scroll on the page shell"
+      - "Left nav is reachable (hamburger toggle) below 768px, not simply hidden with no alternative"
+    placeholder_message: "🚧 Building responsive behavior..."
+
+  - id: "section-8"
+    name: "Dev Mode Integration + polish"
+    scope: "Dev mode toggle wiring (matches 01.1/04.1), final visual pass, toast component, console log cleanup"
+    files_affected: ["05.1-Employees-Tab.html"]
+    dependencies: ["components/dev-mode.js", "components/dev-mode.css"]
+    object_ids: []
+    tailwind_classes: []
+    acceptance_criteria:
+      - "Shift+Click any data-object-id element copies its ID (dev mode)"
+      - "No console errors on load or through the full create → password-reveal → edit → regenerate → delete/archive path"
+    placeholder_message: "🚧 Final polish..."
+
+# ============================================================================
+# JAVASCRIPT REQUIREMENTS
+# ============================================================================
+
+javascript_functions:
+  initialization:
+    - "renderEmployees() - filters, paginates, and renders both Table and Card views from window.DEMO_DATA.employees"
+    - "updateFilterOptions() - derives Department/Position dropdown options from current data"
+
+  form_handling:
+    - "submitCreateEmployee() - validates required fields + duplicate ID/Email, creates record, generates password, opens Password Reveal"
+    - "saveEditEmployee() - updates the in-memory record"
+
+  ui_interactions:
+    - "setView(view) - toggles Table/Card, preserves filters/search/page"
+    - "goPage(p) - pagination"
+    - "openCreateEmployeeModal() / openEditEmployeeModal(id) / openRegenPasswordModal(id) / openDeleteEmployeeModal(id) / closeModal(id)"
+
+  api_calls:
+    - "None — this prototype is demo-data-only, matching 04.1's precedent (no PrototypeAPI wiring for this scenario)"
+
+  feedback:
+    - "showToast(message)"
+    - "copyPassword()"
+
+# ============================================================================
+# NAVIGATION
+# ============================================================================
+
+navigation:
+  previous_page: "01.1-Skills-Dashboard.html (via left nav, in the sibling prototype folder)"
+  next_page_success: "N/A — stays on 05.1 after every modal flow"
+  next_page_cancel: "N/A — modals close back to 05.1"
+
+# ============================================================================
+# TESTING CHECKLIST (after all sections complete)
+# ============================================================================
+
+testing_checklist:
+  functionality:
+    - "[ ] Create Employee: required-field validation works"
+    - "[ ] Create Employee: duplicate ID/Email detection works"
+    - "[ ] Password Reveal: title is conditional (created vs. regenerated)"
+    - "[ ] Password Reveal: copy-to-clipboard works"
+    - "[ ] Edit: ID/Code is read-only; other fields save correctly"
+    - "[ ] Regenerate: invalidates old password conceptually (new value shown, mock has no real auth to invalidate)"
+    - "[ ] Delete/Archive: branches correctly on hasAssignments"
+    - "[ ] Search/filter/archived-toggle/view-toggle all work together without resetting each other"
+    - "[ ] Pagination works at 15/page"
+
+  responsive_testing:
+    - "[ ] 375px: no horizontal scroll, nav reachable via hamburger"
+    - "[ ] 768px: breakpoint transition is clean"
+    - "[ ] 1024px/1280px: table remains usable, no cramped columns"
+    - "[ ] 1440px: matches the base spec exactly"
+
+  code_quality:
+    - "[ ] All Object IDs from the spec are present as data-object-id attributes"
+    - "[ ] No console errors through the full sunshine path"
+    - "[ ] Tailwind classes match the talentpilot palette, not ad hoc colors"
+
+  accessibility:
+    - "[ ] Keyboard navigation works through nav, toolbar, table/card actions, and all modals"
+    - "[ ] All icon-only buttons carry aria-labels"
+    - "[ ] Status badges are never color-only"
+
+# ============================================================================
+# MIGRATION NOTES (for production — see addendum.md's Architecture Handoff Notes)
+# ============================================================================
+
+migration_todos:
+  - "Replace window.DEMO_DATA with real /api/employees CRUD calls (backend FR-24-28 not yet implemented — see PRD addendum.md's Employee Roster Management handoff notes)"
+  - "Password generation/one-time-reveal must move server-side (this prototype generates client-side, acceptable for a mock, not for production per the PRD's post-review correction)"
+  - "Wire the left-nav shell into the real React app's routing (frontend/src/pages/hr/Dashboard.tsx), and retrofit 01.1/04.1's real equivalents to match — this prototype only demonstrates the target shell"
+
+# ============================================================================
+# KNOWN ISSUES / EDGE CASES
+# ============================================================================
+
+edge_cases:
+  - "Employee ID/Code or Email reuse after a hard delete vs. an archive — this prototype doesn't model reuse conflicts against archived records (out of scope for a visual prototype, real behavior is the PRD's job)"
+  - "Concurrent-edit conflicts (two HR Admins editing the same record) — not modeled in a single-user prototype"
+
+# ============================================================================
+# COMPLETION CRITERIA
+# ============================================================================
+
+definition_of_done:
+  - "All 8 sections implemented and tested"
+  - "All object IDs present and correct"
+  - "All acceptance criteria met"
+  - "Password Reveal title bug fixed (Backlog #1)"
+  - "Responsive states implemented (Backlog #2)"
+  - "No console errors"
+  - "Demo data (Taylor Brooks flow) works end-to-end via Puppeteer verification"
+  - "Story files document all 8 sections"

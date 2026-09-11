@@ -116,6 +116,7 @@ flowchart LR
 - **Must Have MVP:** Auto-Captured Video Tracking, AI Content Discovery, HR Assignment Flow, Continue-Watching/Resume, Provenance-Labeled Dashboard, Needs-Attention Filter
 - **Consider:** Proxy-signal tracking for docs/websites, HR "Assessed Live" audit-trail flag
 - **Defer:** Weekly learning recap for employees
+- **Enabling (outside the scoring model), `[ADDED 2026-09-11]`:** Employee Roster Management, HR Admin Navigation Shell, Application Theming — see [06-Feature-Impact.md](06-Feature-Impact.md)'s Enabling Features section and [05-Key-Insights.md](05-Key-Insights.md)'s note on the roster-management chore-relocation risk
 
 ---
 

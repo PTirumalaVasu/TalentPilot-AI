@@ -19,10 +19,11 @@ inputDocuments:
   - '_bmad-output/C-UX-Scenarios/02-caseys-resume-and-watch/02-caseys-resume-and-watch.md'
   - '_bmad-output/C-UX-Scenarios/03-ritas-assignment-and-track/03-ritas-assignment-and-track.md'
   - '_bmad-output/C-UX-Scenarios/04-ritas-content-curation/04.1-skills-content-sourcing/04.1-skills-content-sourcing.md'
+  - '_bmad-output/C-UX-Scenarios/05-ritas-roster-management/05-ritas-roster-management.md'
 projectName: 'TalentPilot-AI'
 extractedAt: '2026-07-09'
-extendedAt: '2026-09-08'
-extensionNote: 'Epic 6 (Admin-Assisted Content Sourcing, FR-16-23) added via bmad-create-epics-and-stories, extending scope on top of the original FR-1-14 extraction -- Epics 1-5 unchanged. FR-15 backfilled into the Requirements Inventory (was already realized by Stories 3.7/5.7, added earlier via bmad-correct-course without an inventory entry).'
+extendedAt: '2026-09-11'
+extensionNote: 'Epic 6 (Admin-Assisted Content Sourcing, FR-16-23) added 2026-09-08 via bmad-create-epics-and-stories, extending scope on top of the original FR-1-14 extraction -- Epics 1-5 unchanged. FR-15 backfilled into the Requirements Inventory (was already realized by Stories 3.7/5.7, added earlier via bmad-correct-course without an inventory entry). Epic 7 (Employee Roster Management, HR Admin Navigation Shell, Application Theming; FR-24-30) added 2026-09-11 via bmad-create-epics-and-stories, extending scope again on top of Epic 6 -- Epics 1-6 unchanged. Source PRD update, Trigger Map extension, UX scenario (05-ritas-roster-management), and a working HTML prototype were all completed the same session before this epic was authored.'
 ---
 
 # TalentPilot-AI - Epic Breakdown
@@ -32,16 +33,16 @@ extensionNote: 'Epic 6 (Admin-Assisted Content Sourcing, FR-16-23) added via bma
 This document provides the complete epic and story breakdown for TalentPilot-AI, decomposing the requirements from the PRD, Architecture Spine, and UX Scenarios into implementable stories organized by the Architecture Spine's build order and feature-domain modules.
 
 **Extracted from:**
-- PRD: 23 Functional Requirements (FRs) — 14 original + FR-15 (backfilled) + FR-16-23 (Feature 4.6, added 2026-09-08)
-- Architecture: 11 Architectural Decisions (ADs) governing 23 architectural requirements
-- UX Scenarios: 4 scenarios, 7 core pages, 33 UX design requirements
-- **Total Requirements: 97** (75 original + 22 added/backfilled 2026-09-08 for Epic 6)
+- PRD: 30 Functional Requirements (FRs) — 14 original + FR-15 (backfilled) + FR-16-23 (Feature 4.6, added 2026-09-08) + FR-24-30 (Features 4.7/4.8/4.9, added 2026-09-11)
+- Architecture: 11 Architectural Decisions (ADs) governing 25 architectural requirements
+- UX Scenarios: 5 scenarios, 10 core pages, 43 UX design requirements
+- **Total Requirements: 117** (75 original + 22 added 2026-09-08 for Epic 6 + 20 added 2026-09-11 for Employee Roster Management/Nav Shell/Theming)
 
 ---
 
 ## Requirements Inventory
 
-### Functional Requirements (23 total)
+### Functional Requirements (30 total)
 
 `[UPDATED 2026-09-08]` Original extraction covered FR-1 through FR-14. FR-15 (Assignment soft-delete) was added later via `bmad-correct-course` directly into Epic 3/Epic 5 stories (3.7, 5.7) without a Requirements Inventory entry — backfilled here for completeness. FR-16 through FR-23 (Feature 4.6, Admin-Assisted Content Sourcing) were added via a `bmad-prd` update the same day as this extension; see `prd.md` §4.6 for full FR text.
 
@@ -81,9 +82,22 @@ This document provides the complete epic and story breakdown for TalentPilot-AI,
 - FR-22: HR Admin deletes an unassigned Skill
 - FR-23: HR Admin rejects the currently approved Content link for a Skill
 
+**Feature 4.7: Employee Roster Management** `[ADDED 2026-09-11]`
+- FR-24: HR Admin creates a new Employee record
+- FR-25: HR Admin views the Employee roster
+- FR-26: HR Admin edits an Employee record
+- FR-27: HR Admin deletes or archives an Employee record
+- FR-28: HR Admin regenerates an Employee's password
+
+**Feature 4.8: HR Admin Navigation Shell** `[ADDED 2026-09-11]`
+- FR-29: HR Admin's primary navigation is presented in a left-side pane
+
+**Feature 4.9: Application Theming** `[ADDED 2026-09-11]`
+- FR-30: User switches between Light and Dark theme
+
 ---
 
-### Non-Functional Requirements (18 total)
+### Non-Functional Requirements (19 total)
 
 **Latency:**
 - NFR-L1: Readiness Dashboard loads in under 2 seconds
@@ -126,9 +140,12 @@ This document provides the complete epic and story breakdown for TalentPilot-AI,
 - NFR-SEC1: Per-Admin and org-wide content-source credentials are encrypted at rest, never logged, never returned in plaintext after initial submission (PRD §8 "Secret storage")
 - NFR-RES1: A single content source's failure during a live lookup never blocks results from another configured source; surfaced as a distinct, source-specific error (PRD §8 "Live-lookup resilience")
 
+**Feature-Specific (Feature 4.7, Employee Roster Management)** `[ADDED 2026-09-11]`:
+- NFR-SEC2: A new/regenerated Employee password is system-generated and shown exactly once via server-side one-time-reveal enforcement (a consumed/cleared flag on the credential record) — not client-side UI discipline alone, which cannot actually prevent re-access via the API directly (PRD §9 "Employee credential provisioning")
+
 ---
 
-### Architectural Requirements (23 total)
+### Architectural Requirements (25 total)
 
 **Architectural Invariants (binding all FRs):**
 - AR-1: Single-owner data modules — each table has exactly one owning module; all other features access via Service API (AD-1)
@@ -142,6 +159,8 @@ This document provides the complete epic and story breakdown for TalentPilot-AI,
 - AR-9: Video capture behind a player Adapter — YouTube-specific details encapsulated, future-proof for Vimeo swap (AD-9)
 - AR-22: Content-source API credentials encrypted at rest, module-owned (`admin_api_keys` per-admin, `org_api_credentials` org-wide), never exposed in plaintext after write (AD-10) `[ADDED 2026-09-08]`
 - AR-23: `skills` owned solely by `skills/`; the permanent create/edit/delete lock (FR-21/22) is a local `ever_assigned` boolean, set by `assignments/` — never a live cross-module check (AD-11) `[ADDED 2026-09-08]`
+- AR-24: Employee credential storage must reconcile with the existing-but-unused `Account`/`password_hash` model (`backend/app/auth/models.py`) rather than bolting a new password column onto `Employee` from a green field — architecture decision not yet made (PRD Open Question 18) `[ADDED 2026-09-11]`
+- AR-25: Archiving an Employee (FR-27) must revalidate sessions server-side on every subsequent protected request, not only at new-login time — the current session mechanism only checks per-token revocation, not per-user active/archived status (PRD FR-27 consequence) `[ADDED 2026-09-11]`
 
 **Data Model Consistency:**
 - AR-10: Entity IDs are opaque UUIDs; all timestamps ISO-8601 UTC
@@ -161,7 +180,7 @@ This document provides the complete epic and story breakdown for TalentPilot-AI,
 
 ---
 
-### UX Design Requirements (33 total)
+### UX Design Requirements (43 total)
 
 **Scenario-Driven Interaction Contracts:**
 - UX-DR1: Assignment Dashboard grid displays one row per Employee×Skill assignment with Status badge (Not Started / In Progress / Completed) as primary at-a-glance signal
@@ -208,6 +227,18 @@ This document provides the complete epic and story breakdown for TalentPilot-AI,
 - UX-DR32: Delete Skill requires explicit confirmation (mirrors FR-15's soft-delete confirmation pattern); Reject Content does not (lower-stakes, immediately reversible by approving something else)
 - UX-DR33: `[Known gap, not resolved by this UX spec]` No entry point exists on an assigned/locked Skill's card into the Content Lookup panel — PRD Open Question 17, carried into story creation as an explicit deferred item, not silently built around
 
+**Employee Roster Management & Navigation Shell (05.1 Employees Tab, 05.2 Create Employee, 05.3 Password Reveal)** `[ADDED 2026-09-11]`:
+- UX-DR34: Employee list defaults to Table view (columns: ID, Name, Position, Department, Email, Status, Actions) with a Table/Card toggle sharing one filter/search/pagination state — switching views never resets what's already filtered or searched
+- UX-DR35: Roster is paginated at 15 records/page in both Table and Card view
+- UX-DR36: Create Employee requires only Employee ID/Code, Name, and Email; the other 8 profile fields (Phone, Experience, Technologies, Position, Project, Manager Name, Location, Department) are optional at creation
+- UX-DR37: Password Reveal modal's title is conditional — "Employee created" when opened via Create, "Password regenerated" when opened via Regenerate — the same modal is reused by both flows, never two separate screens
+- UX-DR38: Delete/Archive confirmation copy and the confirm button's label branch on whether the Employee has assignment history — decided server-side before rendering, never guessed or computed client-side
+- UX-DR39: Employee ID/Code renders as a read-only field in the Edit panel, never an editable input
+- UX-DR40: The left-pane nav (Dashboard/Skills/Employees) collapses to a hamburger-triggered overlay with a dismiss backdrop below the 768px breakpoint
+- UX-DR41: Status badges (Active/Archived) are never color-only — paired with text (WCAG 2.1 AA, matches UX-DR13's existing pattern)
+- UX-DR42: All row/card action icon buttons (Edit, Regenerate Password, Delete/Archive) carry descriptive `aria-label`s naming the action and the Employee, never icon-only with no accessible name
+- UX-DR43: The roster's Table view scrolls horizontally at narrow viewports rather than compressing columns to illegibility
+
 ---
 
 ### FR Coverage Map
@@ -238,6 +269,13 @@ This document provides the complete epic and story breakdown for TalentPilot-AI,
 | FR-21 | `skills/` | Epic 6 | E6.S1, E6.S3 | Pending |
 | FR-22 | `skills/` | Epic 6 | E6.S1, E6.S3 | Pending |
 | FR-23 | `content/` | Epic 6 | E6.S9 | Pending |
+| FR-24 | `employees/` (or `auth/`, TBD per AR-24) | Epic 7 | TBD | Pending |
+| FR-25 | `employees/` | Epic 7 | TBD | Pending |
+| FR-26 | `employees/` | Epic 7 | TBD | Pending |
+| FR-27 | `employees/` | Epic 7 | TBD | Pending |
+| FR-28 | `employees/` (or `auth/`, TBD per AR-24) | Epic 7 | TBD | Pending |
+| FR-29 | frontend (app shell) | Epic 7 | TBD | Pending |
+| FR-30 | frontend (app shell) | Epic 8 | TBD | Pending |
 
 ---
 
@@ -251,6 +289,8 @@ Based on the Architecture Spine's module dependency order (AD-8) and the build-t
 4. **Epic 4: Video Progress Capture & Resume** — Automatic signal generation (FR-5, FR-6, FR-7); YouTube Adapter dependency
 5. **Epic 5: Readiness Dashboard** — Composition of assignments + progress (FR-8 through FR-12); depends on all prior epics
 6. **Epic 6: Admin-Assisted Content Sourcing** `[ADDED 2026-09-08]` — HR Admin credential mgmt, live/manual content sourcing, Skill CRUD (FR-16 through FR-23); depends on Epic 1 (auth), Epic 2 (`content/` module + `youtube_client.py`/embedding), Epic 3 (`assignments/`, for the `ever_assigned` flag wiring, AD-11 point 3)
+7. **Epic 7: Employee Roster Management** `[ADDED 2026-09-11]` — HR Admin Employee CRUD + login provisioning + left-pane nav shell (FR-24 through FR-29); depends on Epic 1 (auth — must reconcile with the existing mock credential store, AR-24) and touches every existing HR Admin page's shell (01.1, 04.1) for the nav relocation
+8. **Epic 8: Application Theming** `[ADDED 2026-09-11]` — Light/Dark mode, app-wide (FR-30); frontend-only, no epic dependencies
 
 ---
 
@@ -262,6 +302,8 @@ Based on the Architecture Spine's module dependency order (AD-8) and the build-t
 - **Epic 4:** Video Progress Capture, Resume & Event-Time Ordering (FR-5, FR-6, FR-7; AR-5, AR-9)
 - **Epic 5:** Readiness Dashboard — Status, Provenance, Auto-Update & Override (FR-8 through FR-12; AR-2, AR-3, AR-4)
 - **Epic 6:** Admin-Assisted Content Sourcing (FR-16 through FR-23; AR-22, AR-23) `[ADDED 2026-09-08]`
+- **Epic 7:** Employee Roster Management (FR-24 through FR-29; AR-24, AR-25) `[ADDED 2026-09-11]`
+- **Epic 8:** Application Theming (FR-30) `[ADDED 2026-09-11]`
 
 ---
 
@@ -2037,7 +2079,7 @@ So that an Assignment returns to being based on its underlying signal (video pro
 
 ---
 
-## Story 5.6: Accessibility & Real-Time Announcements
+### Story 5.6: Accessibility & Real-Time Announcements
 
 As a **developer**,
 I want to ensure the dashboard is fully keyboard-operable and announces dynamic updates,
@@ -2062,7 +2104,7 @@ So that HR Admins using assistive technology have full access.
 
 ---
 
-## Story 5.7: Delete Assignment — Dashboard Row Action
+### Story 5.7: Delete Assignment — Dashboard Row Action
 
 > Added via `bmad-correct-course` (sprint-change-proposal-2026-07-13.md) — not in original PRD/epics.md scope. Realizes FR-15's UI consequences. Backend half (Story 3.7, `DELETE /api/assignments/{id}`) is already done.
 
@@ -2448,18 +2490,257 @@ So that I have one place to close content gaps without waiting on anyone else, p
 
 ---
 
+## EPIC 7: Employee Roster Management
+
+> Added via `bmad-prd` update + Trigger Map extension + UX scenario (Scenario 05) + working HTML prototype, 2026-09-11 — not in the original PRD/epics.md scope. Realizes FR-24 through FR-29 (PRD §4.7, §4.8). See `_bmad-output/C-UX-Scenarios/05-ritas-roster-management/` for the full UX spec (05.1 Employees Tab, 05.2 Create Employee, 05.3 Password Reveal) and `_bmad-output/E-Development/05-Ritas-Roster-Management-Prototype/05.1-Employees-Tab.html` for the working reference prototype this epic implements.
+
+**Epic Goal:** Give HR Admin a real, in-product way to manage the Employee roster — creating, viewing, editing, and archiving Employee records with real login provisioning — replacing the hardcoded 5-account demo credential store, reachable via a new left-pane navigation shell.
+
+**Owned by:** new `employees/` module (schema/credential ownership TBD per AR-24 — see Story 7.1); frontend app shell (FR-29)
+
+**Binds:** FR-24, FR-25, FR-26, FR-27, FR-28, FR-29, AR-24, AR-25, NFR-SEC2, UX-DR34 through UX-DR43
+
+**Dependencies:** Epic 1 (authentication — this epic must reconcile with, not replace, the existing HR_ADMIN mock credential store; see Story 7.1's AR-24 resolution)
+
+---
+
+### Story 7.1: `employees/` Module Foundation — Schema Migration & Credential Reconciliation
+
+As a **developer**,
+I want to extend the `employees` table with the new profile fields and resolve how Employee login credentials are stored,
+So that Stories 7.2–7.6 have a real schema and a real (not mock) password-storage mechanism to build on.
+
+**Acceptance Criteria:**
+
+**Given** the existing `employees` table (`id`, `name`, `email`, `role`, `group`, `created_at` only — `backend/app/assignments/models.py::Employee`)
+**When** this story's migration runs
+**Then** the table gains: `employee_code` (string, unique, not null), `phone`, `experience`, `technologies`, `position`, `project`, `manager_name`, `location`, `department` (all nullable strings), `updated_at` (timestamp), and `archived_at` (nullable timestamp — null means active, non-null means archived, per FR-27)
+
+**Given** the architecture handoff note that an existing-but-unused `Account` model (`backend/app/auth/models.py`, table `accounts`, columns `id, email, password_hash, role, created_at`) already sits seeded but unwired
+**When** this story decides where Employee credentials live (AR-24)
+**Then** the decision and its rationale are documented in this story's Dev Notes before any endpoint story (7.2+) is built — either extending `Account` to be the real credential store for EMPLOYEE-role logins, or adding a password column to `Employee` directly — not left as an open question for a later story to silently assume
+
+**Given** the decision above
+**When** a password needs to be stored
+**Then** it is hashed via `bcrypt` or `argon2` (developer's choice, documented) — never plaintext, and never reusing Story 1.4's `_MOCK_ACCOUNTS` plaintext-dict pattern, which remains exactly as-is for HR_ADMIN login (out of this epic's scope per FR-24's note)
+
+**And** this story adds no new API endpoints and no frontend changes — schema and credential-storage decision only, so Stories 7.2+ each build on a stable foundation
+
+**Given** the 5 already-shipped hardcoded demo employees (Rita, Casey, Morgan, Jordan, Sam) with live Assignment/Watch-Progress/Override history, and PRD Open Question 17 (no migration path defined for them once this epic becomes the roster's source of truth)
+**When** this story's migration is planned
+**Then** an explicit decision is made and documented in this story's Dev Notes: either (a) migrate the 5 existing employees into the new schema shape (with a defined placeholder for the new required columns, e.g. `employee_code`, since they never went through Story 7.2's creation flow), or (b) leave them running unmigrated on the pre-existing minimal schema alongside newly-created real employees, or (c) another explicit choice — not silently left for a later story to discover mid-implementation `[ADDED 2026-09-11, from implementation readiness check]`
+
+---
+
+### Story 7.2: HR Admin Creates a New Employee Record
+
+As an **HR Admin**,
+I want to create a new Employee record with a working login,
+So that I can onboard a new hire myself without waiting on engineering (FR-24).
+
+**Acceptance Criteria:**
+
+**Given** I submit a new Employee with Employee ID/Code, Name, and Email (the only required fields)
+**When** the request is valid and neither the ID/Code nor Email collides with an existing record (active or archived — checked case-insensitively for Email, matching FR-20's Skill-name dedup pattern)
+**Then** the record is created, a password is generated server-side, hashed, and stored (per Story 7.1's mechanism), and the plaintext password is returned **exactly once** in this response — never persisted in plaintext, never retrievable via any other endpoint
+
+**Given** I submit an Employee ID/Code or Email that already exists (active or archived)
+**When** the request is validated
+**Then** it is rejected with a 409 and a clear message identifying which field collided — not a silent overwrite
+
+**Given** I omit any of the 8 optional fields (Phone, Experience, Technologies, Position, Project, Manager Name, Location, Department)
+**When** the record is created
+**Then** creation succeeds with those fields null — no field beyond ID/Code, Name, Email is required
+
+**And** the new Employee is immediately selectable in the Skill Assignment Flow's employee picker (§4.1/FR-1) — no separate publish/activation step
+
+---
+
+### Story 7.3: HR Admin Views the Employee Roster
+
+As an **HR Admin**,
+I want to see the current Employee roster with search, filter, and pagination,
+So that I can find who I need and confirm the roster reflects reality (FR-25).
+
+**Acceptance Criteria:**
+
+**Given** I open the Employees page
+**When** the roster loads
+**Then** I see a paginated list (15 records/page, UX-DR35) of active Employees by default, in a Table view (UX-DR34: columns ID, Name, Position, Department, Email, Status) with a toggle to switch to a Card view — both views share the same filter/search/page state
+
+**Given** I search by name or filter by Department/Position
+**When** results update
+**Then** the list (in whichever view is active) reflects the filter, pagination resets to page 1, and clearing the filter restores the full list
+
+**Given** I enable "Show archived"
+**When** the list re-renders
+**Then** archived Employees (per Story 7.1's `archived_at`) appear, visually distinguished by an Archived status badge (never color-only, UX-DR41) — disabling it hides them again
+
+**And** the roster endpoint hard-scopes to what an HR Admin session is allowed to see (no EMPLOYEE-role session can reach this endpoint, mirroring FR-14's existing role gate)
+
+**Given** the Table view's row/card action icons (Edit, Regenerate Password, Delete/Archive — the entry points into Stories 7.4/7.5/7.6)
+**When** they render
+**Then** each carries a descriptive `aria-label` naming the action and the Employee (e.g. "Edit {Employee name}") — never icon-only with no accessible name (UX-DR42) `[ADDED 2026-09-11, from implementation readiness check]`
+
+**Given** a viewport narrower than the Table view's minimum comfortable width
+**When** the roster renders in Table view
+**Then** the table scrolls horizontally within its own container rather than compressing columns to illegibility (UX-DR43) `[ADDED 2026-09-11, from implementation readiness check]`
+
+---
+
+### Story 7.4: HR Admin Edits an Employee Record
+
+As an **HR Admin**,
+I want to edit an Employee's profile fields,
+So that I can keep the roster accurate as people change roles, teams, or contact details (FR-26).
+
+**Acceptance Criteria:**
+
+**Given** I open an existing Employee for editing
+**When** the Edit panel loads
+**Then** Employee ID/Code renders as a read-only field (UX-DR39) and every other field (from Story 7.2's field set) is editable, regardless of the Employee's Assignment history — no lock, unlike a Skill's identity-lock (FR-21/22)
+
+**Given** I change the Email to one already used by another active or archived Employee
+**When** I save
+**Then** the save is rejected with the same 409 pattern as Story 7.2's creation check
+
+**Given** I save a valid edit
+**When** the request succeeds
+**Then** the roster (Story 7.3's list) reflects the change without a full page reload, and no confirmation/lock step is required
+
+**And** if two HR Admins edit the same Employee concurrently, the last write wins with no conflict error (documented `[ASSUMPTION]`, matching this PRD's existing no-optimistic-locking precedent elsewhere)
+
+---
+
+### Story 7.5: HR Admin Deletes or Archives an Employee Record
+
+As an **HR Admin**,
+I want to remove an Employee who has left, with their history preserved if they were ever assigned anything,
+So that the roster stays accurate without destroying audit history (FR-27).
+
+**Acceptance Criteria:**
+
+**Given** an Employee has zero Assignment records (active or soft-deleted, per FR-15) ever created for them
+**When** I confirm deletion
+**Then** the record is hard-deleted — the check-then-delete executes as a single atomic operation (not a separate read then write), so a concurrent Assignment-creation request cannot race past this check (mirrors FR-7's concurrency discipline)
+
+**Given** an Employee has any Assignment history
+**When** I confirm deletion
+**Then** the record is archived instead (`archived_at` set, per Story 7.1) — not deleted — and drops off the default roster view (Story 7.3) and every Employee picker (e.g., the Skill Assignment Flow), while all their Assignment/Watch-Progress/Override history remains fully intact
+
+**And** the confirmation dialog states which behavior will occur (hard-delete vs. archive) *before* I confirm — decided server-side and reflected in the copy, never guessed client-side (UX-DR38)
+
+**Given** an archived Employee has a valid, unexpired session token
+**When** they make any subsequent protected request after being archived
+**Then** the request is rejected — session validity is revalidated against current active/archived status server-side on every request, not only checked at login time (AR-25); this requires the existing per-token revocation mechanism (Story 1.5) to be extended with a per-identity active-status check
+
+**Given** an HR Admin has the Skill Assignment Flow's employee picker open (loaded before an archive) and another HR Admin archives that same Employee
+**When** the first HR Admin attempts to confirm a new Assignment against the now-archived Employee
+**Then** the request is rejected server-side at confirm time, not only at picker-load time, with a clear error prompting a re-pick from the current roster
+
+**Dev Notes:** `[ADDED 2026-09-11, from implementation readiness check]` This story is larger than a typical single-module CRUD story — do not estimate or review it as routine. It touches three separate surfaces across two other epics: (1) its own `employees/` delete/archive endpoint, (2) Epic 1's core session-validation path (`get_current_token_payload`/`get_current_user` in `auth/service.py` — a mechanism every other protected endpoint in the app depends on, so changes here carry app-wide regression risk), and (3) Epic 3's Assignment-creation service (`assignments/service.py`, already `done`/shipped), which needs the stale-picker re-validation check added. Consider splitting the session-revalidation piece (AC4) into its own story if tighter single-responsibility sizing is preferred.
+
+---
+
+### Story 7.6: HR Admin Regenerates an Employee's Password
+
+As an **HR Admin**,
+I want to generate a new password for an existing Employee,
+So that a lost or forgotten password is a quick fix, not a dead end (FR-28).
+
+**Acceptance Criteria:**
+
+**Given** an active (non-archived) Employee
+**When** I trigger "Regenerate Password"
+**Then** a new password is generated server-side, hashed, and stored, immediately invalidating the previous one — shown to me exactly once, in the same one-time-reveal pattern as Story 7.2's creation flow (reusing the same response/display mechanism, UX-DR37: modal title reads "Password regenerated" here vs. "Employee created" on Story 7.2's path)
+
+**Given** an archived Employee
+**When** I attempt to regenerate their password
+**Then** the action is unavailable/rejected — regeneration only applies to active Employees (un-archiving, if supported, is a separate action from this story's scope)
+
+**And** this is a credential operation, not a profile edit — it is not gated by or related to Story 7.4's field-edit scope, and Employee ID/Code is never involved
+
+---
+
+### Story 7.7: HR Admin Navigation Shell — Left-Pane Nav
+
+As an **HR Admin**,
+I want the primary navigation relocated to a left-side pane with an Employees destination,
+So that I can reach the roster (Stories 7.2–7.6) the same way I reach Dashboard and Skills today (FR-29).
+
+**Acceptance Criteria:**
+
+**Given** the current HR Admin shell (`frontend/src/pages/hr/Dashboard.tsx`'s top-header nav: Dashboard, Skills)
+**When** this story ships
+**Then** those two links relocate into a persistent left-side pane, joined by a new "Employees" link (routing to Story 7.3's page) — present and identical on every HR Admin page, with the active page visually indicated by more than color
+
+**Given** the existing top-right user-menu (avatar + Sign Out)
+**When** the nav relocates
+**Then** the user-menu keeps its current position and behavior — only the Dashboard/Skills links move, not the whole header
+
+**Given** the Skills tab's existing "Manage API Keys" entry point (§4.6/FR-16)
+**When** the relocation ships
+**Then** it remains fully reachable — no functionality is silently dropped during the header-to-left-pane refactor (verify `SkillsPage.tsx`'s header duplication explicitly, per the addendum's flagged unconfirmed assumption)
+
+**Given** a viewport narrower than 768px
+**When** the page renders
+**Then** the left-pane nav collapses to a hamburger-triggered overlay with a dismiss backdrop (UX-DR40) — the nav remains reachable, not simply hidden with no alternative
+
+**And** this story is frontend-only — no backend/API changes (touches `01.1-Skills-Dashboard.html`'s real equivalent and `04.1-Skills-Tab.html`'s real equivalent, plus the new Employees page from Story 7.3)
+
+---
+
+## EPIC 8: Application Theming
+
+> Added via `bmad-prd` update, 2026-09-11 — not in the original PRD/epics.md scope. Realizes FR-30 (PRD §4.9).
+
+**Epic Goal:** Let any user (HR Admin or Employee) switch the application between Light and Dark mode, with their preference remembered on that device.
+
+**Owned by:** frontend only — no backend module
+
+**Binds:** FR-30
+
+**Dependencies:** None — independent of every other epic, including Epic 7
+
+---
+
+### Story 8.1: User Switches Between Light and Dark Theme
+
+As a **user (HR Admin or Employee)**,
+I want to switch the application's visual theme,
+So that I can use whichever mode I prefer, consistently, across the whole product.
+
+**Acceptance Criteria:**
+
+**Given** I have never set a theme preference on this browser
+**When** the app first loads
+**Then** it defaults to my OS/browser-level preference (`prefers-color-scheme`) if available, otherwise Light
+
+**Given** I toggle the theme (control placed alongside the user-menu, per Phase 4 design intent)
+**When** I select Light or Dark
+**Then** the change applies immediately with no page reload, and persists across future sessions on this browser via `localStorage` — not synced server-side to the account (no backend change, per the zero-budget/local-only constraint, §9)
+
+**Given** either theme is active
+**When** any page renders — Dashboard, Skills, Employees, Content Discovery, and the login page
+**Then** it renders correctly and completely in that theme — this is a full-application commitment, not a partial skin on select pages
+
+**And** Status badges and Provenance Labels (FR-8/FR-9) remain WCAG 2.1 AA-compliant (non-color-only, sufficient contrast) in both themes — the existing accessibility NFR applies identically regardless of theme
+
+---
+
 ## Next Steps
 
-**This completes Step 01 (Requirements Extraction).** 
+**Epics 1 through 8 are all defined** (75 original requirements + 22 added 2026-09-08 for Epic 6 + 20 added 2026-09-11 for Epics 7-8 = 117 total). Epics 1-6 are fully implemented (see `_bmad-output/implementation-artifacts/sprint-status.yaml` — all `done`). Epics 7-8 are newly authored and awaiting `bmad-create-story`/`bmad-dev-story` to begin implementation:
 
-The epics.md file has been saved with all 75 requirements extracted and organized. The epic sequence follows the Architecture Spine's build order (AD-8):
+1. **Epic 1:** Authentication & Session Gate — done
+2. **Epic 2:** Content Catalog & Semantic Matching — done
+3. **Epic 3:** Skill Assignment Flow — done
+4. **Epic 4:** Video Progress Capture & Resume — done
+5. **Epic 5:** Readiness Dashboard & Override — done
+6. **Epic 6:** Admin-Assisted Content Sourcing — done
+7. **Epic 7:** Employee Roster Management — backlog (7 stories: schema/credential foundation, create, view, edit, delete/archive, regenerate password, nav shell)
+8. **Epic 8:** Application Theming — backlog (1 story)
 
-1. **Epic 1:** Authentication & Session Gate
-2. **Epic 2:** Content Catalog & Semantic Matching
-3. **Epic 3:** Skill Assignment Flow
-4. **Epic 4:** Video Progress Capture & Resume
-5. **Epic 5:** Readiness Dashboard & Override
-
-Each epic contains 5–7 detailed stories with complete acceptance criteria ready for the development team.
+Recommended build order for Epic 7: Story 7.1 (foundation) first — every other Epic 7 story depends on its schema/credential decision. Story 7.7 (nav shell) last, since it needs Story 7.3's Employees page to exist as a real nav target. Epic 8 has no ordering constraint and no dependency on Epic 7.
 
 **[C] Continue to Step 02 (Epic Design) for detailed story refinement and dependencies mapping:**

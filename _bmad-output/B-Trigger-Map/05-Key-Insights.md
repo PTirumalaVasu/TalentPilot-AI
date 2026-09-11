@@ -77,6 +77,10 @@
 - Reserve warmth and encouragement for employee-facing surfaces only — HR-facing status displays stay factual and calm, per the locked Tone of Voice guidance
 - Treat a blank or "Unknown" cell as strictly better than a guessed one, at every layer of the product
 
+### Employee Roster Management Must: `[ADDED 2026-09-11]`
+- Stay low-friction and infrequent-touch for Rita — this is genuinely in tension with the product's own reason for existing, not a neutral addition. Rita's Fear #3 is explicitly **"the chore just relocates instead of disappearing"** (see Critical Success Factors above); a heavy or frequently-revisited Employee CRUD flow (creating accounts, sharing passwords out-of-band, maintaining profiles) reintroduces exactly that fear in a new shape. Treat "does this feel like a new chore?" as a real design-review question for FR-24–28, not a rhetorical one.
+- Never be framed as, or feel like, a second system Rita has to maintain alongside the dashboard — same "one continuous system" principle already locked for the HR Assignment Flow above.
+
 ---
 
 ## Emotional Transformation Goals

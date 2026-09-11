@@ -8,6 +8,41 @@
 
 ---
 
+## Current
+
+| Scenario | Page | Task |
+|----------|------|------|
+| 05-ritas-roster-management | 05.1-05.3 | Phase 5 [P] Prototyping — all 8 sections built in one batched pass (per user's pacing choice) into `05.1-Employees-Tab.html`. Static verification only (no live browser/Puppeteer tool available in this environment): JS syntax-checked via `node --check`, all `getElementById` targets cross-referenced against defined IDs (none missing), HTML tag balance checked. Awaiting user's live-browser review before Step 5 (Finalization). |
+
+## Backlog
+
+- [ ] Fix `password-reveal-modal`'s title to be conditional ("Employee created" vs. "Password regenerated") — flagged during 05.3's spec sync, not fixed in the mock
+- [ ] Explore responsive (tablet/mobile) states for 05.1 Employees Tab — flagged during 05.1's Page Transition, not yet started
+- [ ] Update 01.1 and 04.1's Header/nav component specs to FR-29's left-pane shell, once FR-29 is built (flagged in 05.1's Out of Scope, not yet scheduled)
+- [ ] Build it — start agentic development for Scenario 05 (all 3 pages specified + mocked, none yet wired into a real/tested prototype)
+
+## Design Loop Status
+
+`[ADDED 2026-09-11]` This section did not previously exist in this design log — added per the wds-4-ux-design workflow's adaptive-dashboard requirement (per-page status tracking). Rows below start from Scenario 05; Scenarios 01-04 predate this tracking table and are not backfilled (their completion is already documented narratively in Progress/Quality Scores below).
+
+| Scenario | Page | Page Name | Status | Date |
+|----------|------|-----------|--------|------|
+| 05-ritas-roster-management | 05.1 | Employees Tab (Roster) | discussed | 2026-09-11 |
+| 05-ritas-roster-management | 05.1 | Employees Tab (Roster) | wireframed | 2026-09-11 |
+| 05-ritas-roster-management | 05.1 | Employees Tab (Roster) | mocked (HTML, in place of PNG export, per user request) | 2026-09-11 |
+| 05-ritas-roster-management | 05.2 | Create Employee Panel | discussed | 2026-09-11 |
+| 05-ritas-roster-management | 05.2 | Create Employee Panel | specified | 2026-09-11 |
+| 05-ritas-roster-management | 05.3 | Password Reveal Panel | discussed | 2026-09-11 |
+| 05-ritas-roster-management | 05.3 | Password Reveal Panel | specified | 2026-09-11 |
+| 05-ritas-roster-management | 05.1 | Employees Tab (Roster) | building | 2026-09-11 |
+| 05-ritas-roster-management | 05.2 | Create Employee Panel | building | 2026-09-11 |
+| 05-ritas-roster-management | 05.3 | Password Reveal Panel | building | 2026-09-11 |
+| 05-ritas-roster-management | 05.1 | Employees Tab (Roster) | built | 2026-09-11 |
+| 05-ritas-roster-management | 05.2 | Create Employee Panel | built | 2026-09-11 |
+| 05-ritas-roster-management | 05.3 | Password Reveal Panel | built | 2026-09-11 |
+
+---
+
 ## Progress
 
 ### 2026-07-08 — Phase 3: UX Scenarios Complete
@@ -198,6 +233,51 @@
 **Artifacts:** `_bmad-output/planning-artifacts/epics.md` — extended, not regenerated (Epics 1-5 untouched). New **Epic 6: Admin-Assisted Content Sourcing**, 10 stories (6.1 `skills/` module foundation & migration, 6.2 Skill creation, 6.3 Skill edit/delete + permanent lock, 6.4 wiring `ever_assigned` into Assignment creation, 6.5 credential storage, 6.6 live search YouTube+Udemy, 6.7 manual link entry, 6.8 review/approve/days-estimate, 6.9 reject content, 6.10 Skills Tab frontend). Requirements Inventory extended (FR-16-23 + backfilled FR-15, new NFRs, AR-22/23, UX-DR25-33), FR Coverage Map and Epic List updated. `ARCHITECTURE-SPINE.md` gained AD-11 plus frontmatter/paradigm-table/dependency-diagram/ER-diagram/source-tree/capability-map updates; `prd.md` Open Questions 16/17 updated to match. `project-context.md` updated with a full session-arc summary per this project's own mandatory-maintenance convention.
 
 **Next:** Route Epic 6 through `bmad-create-story`/`bmad-dev-story` for implementation, same as Epics 1-5. Resolve PRD Open Question 17 (assigned-Skill content-sourcing entry point) before Story 6.10's known gap needs closing.
+
+---
+
+### 2026-09-11 — Phase 2: Trigger Map Extended for New PRD Capabilities
+
+**Agent:** Saga (Trigger Mapping) with Claude Code
+
+**Context:** `prd.md` was updated the same day (via `bmad-prd`) to add three new capabilities — Employee Roster Management (§4.7, FR-24–28), HR Admin Navigation Shell (§4.8, FR-29), and Application Theming (§4.9, FR-30) — none of which existed when Phase 2 was originally completed (2026-07-08). Rather than re-running Trigger Mapping from scratch (which would discard the validated Rita/Casey work), the existing artifacts were extended for just the delta, following the same precedent already set by Authentication (FR-13/FR-14) never appearing in the Feature-Impact scoring table.
+
+**Analysis:** All three new capabilities are enabling/infrastructure work, not psychology-driven features — none of them serve a named want or fear in Rita's or Casey's driving forces the way Auto-Capture or Content Discovery do. Scoring them low on the existing 8-point rubric would misrepresent them as failed priority candidates rather than a different category entirely.
+
+**One genuine risk surfaced, not just a scoring omission:** Employee Roster Management lands new manual data-entry work directly on Rita (creating accounts, sharing passwords out-of-band, maintaining profiles) — this is in real tension with Rita's own named Fear #3, **"the chore just relocates instead of disappearing."** Flagged as an explicit design constraint for FR-24–28, not a neutral addition.
+
+**Artifacts updated:**
+- `B-Trigger-Map/06-Feature-Impact.md` — new "Enabling Features (Outside the Psychological Scoring Model)" section
+- `B-Trigger-Map/05-Key-Insights.md` — new "Employee Roster Management Must" design-implications subsection, naming the chore-relocation risk explicitly
+- `B-Trigger-Map/00-trigger-map.md` — Feature Priorities summary gained an "Enabling" line pointing to both
+
+**Next:** Carry the chore-relocation risk forward into UX design for FR-24 (creation flow) and FR-27 (archive flow) when Phase 4 work reaches those screens.
+
+---
+
+### 2026-09-11 — Phase 3 → Phase 4: Scenario 05 Outlined and 05.1 Discussed
+
+**Agent:** Saga (Scenarios) → Freya (UX Design) with Claude Code
+
+**Phase 3:** New Scenario 05 "Rita's Roster Management" created via Suggest mode (all 8 questions drafted from Trigger Map/PRD context, user-reviewed) — `C-UX-Scenarios/05-ritas-roster-management/`. Single-page-in-scope treatment (Employees Tab hosts Create/Edit/Password-Reveal/Regenerate/Delete-Archive as states, not separate pages), matching 04.1's precedent. 3-step linear sunshine path outlined: 05.1 Employees Roster → 05.2 Create Employee → 05.3 Password Reveal. Priority 3 (Admin Task) — enabling infrastructure, not a driving-force-fulfillment chain, consistent with the Trigger Map's earlier "Enabling Features" classification.
+
+**Phase 4 (05.1 only so far):** D1/D2 discussed. Key decision: Employee list defaults to a **Table view** (11 profile fields + 15-per-page pagination suit rows/columns better than 04.1's card-grid default), with a **Card view available via a toggle** — both share the same pagination, filters, and search state. This page also introduces FR-29's new **left-pane nav shell** for the first time — 01.1 and 04.1's specs still describe the old top-header nav and need a follow-up update pass when FR-29 is actually built (logged in Backlog above, not done here).
+
+**Next:** Choose visualization for 05.1 (wireframe / sketch / spec-only), then continue to 05.2 and 05.3.
+
+---
+
+### 2026-09-11 — Phase 4: Scenario 05 Fully Designed (05.1–05.3)
+
+**Agent:** Freya (UX Design) with Claude Code
+
+**05.1 (Employees Tab):** Wireframed (Excalidraw, agreed with no changes) then, per direct request, also built as a single-file HTML mock (`E-Development/01-Ritas-Trust-Call-Prototype/05.1-Employees-Tab.html`) in place of a static PNG export — matching 04.1 Skills Tab's precedent of a lighter-weight inline-mock-data visual mock. The mock fully implements: the new FR-29 left-pane nav shell (first page to introduce it — 01.1/04.1 still show the old top-header nav and need a follow-up pass, logged in Backlog), a functional Table/Card view toggle sharing one pagination/filter/search state, and all 5 modals (Create → Password Reveal, Edit, Regenerate Password, Delete/Archive with server-decided hard-delete-vs-archive copy).
+
+**05.2 (Create Employee) and 05.3 (Password Reveal):** Both discussed (D1/D2) and specified directly against the already-built HTML mock rather than drawn as separate wireframes — the mock's modals already fully implement each page's interaction. One real gap caught during 05.3's spec sync, not yet fixed in the mock: the Password Reveal modal's title reads "Employee created" even when opened via Regenerate, which is misleading — logged to Backlog rather than silently ignored or fixed off-spec.
+
+**Scenario 05 status:** All 3 pages specified end-to-end (matches the "Wireframed/Specified" bar the Phase Completion Checklist below still lists as outstanding for Scenarios 01-04's 7 original pages — Scenario 05 is now ahead of them on that front). Not yet run through acceptance testing or wired into a real backend — this is a visual mock, same caveat as 04.1.
+
+**Next:** Backlog items above (title fix, responsive-state exploration, 01.1/04.1 nav-shell catch-up), or start agentic development (`wds-5-agentic-development`) for Scenario 05.
 
 ---
 
