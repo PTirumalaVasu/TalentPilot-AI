@@ -1,8 +1,7 @@
-/** Skills tab (Story 6.10): Card Grid, Content Lookup, API Keys, Watch Modal. */
+/** Skills tab (Story 6.10): Card Grid, Content Lookup, API Keys, Watch Modal.
+ * Left-pane nav shell: Story 7.7. */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '@/lib/auth/AuthContext';
-import { logout } from '@/lib/api/authApi';
+import { HrAppShell } from '@/components/layout/HrAppShell';
 import { Toast } from '@/components/ui/toast';
 import { SkillCard, type SkillCardViewContent } from '@/features/admin/SkillCard';
 import { NewSkillModal } from '@/features/admin/NewSkillModal';
@@ -26,10 +25,6 @@ interface LookupTarget {
 }
 
 export function SkillsPage() {
-  const { signOut } = useAuth();
-  const navigate = useNavigate();
-  const [userMenuOpen, setUserMenuOpen] = useState(false);
-
   const [skills, setSkills] = useState<SkillWithContent[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const requestIdRef = useRef(0);
@@ -58,17 +53,6 @@ export function SkillsPage() {
     void refetch();
   }, [refetch]);
 
-  async function handleSignOut() {
-    try {
-      await logout();
-    } catch {
-      // Best-effort server-side revocation
-    } finally {
-      signOut();
-      navigate('/login', { replace: true });
-    }
-  }
-
   function findSkill(skillId: string): SkillWithContent | undefined {
     return skills?.find((s) => s.id === skillId);
   }
@@ -76,45 +60,7 @@ export function SkillsPage() {
   const approvedCount = skills?.filter((s) => s.approved_content).length ?? 0;
 
   return (
-    <div className="min-h-screen bg-gray-50 font-sans">
-      <header className="flex items-center justify-between border-b border-gray-200 bg-white px-6 py-3">
-        <div className="flex items-center gap-8">
-          <div className="flex items-center gap-2 text-lg font-bold text-gray-900">TalentPilot-AI</div>
-          <nav className="flex gap-6 text-sm">
-            <Link to="/hr/dashboard" className="pb-3 -mb-3 text-gray-600 transition-colors hover:text-gray-900">
-              Dashboard
-            </Link>
-            <Link to="/skills" className="pb-3 -mb-3 border-b-2 border-blue-600 font-medium text-blue-600">
-              Skills
-            </Link>
-            <Link to="/employees" className="pb-3 -mb-3 text-gray-600 transition-colors hover:text-gray-900">
-              Employees
-            </Link>
-          </nav>
-        </div>
-        <div className="relative">
-          <button onClick={() => setUserMenuOpen(!userMenuOpen)} className="flex items-center gap-2 text-sm text-gray-700">
-            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 font-medium text-blue-700">
-              R
-            </span>
-            Rita
-          </button>
-          {userMenuOpen && (
-            <div className="absolute right-0 z-10 mt-2 w-40 rounded-lg border border-gray-200 bg-white shadow-lg">
-              <button
-                onClick={() => {
-                  setUserMenuOpen(false);
-                  void handleSignOut();
-                }}
-                className="block w-full rounded-lg px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
-              >
-                Sign Out
-              </button>
-            </div>
-          )}
-        </div>
-      </header>
-
+    <HrAppShell>
       <main className="px-6 pb-12">
         <div className="flex items-center justify-between py-3">
           <div>
@@ -264,6 +210,6 @@ export function SkillsPage() {
       />
 
       <Toast message={toastMessage} onDismiss={() => setToastMessage(null)} />
-    </div>
+    </HrAppShell>
   );
 }

@@ -255,7 +255,7 @@ development_status:
   7-4-hr-admin-edits-an-employee-record: done
   7-5-hr-admin-deletes-or-archives-an-employee-record: done
   7-6-hr-admin-regenerates-an-employees-password: done
-  7-7-hr-admin-navigation-shell-left-pane-nav: backlog
+  7-7-hr-admin-navigation-shell-left-pane-nav: done
   epic-7-retrospective: optional
 
   epic-8: backlog
@@ -323,5 +323,9 @@ action_items:
     status: open
   - epic: 5
     action: "Re-baseline the frontend vitest suite's pre-existing-failure count -- Story 5.7 found 20 failing tests at true baseline (git-stash-confirmed), not the '2 pre-existing unrelated' Story 5.6 claimed. Root cause identified for at least the DashboardPage.test.tsx subset (RTL exact-text-match vs. the accordion header's '(N skills)' suffix) but not yet fixed or fully triaged across all 4 affected files (DashboardPage.test.tsx, DashboardPage.polling.test.tsx, ProvenanceDrillDownModal.test.tsx, ContentDiscovery.test.tsx)."
+    owner: "Dana (QA)"
+    status: open
+  - epic: 7
+    action: "Story 7.7 (nav shell) shipped without a live-browser visual pass -- no headless browser/Playwright was available in the dev sandbox. Verified instead via a new 5-test HrAppShell.test.tsx suite, the full 391-test suite staying green, a clean `vite build`, and a class-by-class match against the already-approved 05.1-Employees-Tab.html prototype. Per the epic-1 action item on UI stories needing visual validation against their prototype before done: do a real-browser pass at 375px/768px/1280px (sidebar collapse, hamburger overlay, backdrop dismiss, active-link styling) before treating this shell as fully verified."
     owner: "Dana (QA)"
     status: open

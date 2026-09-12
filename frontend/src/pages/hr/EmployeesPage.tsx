@@ -8,9 +8,7 @@
  * UX spec (aria-labels required, AC5). "+ New Employee" remains stubbed --
  * its modal belongs to Story 7.2's still-unbuilt frontend half. */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '@/lib/auth/AuthContext';
-import { logout } from '@/lib/api/authApi';
+import { HrAppShell } from '@/components/layout/HrAppShell';
 import { Toast } from '@/components/ui/toast';
 import { listEmployees, type EmployeeResponse } from '@/lib/api/employeesApi';
 import { EditEmployeeModal } from '@/features/admin/EditEmployeeModal';
@@ -90,10 +88,6 @@ function RowActions({
 }
 
 export function EmployeesPage() {
-  const { signOut } = useAuth();
-  const navigate = useNavigate();
-  const [userMenuOpen, setUserMenuOpen] = useState(false);
-
   const [employees, setEmployees] = useState<EmployeeResponse[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const requestIdRef = useRef(0);
@@ -125,17 +119,6 @@ export function EmployeesPage() {
   useEffect(() => {
     void refetch();
   }, [refetch]);
-
-  async function handleSignOut() {
-    try {
-      await logout();
-    } catch {
-      // Best-effort server-side revocation
-    } finally {
-      signOut();
-      navigate('/login', { replace: true });
-    }
-  }
 
   function showUnavailableToast() {
     setToastMessage(NOT_AVAILABLE_YET);
@@ -209,45 +192,7 @@ export function EmployeesPage() {
   const activeCount = employees?.filter((e) => e.archived_at === null).length ?? 0;
 
   return (
-    <div className="min-h-screen bg-gray-50 font-sans">
-      <header className="flex items-center justify-between border-b border-gray-200 bg-white px-6 py-3">
-        <div className="flex items-center gap-8">
-          <div className="flex items-center gap-2 text-lg font-bold text-gray-900">TalentPilot-AI</div>
-          <nav className="flex gap-6 text-sm">
-            <Link to="/hr/dashboard" className="pb-3 -mb-3 text-gray-600 transition-colors hover:text-gray-900">
-              Dashboard
-            </Link>
-            <Link to="/skills" className="pb-3 -mb-3 text-gray-600 transition-colors hover:text-gray-900">
-              Skills
-            </Link>
-            <Link to="/employees" className="pb-3 -mb-3 border-b-2 border-blue-600 font-medium text-blue-600">
-              Employees
-            </Link>
-          </nav>
-        </div>
-        <div className="relative">
-          <button onClick={() => setUserMenuOpen(!userMenuOpen)} className="flex items-center gap-2 text-sm text-gray-700">
-            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 font-medium text-blue-700">
-              R
-            </span>
-            Rita
-          </button>
-          {userMenuOpen && (
-            <div className="absolute right-0 z-10 mt-2 w-40 rounded-lg border border-gray-200 bg-white shadow-lg">
-              <button
-                onClick={() => {
-                  setUserMenuOpen(false);
-                  void handleSignOut();
-                }}
-                className="block w-full rounded-lg px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
-              >
-                Sign Out
-              </button>
-            </div>
-          )}
-        </div>
-      </header>
-
+    <HrAppShell>
       <main className="px-6 pb-12">
         <div className="flex flex-wrap items-center justify-between gap-3 py-3">
           <div>
@@ -485,6 +430,6 @@ export function EmployeesPage() {
         onClose={() => setDeletingEmployee(null)}
         onCompleted={handleDeleteOrArchiveCompleted}
       />
-    </div>
+    </HrAppShell>
   );
 }
