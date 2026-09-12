@@ -41,6 +41,16 @@ Implementation how-to, rejected-alternative rationale, and depth material that i
 - **Left-pane nav (FR-29) is a frontend-only reshuffle** of `Dashboard.tsx`'s existing header (`frontend/src/pages/hr/Dashboard.tsx`) — no backend/API implication. `SkillsPage.tsx` likely duplicates the same top-header nav (not yet confirmed) and would need the same treatment for FR-29's "every HR Admin page" consequence to hold; the relocation must also explicitly preserve the Skills tab's API-key/credential settings entry point (§4.6/FR-16) rather than risk dropping it during the refactor.
 - **Theming (§4.9/FR-30) is also frontend-only** — Tailwind/shadcn-ui both have standard dark-mode support (class-based theme switching), so this is additive CSS/token work plus a `localStorage`-backed preference, not a new backend concern. No architecture-level risk identified.
 
+## Skill Assignment Dashboard — Architecture Handoff Notes (2026-09-12)
+
+`prd.md` §4.10 (FR-31–FR-33) adds a new HR Admin landing page and a 4th nav entry (§4.8/FR-29). Not yet through an architecture pass — flagging implications so that pass doesn't rediscover them.
+
+- **This is a `dashboard/`-module read-composition, same pattern as the existing Readiness Dashboard** — it owns no table (AD-3/AD-8 already establish this precedent for the existing dashboard) and reads across `assignments`, `skill_progress`, and `employees`, the same tables FR-8–FR-11 already query. No new migration is implied by FR-31/FR-32 themselves.
+- **Employee Segmentation (FR-32) is the one genuinely new query shape**: per-Employee aggregation (their own completion rate + whether any of their Assignments carry a `Needs Attention` Provenance) across the *entire active roster* in one page load — a different access pattern than the existing per-Assignment-row grid, which never aggregates across an Employee's full Assignment set today. Worth a query-plan/index check once real data volume is known (pilot scale is low, but this is the PRD's first "compute something for every Employee, every page load" read).
+- **The 80% On-Track threshold (FR-32) is a literal constant** (`[ASSUMPTION]`, PRD Open Question 20) — implement as a single named config value, not scattered inline, since it's the item most likely to change once a real HR Admin sees the pie chart.
+- **Nav (FR-29 amendment) is frontend-only**, same as the original §4.8 handoff note above — adding a 4th route/page (`Skill Assignments`, pointing at what `Dashboard.tsx` renders today) alongside a new `Dashboard.tsx` (or renamed equivalent) for the new landing page. No backend/API implication beyond the two new read endpoints FR-31/32 need.
+- **No Cross-Cutting NFR entry yet for this page's load time** — §8 already commits the existing Readiness Dashboard to "under 2 seconds"; recommend the same target apply here once architecture picks it up, rather than leaving it unstated.
+
 ## Rejected Technical Alternatives
 
 - **Full-stack TypeScript** (Node backend) — rejected for Python's stronger AI/ML ecosystem fit (`sentence-transformers`, `openai`, `pgvector` client libs are Python-first).

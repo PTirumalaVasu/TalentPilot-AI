@@ -2,7 +2,7 @@
 title: TalentPilot-AI
 status: final
 created: 2026-07-09
-updated: 2026-09-11
+updated: 2026-09-12
 ---
 
 # PRD: TalentPilot-AI
@@ -37,8 +37,8 @@ These three journeys were already designed as UX scenarios and built as working 
 
 - **UJ-1. Rita makes a staffing call in under two minutes, without opening the spreadsheet.**
   - **Persona + context:** Rita, mid-morning, a project lead has just Slacked her: "who can we staff on the Q3 skills initiative?"
-  - **Entry state:** Authenticated, on the Assignment Dashboard.
-  - **Path:** Scans 15–20 employee rows. Each row carries a Status badge at a glance (`Not Started`, `In Progress`, `Completed`). One row's percentage looks inconsistent with what she remembers — she clicks it to drill down.
+  - **Entry state:** Authenticated, on the Skill Assignment Dashboard (§4.10) — the HR Admin landing page as of this update; previously she landed directly on the full row grid described below.
+  - **Path:** Glances at the landing page's org-wide stats and employee segmentation (On Track / In Progress / Needs Attention, §4.10/FR-32) for a temperature check, then opens `Skill Assignments` from the left nav (FR-33) to scan 15–20 employee rows. Each row carries a Status badge at a glance (`Not Started`, `In Progress`, `Completed`). One row's percentage looks inconsistent with what she remembers — she clicks it to drill down.
   - **Climax:** Drill-down shows the Provenance Label and raw signal (watch %, timestamp, Verified vs. Self-reported vs. Needs Attention vs. HR Override) backing the Status — she can see *why* it says what it says, not just trust the badge blindly.
   - **Resolution:** She tells the project lead "three are ready, one needs attention" in about 90 seconds, with no spreadsheet cross-reference.
   - **Edge case:** If the label and her own memory disagree, the drill-down — not a re-check against the old sheet — is what resolves it. If she still reaches for the spreadsheet, the product hasn't done its job (see SM-C1, §7).
@@ -73,7 +73,10 @@ These three journeys were already designed as UX scenarios and built as working 
 - **Provenance Label** — The trust indicator behind a row's Status, reached via drill-down (FR-9): **Verified** (auto-captured from video), **Self-reported** (employee-entered, non-video), **Needs Attention** (stale or inconsistent signal), or **HR Override** (manually confirmed ready by an HR Admin, independent of Watch Progress). Never color-only — always paired with text or icon (WCAG 2.1 AA).
 - **HR Override** — A manual readiness confirmation by an HR Admin, used when Watch Progress or self-reported data doesn't reflect HR's actual confidence. Carries its own Provenance Label; never blended with or displayed as "Verified."
 - **Needs Attention** — A dashboard state, not a separate page: a row whose self-reported data has gone stale beyond a defined freshness threshold. Surfaced via drill-down on the row itself, not a standalone filter view.
-- **Readiness Dashboard** — The HR Admin's primary surface: one row per Employee×Skill assignment, each carrying a Status badge, with its Provenance Label one click away via drill-down.
+- **Readiness Dashboard** — The full row-grid view: one row per Employee×Skill assignment, each carrying a Status badge, with its Provenance Label one click away via drill-down. `[UPDATED 2026-09-12]` As of §4.10, this is no longer the HR Admin's first screen — it's reached via its own **Skill Assignments** left-nav entry (§4.8/FR-29) or a per-employee drill-down from the Skill Assignment Dashboard landing page (FR-33).
+- **Skill Assignment Dashboard** — `[ADDED 2026-09-12]` The HR Admin's new landing page (§4.10): org-wide stats (Total Employees, Total Skills/Videos Assigned, Total Completed), an Assignment Progress breakdown (Completed / In Progress / Not Started counts + Overall Progress %), and an Employee Segmentation pie chart (On Track / In Progress / Needs Attention). A read-composition view only — it owns no table and introduces no new tracked data, matching the existing Readiness Dashboard's architectural pattern (AD-3/AD-8).
+- **Skill Progress (per-Employee drill-down)** — `[ADDED 2026-09-12]` The single-Employee view reached by clicking an employee from the Skill Assignment Dashboard (FR-33): that Employee's own Assignment rows, rendered with the same Status/Provenance model as the Readiness Dashboard (FR-8/9/10), just pre-filtered to one Employee instead of the whole roster.
+- **Employee Segmentation (On Track / In Progress / Needs Attention)** — `[ADDED 2026-09-12]` A per-Employee, dashboard-only categorization distinct from a per-Assignment Status or Provenance Label (§4.10/FR-32) — it summarizes an Employee's *entire* Assignment set into one of three buckets for the landing page's pie chart. Not a new tracked field; computed on read from existing Status/Provenance data.
 - **Resume Position** — The exact video timestamp an Employee last reached; used to resume playback without re-scrubbing.
 - **Coaching-only** — The data-use guarantee: auto-captured Watch Progress is never used as input to performance evaluations. A structural constraint on data access, not a policy statement (see §9 Constraints and Guardrails).
 
@@ -441,19 +444,20 @@ If an Employee has never had an Assignment created for them, HR Admin can hard-d
 
 `[ADDED 2026-09-11 via bmad-prd update — new capability, not in original PRD scope]`
 
-**Description:** The HR Admin application's primary navigation (currently a horizontal bar in the page header, linking Dashboard and Skills) moves to a persistent left-side vertical pane, gaining a new Employees entry for the roster (§4.7). Scoped to the HR Admin shell only — the Employee-facing Content Discovery experience is unchanged.
+**Description:** The HR Admin application's primary navigation (currently a horizontal bar in the page header, linking Dashboard and Skills) moves to a persistent left-side vertical pane, gaining a new Employees entry for the roster (§4.7). Scoped to the HR Admin shell only — the Employee-facing Content Discovery experience is unchanged. `[UPDATED 2026-09-12 via bmad-prd update]` A fourth entry, **Skill Assignments**, is added by §4.10: `Dashboard` now opens the new Skill Assignment Dashboard landing page (§4.10/FR-31/32) instead of the full row grid directly; the grid itself (§4.4/FR-8-12, previously reached directly from `Dashboard`) becomes its own permanent nav destination, **Skill Assignments**, rather than a link/button surfaced only from within the landing page.
 
 **Functional Requirements:**
 
 #### FR-29: HR Admin's primary navigation is presented in a left-side pane
 
-The HR Admin shell presents Dashboard, Skills, and Employees as a vertical navigation list in a left-side pane, persistent across all HR Admin pages, instead of the current top-header horizontal links.
+The HR Admin shell presents Dashboard, Skill Assignments, Skills, and Employees as a vertical navigation list in a left-side pane, persistent across all HR Admin pages, instead of the current top-header horizontal links. `[UPDATED 2026-09-12]` Four entries, not three — see description above.
 
 **Consequences (testable):**
-- The left pane is present and shows the same three entries on every HR Admin page (Dashboard, Skills, Employees) — never a page-specific subset.
+- The left pane is present and shows the same four entries on every HR Admin page (Dashboard, Skill Assignments, Skills, Employees) — never a page-specific subset.
 - The current page is visually indicated in the pane (matches the existing top-nav's active-link treatment, relocated rather than redesigned).
-- All three destinations remain reachable in one click from any HR Admin page, same as today's top nav — this is a layout change, not a reduction in what's reachable.
-- The existing user-menu (avatar + Sign Out, currently top-right of the header) keeps its current position and behavior — only the Dashboard/Skills navigation links relocate, not the whole header.
+- All four destinations remain reachable in one click from any HR Admin page, same as today's top nav — this is a layout change, not a reduction in what's reachable.
+- The existing user-menu (avatar + Sign Out, currently top-right of the header) keeps its current position and behavior — only the Dashboard/Skills/Skill Assignments/Employees navigation links relocate, not the whole header.
+- `[ADDED 2026-09-12]` `Dashboard` and `Skill Assignments` are two distinct, separately-reachable nav destinations, not one page with an internal link to the other (superseding FR-33's originally-drafted `[+ View All Assignments]` in-page control, now handled via nav instead — see §4.10/FR-33).
 - `[ADDED 2026-09-11, post-review]` The relocation preserves every entry point currently reachable from the top header — including the Skills tab's API-key/credential settings surface (§4.6/FR-16) — with no functionality silently dropped during the header-to-left-pane refactor. `[NOTE FOR PM]` Whether `SkillsPage.tsx` currently duplicates `Dashboard.tsx`'s top-nav (and therefore needs the identical treatment for this consequence to hold everywhere) is unconfirmed — verify before build.
 
 **Notes:** `[NOTE FOR PM]` No UX scenario or prototype covers this layout; downstream UX work needs to spec the pane's width, responsive/collapsed behavior on narrow viewports, and icon treatment (if any) before build. `[ADDED 2026-09-11]` Keyboard/ARIA behavior for the pane is expected to fall under the existing blanket WCAG 2.1 AA commitment (§8) rather than needing a separate accessibility statement here.
@@ -479,6 +483,51 @@ Either role (HR Admin or Employee) can switch the application's visual theme bet
 
 **Notes:** `[NOTE FOR PM]` No UX scenario, prototype, or prior design work covers this — downstream UX work needs to design both palettes (not just invert one) and confirm the toggle's placement (likely alongside the user-menu, §4.8) before build. No Success Metric applies — this is a UI preference, not an outcome-bearing capability, consistent with §4.7/§4.8 also carrying no new SM.
 
+### 4.10 Skill Assignment Dashboard — HR Landing Page
+
+`[ADDED 2026-09-12 via bmad-prd update — new capability, not in original PRD scope]`
+
+**Description:** The HR Admin's `Dashboard` nav entry (§4.8/FR-29) now opens on a new org-wide aggregate view — the Skill Assignment Dashboard — instead of opening directly on the full Readiness Dashboard row grid (§4.4). This is additive, not a replacement: `[UPDATED 2026-09-12, post-clarification]` the full grid (FR-8/9/10) still exists in full and gains its own permanent left-nav entry, **Skill Assignments** (§4.8/FR-29), reachable in one click same as `Dashboard` — not a link nested inside the new landing page — preserving UJ-1 exactly as already validated. The new landing page answers "how's the org doing overall, and who needs my attention" at a glance, before Rita drops into row-level detail via the `Skill Assignments` nav entry. `[DECISION, 2026-09-12]` Confirmed with the user: this is a new, separate view sitting alongside the existing per-Assignment grid (not a redesign of it); it is HR Admin-only, consistent with this product's existing role scoping (FR-14); and it introduces no new tracked data — every number on it is derived from Assignment/Skill/Watch-Progress data FR-1 through FR-12 already define. Realizes an extension of UJ-1 (a faster, org-wide first read before Rita's existing staffing-call flow).
+
+**Functional Requirements:**
+
+#### FR-31: HR Admin views org-wide assignment stats on the landing page
+
+The Skill Assignment Dashboard shows, above the fold: Total Employees (active/non-archived roster count, §4.7/FR-25), Total Skills/Videos Assigned (count of active, non-soft-deleted Assignments, §4.1/FR-1, §4.1/FR-15), and Total Completed (count of those Assignments currently at Status `Completed`, §4.4/FR-8).
+
+**Consequences (testable):**
+- All three counts exclude archived Employees (§4.7/FR-27) and soft-deleted Assignments (§4.1/FR-15) — this mirrors the existing "archived/soft-deleted records drop out of active views" rule already established for the Employee roster (FR-25) and Content Discovery (FR-4), applied here for the first time at an org-wide aggregate level.
+- `[ASSUMPTION, 2026-09-12]` "Total Skills/Videos Assigned" counts every active Assignment regardless of whether it has attached Content (§4.1/FR-2 already allows assigning without Content) — it is an Assignment count, not a strictly video-content count. Revisit if HR wants this scoped only to Assignments with video Content attached.
+- These counts refresh whenever the landing page loads; no specific real-time-update NFR is claimed here (unlike FR-11's 30-second row-update guarantee) — `[NOTE FOR PM]` revisit if HR needs this page to auto-refresh while left open, the way individual dashboard rows already do.
+
+#### FR-32: HR Admin views an Assignment Progress breakdown and Employee Segmentation pie chart
+
+Below the stats (FR-31), the landing page shows two more views: (a) an Assignment Progress breakdown — Completed / In Progress / Not Started counts (per-Assignment Status, §4.4/FR-8) plus an Overall Progress % shown as a completion ring; and (b) a pie chart segmenting every active Employee with at least one active Assignment into exactly three buckets: **On Track**, **In Progress**, **Needs Attention**.
+
+**Consequences (testable):**
+- Overall Progress % = `Total Completed (FR-31) / Total Skills/Videos Assigned (FR-31) × 100`, rounded to the nearest whole percent.
+- Employee Segmentation, computed per Employee across all their active Assignments, in this priority order — `[ASSUMPTION, 2026-09-12, needs validation — see Open Question 20]`:
+  1. **Needs Attention** — the Employee has at least one Assignment whose Provenance Label is currently `Needs Attention` (§4.4/FR-10's existing 7-day staleness rule). Takes priority over the other two buckets regardless of overall completion.
+  2. **On Track** — no `Needs Attention` Assignments, and the Employee's own completion rate (their Completed Assignments ÷ their total active Assignments) is at or above **80%** `[ASSUMPTION — exact threshold not yet confirmed by the user, see Open Question 20]`.
+  3. **In Progress** — everything else: no `Needs Attention` flags, but completion rate below the On-Track threshold. `[NOTE FOR PM]` This bucket is a catch-all by construction — it also holds Employees who haven't started anything yet (0% complete, all Assignments `Not Started`), since the pie chart's spec names only these three buckets, with no separate "Not Started" segment. Confirm this reads correctly to HR before build, or consider a 4th segment.
+- An Employee with zero active Assignments is excluded from the pie chart entirely (nothing to segment) — does not silently count toward any of the three buckets.
+- Same non-color-only accessibility rule as every other Status/Provenance surface in this PRD (§8): each pie segment and the progress ring are labeled with text/count, not color alone.
+- Clicking a pie segment shows the list of Employees in that bucket (each one a click-through into their own Skill Progress drill-down, FR-33) — `[NOTE FOR PM]` exact interaction (inline expand vs. a filtered list view) is a UX-design decision, not specified here.
+
+**Out of Scope:**
+- Any drill-down "why" explanation beyond what FR-9's existing per-Assignment drill-down already provides — Employee Segmentation is a landing-page summary, not a new audit surface.
+
+#### FR-33: HR Admin reaches the full grid via its own nav entry, or a single Employee's Skill Progress via drill-down from the landing page
+
+`[UPDATED 2026-09-12, post-clarification]` The full Readiness Dashboard row grid is reachable two ways: (a) directly, via the left-pane's own **Skill Assignments** nav entry (§4.8/FR-29) — not an in-page link on the landing page — or (b) scoped to a single Employee, by clicking that Employee from a Skill Assignment Dashboard pie-chart segment (FR-32).
+
+**Consequences (testable):**
+- Path (a) renders exactly the existing FR-8/9/10/11/12 experience, unfiltered, as its own persistent nav destination — this consequence exists specifically so UJ-1's already-validated "scan 15-20 rows" flow keeps working unchanged, just relocated to its own nav entry instead of being the `Dashboard` entry's direct target.
+- Path (b) renders the same FR-8/9/10 row/badge/drill-down model, pre-filtered to the selected Employee's Assignments only — not a different visual model, just a different scope, and reached from the landing page rather than the nav.
+- Both paths remain gated by the existing HR-Admin-only role scoping (§4.5/FR-14) — no new access-control surface is introduced.
+
+**Notes:** `[NOTE FOR PM]` No UX scenario or prototype covers this landing page's layout, chart treatment, or the pie-segment click-through interaction — downstream UX work needs to design all of §4.10 from scratch, consistent with this PRD's existing pattern for other request-driven additions (FR-12, FR-20, FR-24).
+
 ## 5. Non-Goals (Explicit)
 
 - **Not an LMS or LXP.** No course catalog browsing, no learning paths, no certifications. It is an assignment-and-tracking dashboard, deliberately narrow.
@@ -501,8 +550,9 @@ Either role (HR Admin or Employee) can switch the application's visual theme bet
 - Authentication & Session Gate — login required for all Assignment/Content/Watch Progress access, role-scoped sessions (FR-13, FR-14)
 - Admin-Assisted Content Sourcing — API key/credential management, Skill create/edit/delete (locked once assigned) flowing directly into content-sourcing, live YouTube/Udemy skill-link lookup or manual entry, review-and-attach to a Skill, reject the currently approved link, estimated days-to-complete (FR-16, FR-17, FR-17a, FR-18, FR-19, FR-20, FR-21, FR-22, FR-23)
 - Employee Roster Management — HR Admin CRUD on Employee records (create/view/edit/delete-or-archive/regenerate-password), roster becomes the Employee login-provisioning source (FR-24, FR-25, FR-26, FR-27, FR-28)
-- HR Admin Navigation Shell — primary navigation relocated to a left-side pane (FR-29)
+- HR Admin Navigation Shell — primary navigation relocated to a left-side pane, four entries (Dashboard, Skill Assignments, Skills, Employees) (FR-29)
 - Application Theming — Light/Dark mode, app-wide (FR-30)
+- Skill Assignment Dashboard — HR Admin landing page: org-wide stats, Assignment Progress ring, Employee Segmentation pie chart, drill-down into the full grid or a single Employee (FR-31, FR-32, FR-33)
 
 ### 6.2 Out of Scope for MVP
 
@@ -534,7 +584,7 @@ Either role (HR Admin or Employee) can switch the application's visual theme bet
 
 ## 8. Cross-Cutting NFRs
 
-- **Latency:** Readiness Dashboard loads in under 2 seconds; content/video player loads in under 3 seconds; a new Assignment appears on the dashboard within 1 second of confirm; video resume starts within 1 second of clicking Continue Watching; dashboard rows reflect a new watch-position update within 30 seconds without manual refresh (FR-11).
+- **Latency:** Readiness Dashboard loads in under 2 seconds; content/video player loads in under 3 seconds; a new Assignment appears on the dashboard within 1 second of confirm; video resume starts within 1 second of clicking Continue Watching; dashboard rows reflect a new watch-position update within 30 seconds without manual refresh (FR-11). `[ADDED 2026-09-12]` The Skill Assignment Dashboard landing page (§4.10, FR-31/32) targets the same under-2-second load budget as the Readiness Dashboard.
 - **Data integrity:** watch-progress writes are ordered by event timestamp, never by position value, so a stale out-of-order write can't overwrite a newer one while a legitimate rewind still applies correctly (FR-7). Assignment creation must not be lost by a failed dashboard refresh (FR-1), and a canceled assignment flow leaves no orphaned record (FR-1).
 - **Write integrity (anti-spoofing):** Watch Progress updates are validated server-side before being persisted or reflected as Verified — position must advance at a rate consistent with real playback (not instantaneous jumps to 100%), and updates require a valid authenticated session tied to the actual Assignment. The Verified label is only as trustworthy as this validation; it is the product's core differentiator versus self-reported data, so it can't rest on client-reported values alone.
 - **Coaching-only enforcement:** raw Watch Progress and its drill-down history (FR-9) are not exposed through any interface, export, or report shaped for performance review — access is scoped to the Readiness Dashboard's stated coaching use, enforced at the data-access layer per §9.
@@ -580,6 +630,7 @@ The corporate skills-tracking / LMS-LXP category has been consolidating since 20
 17. **`[ADDED 2026-09-11, via PRD Reviewer Gate]` The 5 already-shipped hardcoded demo employees (with live Assignment/Watch-Progress/Override history) have no defined migration path into §4.7's new Employee-CRUD-backed model.** §4.7 introduces a real schema (new columns, hashed passwords) as the roster's source of truth going forward, but doesn't say whether the existing demo employees (Rita, Casey, Morgan, Jordan, Sam) are migrated into the new shape (and with what password, since they never went through FR-24's generation flow), left running unmigrated alongside newly-created real employees, or something else. This collides with §9's "No data migration. The dashboard launches clean on 2026-07-13" constraint, which predates this update and was written for the original launch, not this one. Must be resolved before §4.7 is built.
 18. **`[ADDED 2026-09-11, via PRD Reviewer Gate]` The existing `Account` model (`backend/app/auth/models.py`, table `accounts`, columns `id, email, password_hash, role, created_at`) is already seeded (`backend/app/core/seeds.py::create_default_accounts`) but not yet wired into `authenticate()`, which still reads the plaintext `_MOCK_ACCOUNTS` dict in `auth/repository.py`.** This looks like a half-finished migration path already sitting in the repo — directly relevant to how §4.7/FR-24's login provisioning (and the real password-hashing it requires) should be built: extend/adopt this existing `Account` model, or build something new. The architecture pass for §4.7 should reconcile with this existing scaffold rather than treating Employee credential storage as a green field. See `addendum.md`'s Employee Roster Management handoff notes.
 19. **`[ADDED 2026-09-08]` An assigned Skill has no UI entry point into content-sourcing (FR-17/18/19/23) on the Skills tab, even though the FRs themselves state that capability is not gated by assignment status.** History: a "Find Content" button was added specifically to give assigned/locked Skills (which have no Edit control, FR-21/22's lock) a way to reach the lookup panel; removed the same day, from every card, per direct feedback, without a replacement named. `[UPDATED 2026-09-08]` **Confirmed at the architecture level (AD-11 point 5) that this is a UX gap, not a backend one** — the backend/API is deliberately built assignment-status-agnostic, so option (a) below would mean changing product intent, not just documenting an existing restriction. **Two ways to resolve, not decided here:** (a) narrow FR-17/18/19/23's stated scope to unassigned Skills only, formally matching what the UI now actually allows — the simpler, more consistent option, but changes the FRs' own wording (and would leave AD-11's assignment-agnostic backend over-built for what's actually needed); or (b) design a different entry point for assigned Skills (e.g., reachable from the Provenance Drill-Down modal, 01.2, alongside other per-Assignment detail, rather than the Skills tab's card grid). Revisit before FR-17/18/19/23 are built for the assigned-Skill case — not a launch-blocker for the unassigned-Skill path, which is unaffected.
+20. **`[ADDED 2026-09-12]` The Employee Segmentation "On Track" completion-rate threshold (§4.10/FR-32) is a PM-drafted default (80%), not a value confirmed by the user or sourced from any prior research/design-thinking artifact** — unlike FR-10's 7-day staleness threshold, which traces back to an original design-thinking success-metric proposal. Revisit with the user (or a lightweight HR check-in) before this ships as a hard-coded constant; also unresolved: whether "In Progress" should stay a catch-all bucket that includes not-yet-started Employees, or whether the pie chart needs a 4th "Not Started" segment instead.
 
 ## 12. Assumptions Index
 
@@ -601,3 +652,7 @@ The corporate skills-tracking / LMS-LXP category has been consolidating since 20
 - §4.7/FR-26 — Concurrent edits to the same Employee record use last-write-wins with no conflict detection, matching the lack of optimistic locking elsewhere in this PRD. Not independently confirmed to be acceptable at real pilot usage levels.
 - §4.7/FR-26 — Manager Name is treated as an unmaintained free-text snapshot, not a live reference to the named manager's own Employee record. Reasoned from FR-24's field list (no Manager-ID/FK), not independently confirmed.
 - §4.9/FR-30 — Theme scope is assumed app-wide (both HR Admin and Employee shells) and per-browser/per-device persistence (not synced to the account), since a display preference has no role-specific product logic and no backend change was requested. Not independently confirmed against a real workflow.
+- §4.10/FR-31 — "Total Skills/Videos Assigned" counts every active Assignment regardless of attached-Content type, not strictly video-content Assignments. Not independently confirmed against what the user meant by "Skill Videos."
+- §4.10/FR-32 — Employee Segmentation's "On Track" threshold (80% completion rate, no Needs Attention flags) is a PM-drafted default, not user-confirmed. See Open Question 20.
+- §4.10/FR-32 — "In Progress" is a catch-all bucket also covering Employees who haven't started anything yet, since the user's spec named only 3 pie segments. See Open Question 20.
+- §4.10/FR-32 — An Employee with zero active Assignments is excluded from the pie chart's denominator entirely, rather than being force-fit into one of the three buckets. Not independently confirmed against a real HR workflow.
