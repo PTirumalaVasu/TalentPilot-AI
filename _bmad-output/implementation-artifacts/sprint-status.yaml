@@ -1,5 +1,5 @@
 # generated: 2026-07-09
-# last_updated: 2026-09-12 (story 7-6 code review complete, status -> done)
+# last_updated: 2026-09-12 (epic-8 retrospective complete, status -> done -- all 8 epics and all 8 retrospectives now done)
 # project: TalentPilot-AI
 # project_key: NOKEY
 # tracking_system: file-system
@@ -41,7 +41,10 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-09
-last_updated: "2026-09-12 (story 8-1 code review complete, status -> done)"
+last_updated: "2026-09-12 (epic-8 retrospective completed, status -> done -- all 8 epics and all 8 retrospectives now done)"
+# epic-8 retrospective completed 2026-09-12 (bmad-retrospective). Epic 8 (Application Theming, 1 story) is the project's final epic -- confirmed against epics.md: 8 of 8, FR-30 is the last requirement, no Epic 9 exists. Per user's explicit choice, this retro ran as a project-completion readiness review rather than next-epic prep. Reviewed Story 8.1's full dev/review record: most consequential finding was ThemeContext.tsx's outermost-provider localStorage/matchMedia reads having no try/catch (would have white-screened the entire app including Login at first render in a locked-down/private-browsing context) -- fixed in code review. Also found and fixed: VideoPlayer.tsx's hardcoded '#666' captions, missed by the original Task 7 file list, a real reachable AC3/AC4 contrast gap once the surrounding page goes dark. Real, recurring-pattern finding: Story 8.1 itself had zero project-context.md entry until this retro backfilled it -- the exact gap flagged for Stories 6.6-7.3 and again for Story 7.7, now recurring a 3rd time despite the epic-7 retro's own reminder-style action item to watch for it. Per user decision, the remedy this time is a blocking workflow gate (story cannot reach 'done' without a matching project-context.md entry), not another reminder -- tracked as a new action item since editing shared skill files is a separate deliberate change, not a retro side-effect. Project-completion decision: user explicitly escalated auth/service.py::authenticate() wiring (still _MOCK_ACCOUNTS-only) to top priority, since Epic 7's entire generated/regenerated-password feature set is inert without it and no further epic exists to force the issue naturally. 3 new action items recorded (escalate authenticate() wiring to top priority; add a blocking project-context.md-entry gate to bmad-dev-story/bmad-code-review; backfill Story 8.1's project-context.md entry -- done inline during this retro). No significant discoveries required re-opening already-shipped work. Full doc: epic-8-retro-2026-09-12.md. epic-8-retrospective -> done. All 8 epics and all 8 epic retrospectives are now done -- the full epics.md roadmap (30 FRs) is complete.
+# epic-7 retrospective completed 2026-09-12 (bmad-retrospective). Reviewed all 7 Epic 7 stories via sprint-status.yaml's dev/review log, project-context.md, individual story files, and the epic-6 retro's own follow-through table. Key findings: Stories 7.1-7.6 each got a full 3-layer adversarial code review and every one found real bugs (continuing the project-wide pattern); Story 7.7 (nav shell) is the first story in this project's history to ship with zero code review; the recurring MissingGreenlet bug class hit again in Story 7.4 (4th occurrence); Story 7.5 found a real self-lockout risk (no self-deletion guard) and an audit-trail-destroying re-archive bug; Story 7.6 surfaced a new TOCTOU lesson (account for every await, not just explicit branches); most consequential: the entire real-credential system this epic built (bcrypt hashing, generated/regenerated passwords) is inert because auth/service.py::authenticate() still only checks Story 1.4's hardcoded _MOCK_ACCOUNTS -- flagged in 3 stories' Dev Notes but never tracked as an action item until now. User decided to escalate the Story 7.7 review gap into a tracked action item rather than accept it as low-risk. 5 new action items recorded. No significant discoveries requiring rework -- Epic 8 already shipped cleanly on top of Epic 7 (HrAppShell.tsx reuse worked as intended). Full doc: epic-7-retro-2026-09-12.md. epic-7-retrospective -> done, epic-7 -> done.
+# epic-6 retrospective completed 2026-09-12 (bmad-retrospective, run out of order -- Epic 7 and Epic 8 had both already shipped in full before this retro ran). Reviewed all 10 Epic 6 stories via sprint-status.yaml's own dev/review log plus the Epic 3&5 retro's follow-through. Key findings: every code review found something real (continuing the pattern from every prior retro); the YouTube-URL substring-match bug was independently discovered and fixed twice (Stories 6.7 and 6.8); Story 6.8's duration_hours-vs-duration metadata unit mismatch would have silently stuck all admin-attached content at 0% progress forever, caught only by a reviewer tracing the actual read contract; conftest.py's drop_all() DB-pool-corruption gap is now open across 3 full epics (3&5, then 6) with no owner ever completing the fix -- user explicitly decided this session to schedule it now rather than defer further. 5 new action items recorded (conftest.py fix scheduled, shared URL-hostname-validation helper, read-contract-tracing review habit, live-browser pass for 4 under-verified admin stories, targeted credential-security review per user's own feedback that Epic 6's security work carried above-average edge-case load). No significant discoveries requiring rework -- Epic 7/8 already proved the codebase stable enough to build on. Full doc: epic-6-retro-2026-09-12.md. epic-6-retrospective -> done.
 # story 8-1 code review completed 2026-09-12 (bmad-code-review, 3 parallel adversarial layers -- Blind Hunter, Edge Case Hunter, Acceptance Auditor). 1 decision-needed resolved by user (patch VideoPlayer.tsx now rather than defer -- a real reachable AC3/AC4 gap: its status captions were untouched hardcoded '#666' inline styles, borderline-failing contrast once the surrounding page goes dark), 9 patches applied, 4 deferred (deferred-work.md), 4 dismissed as non-issues after verification. Most consequential finding: ThemeContext.tsx's getInitialTheme()/getSystemTheme() called localStorage.getItem/matchMedia with no try/catch, unlike the already-guarded write path -- since ThemeProvider is the outermost provider wrapping the entire app including Login, a throw from either would have white-screened the whole app at first render. Fixed with try/catch matching index.html's inline script's already-correct equivalent. Other fixes: VideoPlayer.tsx's captions themed, index.css gained a color-scheme property (native select/scrollbar theming), AssignmentCard.tsx's progress-bar fill and button.tsx's default variant both gained dark: treatment their sibling patterns already had, ThemeContext.tsx's useMemo now defines setTheme inline (matching AuthContext.tsx's exact precedent), a duplicated matchMedia test mock centralized into setup.ts + a new shared mockMatchMedia.ts helper, Login.test.tsx gained a direct AC3 dark-rendering assertion, ThemeContext.test.tsx gained a missing test direction plus 2 crash-regression tests. Full regression re-verified: 404 passed/0 failed (400 + 4 new), tsc --noEmit unchanged at 31 pre-existing errors, vite build clean (536 modules). Live-re-verified against a rebuilt Docker frontend: crash-safety fix, color-scheme fix, and full toggle flow all confirmed working. epic-8 complete -- its only story (8-1) done. Status -> done.
 # story 8-1 implemented 2026-09-12 (bmad-dev-story/Amelia, same session as creation): ThemeContext.tsx + theme-toggle.tsx built and wired into App.tsx/HrAppShell.tsx/ContentDiscovery.tsx; Tailwind v4's @custom-variant dark declaration added to index.css plus a FOUC-prevention inline script in index.html. Scope Note 9's dark palette applied across 34 files (9 UI primitives, StatusBadge/HrAppShell/AssignmentCard, and every component reachable from Dashboard/Skills/Employees/Content Discovery/Login). 9 new tests + 4 existing test files updated (matchMedia mock + ThemeProvider wrapper, no assertion changes). Zero regressions: 400/400 frontend tests passing, tsc --noEmit unchanged at the 31-error baseline, vite build clean (536 modules). Live-verified via Playwright/Chromium installed ad hoc against a rebuilt Docker frontend container: 15/15 checks passed across AC1-AC3 (OS-preference default, toggle immediacy/persistence, all 5 named surfaces render correctly in dark with theme persisting across navigation/sign-out); Playwright removed after use. epic-8 remains in-progress (only story). Status -> review.
 # story 8-1 marked ready-for-dev 2026-09-12 (bmad-create-story, at user's explicit request to start API + UI development -- confirmed no API half exists for this story, it's frontend-only per epics.md's own Epic 8 scope). User Switches Between Light and Dark Theme (FR-30). Confirmed no UX design/prototype exists for this feature anywhere (the PRD's own FR-30 note flags the gap) -- the story makes its own documented palette and toggle-placement decisions, anchored to the epics AC's literal "alongside the user-menu" text, rather than waiting on a separate design pass. Real technical gap found and scoped: this app runs Tailwind v4.3.2, whose dark-mode-by-selector mechanism is a CSS `@custom-variant dark` declaration, not the v3 `darkMode: 'class'` config flag -- a v3-shaped implementation would silently only follow OS preference and never honor a manual toggle. New `ThemeContext.tsx` mirrors `AuthContext.tsx`'s exact Provider/hook shape; toggle placed in exactly two spots (`HrAppShell.tsx`'s top bar -- covering Dashboard/Skills/Employees for free via Story 7.7's shared-shell extraction -- and `ContentDiscovery.tsx`'s shared `UserMenuButton` header) per the epics AC's own placement anchor; Login gets no toggle (no user-menu to place one alongside) but must still render correctly in the active theme. Confirmed 3 components are dead/unreachable (`DashboardRow.tsx`, `AssignmentsList.tsx`, `ContinueWatchingCard.tsx`) via direct import-site search and scoped them out rather than theming unreachable code. epic-8 flipped backlog -> in-progress (first story created).
@@ -249,9 +252,9 @@ development_status:
   6-8-review-approve-and-estimate-days-to-complete: done
   6-9-reject-the-currently-approved-content-link: done
   6-10-skills-tab-frontend-card-grid-lookup-api-keys-watch-modal: done
-  epic-6-retrospective: optional
+  epic-6-retrospective: done
 
-  epic-7: in-progress
+  epic-7: done
   7-1-employees-module-foundation-schema-migration-and-credential-reconciliation: done
   7-2-hr-admin-creates-a-new-employee-record: done
   7-3-hr-admin-views-the-employee-roster: done
@@ -259,11 +262,11 @@ development_status:
   7-5-hr-admin-deletes-or-archives-an-employee-record: done
   7-6-hr-admin-regenerates-an-employees-password: done
   7-7-hr-admin-navigation-shell-left-pane-nav: done
-  epic-7-retrospective: optional
+  epic-7-retrospective: done
 
   epic-8: done
   8-1-user-switches-between-light-and-dark-theme: done
-  epic-8-retrospective: optional
+  epic-8-retrospective: done
 
 action_items:
   - epic: 1
@@ -332,3 +335,53 @@ action_items:
     action: "Story 7.7 (nav shell) shipped without a live-browser visual pass -- no headless browser/Playwright was available in the dev sandbox. Verified instead via a new 5-test HrAppShell.test.tsx suite, the full 391-test suite staying green, a clean `vite build`, and a class-by-class match against the already-approved 05.1-Employees-Tab.html prototype. Per the epic-1 action item on UI stories needing visual validation against their prototype before done: do a real-browser pass at 375px/768px/1280px (sidebar collapse, hamburger overlay, backdrop dismiss, active-link styling) before treating this shell as fully verified."
     owner: "Dana (QA)"
     status: open
+  - epic: 6
+    action: "Schedule a dedicated fix for the conftest.py drop_all()/no-isolated-test-DB gap now -- per user's explicit decision at the epic-6 retro, no longer acceptable as a per-story workaround. Open since Story 1.7, re-hit in Epic 3, Epic 5, and Epic 6 (3 full epics)."
+    owner: "Charlie (senior dev)"
+    status: open
+  - epic: 6
+    action: "Extract a shared, hostname-validated URL-classification helper (e.g. isYouTubeUrl(url)) and use it at both Story 6.7's and 6.8's call sites -- the substring-match YouTube-URL bug was independently found and fixed twice in the same epic."
+    owner: "Charlie (senior dev)"
+    status: open
+  - epic: 6
+    action: "Add a code-review checklist habit: when a story adds a new write path for data an existing read/derivation path already consumes, explicitly trace the read side's exact field name and unit contract before approving, not just the AC's literal wording. Motivated by Story 6.8's duration_hours-vs-duration near-miss (would have silently stuck admin-attached content at 0% forever)."
+    owner: "Amelia (dev-story / code-review workflow)"
+    status: open
+  - epic: 6
+    action: "Do a focused live-browser (Playwright) verification pass over the Skills/Content-Sourcing admin flows that shipped on automated-test coverage alone (Stories 6.5, 6.7, 6.8, 6.9), now that Epic 8 has re-proven the tooling works end-to-end."
+    owner: "Dana (QA)"
+    status: open
+  - epic: 6
+    action: "Do a targeted security review of core/secrets.py's Fernet usage and ADMIN_KEY_ENCRYPTION_SECRET handling before this credential-storage pattern is extended to any future credential type -- motivated by user feedback that Epic 6's credential/security work carried more edge cases than average."
+    owner: "Charlie (senior dev) + Dana (QA)"
+    status: open
+  - epic: 7
+    action: "Run a full 3-layer adversarial bmad-code-review pass on Story 7.7's diff (HrAppShell.tsx + the three refactored pages) -- it is the only story in the project's history to ship with no code review at all, and every review this project has ever run has found something real. Escalated per user decision at the epic-7 retro."
+    owner: "Amelia (code-review workflow)"
+    status: open
+  - epic: 7
+    action: "Wire auth/service.py::authenticate() to actually validate against the Account table's real bcrypt hashes -- currently it only checks Story 1.4's hardcoded _MOCK_ACCOUNTS plaintext dict, so every credential capability Epic 7 built (Story 7.2's generated password, Story 7.6's regenerated password) produces a password that cannot currently be used to log in. Flagged as a known gap in 3 separate stories' Dev Notes (7.1, 7.4, 7.6) but never tracked as an action item until this retro."
+    owner: "Alice (Product Owner) + Amelia (dev)"
+    status: open
+  - epic: 7
+    action: "Consolidate the recurring accessibility gap (no aria-required marker; no aria-describedby/role=alert linking a duplicate-value notice to its field) into one shared fix across NewSkillModal.tsx, EditEmployeeModal.tsx, and the Create Employee flow -- deferred 3 times now as 'matches existing precedent' without the precedent itself ever being fixed."
+    owner: "Amelia (dev)"
+    status: open
+  - epic: 7
+    action: "Keep project-context.md current going forward -- its own gap note (Stories 6.6-7.3 never logged) is a violation of the file's own first-section mandatory-update rule, not a one-off. Spot-check at the next retro."
+    owner: "Amelia (dev-story workflow)"
+    status: done
+    # Spot-check performed at the epic-8 retro (2026-09-12): the gap recurred a 3rd time (Story 8.1 had zero entry). Backfilled inline during the retro; remedy escalated to a new epic-8 action item (blocking workflow gate) since a reminder-only fix has now failed twice.
+  - epic: 8
+    action: "ESCALATED TO TOP PRIORITY (project is now feature-complete, all 8 epics done -- no further epic will naturally force this): wire auth/service.py::authenticate() to validate against the Account table's real bcrypt hashes instead of Story 1.4's hardcoded _MOCK_ACCOUNTS dict. Epic 7's entire generated/regenerated-password feature set (Stories 7.2, 7.6) is inert without this. Open since the epic-7 retro; user explicitly re-confirmed top priority at the epic-8 retro via AskUserQuestion."
+    owner: "Alice (Product Owner) + Amelia (dev)"
+    status: open
+  - epic: 8
+    action: "Add a blocking checklist step to the bmad-dev-story and bmad-code-review skills themselves: a story cannot move to 'done' without a matching project-context.md entry (creation/implementation/review). The reminder-only version of this fix (epic-7 action item above) failed within one story -- Story 8.1 shipped with zero project-context.md entry until this retro backfilled it. Per user decision at the epic-8 retro, this needs to be a workflow gate, not another retro-level reminder."
+    owner: "Amelia (dev-story / code-review workflow)"
+    status: open
+  - epic: 8
+    action: "Backfill project-context.md's missing Story 8.1 entries (creation, implementation, code review)."
+    owner: "Amelia (dev-story workflow)"
+    status: done
+    # Done inline during the epic-8 retro (2026-09-12) -- see project-context.md's Story 8.1 entry.
