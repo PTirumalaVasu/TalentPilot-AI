@@ -14,9 +14,11 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
+from app.assignments.models import Assignment
 from app.assignments.repository import list_employees
 from app.auth.models import Account
 from app.core.config import settings
+from app.core.seeds import SKILL_DATA_VIZ_ID
 from app.employees.models import Employee
 from app.employees.service import verify_password
 from app.main import app
@@ -424,3 +426,390 @@ async def test_list_employees_requires_authentication():
     async with _client() as client:
         response = await client.get("/api/admin/employees")
         assert response.status_code == 401
+
+
+# --- Story 7.4: PATCH /api/admin/employees/{employee_id} (edit, FR-26) -------
+
+
+def _update_payload(**overrides) -> dict:
+    payload = {
+        "name": "Updated Name",
+        "email": "updated@example.com",
+        "phone": "555-0199",
+        "experience": "10 years",
+        "technologies": "Go, Kubernetes",
+        "position": "Senior Engineer",
+        "project": "Project Atlas",
+        "manager_name": "Jordan Manager",
+        "location": "Austin",
+        "department": "Platform",
+    }
+    payload.update(overrides)
+    return payload
+
+
+async def test_update_employee_all_editable_fields_returns_200():
+    code = f"TST-{uuid.uuid4().hex[:8]}"
+    try:
+        async with _client() as client:
+            await _login(client)
+            created = await client.post(
+                "/api/admin/employees",
+                json={"employee_code": code, "name": "Original Name", "email": f"{code.lower()}@example.com"},
+            )
+            employee_id = created.json()["id"]
+
+            new_email = f"{code.lower()}-new@example.com"
+            response = await client.patch(
+                f"/api/admin/employees/{employee_id}",
+                json=_update_payload(email=new_email),
+            )
+
+            assert response.status_code == 200
+            body = response.json()
+            assert body["employee_code"] == code  # immutable -- never in the request, unchanged in the response
+            assert body["name"] == "Updated Name"
+            assert body["email"] == new_email
+            assert body["phone"] == "555-0199"
+            assert body["experience"] == "10 years"
+            assert body["technologies"] == "Go, Kubernetes"
+            assert body["position"] == "Senior Engineer"
+            assert body["project"] == "Project Atlas"
+            assert body["manager_name"] == "Jordan Manager"
+            assert body["location"] == "Austin"
+            assert body["department"] == "Platform"
+    finally:
+        await _delete_employee_by_code(code)
+
+
+async def test_update_employee_succeeds_regardless_of_assignment_history():
+    # AC1: no lock, unlike a Skill's identity-lock -- an Employee with real
+    # Assignment history is still fully editable.
+    code = f"TST-{uuid.uuid4().hex[:8]}"
+    employee_id = None
+    try:
+        async with _client() as client:
+            await _login(client)
+            created = await client.post(
+                "/api/admin/employees",
+                json={"employee_code": code, "name": "Has History", "email": f"{code.lower()}@example.com"},
+            )
+            employee_id = created.json()["id"]
+
+            assignment_response = await client.post(
+                "/api/assignments",
+                json={"employee_id": employee_id, "skill_id": str(SKILL_DATA_VIZ_ID)},
+            )
+            assert assignment_response.status_code == 201
+
+            response = await client.patch(
+                f"/api/admin/employees/{employee_id}",
+                json=_update_payload(email=f"{code.lower()}-2@example.com"),
+            )
+            assert response.status_code == 200
+            assert response.json()["name"] == "Updated Name"
+    finally:
+        if employee_id is not None:
+            async with _session_factory() as session:
+                await session.execute(delete(Assignment).where(Assignment.employee_id == uuid.UUID(employee_id)))
+                await session.commit()
+        await _delete_employee_by_code(code)
+
+
+async def test_update_employee_rejects_employee_code_in_body():
+    code = f"TST-{uuid.uuid4().hex[:8]}"
+    try:
+        async with _client() as client:
+            await _login(client)
+            created = await client.post(
+                "/api/admin/employees",
+                json={"employee_code": code, "name": "Original", "email": f"{code.lower()}@example.com"},
+            )
+            employee_id = created.json()["id"]
+
+            response = await client.patch(
+                f"/api/admin/employees/{employee_id}",
+                json=_update_payload(employee_code="TST-SHOULD-NOT-BE-ACCEPTED"),
+            )
+            assert response.status_code == 422
+    finally:
+        await _delete_employee_by_code(code)
+
+
+async def test_update_employee_duplicate_email_returns_409():
+    code_a = f"TST-{uuid.uuid4().hex[:8]}"
+    code_b = f"TST-{uuid.uuid4().hex[:8]}"
+    email_a = f"{code_a.lower()}@example.com"
+    try:
+        async with _client() as client:
+            await _login(client)
+            await client.post(
+                "/api/admin/employees",
+                json={"employee_code": code_a, "name": "First", "email": email_a},
+            )
+            created_b = await client.post(
+                "/api/admin/employees",
+                json={"employee_code": code_b, "name": "Second", "email": f"{code_b.lower()}@example.com"},
+            )
+            employee_b_id = created_b.json()["id"]
+
+            response = await client.patch(
+                f"/api/admin/employees/{employee_b_id}",
+                json=_update_payload(email=email_a.upper()),
+            )
+
+            assert response.status_code == 409
+            body = response.json()
+            assert body["status"] == "error"
+            assert body["code"] == "EMPLOYEE_EMAIL_CONFLICT"
+    finally:
+        await _delete_employee_by_code(code_a)
+        await _delete_employee_by_code(code_b)
+
+
+async def test_update_employee_unchanged_email_does_not_conflict():
+    # AC2/self-exclusion: re-saving with the Employee's own current email
+    # (the most common real-world save) must never 409 against itself.
+    code = f"TST-{uuid.uuid4().hex[:8]}"
+    email = f"{code.lower()}@example.com"
+    try:
+        async with _client() as client:
+            await _login(client)
+            created = await client.post(
+                "/api/admin/employees",
+                json={"employee_code": code, "name": "Original", "email": email},
+            )
+            employee_id = created.json()["id"]
+
+            response = await client.patch(
+                f"/api/admin/employees/{employee_id}",
+                json=_update_payload(email=email, name="Renamed Only"),
+            )
+
+            assert response.status_code == 200
+            assert response.json()["name"] == "Renamed Only"
+            assert response.json()["email"] == email
+    finally:
+        await _delete_employee_by_code(code)
+
+
+async def test_update_employee_case_only_email_change_still_syncs_account_email():
+    # Code review (Story 7.4): a case-only edit (e.g. "X@example.com" ->
+    # "x@example.com") is invisible to the case-insensitive conflict check
+    # but must still sync Account.email, or the two tables drift apart --
+    # exactly what Scope Note 4 requires this story to prevent.
+    code = f"TST-{uuid.uuid4().hex[:8]}"
+    try:
+        async with _client() as client:
+            await _login(client)
+            original_email = f"{code.upper()}@example.com"
+            created = await client.post(
+                "/api/admin/employees",
+                json={"employee_code": code, "name": "Original", "email": original_email},
+            )
+            employee_id = created.json()["id"]
+
+            lowercased_email = original_email.lower()
+            response = await client.patch(
+                f"/api/admin/employees/{employee_id}",
+                json=_update_payload(email=lowercased_email),
+            )
+            assert response.status_code == 200
+            assert response.json()["email"] == lowercased_email
+
+            async with _session_factory() as session:
+                account = (
+                    await session.execute(select(Account).where(Account.id == uuid.UUID(employee_id)))
+                ).scalar_one()
+                assert account.email == lowercased_email
+    finally:
+        await _delete_employee_by_code(code)
+
+
+async def test_update_employee_account_side_email_conflict_returns_409_not_500():
+    # Code review (Story 7.4): deterministically reaches the IntegrityError
+    # backstop (same technique as Story 7.2's
+    # test_create_employee_account_side_email_conflict_returns_409_not_500)
+    # by desyncing Account A's email from Employee A's, then editing Employee
+    # B's email to match the stale Account-side value -- the employees-table
+    # pre-check passes cleanly (no Employee has that email), but the
+    # accounts-table UPDATE collides on accounts.email's unique constraint,
+    # raising a genuine IntegrityError. Regression test for a real bug found
+    # in review: the backstop read `employee.id` after `db.rollback()`
+    # expired it, crashing with MissingGreenlet instead of returning 409.
+    code_a = f"TST-{uuid.uuid4().hex[:8]}"
+    code_b = f"TST-{uuid.uuid4().hex[:8]}"
+    stale_email = f"stale-{uuid.uuid4().hex[:8]}@example.com"
+    try:
+        async with _client() as client:
+            await _login(client)
+            created_a = await client.post(
+                "/api/admin/employees",
+                json={"employee_code": code_a, "name": "Employee A", "email": f"{code_a.lower()}@example.com"},
+            )
+            employee_a_id = created_a.json()["id"]
+            created_b = await client.post(
+                "/api/admin/employees",
+                json={"employee_code": code_b, "name": "Employee B", "email": f"{code_b.lower()}@example.com"},
+            )
+            employee_b_id = created_b.json()["id"]
+
+            async with _session_factory() as session:
+                account_a = (
+                    await session.execute(select(Account).where(Account.id == uuid.UUID(employee_a_id)))
+                ).scalar_one()
+                account_a.email = stale_email
+                await session.commit()
+
+            response = await client.patch(
+                f"/api/admin/employees/{employee_b_id}",
+                json=_update_payload(email=stale_email),
+            )
+
+            assert response.status_code == 409
+            assert response.json()["code"] == "EMPLOYEE_EMAIL_CONFLICT"
+
+            # The failed edit must not leave Employee B's fields half-updated
+            # -- the rollback must undo the entire transaction, not just the
+            # accounts-side write.
+            async with _session_factory() as session:
+                employee_b = (
+                    await session.execute(select(Employee).where(Employee.id == uuid.UUID(employee_b_id)))
+                ).scalar_one()
+                assert employee_b.email == f"{code_b.lower()}@example.com"
+                assert employee_b.name == "Employee B"
+    finally:
+        await _delete_employee_by_code(code_a)
+        await _delete_employee_by_code(code_b)
+
+
+async def test_update_employee_email_change_syncs_account_email():
+    code = f"TST-{uuid.uuid4().hex[:8]}"
+    try:
+        async with _client() as client:
+            await _login(client)
+            created = await client.post(
+                "/api/admin/employees",
+                json={"employee_code": code, "name": "Original", "email": f"{code.lower()}@example.com"},
+            )
+            employee_id = created.json()["id"]
+
+            new_email = f"{code.lower()}-synced@example.com"
+            response = await client.patch(
+                f"/api/admin/employees/{employee_id}",
+                json=_update_payload(email=new_email),
+            )
+            assert response.status_code == 200
+
+            async with _session_factory() as session:
+                account = (
+                    await session.execute(select(Account).where(Account.id == uuid.UUID(employee_id)))
+                ).scalar_one()
+                assert account.email == new_email
+    finally:
+        await _delete_employee_by_code(code)
+
+
+async def test_update_employee_nonexistent_returns_404():
+    async with _client() as client:
+        await _login(client)
+        response = await client.patch(
+            f"/api/admin/employees/{uuid.uuid4()}",
+            json=_update_payload(),
+        )
+        assert response.status_code == 404
+        assert response.json()["code"] == "EMPLOYEE_NOT_FOUND"
+
+
+async def test_update_employee_as_employee_returns_403():
+    code = f"TST-{uuid.uuid4().hex[:8]}"
+    try:
+        async with _client() as client:
+            await _login(client)
+            created = await client.post(
+                "/api/admin/employees",
+                json={"employee_code": code, "name": "Original", "email": f"{code.lower()}@example.com"},
+            )
+            employee_id = created.json()["id"]
+
+        async with _client() as client:
+            await _login(client, email="casey@sails.example.com")
+            response = await client.patch(
+                f"/api/admin/employees/{employee_id}",
+                json=_update_payload(),
+            )
+            assert response.status_code == 403
+    finally:
+        await _delete_employee_by_code(code)
+
+
+async def test_update_employee_requires_authentication():
+    async with _client() as client:
+        response = await client.patch(
+            f"/api/admin/employees/{uuid.uuid4()}",
+            json=_update_payload(),
+        )
+        assert response.status_code == 401
+
+
+async def test_update_employee_archived_employee_still_succeeds():
+    code = f"TST-{uuid.uuid4().hex[:8]}"
+    try:
+        async with _client() as client:
+            await _login(client)
+            created = await client.post(
+                "/api/admin/employees",
+                json={"employee_code": code, "name": "Archived", "email": f"{code.lower()}@example.com"},
+            )
+            employee_id = created.json()["id"]
+
+        async with _session_factory() as session:
+            employee = (
+                await session.execute(select(Employee).where(Employee.id == uuid.UUID(employee_id)))
+            ).scalar_one()
+            employee.archived_at = datetime.now(timezone.utc)
+            await session.commit()
+
+        async with _client() as client:
+            await _login(client)
+            response = await client.patch(
+                f"/api/admin/employees/{employee_id}",
+                json=_update_payload(email=f"{code.lower()}-archived@example.com"),
+            )
+            assert response.status_code == 200
+            assert response.json()["archived_at"] is not None
+    finally:
+        await _delete_employee_by_code(code)
+
+
+async def test_update_employee_concurrent_edits_last_write_wins():
+    # AC4: no optimistic lock -- two sequential edits (simulating two HR
+    # Admins) never conflict; the second write's values are what persist.
+    code = f"TST-{uuid.uuid4().hex[:8]}"
+    try:
+        async with _client() as client:
+            await _login(client)
+            created = await client.post(
+                "/api/admin/employees",
+                json={"employee_code": code, "name": "Original", "email": f"{code.lower()}@example.com"},
+            )
+            employee_id = created.json()["id"]
+
+            first = await client.patch(
+                f"/api/admin/employees/{employee_id}",
+                json=_update_payload(email=f"{code.lower()}-a@example.com", department="First Write"),
+            )
+            assert first.status_code == 200
+
+            second = await client.patch(
+                f"/api/admin/employees/{employee_id}",
+                json=_update_payload(email=f"{code.lower()}-b@example.com", department="Second Write"),
+            )
+            assert second.status_code == 200
+            assert second.json()["department"] == "Second Write"
+
+            final = await client.get("/api/admin/employees")
+            entry = next(e for e in final.json() if e["employee_code"] == code)
+            assert entry["department"] == "Second Write"
+    finally:
+        await _delete_employee_by_code(code)

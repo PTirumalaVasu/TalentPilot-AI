@@ -13,6 +13,7 @@ import { useAuth } from '@/lib/auth/AuthContext';
 import { logout } from '@/lib/api/authApi';
 import { Toast } from '@/components/ui/toast';
 import { listEmployees, type EmployeeResponse } from '@/lib/api/employeesApi';
+import { EditEmployeeModal } from '@/features/admin/EditEmployeeModal';
 
 const PAGE_SIZE = 15;
 const NOT_AVAILABLE_YET = 'Not available yet — coming in a future story.';
@@ -42,12 +43,20 @@ function StatusBadge({ archived }: { archived: boolean }) {
   );
 }
 
-function RowActions({ employee, onUnavailable }: { employee: EmployeeResponse; onUnavailable: () => void }) {
+function RowActions({
+  employee,
+  onEdit,
+  onUnavailable,
+}: {
+  employee: EmployeeResponse;
+  onEdit: (employee: EmployeeResponse) => void;
+  onUnavailable: () => void;
+}) {
   return (
     <>
       <button
         type="button"
-        onClick={onUnavailable}
+        onClick={() => onEdit(employee)}
         aria-label={`Edit ${employee.name}`}
         title="Edit"
         className="mr-2 px-1 text-gray-500 hover:text-blue-600"
@@ -92,6 +101,7 @@ export function EmployeesPage() {
   const [view, setView] = useState<'table' | 'card'>('table');
   const [page, setPage] = useState(1);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [editingEmployee, setEditingEmployee] = useState<EmployeeResponse | null>(null);
 
   const refetch = useCallback(async () => {
     const requestId = ++requestIdRef.current;
@@ -123,6 +133,14 @@ export function EmployeesPage() {
 
   function showUnavailableToast() {
     setToastMessage(NOT_AVAILABLE_YET);
+  }
+
+  // Story 7.4 AC3: a successful save refetches the roster (no full page
+  // reload) rather than patching local state -- reuses the page's existing
+  // refetch(), matching Story 7.3's already-established precedent.
+  function handleEmployeeSaved() {
+    setEditingEmployee(null);
+    void refetch();
   }
 
   // Code review (Story 7.3): options are derived from the archived-toggle-
@@ -342,7 +360,7 @@ export function EmployeesPage() {
                       <StatusBadge archived={employee.archived_at !== null} />
                     </td>
                     <td className="whitespace-nowrap px-4 py-3">
-                      <RowActions employee={employee} onUnavailable={showUnavailableToast} />
+                      <RowActions employee={employee} onEdit={setEditingEmployee} onUnavailable={showUnavailableToast} />
                     </td>
                   </tr>
                 ))}
@@ -366,7 +384,7 @@ export function EmployeesPage() {
                 </div>
                 <p className="mt-2 break-all text-xs text-gray-400">{employee.email}</p>
                 <div className="mt-3 border-t border-gray-100 pt-3">
-                  <RowActions employee={employee} onUnavailable={showUnavailableToast} />
+                  <RowActions employee={employee} onEdit={setEditingEmployee} onUnavailable={showUnavailableToast} />
                 </div>
               </div>
             ))}
@@ -413,6 +431,13 @@ export function EmployeesPage() {
       </main>
 
       <Toast message={toastMessage} onDismiss={() => setToastMessage(null)} />
+
+      <EditEmployeeModal
+        open={editingEmployee !== null}
+        employee={editingEmployee}
+        onClose={() => setEditingEmployee(null)}
+        onSaved={handleEmployeeSaved}
+      />
     </div>
   );
 }

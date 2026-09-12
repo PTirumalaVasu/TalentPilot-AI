@@ -7,6 +7,7 @@ Cross-module callers must go through here (AD-1).
 import asyncio
 import logging
 import secrets
+from uuid import UUID
 
 import bcrypt
 from fastapi import status
@@ -18,7 +19,12 @@ from app.auth.schemas import CurrentUser
 from app.auth.service import require_hr_admin
 from app.core.errors import AppException
 from app.employees import repository
-from app.employees.schemas import CreateEmployeeRequest, EmployeeCreatedResponse, EmployeeResponse
+from app.employees.schemas import (
+    CreateEmployeeRequest,
+    EmployeeCreatedResponse,
+    EmployeeResponse,
+    UpdateEmployeeRequest,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -161,3 +167,88 @@ async def create_employee_service(
         **EmployeeResponse.model_validate(employee).model_dump(),
         generated_password=plaintext_password,
     )
+
+
+def _not_found(employee_id: UUID) -> AppException:
+    return AppException(
+        status.HTTP_404_NOT_FOUND,
+        error_code="EMPLOYEE_NOT_FOUND",
+        message=f"No employee found with id '{employee_id}'",
+    )
+
+
+async def update_employee_service(
+    db: AsyncSession, *, current_user: CurrentUser, employee_id: UUID, request: UpdateEmployeeRequest
+) -> EmployeeResponse:
+    """Edit an existing Employee's profile fields (Story 7.4, FR-26).
+    HR_ADMIN-only (AD-6). Employee ID/Code is immutable (not part of
+    UpdateEmployeeRequest at all) and Assignment history never gates this --
+    unlike skills/service.py::update_skill_service's ever_assigned lock.
+
+    Email-conflict checks (both the pre-check and the IntegrityError
+    backstop below) exclude the Employee's own row/Account -- otherwise
+    re-saving with an unchanged email would spuriously 409 against itself
+    (the most common real-world save). If the email changed, Account.email
+    is updated too, in the same transaction, to keep the two tables from
+    drifting apart (Story 7.2 code review's explicit forward reference to
+    this story). No optimistic lock: concurrent edits are last-write-wins,
+    matching this PRD's existing precedent everywhere else.
+    """
+    require_hr_admin(current_user)
+
+    employee = await repository.get_employee_by_id(db, employee_id)
+    if employee is None:
+        raise _not_found(employee_id)
+
+    # Raw (case-sensitive) comparison, captured before repository.update_employee
+    # mutates employee.email in place -- a case-only edit (e.g. "Jane@x.com" ->
+    # "jane@x.com") must still sync Account.email (code review, Story 7.4),
+    # even though it never trips the case-insensitive conflict check below.
+    email_value_changed = request.email != employee.email
+    email_ci_changed = request.email.lower() != employee.email.lower()
+    if email_ci_changed:
+        existing_email = await repository.get_employee_by_email_ci_excluding_id(db, request.email, employee.id)
+        if existing_email is not None:
+            raise _email_conflict(request.email)
+
+    employee_data = {
+        "name": request.name,
+        "email": request.email,
+        "phone": request.phone,
+        "experience": request.experience,
+        "technologies": request.technologies,
+        "position": request.position,
+        "project": request.project,
+        "manager_name": request.manager_name,
+        "location": request.location,
+        "department": request.department,
+    }
+
+    try:
+        await repository.update_employee(db, employee, employee_data)
+        if email_value_changed:
+            await auth_repository.update_account_email(db, id=employee_id, email=request.email)
+    except IntegrityError:
+        # Race backstop, same shape as create_employee_service's: two
+        # concurrent edits could both pass the pre-check above before either
+        # commits. Re-check both tables (self-excluded) before giving up.
+        #
+        # Use employee_id (the plain function parameter), not employee.id --
+        # db.rollback() expires every attribute on `employee`, and reading one
+        # outside an active greenlet/await context raises MissingGreenlet
+        # (code review, Story 7.4; matches the existing documented pattern in
+        # content/service.py and skills/service.py's own IntegrityError
+        # backstops, which use a plain id parameter post-rollback for the
+        # same reason).
+        await db.rollback()
+        existing_email = await repository.get_employee_by_email_ci_excluding_id(db, request.email, employee_id)
+        if existing_email is not None:
+            raise _email_conflict(request.email) from None
+        existing_account = await auth_repository.get_account_by_email_ci_excluding_id(
+            db, request.email, employee_id
+        )
+        if existing_account is not None:
+            raise _email_conflict(request.email) from None
+        raise
+
+    return EmployeeResponse.model_validate(employee)

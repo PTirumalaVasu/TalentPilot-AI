@@ -48,6 +48,34 @@ class CreateEmployeeRequest(BaseModel):
         return _reject_blank(value)
 
 
+class UpdateEmployeeRequest(BaseModel):
+    """Story 7.4 (edit, FR-26): the same editable field set as
+    CreateEmployeeRequest minus employee_code, which is immutable once set
+    (UX-DR39) -- deliberately never declared here, so a client that sends it
+    fails fast with a 422 via extra="forbid" rather than silently dropping
+    it. The Edit panel always submits the complete field set (a full
+    replace), not a partial/JSON-merge-patch body."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1, max_length=255)
+    email: EmailStr = Field(max_length=255)
+
+    phone: str | None = Field(default=None, max_length=50)
+    experience: str | None = Field(default=None, max_length=255)
+    technologies: str | None = Field(default=None, max_length=500)
+    position: str | None = Field(default=None, max_length=255)
+    project: str | None = Field(default=None, max_length=255)
+    manager_name: str | None = Field(default=None, max_length=255)
+    location: str | None = Field(default=None, max_length=255)
+    department: str | None = Field(default=None, max_length=255)
+
+    @field_validator("name")
+    @classmethod
+    def required_fields_must_not_be_blank(cls, value: str) -> str:
+        return _reject_blank(value)
+
+
 class EmployeeResponse(BaseModel):
     """Default public API response for an Employee -- never carries a
     password field (the plaintext only ever exists in

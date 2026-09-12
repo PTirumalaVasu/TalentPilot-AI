@@ -24,9 +24,10 @@ vi.mock('@/lib/api/authApi', () => ({
 
 vi.mock('@/lib/api/employeesApi', () => ({
   listEmployees: vi.fn(),
+  updateEmployee: vi.fn(),
 }));
 
-import { listEmployees, type EmployeeResponse } from '@/lib/api/employeesApi';
+import { listEmployees, updateEmployee, type EmployeeResponse } from '@/lib/api/employeesApi';
 
 function makeEmployee(overrides: Partial<EmployeeResponse> = {}): EmployeeResponse {
   return {
@@ -63,6 +64,7 @@ function renderPage() {
 describe('EmployeesPage', () => {
   beforeEach(() => {
     vi.mocked(listEmployees).mockReset();
+    vi.mocked(updateEmployee).mockReset();
   });
 
   it('renders one row per fetched employee in Table view by default', async () => {
@@ -212,14 +214,53 @@ describe('EmployeesPage', () => {
     expect(screen.getByLabelText('Delete/Archive Casey Employee')).toBeInTheDocument();
   });
 
-  it('row actions and + New Employee show a "not available yet" toast', async () => {
+  it('+ New Employee and the Regenerate Password/Delete-Archive row actions show a "not available yet" toast (Story 7.4 leaves them stubbed)', async () => {
     vi.mocked(listEmployees).mockResolvedValue([makeEmployee({ name: 'Casey Employee' })]);
     const user = userEvent.setup();
     renderPage();
     await screen.findByText('Casey Employee');
 
-    await user.click(screen.getByLabelText('Edit Casey Employee'));
+    await user.click(screen.getByLabelText('Regenerate password for Casey Employee'));
     expect(await screen.findByText(/not available yet/i)).toBeInTheDocument();
+
+    await user.click(screen.getByLabelText('Delete/Archive Casey Employee'));
+    expect(await screen.findByText(/not available yet/i)).toBeInTheDocument();
+  });
+
+  it('Story 7.4: clicking a row\'s Edit button opens the modal pre-filled with that employee\'s current values', async () => {
+    vi.mocked(listEmployees).mockResolvedValue([
+      makeEmployee({ name: 'Casey Employee', employee_code: 'EMP-0001', email: 'casey@sails.example.com' }),
+    ]);
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText('Casey Employee');
+
+    await user.click(screen.getByLabelText('Edit Casey Employee'));
+
+    expect(await screen.findByTestId('edit-employee-header-title')).toHaveTextContent('Edit Casey Employee');
+    expect(screen.getByTestId('edit-employee-id-readonly')).toHaveValue('EMP-0001');
+    expect(screen.getByTestId('edit-employee-id-readonly')).toBeDisabled();
+    expect(screen.getByTestId('edit-employee-name-input')).toHaveValue('Casey Employee');
+    expect(screen.getByTestId('edit-employee-email-input')).toHaveValue('casey@sails.example.com');
+  });
+
+  it('Story 7.4 AC3: a successful save closes the modal and the roster reflects the new value without a full page reload', async () => {
+    const original = makeEmployee({ name: 'Casey Employee', employee_code: 'EMP-0001' });
+    vi.mocked(listEmployees)
+      .mockResolvedValueOnce([original])
+      .mockResolvedValueOnce([{ ...original, name: 'Casey Renamed' }]);
+    vi.mocked(updateEmployee).mockResolvedValue({ ...original, name: 'Casey Renamed' });
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText('Casey Employee');
+
+    await user.click(screen.getByLabelText('Edit Casey Employee'));
+    await screen.findByTestId('edit-employee-header-title');
+    await user.click(screen.getByTestId('edit-employee-btn-save'));
+
+    await vi.waitFor(() => expect(screen.queryByTestId('edit-employee-header-title')).not.toBeInTheDocument());
+    expect(await screen.findByText('Casey Renamed')).toBeInTheDocument();
+    expect(listEmployees).toHaveBeenCalledTimes(2);
   });
 
   it('AC6: Table view scrolls horizontally within its own container instead of compressing columns', async () => {

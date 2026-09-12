@@ -10,6 +10,8 @@ architecture creates, not a precedent to casually extend. As of the Story
 `auth.repository.create_account` rather than inlined here, so `auth/`
 remains the single place that knows `Account`'s required column shape.
 """
+from uuid import UUID
+
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -68,6 +70,42 @@ async def get_employee_by_code_or_email_ci(
     matched_by_code = next((row for row in rows if row.employee_code == employee_code), None)
     matched_by_email = next((row for row in rows if row.email.lower() == email.lower()), None)
     return matched_by_code, matched_by_email
+
+
+async def get_employee_by_id(db: AsyncSession, employee_id: UUID) -> Employee | None:
+    """Plain PK lookup for Story 7.4 (edit, FR-26). No `archived_at` filter --
+    an archived Employee can still be edited (nothing in the AC restricts
+    editing to active-only, unlike Story 7.6's regenerate-password).
+
+    `assignments/repository.py::get_employee_by_id` already exists with the
+    identical signature/behavior (used by `/api/auth/me`) -- this is a
+    deliberate, AD-1-consistent duplication (each module owns its own reads
+    of `employees`), not an oversight."""
+    result = await db.execute(select(Employee).where(Employee.id == employee_id))
+    return result.scalar_one_or_none()
+
+
+async def get_employee_by_email_ci_excluding_id(
+    db: AsyncSession, email: str, exclude_id: UUID
+) -> Employee | None:
+    """Same case-insensitive lookup as get_employee_by_email_ci, but excludes
+    one Employee by id (Story 7.4 AC2) -- so re-saving an edit with the
+    Employee's own unchanged email never spuriously conflicts with itself."""
+    result = await db.execute(
+        select(Employee).where(func.lower(Employee.email) == func.lower(email), Employee.id != exclude_id)
+    )
+    return result.scalar_one_or_none()
+
+
+async def update_employee(db: AsyncSession, employee: Employee, data: dict) -> Employee:
+    """Applies an in-place field update to an existing Employee (Story 7.4,
+    FR-26). `updated_at` bumps automatically via the model's existing
+    `onupdate=func.now()` (Story 7.1) -- no explicit set needed here."""
+    for field, value in data.items():
+        setattr(employee, field, value)
+    await db.flush()
+    await db.refresh(employee)
+    return employee
 
 
 async def create_employee_with_account(

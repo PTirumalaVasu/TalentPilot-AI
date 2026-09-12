@@ -37,6 +37,30 @@ async def get_account_by_email_ci(db: AsyncSession, email: str) -> Account | Non
     return result.scalar_one_or_none()
 
 
+async def get_account_by_email_ci_excluding_id(db: AsyncSession, email: str, exclude_id: UUID) -> Account | None:
+    """Same case-insensitive lookup as get_account_by_email_ci, but excludes
+    one Account by id -- used by employees/service.py's Story 7.4 edit-time
+    IntegrityError backstop so an Employee's own Account never spuriously
+    conflicts with itself when its email is unchanged."""
+    result = await db.execute(
+        select(Account).where(func.lower(Account.email) == func.lower(email), Account.id != exclude_id)
+    )
+    return result.scalar_one_or_none()
+
+
+async def update_account_email(db: AsyncSession, *, id: UUID, email: str) -> None:
+    """Updates an existing Account's email (Story 7.4, FR-26) -- the sole
+    write path for changing accounts.email, following create_account's
+    established centralization pattern (Story 7.2 code review) so Account's
+    column shape stays known in exactly one place. Called from
+    employees/service.py when an Employee's email is edited, to keep
+    Employee.email and Account.email from drifting apart (Story 7.2 code
+    review flagged this exact future need by name)."""
+    account = await db.get(Account, id)
+    account.email = email
+    await db.flush()
+
+
 async def create_account(db: AsyncSession, *, id: UUID, email: str, password_hash: str, role: str) -> Account:
     """Create a new Account row. The sole write path into `accounts` from
     another module (Story 7.2 code review, formalizing what
