@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import delete, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.assignments.models import Assignment
@@ -20,6 +21,7 @@ from app.auth.models import Account
 from app.core.config import settings
 from app.core.seeds import SKILL_DATA_VIZ_ID
 from app.employees.models import Employee
+from app.employees.repository import get_employee_for_update
 from app.employees.service import verify_password
 from app.main import app
 
@@ -813,3 +815,601 @@ async def test_update_employee_concurrent_edits_last_write_wins():
             assert entry["department"] == "Second Write"
     finally:
         await _delete_employee_by_code(code)
+
+
+# --- Story 7.5: DELETE /api/admin/employees/{employee_id} (delete/archive, FR-27) ---
+
+
+async def test_get_employee_for_update_locks_the_row():
+    # AC1's atomicity requirement relies on a real `FOR UPDATE` row lock
+    # (repository.get_employee_for_update's docstring explains why) --
+    # rather than a flaky forced-concurrency test, assert the function's
+    # own source actually issues one.
+    import inspect
+
+    source = inspect.getsource(get_employee_for_update)
+    assert "with_for_update()" in source
+
+
+async def test_delete_employee_with_no_assignment_history_hard_deletes():
+    code = f"TST-{uuid.uuid4().hex[:8]}"
+    try:
+        async with _client() as client:
+            await _login(client)
+            created = await client.post(
+                "/api/admin/employees",
+                json={"employee_code": code, "name": "No History", "email": f"{code.lower()}@example.com"},
+            )
+            employee_id = created.json()["id"]
+
+            response = await client.delete(f"/api/admin/employees/{employee_id}")
+
+            assert response.status_code == 200
+            assert response.json() == {"action": "deleted"}
+
+            async with _session_factory() as session:
+                employee_result = await session.execute(
+                    select(Employee).where(Employee.id == uuid.UUID(employee_id))
+                )
+                assert employee_result.scalar_one_or_none() is None
+                account_result = await session.execute(
+                    select(Account).where(Account.id == uuid.UUID(employee_id))
+                )
+                assert account_result.scalar_one_or_none() is None
+    finally:
+        await _delete_employee_by_code(code)
+
+
+async def test_delete_employee_with_assignment_history_archives_instead():
+    code = f"TST-{uuid.uuid4().hex[:8]}"
+    employee_id = None
+    try:
+        async with _client() as client:
+            await _login(client)
+            created = await client.post(
+                "/api/admin/employees",
+                json={"employee_code": code, "name": "Has History", "email": f"{code.lower()}@example.com"},
+            )
+            employee_id = created.json()["id"]
+
+            assignment_response = await client.post(
+                "/api/assignments",
+                json={"employee_id": employee_id, "skill_id": str(SKILL_DATA_VIZ_ID)},
+            )
+            assert assignment_response.status_code == 201
+            assignment_id = assignment_response.json()["id"]
+
+            response = await client.delete(f"/api/admin/employees/{employee_id}")
+
+            assert response.status_code == 200
+            assert response.json() == {"action": "archived"}
+
+            async with _session_factory() as session:
+                employee = (
+                    await session.execute(select(Employee).where(Employee.id == uuid.UUID(employee_id)))
+                ).scalar_one()
+                assert employee.archived_at is not None
+
+                account = (
+                    await session.execute(select(Account).where(Account.id == uuid.UUID(employee_id)))
+                ).scalar_one()
+                assert account.archived_at is not None
+
+                assignment = (
+                    await session.execute(select(Assignment).where(Assignment.id == uuid.UUID(assignment_id)))
+                ).scalar_one()
+                assert assignment.active is True  # untouched -- history preserved
+    finally:
+        if employee_id is not None:
+            async with _session_factory() as session:
+                await session.execute(delete(Assignment).where(Assignment.employee_id == uuid.UUID(employee_id)))
+                await session.commit()
+        await _delete_employee_by_code(code)
+
+
+async def test_delete_employee_with_only_soft_deleted_assignment_still_archives():
+    # AC1's "active or soft-deleted, per FR-15" wording -- a soft-deleted
+    # Assignment still counts as history that must be preserved.
+    code = f"TST-{uuid.uuid4().hex[:8]}"
+    employee_id = None
+    try:
+        async with _client() as client:
+            await _login(client)
+            created = await client.post(
+                "/api/admin/employees",
+                json={"employee_code": code, "name": "Soft Deleted History", "email": f"{code.lower()}@example.com"},
+            )
+            employee_id = created.json()["id"]
+
+            assignment_response = await client.post(
+                "/api/assignments",
+                json={"employee_id": employee_id, "skill_id": str(SKILL_DATA_VIZ_ID)},
+            )
+            assignment_id = assignment_response.json()["id"]
+
+        async with _session_factory() as session:
+            assignment = (
+                await session.execute(select(Assignment).where(Assignment.id == uuid.UUID(assignment_id)))
+            ).scalar_one()
+            assignment.active = False
+            assignment.deleted_at = datetime.now(timezone.utc)
+            await session.commit()
+
+        async with _client() as client:
+            await _login(client)
+            response = await client.delete(f"/api/admin/employees/{employee_id}")
+
+            assert response.status_code == 200
+            assert response.json() == {"action": "archived"}
+    finally:
+        if employee_id is not None:
+            async with _session_factory() as session:
+                await session.execute(delete(Assignment).where(Assignment.employee_id == uuid.UUID(employee_id)))
+                await session.commit()
+        await _delete_employee_by_code(code)
+
+
+async def test_delete_employee_archived_excluded_from_assignment_picker_not_hr_roster():
+    # AC2's "every Employee picker" -- confirmed to be
+    # GET /api/assignments/employees, NOT the HR roster's own
+    # GET /api/admin/employees (which keeps showing archived rows for
+    # Story 7.3's archived-toggle).
+    code = f"TST-{uuid.uuid4().hex[:8]}"
+    employee_id = None
+    try:
+        async with _client() as client:
+            await _login(client)
+            created = await client.post(
+                "/api/admin/employees",
+                json={"employee_code": code, "name": "Picker Test", "email": f"{code.lower()}@example.com"},
+            )
+            employee_id = created.json()["id"]
+
+            assignment_response = await client.post(
+                "/api/assignments",
+                json={"employee_id": employee_id, "skill_id": str(SKILL_DATA_VIZ_ID)},
+            )
+            assert assignment_response.status_code == 201
+
+            delete_response = await client.delete(f"/api/admin/employees/{employee_id}")
+            assert delete_response.json() == {"action": "archived"}
+
+            picker_response = await client.get("/api/assignments/employees")
+            assert not any(e["id"] == employee_id for e in picker_response.json())
+
+            roster_response = await client.get("/api/admin/employees")
+            assert any(e["id"] == employee_id for e in roster_response.json())
+    finally:
+        if employee_id is not None:
+            async with _session_factory() as session:
+                await session.execute(delete(Assignment).where(Assignment.employee_id == uuid.UUID(employee_id)))
+                await session.commit()
+        await _delete_employee_by_code(code)
+
+
+async def test_list_employees_has_assignment_history_reflects_reality():
+    code_no_history = f"TST-{uuid.uuid4().hex[:8]}"
+    code_has_history = f"TST-{uuid.uuid4().hex[:8]}"
+    employee_with_history_id = None
+    try:
+        async with _client() as client:
+            await _login(client)
+            created_no_history = await client.post(
+                "/api/admin/employees",
+                json={
+                    "employee_code": code_no_history,
+                    "name": "No History",
+                    "email": f"{code_no_history.lower()}@example.com",
+                },
+            )
+            assert created_no_history.json()["has_assignment_history"] is False
+
+            created_has_history = await client.post(
+                "/api/admin/employees",
+                json={
+                    "employee_code": code_has_history,
+                    "name": "Has History",
+                    "email": f"{code_has_history.lower()}@example.com",
+                },
+            )
+            employee_with_history_id = created_has_history.json()["id"]
+            await client.post(
+                "/api/assignments",
+                json={"employee_id": employee_with_history_id, "skill_id": str(SKILL_DATA_VIZ_ID)},
+            )
+
+            roster = await client.get("/api/admin/employees")
+            entries = {e["employee_code"]: e for e in roster.json()}
+            assert entries[code_no_history]["has_assignment_history"] is False
+            assert entries[code_has_history]["has_assignment_history"] is True
+    finally:
+        if employee_with_history_id is not None:
+            async with _session_factory() as session:
+                await session.execute(
+                    delete(Assignment).where(Assignment.employee_id == uuid.UUID(employee_with_history_id))
+                )
+                await session.commit()
+        await _delete_employee_by_code(code_no_history)
+        await _delete_employee_by_code(code_has_history)
+
+
+async def test_delete_employee_nonexistent_returns_404():
+    async with _client() as client:
+        await _login(client)
+        response = await client.delete(f"/api/admin/employees/{uuid.uuid4()}")
+        assert response.status_code == 404
+        assert response.json()["code"] == "EMPLOYEE_NOT_FOUND"
+
+
+async def test_delete_employee_as_employee_returns_403():
+    code = f"TST-{uuid.uuid4().hex[:8]}"
+    try:
+        async with _client() as client:
+            await _login(client)
+            created = await client.post(
+                "/api/admin/employees",
+                json={"employee_code": code, "name": "Original", "email": f"{code.lower()}@example.com"},
+            )
+            employee_id = created.json()["id"]
+
+        async with _client() as client:
+            await _login(client, email="casey@sails.example.com")
+            response = await client.delete(f"/api/admin/employees/{employee_id}")
+            assert response.status_code == 403
+    finally:
+        await _delete_employee_by_code(code)
+
+
+async def test_delete_employee_requires_authentication():
+    async with _client() as client:
+        response = await client.delete(f"/api/admin/employees/{uuid.uuid4()}")
+        assert response.status_code == 401
+
+
+async def test_hard_deleted_employee_session_not_specifically_rejected_by_ac4():
+    # Deliberate scope boundary (see auth/service.py::get_current_user's
+    # comment): AC4's text is scoped to ARCHIVED Employees, not hard-deleted
+    # ones. get_current_user only rejects when a real Account row exists
+    # AND is archived -- a *missing* Account (hard-delete) passes through
+    # unchanged, since a large pre-existing slice of this codebase's test
+    # suite mints tokens for fabricated/non-existent user_ids with no
+    # backing Account row (PR #80's non-owning-HR-admin tests,
+    # test_current_user.py, etc.) purely to exercise role/identity logic --
+    # rejecting on "no such account" would break that established
+    # convention app-wide. The hard-delete case still degrades gracefully
+    # at the one route that actually reads the Employee row: /api/auth/me
+    # 404s (its own pre-existing "Employee record not found" branch), not
+    # a generic 401.
+    code = f"TST-{uuid.uuid4().hex[:8]}"
+    email = f"{code.lower()}@example.com"
+    employee_id = None
+    try:
+        async with _client() as hr_client:
+            await _login(hr_client)
+            created = await hr_client.post(
+                "/api/admin/employees",
+                json={"employee_code": code, "name": "Soon Hard Deleted", "email": email},
+            )
+            employee_id = created.json()["id"]
+
+        from app.core.security import create_access_token
+
+        token = create_access_token(user_id=employee_id, role="EMPLOYEE")
+
+        async with _client() as employee_client:
+            employee_client.cookies.set(settings.SESSION_COOKIE_NAME, token)
+            pre_delete = await employee_client.get("/api/auth/me")
+            assert pre_delete.status_code == 200
+
+        async with _client() as hr_client:
+            await _login(hr_client)
+            delete_response = await hr_client.delete(f"/api/admin/employees/{employee_id}")
+            assert delete_response.json() == {"action": "deleted"}  # zero history -> hard-deleted
+
+        async with _client() as employee_client:
+            employee_client.cookies.set(settings.SESSION_COOKIE_NAME, token)
+            post_delete = await employee_client.get("/api/auth/me")
+            assert post_delete.status_code == 404  # not 401 -- see comment above
+    finally:
+        if employee_id is not None:
+            await _delete_employee_by_code(code)
+
+
+async def test_archived_employee_with_history_session_rejected_on_next_request():
+    # Same as above, but via the archive path (not hard-delete) -- confirms
+    # Account.archived_at (not just a missing Account row) is what
+    # get_current_user checks.
+    code = f"TST-{uuid.uuid4().hex[:8]}"
+    email = f"{code.lower()}@example.com"
+    employee_id = None
+    try:
+        async with _client() as hr_client:
+            await _login(hr_client)
+            created = await hr_client.post(
+                "/api/admin/employees",
+                json={"employee_code": code, "name": "Soon Archived With History", "email": email},
+            )
+            employee_id = created.json()["id"]
+            await hr_client.post(
+                "/api/assignments",
+                json={"employee_id": employee_id, "skill_id": str(SKILL_DATA_VIZ_ID)},
+            )
+
+        from app.core.security import create_access_token
+
+        token = create_access_token(user_id=employee_id, role="EMPLOYEE")
+
+        async with _client() as hr_client:
+            await _login(hr_client)
+            delete_response = await hr_client.delete(f"/api/admin/employees/{employee_id}")
+            assert delete_response.json() == {"action": "archived"}
+
+        async with _client() as employee_client:
+            employee_client.cookies.set(settings.SESSION_COOKIE_NAME, token)
+            response = await employee_client.get("/api/auth/me")
+            assert response.status_code == 401
+    finally:
+        if employee_id is not None:
+            async with _session_factory() as session:
+                await session.execute(delete(Assignment).where(Assignment.employee_id == uuid.UUID(employee_id)))
+                await session.commit()
+            await _delete_employee_by_code(code)
+
+
+async def test_create_assignment_against_freshly_archived_employee_returns_409():
+    # AC5: the Assignment-creation service itself must reject a stale
+    # picker's submission against an Employee archived since the picker
+    # loaded, at confirm time -- not only at picker-load time.
+    code = f"TST-{uuid.uuid4().hex[:8]}"
+    employee_id = None
+    try:
+        async with _client() as client:
+            await _login(client)
+            created = await client.post(
+                "/api/admin/employees",
+                json={"employee_code": code, "name": "Stale Picker Target", "email": f"{code.lower()}@example.com"},
+            )
+            employee_id = created.json()["id"]
+
+            # Give them history first so the delete call archives (not
+            # hard-deletes) -- AC5 is about an archived-but-still-existing
+            # employee_id being submitted against.
+            first_assignment = await client.post(
+                "/api/assignments",
+                json={"employee_id": employee_id, "skill_id": str(SKILL_DATA_VIZ_ID)},
+            )
+            assert first_assignment.status_code == 201
+
+            delete_response = await client.delete(f"/api/admin/employees/{employee_id}")
+            assert delete_response.json() == {"action": "archived"}
+
+            stale_submission = await client.post(
+                "/api/assignments",
+                json={"employee_id": employee_id, "skill_id": str(SKILL_DATA_VIZ_ID)},
+            )
+
+            assert stale_submission.status_code == 409
+            assert stale_submission.json()["code"] == "EMPLOYEE_ARCHIVED"
+
+            async with _session_factory() as session:
+                count_result = await session.execute(
+                    select(Assignment).where(Assignment.employee_id == uuid.UUID(employee_id))
+                )
+                # Only the first (pre-archive) assignment exists -- the
+                # rejected stale submission created no partial row.
+                assert len(count_result.scalars().all()) == 1
+    finally:
+        if employee_id is not None:
+            async with _session_factory() as session:
+                await session.execute(delete(Assignment).where(Assignment.employee_id == uuid.UUID(employee_id)))
+                await session.commit()
+        await _delete_employee_by_code(code)
+
+
+async def test_delete_employee_rejects_self_deletion():
+    # Code review, 2026-09-12: Rita deleting her own row would archive her
+    # (she has real assignment history) and 401 her own very next request
+    # (AC4) with no un-archive path to recover -- rejected outright instead.
+    async with _client() as client:
+        rita_token = await _login(client)
+        import jwt as pyjwt
+
+        from app.core.config import settings as app_settings
+
+        payload = pyjwt.decode(rita_token, app_settings.JWT_SECRET, algorithms=["HS256"])
+        rita_id = payload["user_id"]
+
+        response = await client.delete(f"/api/admin/employees/{rita_id}")
+
+        assert response.status_code == 409
+        assert response.json()["code"] == "CANNOT_DELETE_SELF"
+
+
+async def test_delete_employee_already_archived_is_a_no_op_that_preserves_the_original_timestamp():
+    # Code review, 2026-09-12: clicking Delete/Archive again on an
+    # already-archived row must not silently bump archived_at, destroying
+    # the original audit timestamp.
+    code = f"TST-{uuid.uuid4().hex[:8]}"
+    employee_id = None
+    try:
+        async with _client() as client:
+            await _login(client)
+            created = await client.post(
+                "/api/admin/employees",
+                json={"employee_code": code, "name": "Already Archived", "email": f"{code.lower()}@example.com"},
+            )
+            employee_id = created.json()["id"]
+            await client.post(
+                "/api/assignments",
+                json={"employee_id": employee_id, "skill_id": str(SKILL_DATA_VIZ_ID)},
+            )
+
+            first = await client.delete(f"/api/admin/employees/{employee_id}")
+            assert first.json() == {"action": "archived"}
+
+            async with _session_factory() as session:
+                original_archived_at = (
+                    await session.execute(select(Employee).where(Employee.id == uuid.UUID(employee_id)))
+                ).scalar_one().archived_at
+
+            second = await client.delete(f"/api/admin/employees/{employee_id}")
+            assert second.status_code == 200
+            assert second.json() == {"action": "archived"}
+
+            async with _session_factory() as session:
+                employee = (
+                    await session.execute(select(Employee).where(Employee.id == uuid.UUID(employee_id)))
+                ).scalar_one()
+                assert employee.archived_at == original_archived_at
+    finally:
+        if employee_id is not None:
+            async with _session_factory() as session:
+                await session.execute(delete(Assignment).where(Assignment.employee_id == uuid.UUID(employee_id)))
+                await session.commit()
+        await _delete_employee_by_code(code)
+
+
+async def test_delete_employee_has_assignment_history_covers_assigner_not_just_target():
+    # Code review, 2026-09-12: an employee who has never been an Assignment
+    # *target* but HAS acted as assigned_by for another employee must still
+    # be archived, not hard-deleted -- and the roster's has_assignment_history
+    # field must predict that correctly too (the whole point of this fix).
+    admin_code = f"TST-{uuid.uuid4().hex[:8]}"
+    target_code = f"TST-{uuid.uuid4().hex[:8]}"
+    admin_id = None
+    target_id = None
+    try:
+        async with _client() as client:
+            await _login(client)
+            created_admin = await client.post(
+                "/api/admin/employees",
+                json={"employee_code": admin_code, "name": "Acting Admin", "email": f"{admin_code.lower()}@example.com"},
+            )
+            admin_id = created_admin.json()["id"]
+            created_target = await client.post(
+                "/api/admin/employees",
+                json={"employee_code": target_code, "name": "Assignment Target", "email": f"{target_code.lower()}@example.com"},
+            )
+            target_id = created_target.json()["id"]
+
+        # Promote the new employee to HR_ADMIN directly (no signup flow for
+        # this) and mint a real session for them so they can act as assigner.
+        from app.core.security import create_access_token
+
+        async with _session_factory() as session:
+            account = (
+                await session.execute(select(Account).where(Account.id == uuid.UUID(admin_id)))
+            ).scalar_one()
+            account.role = "HR_ADMIN"
+            employee = (
+                await session.execute(select(Employee).where(Employee.id == uuid.UUID(admin_id)))
+            ).scalar_one()
+            employee.role = "HR_ADMIN"
+            await session.commit()
+
+        admin_token = create_access_token(user_id=admin_id, role="HR_ADMIN")
+        async with _client() as acting_admin_client:
+            acting_admin_client.cookies.set(settings.SESSION_COOKIE_NAME, admin_token)
+            assign_response = await acting_admin_client.post(
+                "/api/assignments",
+                json={"employee_id": target_id, "skill_id": str(SKILL_DATA_VIZ_ID)},
+            )
+            assert assign_response.status_code == 201
+
+        async with _client() as client:
+            await _login(client)
+            roster = await client.get("/api/admin/employees")
+            entry = next(e for e in roster.json() if e["id"] == admin_id)
+            assert entry["has_assignment_history"] is True  # never a target, but IS an assigner
+
+            response = await client.delete(f"/api/admin/employees/{admin_id}")
+            assert response.status_code == 200
+            assert response.json() == {"action": "archived"}  # not "deleted" -- assigned_by blocks hard-delete
+    finally:
+        if target_id is not None:
+            async with _session_factory() as session:
+                await session.execute(delete(Assignment).where(Assignment.employee_id == uuid.UUID(target_id)))
+                await session.commit()
+            await _delete_employee_by_code(target_code)
+        if admin_id is not None:
+            await _delete_employee_by_code(admin_code)
+
+
+async def test_delete_employee_integrity_error_with_fk_violation_falls_back_to_archive(monkeypatch):
+    # Code review, 2026-09-12: the IntegrityError fallback is now a
+    # defensive-only backstop (the pre-check covers all known FKs), so
+    # reaching it for a real, currently-unknown FK requires simulating one.
+    code = f"TST-{uuid.uuid4().hex[:8]}"
+    employee_id = None
+    try:
+        async with _client() as client:
+            await _login(client)
+            created = await client.post(
+                "/api/admin/employees",
+                json={"employee_code": code, "name": "Fake FK Violation", "email": f"{code.lower()}@example.com"},
+            )
+            employee_id = created.json()["id"]
+
+        from app.employees import repository as employees_repository
+
+        class _FakeOrig(Exception):
+            sqlstate = "23503"  # foreign_key_violation
+
+        async def _raise_fk_violation(db, employee):
+            raise IntegrityError("DELETE FROM employees", {}, _FakeOrig())
+
+        monkeypatch.setattr(employees_repository, "hard_delete_employee", _raise_fk_violation)
+
+        async with _client() as client:
+            await _login(client)
+            response = await client.delete(f"/api/admin/employees/{employee_id}")
+
+            assert response.status_code == 200
+            assert response.json() == {"action": "archived"}
+
+        async with _session_factory() as session:
+            employee = (
+                await session.execute(select(Employee).where(Employee.id == uuid.UUID(employee_id)))
+            ).scalar_one()
+            assert employee.archived_at is not None
+    finally:
+        if employee_id is not None:
+            await _delete_employee_by_code(code)
+
+
+async def test_delete_employee_integrity_error_without_fk_violation_reraises(monkeypatch):
+    # Code review, 2026-09-12: an unrelated integrity violation must not be
+    # silently reported as a successful archive.
+    code = f"TST-{uuid.uuid4().hex[:8]}"
+    employee_id = None
+    try:
+        async with _client() as client:
+            await _login(client)
+            created = await client.post(
+                "/api/admin/employees",
+                json={"employee_code": code, "name": "Fake Other Error", "email": f"{code.lower()}@example.com"},
+            )
+            employee_id = created.json()["id"]
+
+        from app.employees import repository as employees_repository
+
+        class _FakeOrig(Exception):
+            sqlstate = "23505"  # unique_violation -- not a FK violation
+
+        async def _raise_other_error(db, employee):
+            raise IntegrityError("DELETE FROM employees", {}, _FakeOrig())
+
+        monkeypatch.setattr(employees_repository, "hard_delete_employee", _raise_other_error)
+
+        async with _client() as client:
+            await _login(client)
+            # httpx's ASGITransport re-raises an unhandled exception to the
+            # caller rather than converting it to a response (the framework
+            # would return 500 for a real deployed server) -- asserting the
+            # exception itself is what proves this ISN'T silently swallowed
+            # and reported as a successful archive.
+            with pytest.raises(IntegrityError):
+                await client.delete(f"/api/admin/employees/{employee_id}")
+    finally:
+        if employee_id is not None:
+            await _delete_employee_by_code(code)

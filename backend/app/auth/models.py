@@ -42,3 +42,10 @@ class Account(Base):
     password_hash = Column(String(255), nullable=False)
     role = Column(Enum("HR_ADMIN", "EMPLOYEE", name="role_enum"), nullable=False)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    # Story 7.5 (FR-27/AR-25): mirrors employees.archived_at, kept in sync by
+    # employees/service.py's delete/archive service in the same transaction.
+    # Checked by get_current_user to reject an archived identity's still-valid
+    # session -- deliberately duplicated here rather than read via a cross-
+    # module Employee import, which would create a circular import with
+    # employees/service.py (which already imports this module).
+    archived_at = Column(DateTime(timezone=True), nullable=True)

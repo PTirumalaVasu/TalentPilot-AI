@@ -243,8 +243,20 @@ export function AssignmentModal({ open, onClose, onAssigned }: AssignmentModalPr
       // "assigned to the" (code review finding).
       onAssigned?.(created, selectedEmployee?.name ?? 'Employee', selectedSkill?.name ?? 'Skill');
       handleClose();
-    } catch {
-      setSubmitError("Couldn't create the assignment. Please try again.");
+    } catch (err) {
+      // Story 7.5 (FR-27) AC5: the picker may have loaded before another HR
+      // Admin archived this employee -- the server rejects at confirm time
+      // with EMPLOYEE_ARCHIVED, distinct from a generic failure, so the
+      // guidance tells the user to re-pick rather than just "try again".
+      const code =
+        err && typeof err === 'object' && 'response' in err
+          ? (err as { response?: { data?: { code?: string } } }).response?.data?.code
+          : undefined;
+      setSubmitError(
+        code === 'EMPLOYEE_ARCHIVED'
+          ? 'This employee has been archived since you started this assignment — please close and re-pick from the current roster.'
+          : "Couldn't create the assignment. Please try again."
+      );
     } finally {
       setSubmitting(false);
     }

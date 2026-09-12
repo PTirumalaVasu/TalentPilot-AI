@@ -49,13 +49,62 @@ async def list_employees(session: AsyncSession, *, search: str | None = None) ->
     """Read-only employee directory listing — not scoped by caller identity;
     any authenticated session (EMPLOYEE or HR_ADMIN) can see the roster. This
     is distinct from Assignment reads, which Story 1.3/1.5's hard-scoping
-    guidance governs; the employee directory itself has no such requirement."""
-    stmt = select(Employee)
+    guidance governs; the employee directory itself has no such requirement.
+
+    This is the Skill Assignment Flow's employee picker (Story 7.5, FR-27
+    AC2) -- unlike employees/repository.py::list_all_employees (which backs
+    the HR roster page's own archived-toggle and deliberately shows both),
+    this picker must never offer an archived Employee as an assignment
+    target, so `archived_at` is filtered here."""
+    stmt = select(Employee).where(Employee.archived_at.is_(None))
     if search:
         pattern = f"%{search}%"
         stmt = stmt.where(or_(Employee.name.ilike(pattern), Employee.email.ilike(pattern)))
     result = await session.execute(stmt)
     return list(result.scalars().all())
+
+
+async def assignment_exists_for_employee(session: AsyncSession, employee_id: uuid.UUID) -> bool:
+    """Whether this employee has ever had an Assignment created for them, OR
+    has ever acted as the assigner/deleter of one -- Story 7.5 (FR-27) AC1's
+    "zero Assignment records (active or soft-deleted)" check, broadened
+    (code review, 2026-09-12) to also cover the assigned_by/deleted_by actor
+    case: an HR Admin who has ever assigned or deleted an Assignment for
+    *another* employee cannot be hard-deleted either (their row is FK-
+    referenced), so the confirm dialog's has_assignment_history prediction
+    must reflect that too, not just target-of-assignment history. Deliberately
+    NOT filtered on `active`: a soft-deleted (Story 3.7) Assignment still
+    counts as history that must be preserved via archiving, not hard-deleted
+    alongside the Employee."""
+    stmt = (
+        select(Assignment.id)
+        .where(
+            or_(
+                Assignment.employee_id == employee_id,
+                Assignment.assigned_by == employee_id,
+                Assignment.deleted_by == employee_id,
+            )
+        )
+        .limit(1)
+    )
+    result = await session.execute(stmt)
+    return result.scalar_one_or_none() is not None
+
+
+async def distinct_employee_ids_with_assignments(session: AsyncSession) -> set[uuid.UUID]:
+    """Bulk version of assignment_exists_for_employee, for populating
+    EmployeeResponse.has_assignment_history across a full roster listing in
+    one query instead of N+1 (Story 7.5). Unfiltered on `active`, same
+    reasoning as assignment_exists_for_employee. Covers all three id columns
+    (target/assigner/deleter, code review 2026-09-12) via UNION so a single
+    set covers everyone assignment_exists_for_employee would return True
+    for."""
+    stmt = (
+        select(Assignment.employee_id)
+        .union(select(Assignment.assigned_by), select(Assignment.deleted_by))
+    )
+    result = await session.execute(stmt)
+    return {row for row in result.scalars().all() if row is not None}
 
 
 async def list_skills(session: AsyncSession, *, search: str | None = None) -> list[Skill]:

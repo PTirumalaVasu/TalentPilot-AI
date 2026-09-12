@@ -743,3 +743,17 @@ async def reject_content(db: AsyncSession, *, current_user: CurrentUser, content
 
     await repository.delete_content(db, content_id)
     await db.commit()
+
+
+async def has_admin_actor_history_for_employee(db: AsyncSession, employee_id: UUID) -> bool:
+    """Story 7.5 (FR-27) code review, 2026-09-12: exposes
+    repository.admin_actor_exists_for_employee to employees/service.py's
+    Delete/Archive confirm-dialog prediction (AD-1: content/ owns
+    AdminApiKey/ContentCatalog, so employees/ reaches them through here)."""
+    return await repository.admin_actor_exists_for_employee(db, employee_id)
+
+
+async def get_employee_ids_with_admin_actor_history(db: AsyncSession) -> set[UUID]:
+    """Bulk variant of has_admin_actor_history_for_employee, for the
+    roster's one-query-not-N+1 has_assignment_history computation."""
+    return await repository.distinct_employee_ids_with_admin_actor_history(db)

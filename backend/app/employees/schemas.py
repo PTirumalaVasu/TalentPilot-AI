@@ -8,6 +8,7 @@ carries a password field, since the plaintext password only ever exists in
 (Story 7.2 Dev Notes).
 """
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
@@ -100,6 +101,26 @@ class EmployeeResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     archived_at: datetime | None
+    # Story 7.5 (FR-27): whether this employee has ever had an Assignment
+    # created for them (active or soft-deleted) -- drives the Delete/Archive
+    # confirmation dialog's copy (UX-DR38). Not a real ORM column, so it is
+    # never populated by a bare `EmployeeResponse.model_validate(employee)`
+    # call -- the service layer must set it explicitly on the returned
+    # object afterward (see employees/service.py's `_with_assignment_history`
+    # helper). Defaults to False so a fresh EmployeeCreatedResponse (a
+    # brand-new employee, always zero Assignments by construction) needs no
+    # extra query.
+    has_assignment_history: bool = False
+
+
+class DeleteEmployeeResponse(BaseModel):
+    """Story 7.5 (FR-27): response for DELETE /api/admin/employees/{id}.
+    Deliberately carries a body (unlike skills/'s `deleteSkill`'s bodyless
+    204) because the frontend's success-toast copy depends on which action
+    actually occurred -- which the confirmation dialog's own prediction may
+    not match in a race (see the story's Scope Note 4)."""
+
+    action: Literal["deleted", "archived"]
 
 
 class EmployeeCreatedResponse(EmployeeResponse):

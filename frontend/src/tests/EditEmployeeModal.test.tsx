@@ -27,6 +27,7 @@ function makeEmployee(overrides: Partial<EmployeeResponse> = {}): EmployeeRespon
     created_at: '2026-07-01T00:00:00Z',
     updated_at: '2026-07-01T00:00:00Z',
     archived_at: null,
+    has_assignment_history: false,
     ...overrides,
   };
 }

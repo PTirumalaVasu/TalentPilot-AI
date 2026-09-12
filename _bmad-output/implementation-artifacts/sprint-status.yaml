@@ -1,5 +1,5 @@
 # generated: 2026-07-09
-# last_updated: 2026-09-11 (story 7-4 code review complete, status -> done)
+# last_updated: 2026-09-12 (story 7-5 code review complete, status -> done)
 # project: TalentPilot-AI
 # project_key: NOKEY
 # tracking_system: file-system
@@ -253,7 +253,7 @@ development_status:
   7-2-hr-admin-creates-a-new-employee-record: done
   7-3-hr-admin-views-the-employee-roster: done
   7-4-hr-admin-edits-an-employee-record: done
-  7-5-hr-admin-deletes-or-archives-an-employee-record: backlog
+  7-5-hr-admin-deletes-or-archives-an-employee-record: done
   7-6-hr-admin-regenerates-an-employees-password: backlog
   7-7-hr-admin-navigation-shell-left-pane-nav: backlog
   epic-7-retrospective: optional

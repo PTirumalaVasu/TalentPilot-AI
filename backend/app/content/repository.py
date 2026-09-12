@@ -2,7 +2,7 @@
 import json
 from uuid import UUID
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -241,3 +241,25 @@ async def get_decrypted_org_udemy_credential(db: AsyncSession) -> dict | None:
     if row is None:
         return None
     return json.loads(decrypt_secret(row.encrypted_key))
+
+
+async def admin_actor_exists_for_employee(db: AsyncSession, employee_id: UUID) -> bool:
+    """Whether this employee has ever configured an AdminApiKey or attached
+    Content -- Story 7.5 (FR-27) code review, 2026-09-12: broadens the
+    Delete/Archive confirm dialog's has_assignment_history prediction to
+    cover this content-module admin-actor history too (AD-1: content/ owns
+    both tables, so employees/ reaches them through here)."""
+    stmt = select(AdminApiKey.id).where(AdminApiKey.admin_id == employee_id).limit(1)
+    if (await db.execute(stmt)).scalar_one_or_none() is not None:
+        return True
+    stmt = select(ContentCatalog.id).where(ContentCatalog.attached_by == employee_id).limit(1)
+    return (await db.execute(stmt)).scalar_one_or_none() is not None
+
+
+async def distinct_employee_ids_with_admin_actor_history(db: AsyncSession) -> set[UUID]:
+    """Bulk version of admin_actor_exists_for_employee, for the roster's
+    one-query-not-N+1 has_assignment_history computation (Story 7.5 code
+    review)."""
+    stmt = select(AdminApiKey.admin_id).union(select(ContentCatalog.attached_by))
+    result = await db.execute(stmt)
+    return {row for row in result.scalars().all() if row is not None}

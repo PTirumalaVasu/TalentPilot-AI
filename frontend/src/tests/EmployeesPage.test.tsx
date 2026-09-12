@@ -25,9 +25,10 @@ vi.mock('@/lib/api/authApi', () => ({
 vi.mock('@/lib/api/employeesApi', () => ({
   listEmployees: vi.fn(),
   updateEmployee: vi.fn(),
+  deleteOrArchiveEmployee: vi.fn(),
 }));
 
-import { listEmployees, updateEmployee, type EmployeeResponse } from '@/lib/api/employeesApi';
+import { listEmployees, updateEmployee, deleteOrArchiveEmployee, type EmployeeResponse } from '@/lib/api/employeesApi';
 
 function makeEmployee(overrides: Partial<EmployeeResponse> = {}): EmployeeResponse {
   return {
@@ -47,6 +48,7 @@ function makeEmployee(overrides: Partial<EmployeeResponse> = {}): EmployeeRespon
     created_at: '2026-07-01T00:00:00Z',
     updated_at: '2026-07-01T00:00:00Z',
     archived_at: null,
+    has_assignment_history: false,
     ...overrides,
   };
 }
@@ -65,6 +67,7 @@ describe('EmployeesPage', () => {
   beforeEach(() => {
     vi.mocked(listEmployees).mockReset();
     vi.mocked(updateEmployee).mockReset();
+    vi.mocked(deleteOrArchiveEmployee).mockReset();
   });
 
   it('renders one row per fetched employee in Table view by default', async () => {
@@ -214,7 +217,7 @@ describe('EmployeesPage', () => {
     expect(screen.getByLabelText('Delete/Archive Casey Employee')).toBeInTheDocument();
   });
 
-  it('+ New Employee and the Regenerate Password/Delete-Archive row actions show a "not available yet" toast (Story 7.4 leaves them stubbed)', async () => {
+  it('+ New Employee and the Regenerate Password row action show a "not available yet" toast (Story 7.6 leaves it stubbed)', async () => {
     vi.mocked(listEmployees).mockResolvedValue([makeEmployee({ name: 'Casey Employee' })]);
     const user = userEvent.setup();
     renderPage();
@@ -223,8 +226,74 @@ describe('EmployeesPage', () => {
     await user.click(screen.getByLabelText('Regenerate password for Casey Employee'));
     expect(await screen.findByText(/not available yet/i)).toBeInTheDocument();
 
-    await user.click(screen.getByLabelText('Delete/Archive Casey Employee'));
+    await user.click(screen.getByTestId('employees-tab-btn-new-employee'));
     expect(await screen.findByText(/not available yet/i)).toBeInTheDocument();
+  });
+
+  it('Story 7.5: clicking a row\'s Delete/Archive button opens the real confirm modal pre-filled with that employee', async () => {
+    vi.mocked(listEmployees).mockResolvedValue([
+      makeEmployee({ name: 'Casey Employee', has_assignment_history: false }),
+    ]);
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText('Casey Employee');
+
+    await user.click(screen.getByLabelText('Delete/Archive Casey Employee'));
+
+    expect(await screen.findByTestId('delete-employee-heading')).toHaveTextContent('Remove Casey Employee?');
+    expect(screen.getByTestId('delete-employee-summary-hard')).toBeInTheDocument();
+    expect(screen.getByTestId('delete-employee-btn-confirm')).toHaveTextContent('Remove Employee');
+  });
+
+  it('Story 7.5: a completed hard-delete refetches the roster and shows the "removed" toast', async () => {
+    const original = makeEmployee({ id: 'emp-1', name: 'Casey Employee', has_assignment_history: false });
+    vi.mocked(listEmployees).mockResolvedValueOnce([original]).mockResolvedValueOnce([]);
+    vi.mocked(deleteOrArchiveEmployee).mockResolvedValue({ action: 'deleted' });
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText('Casey Employee');
+
+    await user.click(screen.getByLabelText('Delete/Archive Casey Employee'));
+    await screen.findByTestId('delete-employee-heading');
+    await user.click(screen.getByTestId('delete-employee-btn-confirm'));
+
+    await vi.waitFor(() => expect(screen.queryByTestId('delete-employee-heading')).not.toBeInTheDocument());
+    expect(deleteOrArchiveEmployee).toHaveBeenCalledWith('emp-1');
+    expect(await screen.findByText("✓ 'Casey Employee' removed.")).toBeInTheDocument();
+    expect(listEmployees).toHaveBeenCalledTimes(2);
+  });
+
+  it('Story 7.5: a completed archive shows the "archived" toast, driven by the response action not the dialog prediction', async () => {
+    // has_assignment_history: false predicted "removed" in the dialog, but
+    // the server's response says it archived instead (a race) -- the toast
+    // must reflect the response, not the stale prediction.
+    const original = makeEmployee({ id: 'emp-1', name: 'Casey Employee', has_assignment_history: false });
+    vi.mocked(listEmployees).mockResolvedValue([original]);
+    vi.mocked(deleteOrArchiveEmployee).mockResolvedValue({ action: 'archived' });
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText('Casey Employee');
+
+    await user.click(screen.getByLabelText('Delete/Archive Casey Employee'));
+    await screen.findByTestId('delete-employee-heading');
+    await user.click(screen.getByTestId('delete-employee-btn-confirm'));
+
+    expect(await screen.findByText("✓ 'Casey Employee' archived.")).toBeInTheDocument();
+  });
+
+  it('Story 7.5: a failed delete/archive shows an inline error and keeps the modal open', async () => {
+    vi.mocked(listEmployees).mockResolvedValue([makeEmployee({ name: 'Casey Employee' })]);
+    vi.mocked(deleteOrArchiveEmployee).mockRejectedValue(new Error('boom'));
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText('Casey Employee');
+
+    await user.click(screen.getByLabelText('Delete/Archive Casey Employee'));
+    await screen.findByTestId('delete-employee-heading');
+    await user.click(screen.getByTestId('delete-employee-btn-confirm'));
+
+    expect(await screen.findByText(/Couldn't complete this/)).toBeInTheDocument();
+    expect(screen.getByTestId('delete-employee-heading')).toBeInTheDocument();
   });
 
   it('Story 7.4: clicking a row\'s Edit button opens the modal pre-filled with that employee\'s current values', async () => {

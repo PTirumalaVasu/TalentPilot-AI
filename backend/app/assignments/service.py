@@ -11,7 +11,9 @@ from app.assignments.models import Assignment
 from app.assignments.repository import (
     AssignmentPage,
     _parse_user_id,
+    assignment_exists_for_employee,
     create_assignment,
+    distinct_employee_ids_with_assignments,
     find_existing_assignment,
     get_assignment_scoped_to_hr_admin,
     get_employee_by_id,
@@ -38,6 +40,7 @@ from app.auth.schemas import CurrentUser, Role
 from app.auth.service import require_hr_admin
 from app.content.service import match_content_for_skill
 from app.core.errors import AppException
+from app.employees.service import assert_employee_active_for_assignment
 from app.progress.repository import ProgressRepository
 from app.progress.service import ProgressService, ProvenanceDetail
 from app.skills.service import mark_ever_assigned
@@ -76,6 +79,21 @@ async def get_employee_by_id_service(session: AsyncSession, employee_id: uuid.UU
         return None
     return EmployeeResponse.model_validate(employee)
 
+
+async def has_assignment_history_for_employee(session: AsyncSession, employee_id: uuid.UUID) -> bool:
+    """Story 7.5 (FR-27) AC1: whether this employee has ever had an
+    Assignment created for them (active or soft-deleted). Exposed here (not
+    a repository reach-around) so employees/service.py's delete/archive
+    service can call it as a normal cross-module service dependency."""
+    return await assignment_exists_for_employee(session, employee_id)
+
+
+async def get_employee_ids_with_assignment_history(session: AsyncSession) -> set[uuid.UUID]:
+    """Bulk variant of has_assignment_history_for_employee, for populating
+    EmployeeResponse.has_assignment_history across a full roster listing in
+    one query (Story 7.5)."""
+    return await distinct_employee_ids_with_assignments(session)
+
 async def list_skills_service(session: AsyncSession, *, search: str | None = None) -> list[SkillResponse]:
     skills = await list_skills(session, search=search)
     return [SkillResponse.model_validate(skill) for skill in skills]
@@ -90,6 +108,20 @@ async def create_assignment_service(
     content_id (Story 3.4) is optional — None when no content matched or
     [Assign without content] was used."""
     require_hr_admin(current_user)
+
+    # Story 7.5 (FR-27) AC5: reject a stale Assignment-picker submission
+    # against an Employee archived after the picker loaded, before any
+    # write happens. A plain (non-locking) read here would NOT be race-safe:
+    # Postgres's FK check on the Assignment INSERT only verifies the
+    # referenced employees row still exists, not its archived_at value, so
+    # an unlocked read could observe a pre-archive value, pass, then block
+    # on the FK's implicit FOR KEY SHARE lock, then insert anyway once the
+    # archiving transaction commits. assert_employee_active_for_assignment
+    # takes the same `FOR UPDATE` row lock employees/repository.py
+    # ::get_employee_for_update uses for archiving, so this call blocks
+    # until any concurrent archive resolves and always checks the freshest
+    # committed archived_at value.
+    await assert_employee_active_for_assignment(session, request.employee_id)
 
     assignment = await create_assignment(
         session,

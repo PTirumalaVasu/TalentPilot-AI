@@ -7,6 +7,7 @@ Cross-module callers must go through here (AD-1).
 import asyncio
 import logging
 import secrets
+from datetime import datetime, timezone
 from uuid import UUID
 
 import bcrypt
@@ -21,10 +22,18 @@ from app.core.errors import AppException
 from app.employees import repository
 from app.employees.schemas import (
     CreateEmployeeRequest,
+    DeleteEmployeeResponse,
     EmployeeCreatedResponse,
     EmployeeResponse,
     UpdateEmployeeRequest,
 )
+
+# NOTE: app.assignments.service is deliberately imported locally (inside the
+# functions below), never at module level -- assignments/service.py imports
+# assert_employee_active_for_assignment from THIS module at its own module
+# level (Story 7.5 AC5), so a module-level import here would be a circular
+# import. Deferring these imports to call time is safe because by the time
+# any of these functions actually runs, both modules have finished loading.
 
 logger = logging.getLogger(__name__)
 
@@ -56,16 +65,68 @@ def generate_password() -> str:
     return "".join(secrets.choice(_PASSWORD_ALPHABET) for _ in range(_PASSWORD_LENGTH))
 
 
+def _with_assignment_history(response: EmployeeResponse, has_history: bool) -> EmployeeResponse:
+    """Sets the computed (non-ORM-column) has_assignment_history field on an
+    already-validated EmployeeResponse (Story 7.5). Pydantic v2 models are
+    mutable by default, so this is a plain attribute set after
+    `model_validate` rather than trying to smuggle the value through
+    `from_attributes=True`, which would require a real attribute on the ORM
+    object itself."""
+    response.has_assignment_history = has_history
+    return response
+
+
+async def _get_employee_ids_with_any_history(db: AsyncSession) -> set[UUID]:
+    """Union of every signal that should make has_assignment_history True
+    (Story 7.5 code review, 2026-09-12): Assignment target/assigner/deleter
+    (assignments/), AssignmentOverride set/reversed actor (progress/), and
+    AdminApiKey/ContentCatalog admin actor (content/) -- three separate
+    cross-module service calls per AD-1, one bulk query each."""
+    from app.assignments.service import get_employee_ids_with_assignment_history
+    from app.content.service import get_employee_ids_with_admin_actor_history
+    from app.progress.service import ProgressService
+
+    assignment_ids = await get_employee_ids_with_assignment_history(db)
+    override_ids = await ProgressService.get_employee_ids_with_override_actor_history(db)
+    admin_ids = await get_employee_ids_with_admin_actor_history(db)
+    return assignment_ids | override_ids | admin_ids
+
+
+async def _has_any_history_for_employee(db: AsyncSession, employee_id: UUID) -> bool:
+    """Single-employee equivalent of _get_employee_ids_with_any_history, for
+    create/update's one-row responses (Story 7.5 code review, 2026-09-12)."""
+    from app.assignments.service import has_assignment_history_for_employee
+    from app.content.service import has_admin_actor_history_for_employee
+    from app.progress.service import ProgressService
+
+    if await has_assignment_history_for_employee(db, employee_id):
+        return True
+    if await ProgressService.has_override_actor_history_for_employee(db, employee_id):
+        return True
+    return await has_admin_actor_history_for_employee(db, employee_id)
+
+
 async def list_employees_service(db: AsyncSession, *, current_user: CurrentUser) -> list[EmployeeResponse]:
     """Full Employee roster (Story 7.3, FR-25) -- HR_ADMIN-only (AD-6/FR-14),
     mirrors content.service.list_skills_with_content's require_hr_admin
     gate. Search/filter/pagination are deliberately not implemented here --
     the frontend fetches this full list once and does all of that
     client-side (Story 7.3 Scope Note 2), matching the SkillsPage/Story 6.10
-    precedent."""
+    precedent.
+
+    has_assignment_history (Story 7.5) is computed via one bulk query per
+    signal source (assignments target/assigner/deleter, progress override
+    actor, content admin-key/attach actor -- code review, 2026-09-12,
+    broadened this beyond target-only so the Delete/Archive confirm dialog's
+    prediction also covers HR Admins who've acted elsewhere in the app), not
+    per-row (N+1)."""
     require_hr_admin(current_user)
     employees = await repository.list_all_employees(db)
-    return [EmployeeResponse.model_validate(employee) for employee in employees]
+    history_ids = await _get_employee_ids_with_any_history(db)
+    return [
+        _with_assignment_history(EmployeeResponse.model_validate(employee), employee.id in history_ids)
+        for employee in employees
+    ]
 
 
 def _code_conflict(employee_code: str) -> AppException:
@@ -251,4 +312,123 @@ async def update_employee_service(
             raise _email_conflict(request.email) from None
         raise
 
-    return EmployeeResponse.model_validate(employee)
+    has_history = await _has_any_history_for_employee(db, employee_id)
+    return _with_assignment_history(EmployeeResponse.model_validate(employee), has_history)
+
+
+def _archived_conflict(employee_id: UUID) -> AppException:
+    # Code review, 2026-09-12: the message deliberately says "no longer
+    # available" rather than "has been archived" -- this same 409 also
+    # covers a genuinely nonexistent employee_id (never existed, or already
+    # hard-deleted), which isn't accurately described as "archived" either.
+    return AppException(
+        status.HTTP_409_CONFLICT,
+        error_code="EMPLOYEE_ARCHIVED",
+        message=f"Employee '{employee_id}' is no longer available — please re-pick from the current roster.",
+    )
+
+
+async def assert_employee_active_for_assignment(db: AsyncSession, employee_id: UUID) -> None:
+    """Story 7.5 (FR-27) AC5: rejects a stale Assignment-picker submission
+    against an Employee archived (or hard-deleted) since the picker loaded.
+    Called by assignments/service.py::create_assignment_service immediately
+    after its role gate, before any write.
+
+    Takes the same `FOR UPDATE` row lock delete_or_archive_employee_service
+    uses (repository.get_employee_for_update) -- a plain (non-locking) read
+    would not be race-safe here: Postgres's FK check on the Assignment
+    INSERT only verifies the referenced employees row still exists, not its
+    archived_at value, so an unlocked read could observe a pre-archive
+    value, pass, and only then block on the INSERT's own implicit lock,
+    proceeding once the archiving transaction commits regardless of the
+    now-current archived_at. Locking here first makes this call block until
+    any concurrent archive resolves and always see the freshest value."""
+    employee = await repository.get_employee_for_update(db, employee_id)
+    if employee is None or employee.archived_at is not None:
+        raise _archived_conflict(employee_id)
+
+
+async def delete_or_archive_employee_service(
+    db: AsyncSession, *, current_user: CurrentUser, employee_id: UUID
+) -> DeleteEmployeeResponse:
+    """Removes an Employee who has left (Story 7.5, FR-27). HR_ADMIN-only
+    (AD-6). Hard-deletes if the Employee has zero Assignment history ever
+    (AC1); archives instead (archived_at set) if they have any (AC2) --
+    decided atomically via a `FOR UPDATE` row lock on the employees row
+    (repository.get_employee_for_update), which blocks any concurrent
+    Assignment-creation targeting this employee for the whole duration of
+    this call (Postgres takes an implicit FOR KEY SHARE lock on the
+    referenced employees row for such an INSERT, which conflicts with
+    FOR UPDATE) -- see repository.get_employee_for_update's docstring for
+    the full reasoning.
+
+    `_has_any_history_for_employee` (code review, 2026-09-12) pre-checks
+    every FK relationship that could block a hard-delete -- Assignment
+    target/assigner/deleter, AssignmentOverride set/reversed actor, and
+    AdminApiKey/ContentCatalog admin actor -- so an HR Admin who has acted
+    in any of those roles for *other* employees is correctly archived
+    without ever attempting (and failing) a hard-delete first. The
+    `IntegrityError` fallback below remains as a defensive backstop only,
+    for any FK this pre-check doesn't yet know about (e.g. a future
+    migration adding a new `employees.id` reference) -- narrowed (code
+    review) to only treat an actual foreign-key-violation as "archive
+    instead", re-raising anything else rather than silently reporting an
+    unrelated DB defect as a successful 200.
+
+    Self-deletion is rejected outright (code review): an HR Admin archiving
+    or hard-deleting their own row would immediately invalidate their own
+    session on the very next request (AC4) with no recovery path (no
+    un-archive feature exists). Re-archiving an already-archived employee is
+    a no-op (code review): without this check, clicking Delete/Archive again
+    on an already-archived row would silently overwrite `archived_at` with a
+    new, later timestamp, destroying the original audit trail FR-27 exists
+    to preserve."""
+    require_hr_admin(current_user)
+
+    if str(employee_id) == current_user.user_id:
+        raise AppException(
+            status.HTTP_409_CONFLICT,
+            error_code="CANNOT_DELETE_SELF",
+            message="You cannot delete or archive your own account.",
+        )
+
+    employee = await repository.get_employee_for_update(db, employee_id)
+    if employee is None:
+        raise _not_found(employee_id)
+
+    if employee.archived_at is not None:
+        return DeleteEmployeeResponse(action="archived")
+
+    has_history = await _has_any_history_for_employee(db, employee_id)
+
+    if not has_history:
+        try:
+            await auth_repository.delete_account(db, id=employee_id)
+            await repository.hard_delete_employee(db, employee)
+            return DeleteEmployeeResponse(action="deleted")
+        except IntegrityError as exc:
+            # SQLSTATE 23503 = foreign_key_violation (Postgres) -- some
+            # other FK (assigned_by/deleted_by/set_by/reversed_by/admin_id/
+            # attached_by) still references this row despite the pre-check
+            # above (e.g. a future migration adding a new employees.id
+            # reference this pre-check doesn't know about yet). Any other
+            # IntegrityError is a genuine, unexpected DB defect and must not
+            # be silently reported as a successful archive.
+            if getattr(exc.orig, "sqlstate", None) != "23503":
+                raise
+            logger.exception(
+                "Hard-delete of employee %s failed on an unexpected FK reference; archiving instead",
+                employee_id,
+            )
+            # rollback releases the FOR UPDATE lock and expires `employee`'s
+            # attributes, so re-acquire both before falling through to the
+            # archive path below.
+            await db.rollback()
+            employee = await repository.get_employee_for_update(db, employee_id)
+            if employee is None:
+                raise _not_found(employee_id) from None
+
+    archived_at = datetime.now(timezone.utc)
+    await repository.archive_employee(db, employee, archived_at)
+    await auth_repository.update_account_archived_at(db, id=employee_id, archived_at=archived_at)
+    return DeleteEmployeeResponse(action="archived")

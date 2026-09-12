@@ -16,11 +16,17 @@ from app.auth.service import get_current_user
 from app.core.db import get_db
 from app.employees.schemas import (
     CreateEmployeeRequest,
+    DeleteEmployeeResponse,
     EmployeeCreatedResponse,
     EmployeeResponse,
     UpdateEmployeeRequest,
 )
-from app.employees.service import create_employee_service, list_employees_service, update_employee_service
+from app.employees.service import (
+    create_employee_service,
+    delete_or_archive_employee_service,
+    list_employees_service,
+    update_employee_service,
+)
 
 router = APIRouter(dependencies=[Depends(get_current_user)])
 
@@ -63,3 +69,16 @@ async def update_employee_route(
     return await update_employee_service(
         session, current_user=current_user, employee_id=employee_id, request=request
     )
+
+
+@router.delete("/{employee_id}", response_model=DeleteEmployeeResponse)
+async def delete_or_archive_employee_route(
+    employee_id: UUID,
+    current_user: CurrentUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+) -> DeleteEmployeeResponse:
+    """Removes an Employee who has left (Story 7.5 AC1/AC2, FR-27) --
+    hard-deletes if they have zero Assignment history, archives instead if
+    they have any. HR_ADMIN-only via delete_or_archive_employee_service's
+    require_hr_admin gate. 404 if the Employee doesn't exist."""
+    return await delete_or_archive_employee_service(session, current_user=current_user, employee_id=employee_id)

@@ -2,13 +2,16 @@
 
 import logging
 import secrets
+from uuid import UUID
 
 import jwt
 from fastapi import Depends, HTTPException, Request, Response, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.repository import find_account
+from app.auth.repository import find_account, get_account_by_id
 from app.auth.schemas import CurrentUser, Role
 from app.core.config import settings
+from app.core.db import get_db
 from app.core.errors import AppException
 from app.core.security import decode_access_token
 
@@ -69,8 +72,10 @@ def logout(request: Request, response: Response) -> None:
     )
 
 
-def get_current_user(
-    request: Request, payload: dict = Depends(get_current_token_payload)
+async def get_current_user(
+    request: Request,
+    payload: dict = Depends(get_current_token_payload),
+    db: AsyncSession = Depends(get_db),
 ) -> CurrentUser:
     role_claim = payload.get("role")
     if role_claim is None:
@@ -96,6 +101,39 @@ def get_current_user(
         )
         logger.warning("Rejected request: %s", message)
         raise HTTPException(status.HTTP_400_BAD_REQUEST, message)
+
+    # Story 7.5 (FR-27/AR-25) AC4: revalidate an ARCHIVED identity's status
+    # on every request, not only at login/token-issue time -- a still-
+    # unexpired, non-revoked JWT for an Employee archived after it was
+    # issued must still be rejected. Checked against Account.archived_at
+    # (mirrors employees.archived_at, kept in sync by employees/service.py's
+    # archive path) rather than importing app.employees.models.Employee
+    # here, which would create a circular import (employees/service.py
+    # already imports this module for require_hr_admin/account writes).
+    #
+    # Deliberately does NOT reject on a *missing* Account (hard-delete, or a
+    # user_id that isn't UUID-shaped at all) -- this layer has never
+    # required user_id to resolve to a real DB row (Story 1.3's own
+    # docstring: "not guaranteed UUID-shaped... nothing upstream enforces
+    # that"), and a large, pre-existing slice of this codebase's test suite
+    # (PR #80's non-owning-HR-admin tests, test_current_user.py,
+    # test_protected_router_gate.py, etc.) relies on exactly that -- minting
+    # tokens for fabricated UUIDs or plain strings ("rita", "casey") with no
+    # backing Account row, purely to exercise role/identity logic. AC4's own
+    # text is scoped to archived Employees specifically, not hard-deleted
+    # ones (who have zero Assignment history by construction, AC1) -- so
+    # this narrower check satisfies the AC without an irreconcilable
+    # conflict with that established convention.
+    try:
+        account_id = UUID(user_id)
+    except (ValueError, TypeError):
+        account_id = None
+
+    if account_id is not None:
+        account = await get_account_by_id(db, account_id)
+        if account is not None and account.archived_at is not None:
+            logger.warning("Rejected request: account %r has been archived", user_id)
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Account has been archived")
 
     current_user = CurrentUser(role=role, user_id=user_id)
     request.state.current_user = current_user

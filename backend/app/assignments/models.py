@@ -119,9 +119,11 @@ class OrgApiCredential(Base):
     # ondelete="SET NULL" (code review, 2026-09-10): configured_by is
     # attribution-only, not an ownership scope (see docstring above) --
     # deleting the referenced Employee should null the attribution, not
-    # block the delete with a RESTRICT violation. Unreachable today (no
-    # employee-delete endpoint exists anywhere in this codebase) but matches
-    # the column's own stated, nullable design intent.
+    # block the delete with a RESTRICT violation. Genuinely reachable since
+    # Story 7.5 added DELETE /api/admin/employees/{id} (code review,
+    # 2026-09-12 -- corrects this comment's now-stale "no employee-delete
+    # endpoint exists" premise); matches the column's own stated, nullable
+    # design intent either way.
     configured_by = Column(UUID(as_uuid=True), ForeignKey("employees.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())

@@ -14,6 +14,7 @@ import { logout } from '@/lib/api/authApi';
 import { Toast } from '@/components/ui/toast';
 import { listEmployees, type EmployeeResponse } from '@/lib/api/employeesApi';
 import { EditEmployeeModal } from '@/features/admin/EditEmployeeModal';
+import { DeleteArchiveEmployeeModal } from '@/features/admin/DeleteArchiveEmployeeModal';
 
 const PAGE_SIZE = 15;
 const NOT_AVAILABLE_YET = 'Not available yet — coming in a future story.';
@@ -46,10 +47,12 @@ function StatusBadge({ archived }: { archived: boolean }) {
 function RowActions({
   employee,
   onEdit,
+  onDeleteOrArchive,
   onUnavailable,
 }: {
   employee: EmployeeResponse;
   onEdit: (employee: EmployeeResponse) => void;
+  onDeleteOrArchive: (employee: EmployeeResponse) => void;
   onUnavailable: () => void;
 }) {
   return (
@@ -74,7 +77,7 @@ function RowActions({
       </button>
       <button
         type="button"
-        onClick={onUnavailable}
+        onClick={() => onDeleteOrArchive(employee)}
         aria-label={`Delete/Archive ${employee.name}`}
         title="Delete/Archive"
         className="px-1 text-gray-500 hover:text-red-600"
@@ -102,6 +105,7 @@ export function EmployeesPage() {
   const [page, setPage] = useState(1);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [editingEmployee, setEditingEmployee] = useState<EmployeeResponse | null>(null);
+  const [deletingEmployee, setDeletingEmployee] = useState<EmployeeResponse | null>(null);
 
   const refetch = useCallback(async () => {
     const requestId = ++requestIdRef.current;
@@ -140,6 +144,16 @@ export function EmployeesPage() {
   // refetch(), matching Story 7.3's already-established precedent.
   function handleEmployeeSaved() {
     setEditingEmployee(null);
+    void refetch();
+  }
+
+  // Story 7.5 (FR-27): the toast copy is driven by the DELETE response's
+  // `action` field, not the confirmation dialog's own prediction -- in a
+  // race, the server may have decided differently since the dialog opened.
+  function handleDeleteOrArchiveCompleted(action: 'deleted' | 'archived') {
+    const name = deletingEmployee?.name ?? 'Employee';
+    setDeletingEmployee(null);
+    setToastMessage(action === 'deleted' ? `✓ '${name}' removed.` : `✓ '${name}' archived.`);
     void refetch();
   }
 
@@ -360,7 +374,12 @@ export function EmployeesPage() {
                       <StatusBadge archived={employee.archived_at !== null} />
                     </td>
                     <td className="whitespace-nowrap px-4 py-3">
-                      <RowActions employee={employee} onEdit={setEditingEmployee} onUnavailable={showUnavailableToast} />
+                      <RowActions
+                        employee={employee}
+                        onEdit={setEditingEmployee}
+                        onDeleteOrArchive={setDeletingEmployee}
+                        onUnavailable={showUnavailableToast}
+                      />
                     </td>
                   </tr>
                 ))}
@@ -384,7 +403,12 @@ export function EmployeesPage() {
                 </div>
                 <p className="mt-2 break-all text-xs text-gray-400">{employee.email}</p>
                 <div className="mt-3 border-t border-gray-100 pt-3">
-                  <RowActions employee={employee} onEdit={setEditingEmployee} onUnavailable={showUnavailableToast} />
+                  <RowActions
+                    employee={employee}
+                    onEdit={setEditingEmployee}
+                    onDeleteOrArchive={setDeletingEmployee}
+                    onUnavailable={showUnavailableToast}
+                  />
                 </div>
               </div>
             ))}
@@ -437,6 +461,13 @@ export function EmployeesPage() {
         employee={editingEmployee}
         onClose={() => setEditingEmployee(null)}
         onSaved={handleEmployeeSaved}
+      />
+
+      <DeleteArchiveEmployeeModal
+        open={deletingEmployee !== null}
+        employee={deletingEmployee}
+        onClose={() => setDeletingEmployee(null)}
+        onCompleted={handleDeleteOrArchiveCompleted}
       />
     </div>
   );

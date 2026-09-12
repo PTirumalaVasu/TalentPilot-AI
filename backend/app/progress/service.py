@@ -482,3 +482,17 @@ class ProgressService:
         progress = await ProgressRepository.get_progress_for_assignment(session, assignment.id)
         await session.commit()
         return ProgressService.get_provenance_detail(assignment, progress, new_override, video_duration)
+
+    @staticmethod
+    async def has_override_actor_history_for_employee(session: AsyncSession, employee_id: UUID) -> bool:
+        """Story 7.5 (FR-27) code review, 2026-09-12: exposes
+        ProgressRepository's override-actor check to employees/service.py's
+        Delete/Archive confirm-dialog prediction (AD-1: progress/ owns
+        AssignmentOverride, so employees/ reaches it through here)."""
+        return await ProgressRepository.override_actor_exists_for_employee(session, employee_id)
+
+    @staticmethod
+    async def get_employee_ids_with_override_actor_history(session: AsyncSession) -> set[UUID]:
+        """Bulk variant of has_override_actor_history_for_employee, for the
+        roster's one-query-not-N+1 has_assignment_history computation."""
+        return await ProgressRepository.distinct_employee_ids_with_override_actor_history(session)

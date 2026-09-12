@@ -10,6 +10,7 @@ architecture creates, not a precedent to casually extend. As of the Story
 `auth.repository.create_account` rather than inlined here, so `auth/`
 remains the single place that knows `Account`'s required column shape.
 """
+from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import func, or_, select
@@ -103,6 +104,42 @@ async def update_employee(db: AsyncSession, employee: Employee, data: dict) -> E
     `onupdate=func.now()` (Story 7.1) -- no explicit set needed here."""
     for field, value in data.items():
         setattr(employee, field, value)
+    await db.flush()
+    await db.refresh(employee)
+    return employee
+
+
+async def get_employee_for_update(db: AsyncSession, employee_id: UUID) -> Employee | None:
+    """Plain PK lookup with a row-level `FOR UPDATE` lock (Story 7.5, FR-27
+    AC1/AC2's "check-then-act must be one atomic operation" requirement).
+
+    `assignments.employee_id` has `ForeignKey("employees.id")` -- Postgres
+    takes an implicit `FOR KEY SHARE` lock on the referenced `employees` row
+    whenever a new `Assignment` INSERT targets it, and `FOR KEY SHARE`
+    conflicts with `FOR UPDATE`. So holding this lock for the whole duration
+    of the delete/archive service call blocks any concurrent
+    `create_assignment_service` call targeting this same employee from
+    completing its INSERT until this transaction commits or rolls back --
+    no SERIALIZABLE isolation level or advisory lock needed."""
+    result = await db.execute(select(Employee).where(Employee.id == employee_id).with_for_update())
+    return result.scalar_one_or_none()
+
+
+async def hard_delete_employee(db: AsyncSession, employee: Employee) -> None:
+    """Physically removes an Employee row (Story 7.5 AC1 -- zero Assignment
+    history). Caller is responsible for deleting the paired `Account` row
+    first (AR-24: `Account.id == Employee.id`) and for catching
+    `IntegrityError` if some other FK (e.g. `assigned_by`) still references
+    this row."""
+    await db.delete(employee)
+    await db.flush()
+
+
+async def archive_employee(db: AsyncSession, employee: Employee, archived_at: datetime) -> Employee:
+    """Soft-deletes an Employee by setting `archived_at` (Story 7.5 AC2).
+    `updated_at` bumps automatically via the model's existing
+    `onupdate=func.now()` (Story 7.1)."""
+    employee.archived_at = archived_at
     await db.flush()
     await db.refresh(employee)
     return employee

@@ -330,6 +330,22 @@ describe('AssignmentModal', () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 
+  it('Story 7.5 AC5: shows re-pick guidance (not the generic error) on a 409 EMPLOYEE_ARCHIVED response', async () => {
+    vi.mocked(createAssignment).mockRejectedValueOnce({
+      response: { status: 409, data: { code: 'EMPLOYEE_ARCHIVED' } },
+    });
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    render(<AssignmentModal open onClose={onClose} />);
+
+    await goToStep3(user);
+    await user.click(screen.getByRole('button', { name: /^assign$/i }));
+
+    expect(await screen.findByText(/archived since you started this assignment/i)).toBeInTheDocument();
+    expect(screen.queryByText(/couldn't create the assignment/i)).not.toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
   it('closes without side effects when Cancel is clicked on Step 1', async () => {
     const onClose = vi.fn();
     const user = userEvent.setup();

@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID, uuid4
 
-from sqlalchemy import select, text
+from sqlalchemy import or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
@@ -495,3 +495,33 @@ class ProgressRepository:
                 deduped[override.assignment_id] = override
 
         return list(deduped.values())
+
+    @staticmethod
+    async def override_actor_exists_for_employee(session: AsyncSession, employee_id: UUID) -> bool:
+        """Whether this employee has ever set or reversed an
+        AssignmentOverride -- Story 7.5 (FR-27) code review, 2026-09-12:
+        broadens the Delete/Archive confirm dialog's has_assignment_history
+        prediction to cover HR Admin override-actor history too, not just
+        Assignment target/assigner/deleter history (assignments/repository.py
+        ::assignment_exists_for_employee)."""
+        stmt = (
+            select(AssignmentOverride.id)
+            .where(
+                or_(
+                    AssignmentOverride.set_by == employee_id,
+                    AssignmentOverride.reversed_by == employee_id,
+                )
+            )
+            .limit(1)
+        )
+        result = await session.execute(stmt)
+        return result.scalar_one_or_none() is not None
+
+    @staticmethod
+    async def distinct_employee_ids_with_override_actor_history(session: AsyncSession) -> set[UUID]:
+        """Bulk version of override_actor_exists_for_employee, for the
+        roster's one-query-not-N+1 has_assignment_history computation
+        (Story 7.5 code review)."""
+        stmt = select(AssignmentOverride.set_by).union(select(AssignmentOverride.reversed_by))
+        result = await session.execute(stmt)
+        return {row for row in result.scalars().all() if row is not None}

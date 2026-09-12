@@ -1,4 +1,5 @@
 """Repository layer for the auth module. Only this module's own code may query its tables."""
+from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -58,6 +59,49 @@ async def update_account_email(db: AsyncSession, *, id: UUID, email: str) -> Non
     review flagged this exact future need by name)."""
     account = await db.get(Account, id)
     account.email = email
+    await db.flush()
+
+
+async def get_account_by_id(db: AsyncSession, id: UUID) -> Account | None:
+    """Plain PK lookup (Story 7.5, FR-27/AR-25) -- used by
+    auth/service.py::get_current_user to check whether the session's
+    identity has since been archived or deleted (AC4)."""
+    return await db.get(Account, id)
+
+
+async def update_account_archived_at(db: AsyncSession, *, id: UUID, archived_at: datetime) -> None:
+    """Mirrors employees.archived_at onto the paired Account row (Story 7.5,
+    AR-25) -- called from employees/service.py's archive path in the same
+    transaction as employees.archived_at, so get_current_user can reject an
+    archived identity's still-valid session without importing
+    app.employees.models.Employee (which would create a circular import,
+    since employees/service.py already imports this module).
+
+    Guards for `None` (code review, 2026-09-12) -- mirrors delete_account's
+    guard just below; AR-24's 1:1 invariant makes a missing Account
+    unreachable in normal operation, but this is the same class of bug
+    Story 7.4's review flagged as "deferred but becomes reachable the
+    moment this story ships" for update_account_email, and the guard is
+    free."""
+    account = await db.get(Account, id)
+    if account is None:
+        return
+    account.archived_at = archived_at
+    await db.flush()
+
+
+async def delete_account(db: AsyncSession, *, id: UUID) -> None:
+    """Physically removes an Account row (Story 7.5, FR-27 AC1's hard-delete
+    path) -- called from employees/service.py before hard-deleting the
+    paired Employee row (AR-24: Account.id == Employee.id), since Account
+    has a FK to employees.id with no cascade. Guards for `None` (unlike the
+    pre-existing gap on update_account_email, deferred in Story 7.4 as
+    "currently unreachable" -- this story's hard-delete path makes a missing
+    Account newly reachable, so this must not repeat that gap)."""
+    account = await db.get(Account, id)
+    if account is None:
+        return
+    await db.delete(account)
     await db.flush()
 
 
