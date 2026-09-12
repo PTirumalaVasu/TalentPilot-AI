@@ -1413,3 +1413,195 @@ async def test_delete_employee_integrity_error_without_fk_violation_reraises(mon
     finally:
         if employee_id is not None:
             await _delete_employee_by_code(code)
+
+
+# --- Story 7.6: POST /{employee_id}/regenerate-password (FR-28) ---------
+
+
+async def test_regenerate_password_active_employee_returns_new_password():
+    code = f"TST-{uuid.uuid4().hex[:8]}"
+    try:
+        async with _client() as client:
+            await _login(client)
+            created = await client.post(
+                "/api/admin/employees",
+                json={"employee_code": code, "name": "Regen Target", "email": f"{code.lower()}@example.com"},
+            )
+            employee_id = created.json()["id"]
+            old_password = created.json()["generated_password"]
+
+            response = await client.post(f"/api/admin/employees/{employee_id}/regenerate-password")
+
+            assert response.status_code == 200
+            body = response.json()
+            assert body["id"] == employee_id
+            assert body["employee_code"] == code
+            assert "generated_password" in body
+            new_password = body["generated_password"]
+            assert len(new_password) == 12
+            assert new_password != old_password
+            assert body["has_assignment_history"] is False
+
+            async with _session_factory() as session:
+                account_result = await session.execute(select(Account).where(Account.id == employee_id))
+                account = account_result.scalar_one()
+                # AC1: the previous password must stop working, not just "a
+                # new one exists" -- confirms real invalidation, not a no-op.
+                assert verify_password(old_password, account.password_hash) is False
+                assert verify_password(new_password, account.password_hash) is True
+    finally:
+        await _delete_employee_by_code(code)
+
+
+async def test_regenerate_password_reflects_true_has_assignment_history():
+    # Code review, 2026-09-12: the other AC1 test only covers a
+    # freshly-created employee (always False by construction) -- this
+    # exercises the True branch, mirroring
+    # test_list_employees_has_assignment_history_reflects_reality's pattern.
+    code = f"TST-{uuid.uuid4().hex[:8]}"
+    employee_id = None
+    try:
+        async with _client() as client:
+            await _login(client)
+            created = await client.post(
+                "/api/admin/employees",
+                json={"employee_code": code, "name": "Has History Regen", "email": f"{code.lower()}@example.com"},
+            )
+            employee_id = created.json()["id"]
+            assert created.json()["has_assignment_history"] is False
+
+            await client.post(
+                "/api/assignments",
+                json={"employee_id": employee_id, "skill_id": str(SKILL_DATA_VIZ_ID)},
+            )
+
+            response = await client.post(f"/api/admin/employees/{employee_id}/regenerate-password")
+
+            assert response.status_code == 200
+            assert response.json()["has_assignment_history"] is True
+    finally:
+        if employee_id is not None:
+            async with _session_factory() as session:
+                await session.execute(delete(Assignment).where(Assignment.employee_id == uuid.UUID(employee_id)))
+                await session.commit()
+        await _delete_employee_by_code(code)
+
+
+async def test_regenerate_password_never_leaks_plaintext_via_list_endpoint():
+    code = f"TST-{uuid.uuid4().hex[:8]}"
+    try:
+        async with _client() as client:
+            await _login(client)
+            created = await client.post(
+                "/api/admin/employees",
+                json={"employee_code": code, "name": "No Leak", "email": f"{code.lower()}@example.com"},
+            )
+            employee_id = created.json()["id"]
+
+            await client.post(f"/api/admin/employees/{employee_id}/regenerate-password")
+
+            list_response = await client.get("/api/admin/employees")
+            assert list_response.status_code == 200
+            entry = next(e for e in list_response.json() if e["id"] == employee_id)
+            assert "generated_password" not in entry
+            assert "password" not in entry
+            assert "password_hash" not in entry
+    finally:
+        await _delete_employee_by_code(code)
+
+
+async def test_regenerate_password_archived_employee_returns_409_and_leaves_hash_unchanged():
+    code = f"TST-{uuid.uuid4().hex[:8]}"
+    try:
+        async with _client() as client:
+            await _login(client)
+            created = await client.post(
+                "/api/admin/employees",
+                json={"employee_code": code, "name": "Archived Regen", "email": f"{code.lower()}@example.com"},
+            )
+            employee_id = created.json()["id"]
+
+        async with _session_factory() as session:
+            result = await session.execute(select(Employee).where(Employee.id == employee_id))
+            employee = result.scalar_one()
+            employee.archived_at = datetime.now(timezone.utc)
+            await session.commit()
+
+        async with _session_factory() as session:
+            account_result = await session.execute(select(Account).where(Account.id == employee_id))
+            hash_before = account_result.scalar_one().password_hash
+
+        async with _client() as client:
+            await _login(client)
+            response = await client.post(f"/api/admin/employees/{employee_id}/regenerate-password")
+
+            assert response.status_code == 409
+            assert response.json()["code"] == "EMPLOYEE_ARCHIVED"
+
+        async with _session_factory() as session:
+            account_result = await session.execute(select(Account).where(Account.id == employee_id))
+            assert account_result.scalar_one().password_hash == hash_before
+    finally:
+        await _delete_employee_by_code(code)
+
+
+async def test_regenerate_password_does_not_touch_profile_fields():
+    code = f"TST-{uuid.uuid4().hex[:8]}"
+    try:
+        async with _client() as client:
+            await _login(client)
+            created = await client.post(
+                "/api/admin/employees",
+                json={
+                    "employee_code": code,
+                    "name": "Profile Untouched",
+                    "email": f"{code.lower()}@example.com",
+                    "department": "Engineering",
+                },
+            )
+            employee_id = created.json()["id"]
+
+            response = await client.post(f"/api/admin/employees/{employee_id}/regenerate-password")
+
+            assert response.status_code == 200
+            body = response.json()
+            # AC3: this is a credential operation, not a profile edit --
+            # every non-credential field is unchanged.
+            assert body["employee_code"] == code
+            assert body["name"] == "Profile Untouched"
+            assert body["department"] == "Engineering"
+    finally:
+        await _delete_employee_by_code(code)
+
+
+async def test_regenerate_password_nonexistent_employee_returns_404():
+    async with _client() as client:
+        await _login(client)
+        response = await client.post(f"/api/admin/employees/{uuid.uuid4()}/regenerate-password")
+        assert response.status_code == 404
+        assert response.json()["code"] == "EMPLOYEE_NOT_FOUND"
+
+
+async def test_regenerate_password_employee_session_returns_403():
+    code = f"TST-{uuid.uuid4().hex[:8]}"
+    try:
+        async with _client() as client:
+            await _login(client)
+            created = await client.post(
+                "/api/admin/employees",
+                json={"employee_code": code, "name": "Role Gate", "email": f"{code.lower()}@example.com"},
+            )
+            employee_id = created.json()["id"]
+
+        async with _client() as client:
+            await _login(client, email="casey@sails.example.com")
+            response = await client.post(f"/api/admin/employees/{employee_id}/regenerate-password")
+            assert response.status_code == 403
+    finally:
+        await _delete_employee_by_code(code)
+
+
+async def test_regenerate_password_unauthenticated_returns_401():
+    async with _client() as client:
+        response = await client.post(f"/api/admin/employees/{uuid.uuid4()}/regenerate-password")
+        assert response.status_code == 401

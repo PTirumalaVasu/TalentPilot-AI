@@ -69,3 +69,18 @@ export async function deleteOrArchiveEmployee(id: string): Promise<DeleteOrArchi
   const response = await apiClient.delete<DeleteOrArchiveEmployeeResponse>(`/api/admin/employees/${id}`);
   return response.data;
 }
+
+export interface RegeneratePasswordResponse extends EmployeeResponse {
+  /** Story 7.6 (FR-28): the new plaintext password, returned exactly once --
+   * same one-time-reveal contract as EmployeeCreatedResponse.generated_password
+   * (Story 7.2). Never persisted, never retrievable via any other endpoint. */
+  generated_password: string;
+}
+
+/** POST /api/admin/employees/{id}/regenerate-password (Story 7.6, FR-28) --
+ * invalidates the previous password immediately and returns the new
+ * plaintext exactly once. No request body. */
+export async function regeneratePassword(id: string): Promise<RegeneratePasswordResponse> {
+  const response = await apiClient.post<RegeneratePasswordResponse>(`/api/admin/employees/${id}/regenerate-password`);
+  return response.data;
+}

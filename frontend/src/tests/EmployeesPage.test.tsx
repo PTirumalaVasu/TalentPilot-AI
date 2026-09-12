@@ -26,9 +26,16 @@ vi.mock('@/lib/api/employeesApi', () => ({
   listEmployees: vi.fn(),
   updateEmployee: vi.fn(),
   deleteOrArchiveEmployee: vi.fn(),
+  regeneratePassword: vi.fn(),
 }));
 
-import { listEmployees, updateEmployee, deleteOrArchiveEmployee, type EmployeeResponse } from '@/lib/api/employeesApi';
+import {
+  listEmployees,
+  updateEmployee,
+  deleteOrArchiveEmployee,
+  regeneratePassword,
+  type EmployeeResponse,
+} from '@/lib/api/employeesApi';
 
 function makeEmployee(overrides: Partial<EmployeeResponse> = {}): EmployeeResponse {
   return {
@@ -68,6 +75,7 @@ describe('EmployeesPage', () => {
     vi.mocked(listEmployees).mockReset();
     vi.mocked(updateEmployee).mockReset();
     vi.mocked(deleteOrArchiveEmployee).mockReset();
+    vi.mocked(regeneratePassword).mockReset();
   });
 
   it('renders one row per fetched employee in Table view by default', async () => {
@@ -217,17 +225,37 @@ describe('EmployeesPage', () => {
     expect(screen.getByLabelText('Delete/Archive Casey Employee')).toBeInTheDocument();
   });
 
-  it('+ New Employee and the Regenerate Password row action show a "not available yet" toast (Story 7.6 leaves it stubbed)', async () => {
+  it('+ New Employee shows a "not available yet" toast (Story 7.2\'s frontend half is still stubbed)', async () => {
     vi.mocked(listEmployees).mockResolvedValue([makeEmployee({ name: 'Casey Employee' })]);
     const user = userEvent.setup();
     renderPage();
     await screen.findByText('Casey Employee');
 
-    await user.click(screen.getByLabelText('Regenerate password for Casey Employee'));
-    expect(await screen.findByText(/not available yet/i)).toBeInTheDocument();
-
     await user.click(screen.getByTestId('employees-tab-btn-new-employee'));
     expect(await screen.findByText(/not available yet/i)).toBeInTheDocument();
+  });
+
+  it('Story 7.6: clicking a row\'s Regenerate Password button opens the real modal pre-filled with that employee', async () => {
+    vi.mocked(listEmployees).mockResolvedValue([makeEmployee({ name: 'Casey Employee' })]);
+    vi.mocked(regeneratePassword).mockResolvedValue({
+      ...makeEmployee({ name: 'Casey Employee' }),
+      generated_password: 'aB3dEfGhJkLm',
+    });
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText('Casey Employee');
+
+    await user.click(screen.getByLabelText('Regenerate password for Casey Employee'));
+
+    expect(await screen.findByTestId('regen-password-heading')).toHaveTextContent(
+      'Regenerate password for Casey Employee?'
+    );
+
+    await user.click(screen.getByTestId('regen-password-btn-confirm'));
+    expect(await screen.findByTestId('password-reveal-value')).toHaveTextContent('aB3dEfGhJkLm');
+
+    await user.click(screen.getByTestId('password-reveal-btn-copy'));
+    expect(await screen.findByText('Password copied to clipboard')).toBeInTheDocument();
   });
 
   it('Story 7.5: clicking a row\'s Delete/Archive button opens the real confirm modal pre-filled with that employee', async () => {

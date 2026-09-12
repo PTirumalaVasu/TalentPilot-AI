@@ -105,6 +105,24 @@ async def delete_account(db: AsyncSession, *, id: UUID) -> None:
     await db.flush()
 
 
+async def update_account_password_hash(db: AsyncSession, *, id: UUID, password_hash: str) -> None:
+    """Updates an existing Account's password_hash (Story 7.6, FR-28) -- the
+    sole write path for changing accounts.password_hash after creation,
+    following update_account_email's/update_account_archived_at's established
+    centralization pattern so Account's column shape stays known in exactly
+    one place. Called from employees/service.py's regenerate-password flow.
+
+    Guards for `None` (mirrors update_account_archived_at/delete_account's
+    established pattern, Story 7.5 code review) -- AR-24's 1:1 invariant
+    makes a missing Account unreachable in normal operation, but the guard is
+    free."""
+    account = await db.get(Account, id)
+    if account is None:
+        return
+    account.password_hash = password_hash
+    await db.flush()
+
+
 async def create_account(db: AsyncSession, *, id: UUID, email: str, password_hash: str, role: str) -> Account:
     """Create a new Account row. The sole write path into `accounts` from
     another module (Story 7.2 code review, formalizing what

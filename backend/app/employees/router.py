@@ -25,6 +25,7 @@ from app.employees.service import (
     create_employee_service,
     delete_or_archive_employee_service,
     list_employees_service,
+    regenerate_password_service,
     update_employee_service,
 )
 
@@ -69,6 +70,20 @@ async def update_employee_route(
     return await update_employee_service(
         session, current_user=current_user, employee_id=employee_id, request=request
     )
+
+
+@router.post("/{employee_id}/regenerate-password", response_model=EmployeeCreatedResponse)
+async def regenerate_password_route(
+    employee_id: UUID,
+    current_user: CurrentUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+) -> EmployeeCreatedResponse:
+    """Regenerates an Employee's password (Story 7.6 AC1/AC2/AC3, FR-28) --
+    invalidates the previous password immediately, returns the new plaintext
+    exactly once, same response shape as create_employee_route. 404 if the
+    Employee doesn't exist, 409 EMPLOYEE_ARCHIVED if archived -- HR_ADMIN-only
+    via regenerate_password_service's require_hr_admin gate."""
+    return await regenerate_password_service(session, current_user=current_user, employee_id=employee_id)
 
 
 @router.delete("/{employee_id}", response_model=DeleteEmployeeResponse)

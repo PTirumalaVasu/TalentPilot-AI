@@ -316,6 +316,15 @@ async def update_employee_service(
     return _with_assignment_history(EmployeeResponse.model_validate(employee), has_history)
 
 
+# Shared by _archived_conflict and _archived_for_regenerate_conflict below
+# (Story 7.6 code review, 2026-09-12) -- both raise a 409 for genuinely the
+# same underlying condition ("this employee is archived"), just reached from
+# different actions with different follow-up guidance in the message text.
+# A single constant keeps the error_code itself from silently drifting
+# between the two call sites on a future edit.
+_EMPLOYEE_ARCHIVED_ERROR_CODE = "EMPLOYEE_ARCHIVED"
+
+
 def _archived_conflict(employee_id: UUID) -> AppException:
     # Code review, 2026-09-12: the message deliberately says "no longer
     # available" rather than "has been archived" -- this same 409 also
@@ -323,7 +332,7 @@ def _archived_conflict(employee_id: UUID) -> AppException:
     # hard-deleted), which isn't accurately described as "archived" either.
     return AppException(
         status.HTTP_409_CONFLICT,
-        error_code="EMPLOYEE_ARCHIVED",
+        error_code=_EMPLOYEE_ARCHIVED_ERROR_CODE,
         message=f"Employee '{employee_id}' is no longer available — please re-pick from the current roster.",
     )
 
@@ -346,6 +355,60 @@ async def assert_employee_active_for_assignment(db: AsyncSession, employee_id: U
     employee = await repository.get_employee_for_update(db, employee_id)
     if employee is None or employee.archived_at is not None:
         raise _archived_conflict(employee_id)
+
+
+def _archived_for_regenerate_conflict(employee_id: UUID) -> AppException:
+    # Distinct message from _archived_conflict above (Story 7.5's Assignment-
+    # picker re-pick text would be confusing here) -- shares the same
+    # error_code constant, since both are genuinely "this employee is
+    # archived" conditions, just reached from different actions.
+    return AppException(
+        status.HTTP_409_CONFLICT,
+        error_code=_EMPLOYEE_ARCHIVED_ERROR_CODE,
+        message=f"Employee '{employee_id}' is archived — password regeneration only applies to active employees.",
+    )
+
+
+async def regenerate_password_service(
+    db: AsyncSession, *, current_user: CurrentUser, employee_id: UUID
+) -> EmployeeCreatedResponse:
+    """Generates a new password for an existing, active Employee (Story 7.6,
+    FR-28). HR_ADMIN-only (AD-6). Reuses EmployeeCreatedResponse as-is (per
+    the epic AC's explicit "reusing the same response/display mechanism" as
+    Story 7.2's create flow) -- the new plaintext password exists only in
+    this function's return value, never logged, never stored anywhere except
+    its bcrypt hash in Account.
+
+    Uses repository.get_employee_for_update's FOR UPDATE row lock (code
+    review, 2026-09-12) -- the original reasoning that "there is no
+    multi-step decision a concurrent write could invalidate mid-flight" did
+    not account for the await between this function's own archived_at check
+    and its password write (bcrypt hashing via asyncio.to_thread takes
+    ~100-300ms): without the lock, a concurrent
+    delete_or_archive_employee_service call could archive this employee
+    inside that window and this call would still hand back a freshly-working
+    password for a now-archived employee, violating AC2. Holding the lock
+    for the duration of this call blocks any concurrent archive attempt
+    until this transaction commits, exactly like
+    assert_employee_active_for_assignment does for the same class of race."""
+    require_hr_admin(current_user)
+
+    employee = await repository.get_employee_for_update(db, employee_id)
+    if employee is None:
+        raise _not_found(employee_id)
+
+    if employee.archived_at is not None:
+        raise _archived_for_regenerate_conflict(employee_id)
+
+    plaintext_password = generate_password()
+    password_hash = await asyncio.to_thread(hash_password, plaintext_password)
+    await auth_repository.update_account_password_hash(db, id=employee_id, password_hash=password_hash)
+
+    has_history = await _has_any_history_for_employee(db, employee_id)
+    return EmployeeCreatedResponse(
+        **_with_assignment_history(EmployeeResponse.model_validate(employee), has_history).model_dump(),
+        generated_password=plaintext_password,
+    )
 
 
 async def delete_or_archive_employee_service(

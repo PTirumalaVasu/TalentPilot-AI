@@ -3,10 +3,10 @@
  * client-side over one fetched roster (Scope Note 2) -- mirrors
  * SkillsPage.tsx's fetch-once-then-filter shape (Story 6.10).
  *
- * Row/card action icons (Edit, Regenerate Password, Delete/Archive) and
- * "+ New Employee" render per the UX spec (aria-labels required, AC5) but are
- * not wired to real behavior yet -- their modals belong to Stories 7.2's
- * still-unbuilt frontend half, 7.4, 7.5, and 7.6 (Scope Note 6). */
+ * Row/card action icons (Edit, Regenerate Password, Delete/Archive -- all
+ * three now wired, Stories 7.4/7.5/7.6) and "+ New Employee" render per the
+ * UX spec (aria-labels required, AC5). "+ New Employee" remains stubbed --
+ * its modal belongs to Story 7.2's still-unbuilt frontend half. */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth/AuthContext';
@@ -15,6 +15,7 @@ import { Toast } from '@/components/ui/toast';
 import { listEmployees, type EmployeeResponse } from '@/lib/api/employeesApi';
 import { EditEmployeeModal } from '@/features/admin/EditEmployeeModal';
 import { DeleteArchiveEmployeeModal } from '@/features/admin/DeleteArchiveEmployeeModal';
+import { RegeneratePasswordModal } from '@/features/admin/RegeneratePasswordModal';
 
 const PAGE_SIZE = 15;
 const NOT_AVAILABLE_YET = 'Not available yet — coming in a future story.';
@@ -47,13 +48,13 @@ function StatusBadge({ archived }: { archived: boolean }) {
 function RowActions({
   employee,
   onEdit,
+  onRegeneratePassword,
   onDeleteOrArchive,
-  onUnavailable,
 }: {
   employee: EmployeeResponse;
   onEdit: (employee: EmployeeResponse) => void;
+  onRegeneratePassword: (employee: EmployeeResponse) => void;
   onDeleteOrArchive: (employee: EmployeeResponse) => void;
-  onUnavailable: () => void;
 }) {
   return (
     <>
@@ -68,7 +69,7 @@ function RowActions({
       </button>
       <button
         type="button"
-        onClick={onUnavailable}
+        onClick={() => onRegeneratePassword(employee)}
         aria-label={`Regenerate password for ${employee.name}`}
         title="Regenerate Password"
         className="mr-2 px-1 text-gray-500 hover:text-blue-600"
@@ -105,6 +106,7 @@ export function EmployeesPage() {
   const [page, setPage] = useState(1);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [editingEmployee, setEditingEmployee] = useState<EmployeeResponse | null>(null);
+  const [regeneratingEmployee, setRegeneratingEmployee] = useState<EmployeeResponse | null>(null);
   const [deletingEmployee, setDeletingEmployee] = useState<EmployeeResponse | null>(null);
 
   const refetch = useCallback(async () => {
@@ -145,6 +147,13 @@ export function EmployeesPage() {
   function handleEmployeeSaved() {
     setEditingEmployee(null);
     void refetch();
+  }
+
+  // Story 7.6 (FR-28): regenerating a password changes nothing visible in
+  // the roster (no field on EmployeeResponse reflects it), so no refetch()
+  // is needed here, unlike handleEmployeeSaved/handleDeleteOrArchiveCompleted.
+  function handlePasswordCopied() {
+    setToastMessage('Password copied to clipboard');
   }
 
   // Story 7.5 (FR-27): the toast copy is driven by the DELETE response's
@@ -377,8 +386,8 @@ export function EmployeesPage() {
                       <RowActions
                         employee={employee}
                         onEdit={setEditingEmployee}
+                        onRegeneratePassword={setRegeneratingEmployee}
                         onDeleteOrArchive={setDeletingEmployee}
-                        onUnavailable={showUnavailableToast}
                       />
                     </td>
                   </tr>
@@ -406,8 +415,8 @@ export function EmployeesPage() {
                   <RowActions
                     employee={employee}
                     onEdit={setEditingEmployee}
+                    onRegeneratePassword={setRegeneratingEmployee}
                     onDeleteOrArchive={setDeletingEmployee}
-                    onUnavailable={showUnavailableToast}
                   />
                 </div>
               </div>
@@ -461,6 +470,13 @@ export function EmployeesPage() {
         employee={editingEmployee}
         onClose={() => setEditingEmployee(null)}
         onSaved={handleEmployeeSaved}
+      />
+
+      <RegeneratePasswordModal
+        open={regeneratingEmployee !== null}
+        employee={regeneratingEmployee}
+        onClose={() => setRegeneratingEmployee(null)}
+        onCopied={handlePasswordCopied}
       />
 
       <DeleteArchiveEmployeeModal
