@@ -188,21 +188,21 @@ export function ContentLookupPanel({
       <Dialog open={open} onClose={onClose} titleId={titleId} className="max-h-[85vh] max-w-2xl overflow-y-auto">
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 id={titleId} className="text-lg font-bold text-gray-900" data-testid="content-lookup-header-title">
+            <h2 id={titleId} className="text-lg font-bold text-gray-900 dark:text-gray-100" data-testid="content-lookup-header-title">
               Find content for {skill.name}
             </h2>
             <button
               type="button"
               aria-label="Close"
               onClick={onClose}
-              className="text-xl leading-none text-gray-400 hover:text-gray-600"
+              className="text-xl leading-none text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
               data-testid="content-lookup-btn-close"
             >
               ✕
             </button>
           </div>
 
-          <div className="space-y-2 border-b border-gray-100 pb-4" data-testid="content-lookup-edit-fields">
+          <div className="space-y-2 border-b border-gray-100 pb-4 dark:border-gray-800" data-testid="content-lookup-edit-fields">
             <div>
               <Label htmlFor="content-lookup-edit-name-input">Skill name</Label>
               <Input
@@ -218,7 +218,7 @@ export function ContentLookupPanel({
               <textarea
                 id="content-lookup-edit-description-input"
                 rows={2}
-                className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm"
+                className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 disabled={savingName}
@@ -226,7 +226,7 @@ export function ContentLookupPanel({
               />
             </div>
             {saveNameDuplicate && (
-              <p className="text-sm text-amber-800" data-testid="content-lookup-edit-duplicate-notice">
+              <p className="text-sm text-amber-800 dark:text-amber-300" data-testid="content-lookup-edit-duplicate-notice">
                 A skill named &apos;{name.trim()}&apos; already exists.
               </p>
             )}
@@ -244,7 +244,7 @@ export function ContentLookupPanel({
 
           {skill.approved_content && !contentRejected && (
             <div data-testid="content-lookup-current-approved-section">
-              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Currently Approved</h3>
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Currently Approved</h3>
               <CurrentlyApprovedContent
                 contentId={skill.approved_content.id}
                 title={skill.approved_content.title}
@@ -260,13 +260,13 @@ export function ContentLookupPanel({
             </div>
           )}
 
-          <div className="flex gap-1 border-b border-gray-200">
+          <div className="flex gap-1 border-b border-gray-200 dark:border-gray-700">
             <button
               type="button"
               className={
                 tab === 'search'
-                  ? 'border-b-2 border-blue-600 px-3 py-2 text-sm font-medium text-blue-600'
-                  : 'border-b-2 border-transparent px-3 py-2 text-sm font-medium text-gray-500 hover:text-gray-700'
+                  ? 'border-b-2 border-blue-600 px-3 py-2 text-sm font-medium text-blue-600 dark:border-blue-400 dark:text-blue-400'
+                  : 'border-b-2 border-transparent px-3 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
               }
               onClick={() => setTab('search')}
               data-testid="content-lookup-tab-search"
@@ -277,8 +277,8 @@ export function ContentLookupPanel({
               type="button"
               className={
                 tab === 'manual'
-                  ? 'border-b-2 border-blue-600 px-3 py-2 text-sm font-medium text-blue-600'
-                  : 'border-b-2 border-transparent px-3 py-2 text-sm font-medium text-gray-500 hover:text-gray-700'
+                  ? 'border-b-2 border-blue-600 px-3 py-2 text-sm font-medium text-blue-600 dark:border-blue-400 dark:text-blue-400'
+                  : 'border-b-2 border-transparent px-3 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
               }
               onClick={() => setTab('manual')}
               data-testid="content-lookup-tab-manual"
@@ -289,7 +289,7 @@ export function ContentLookupPanel({
 
           {tab === 'search' && (
             <div className="space-y-4" data-testid="content-lookup-search-view">
-              <p className="text-xs text-gray-400">Search Results — unreviewed candidates, not yet approved</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500">Search Results — unreviewed candidates, not yet approved</p>
               <div className="flex flex-wrap items-center gap-4">
                 <label className="flex items-center gap-1.5 text-sm">
                   <input
@@ -302,7 +302,7 @@ export function ContentLookupPanel({
                   YouTube
                 </label>
                 {!youtubeConfigured && (
-                  <span className="text-xs text-gray-500">
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
                     Add a YouTube key to search this source.{' '}
                     <button type="button" className="underline" onClick={onOpenApiKeys}>
                       Manage API Keys
@@ -320,7 +320,7 @@ export function ContentLookupPanel({
                   Udemy
                 </label>
                 {!udemyConfigured && (
-                  <span className="text-xs text-gray-500">
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
                     Add the Udemy credential to search this source.{' '}
                     <button type="button" className="underline" onClick={onOpenApiKeys}>
                       Manage API Keys
@@ -344,12 +344,12 @@ export function ContentLookupPanel({
 
               {searchResult && youtubeChecked && (
                 <div data-testid="content-lookup-results-youtube">
-                  <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">YouTube</h3>
+                  <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">YouTube</h3>
                   {youtubeSourceError && (
-                    <p className="text-xs text-gray-500">Couldn&apos;t search YouTube right now. Try again</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Couldn&apos;t search YouTube right now. Try again</p>
                   )}
                   {!youtubeSourceError && youtubeResults.length === 0 && (
-                    <p className="text-xs text-gray-500">No results from YouTube for this skill.</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">No results from YouTube for this skill.</p>
                   )}
                   <div className="space-y-2">
                     {youtubeResults.map((candidate) => (
@@ -375,12 +375,12 @@ export function ContentLookupPanel({
 
               {searchResult && udemyChecked && (
                 <div data-testid="content-lookup-results-udemy">
-                  <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Udemy</h3>
+                  <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Udemy</h3>
                   {udemySourceError && (
-                    <p className="text-xs text-gray-500">Couldn&apos;t search Udemy right now. Try again</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Couldn&apos;t search Udemy right now. Try again</p>
                   )}
                   {!udemySourceError && udemyResults.length === 0 && (
-                    <p className="text-xs text-gray-500">No results from Udemy for this skill.</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">No results from Udemy for this skill.</p>
                   )}
                   <div className="space-y-2">
                     {udemyResults.map((candidate) => (
@@ -455,9 +455,9 @@ function ResultCard({
     <Card data-testid="content-lookup-result-card">
       <CardContent className="flex items-center justify-between gap-3 space-y-0 p-4">
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium text-gray-900">{candidate.title}</p>
+          <p className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">{candidate.title}</p>
           {days != null && (
-            <p className="text-xs text-gray-500" data-testid="content-lookup-result-days-estimate">
+            <p className="text-xs text-gray-500 dark:text-gray-400" data-testid="content-lookup-result-days-estimate">
               ≈ {days} day{days === 1 ? '' : 's'} to complete (at 5 hrs/day)
             </p>
           )}

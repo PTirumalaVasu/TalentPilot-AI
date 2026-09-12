@@ -286,10 +286,10 @@ export function AssignmentModal({ open, onClose, onAssigned }: AssignmentModalPr
     <Dialog open={open} onClose={handleClose} titleId={TITLE_ID}>
       <div className="mb-4 flex items-start justify-between">
         <div>
-          <h2 id={TITLE_ID} className="text-xl font-semibold">
+          <h2 id={TITLE_ID} className="text-xl font-semibold text-gray-900 dark:text-gray-100">
             Assign a New Skill
           </h2>
-          <p aria-live="polite" className="mt-1 text-sm text-gray-500">
+          <p aria-live="polite" className="mt-1 text-sm text-gray-500 dark:text-gray-400">
             Step {step} of {TOTAL_STEPS}
           </p>
         </div>
@@ -298,7 +298,7 @@ export function AssignmentModal({ open, onClose, onAssigned }: AssignmentModalPr
           onClick={handleClose}
           disabled={submitting || duplicateChecking}
           aria-label="Close"
-          className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-talentpilot-500 disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-talentpilot-500 disabled:cursor-not-allowed disabled:opacity-50 dark:text-gray-500 dark:hover:bg-gray-800 dark:hover:text-gray-300"
         >
           ×
         </button>
@@ -306,7 +306,7 @@ export function AssignmentModal({ open, onClose, onAssigned }: AssignmentModalPr
 
       {step === 1 && (
         <div>
-          <label htmlFor="assignment-employee" className="mb-1 block text-sm font-medium text-gray-700">
+          <label htmlFor="assignment-employee" className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
             Who should learn this?
           </label>
           <Combobox
@@ -346,7 +346,7 @@ export function AssignmentModal({ open, onClose, onAssigned }: AssignmentModalPr
 
       {step === 2 && duplicateFound && (
         <div>
-          <p role="alert" className="mb-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
+          <p role="alert" className="mb-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-300">
             This skill is already assigned to {selectedEmployee?.name ?? 'this employee'}.
           </p>
           <div className="flex justify-end gap-2">
@@ -360,7 +360,7 @@ export function AssignmentModal({ open, onClose, onAssigned }: AssignmentModalPr
 
       {step === 2 && !duplicateFound && (
         <div>
-          <label htmlFor="assignment-skill" className="mb-1 block text-sm font-medium text-gray-700">
+          <label htmlFor="assignment-skill" className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
             What skill?
           </label>
           <Combobox
@@ -397,17 +397,17 @@ export function AssignmentModal({ open, onClose, onAssigned }: AssignmentModalPr
 
       {step === 3 && (
         <div>
-          <p className="mb-2 text-sm font-medium text-gray-700">
+          <p className="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
             We&apos;ve found the best match for this skill:
           </p>
 
           {contentLoading ? (
-            <div className="animate-pulse rounded-lg border border-gray-200 p-4">
-              <div className="h-4 w-1/2 rounded bg-gray-200" />
-              <div className="mt-2 h-3 w-1/3 rounded bg-gray-200" />
+            <div className="animate-pulse rounded-lg border border-gray-200 p-4 dark:border-gray-700">
+              <div className="h-4 w-1/2 rounded bg-gray-200 dark:bg-gray-700" />
+              <div className="mt-2 h-3 w-1/3 rounded bg-gray-200 dark:bg-gray-700" />
             </div>
           ) : contentError ? (
-            <div className="rounded-lg border border-dashed border-red-300 p-4 text-sm">
+            <div className="rounded-lg border border-dashed border-red-300 p-4 text-sm dark:border-red-800">
               <FormErrorText>{contentError}</FormErrorText>
               <div className="mt-2">
                 <Button variant="outline" onClick={fetchContent}>
@@ -416,42 +416,42 @@ export function AssignmentModal({ open, onClose, onAssigned }: AssignmentModalPr
               </div>
             </div>
           ) : content ? (
-            <div className="rounded-lg border border-gray-200 p-4">
+            <div className="rounded-lg border border-gray-200 p-4 dark:border-gray-700">
               {thumbnailUrl && (
                 <img src={thumbnailUrl} alt="" className="mb-3 h-32 w-full rounded object-cover" />
               )}
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="font-medium">{content.title}</p>
-                  <p className="text-sm text-gray-500">
+                  <p className="font-medium text-gray-900 dark:text-gray-100">{content.title}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
                     {formatSource(content.source)}
                     {durationLabel ? ` · ${durationLabel}` : ''}
                   </p>
                 </div>
-                <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+                <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900 dark:text-green-200">
                   ✓ Approved
                 </span>
               </div>
-              {content.description && <p className="mt-2 text-sm text-gray-600">{content.description}</p>}
+              {content.description && <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">{content.description}</p>}
               <div className="mt-3 flex gap-4 text-sm">
                 <a
                   href={content.url}
                   target="_blank"
                   rel="noreferrer"
-                  className="text-talentpilot-600 hover:underline"
+                  className="text-talentpilot-600 hover:underline dark:text-blue-400"
                 >
                   View on YouTube
                 </a>
-                <span aria-disabled="true" className="cursor-not-allowed text-gray-300">
+                <span aria-disabled="true" className="cursor-not-allowed text-gray-300 dark:text-gray-600">
                   Choose Different Content
                 </span>
               </div>
             </div>
           ) : (
-            <div className="rounded-lg border border-dashed border-gray-300 p-4 text-sm text-gray-500">
+            <div className="rounded-lg border border-dashed border-gray-300 p-4 text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
               No approved content found yet for this skill.
               <div className="mt-2">
-                <span aria-disabled="true" className="cursor-not-allowed text-gray-300">
+                <span aria-disabled="true" className="cursor-not-allowed text-gray-300 dark:text-gray-600">
                   Choose Different Content
                 </span>{' '}
                 or assign without content.
@@ -459,7 +459,7 @@ export function AssignmentModal({ open, onClose, onAssigned }: AssignmentModalPr
             </div>
           )}
 
-          <div className="mt-4 rounded-lg bg-gray-50 p-3 text-sm text-gray-600">
+          <div className="mt-4 rounded-lg bg-gray-50 p-3 text-sm text-gray-600 dark:bg-gray-800 dark:text-gray-400">
             <p>Employee: {selectedEmployee?.name ?? '—'}</p>
             <p>Skill: {selectedSkill?.name ?? '—'}</p>
             <p>Content: {content ? `${content.title} (Approved)` : 'None'}</p>

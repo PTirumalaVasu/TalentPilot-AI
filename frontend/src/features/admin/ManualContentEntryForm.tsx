@@ -148,11 +148,11 @@ export function ManualContentEntryForm({ skillId, skillName, onApproved }: Manua
         <Card data-testid="content-lookup-result-card">
           <CardContent className="space-y-2">
             <div className="flex items-center justify-between">
-              <span className="font-medium text-gray-900">{candidate.title}</span>
-              <span className="text-xs font-medium uppercase text-gray-500">{candidate.source}</span>
+              <span className="font-medium text-gray-900 dark:text-gray-100">{candidate.title}</span>
+              <span className="text-xs font-medium uppercase text-gray-500 dark:text-gray-400">{candidate.source}</span>
             </div>
             {days != null && (
-              <p className="text-xs text-gray-500" data-testid="content-lookup-result-days-estimate">
+              <p className="text-xs text-gray-500 dark:text-gray-400" data-testid="content-lookup-result-days-estimate">
                 ≈ {days} day{days === 1 ? '' : 's'} to complete (at 5 hrs/day)
               </p>
             )}

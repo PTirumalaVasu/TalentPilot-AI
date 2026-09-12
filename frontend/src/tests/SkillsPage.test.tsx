@@ -3,7 +3,13 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { AuthProvider } from '@/lib/auth/AuthContext';
+import { ThemeProvider } from '@/lib/theme/ThemeContext';
 import { SkillsPage } from '@/pages/hr/SkillsPage';
+
+// Story 8.1: SkillsPage renders through HrAppShell, which now renders
+// <ThemeToggle> (calls useTheme()) -- the shared window.matchMedia stub
+// (frontend/src/tests/setup.ts) covers jsdom's lack of a real implementation
+// (code review: previously duplicated here instead of centralized).
 
 const navigateMock = vi.fn();
 
@@ -63,9 +69,11 @@ function makeSkill(overrides: Partial<Awaited<ReturnType<typeof listSkillsWithCo
 function renderPage() {
   return render(
     <MemoryRouter>
-      <AuthProvider>
-        <SkillsPage />
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <SkillsPage />
+        </AuthProvider>
+      </ThemeProvider>
     </MemoryRouter>
   );
 }

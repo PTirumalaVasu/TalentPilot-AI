@@ -84,7 +84,10 @@ export function Dialog({ open, onClose, titleId, children, className }: DialogPr
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className={cn('w-full max-w-lg rounded-lg bg-white p-6 shadow-xl focus:outline-none', className)}
+        className={cn(
+          'w-full max-w-lg rounded-lg bg-white p-6 shadow-xl focus:outline-none dark:bg-gray-900',
+          className
+        )}
       >
         {children}
       </div>

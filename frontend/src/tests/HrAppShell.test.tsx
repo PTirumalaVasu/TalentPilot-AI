@@ -3,7 +3,13 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { AuthProvider } from '@/lib/auth/AuthContext';
+import { ThemeProvider } from '@/lib/theme/ThemeContext';
 import { HrAppShell } from '@/components/layout/HrAppShell';
+
+// Story 8.1: HrAppShell now renders <ThemeToggle>, which calls useTheme() --
+// the shared window.matchMedia stub (frontend/src/tests/setup.ts) covers
+// jsdom's lack of a real implementation (code review: previously duplicated
+// here instead of centralized).
 
 const navigateMock = vi.fn();
 
@@ -27,11 +33,13 @@ import { logout } from '@/lib/api/authApi';
 function renderShell(initialPath = '/hr/dashboard') {
   return render(
     <MemoryRouter initialEntries={[initialPath]}>
-      <AuthProvider>
-        <Routes>
-          <Route path="*" element={<HrAppShell>Page content</HrAppShell>} />
-        </Routes>
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <Routes>
+            <Route path="*" element={<HrAppShell>Page content</HrAppShell>} />
+          </Routes>
+        </AuthProvider>
+      </ThemeProvider>
     </MemoryRouter>
   );
 }

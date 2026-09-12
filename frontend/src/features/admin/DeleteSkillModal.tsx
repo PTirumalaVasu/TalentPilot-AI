@@ -64,22 +64,22 @@ export function DeleteSkillModal({ skill, open, onClose, onDeleted }: DeleteSkil
   return (
     <Dialog open={open} onClose={handleCancel} titleId={titleId} className="max-w-md">
       <div className="space-y-4">
-        <h2 id={titleId} className="text-lg font-bold text-gray-900" data-testid="delete-skill-heading">
+        <h2 id={titleId} className="text-lg font-bold text-gray-900 dark:text-gray-100" data-testid="delete-skill-heading">
           Delete this skill?
         </h2>
-        <p className="text-sm text-gray-700" data-testid="delete-skill-summary">
+        <p className="text-sm text-gray-700 dark:text-gray-300" data-testid="delete-skill-summary">
           &apos;{skill.name}&apos; has no Assignments yet — this will permanently remove it and its approved
           content link, if any.
         </p>
 
-        {submitError && <p className="text-sm text-red-600">{submitError}</p>}
+        {submitError && <p className="text-sm text-red-600 dark:text-red-400">{submitError}</p>}
 
-        <div className="flex items-center justify-end gap-2 border-t border-gray-100 pt-2">
+        <div className="flex items-center justify-end gap-2 border-t border-gray-100 pt-2 dark:border-gray-800">
           <button
             type="button"
             disabled={submitting}
             onClick={handleCancel}
-            className="text-sm font-medium text-gray-600 hover:underline disabled:opacity-50"
+            className="text-sm font-medium text-gray-600 hover:underline disabled:opacity-50 dark:text-gray-400"
             data-testid="delete-skill-btn-cancel"
           >
             Cancel
@@ -88,7 +88,7 @@ export function DeleteSkillModal({ skill, open, onClose, onDeleted }: DeleteSkil
             type="button"
             disabled={submitting}
             onClick={handleConfirm}
-            className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-700 disabled:opacity-50"
+            className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-700 disabled:opacity-50 dark:bg-red-700 dark:hover:bg-red-600"
             data-testid="delete-skill-btn-confirm"
           >
             {submitting ? 'Deleting…' : 'Delete Skill'}

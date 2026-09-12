@@ -21,18 +21,18 @@ export function StatusBadge({ status, percentage, employeeName, skillName }: Sta
     { bg: string; text: string; icon: string }
   > = {
     "Not Started": {
-      bg: "bg-gray-100",
-      text: "text-gray-800",
+      bg: "bg-gray-100 dark:bg-gray-800",
+      text: "text-gray-800 dark:text-gray-200",
       icon: "○",
     },
     "In Progress": {
-      bg: "bg-yellow-100",
-      text: "text-yellow-800",
+      bg: "bg-yellow-100 dark:bg-yellow-900",
+      text: "text-yellow-800 dark:text-yellow-200",
       icon: "▶",
     },
     Completed: {
-      bg: "bg-green-100",
-      text: "text-green-800",
+      bg: "bg-green-100 dark:bg-green-900",
+      text: "text-green-800 dark:text-green-200",
       icon: "✓",
     },
   };

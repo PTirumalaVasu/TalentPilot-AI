@@ -87,14 +87,14 @@ export function DeleteAssignmentModal({
   return (
     <Dialog open={open} onClose={handleCancel} titleId={titleId}>
       <div className="space-y-4">
-        <h2 id={titleId} className="text-lg font-bold text-gray-900">
+        <h2 id={titleId} className="text-lg font-bold text-gray-900 dark:text-gray-100">
           Remove this assignment?
         </h2>
-        <p className="text-sm text-gray-700">
+        <p className="text-sm text-gray-700 dark:text-gray-300">
           {employeeName} — {skillName}
         </p>
         {hasRecordedProgress && (
-          <p className="text-sm text-gray-700">
+          <p className="text-sm text-gray-700 dark:text-gray-300">
             This assignment has recorded progress (
             {progressPercent !== null ? `${progressPercent}% watched` : "Completed"}). Removing it
             will take it off the dashboard; the history is retained for audit.
@@ -102,23 +102,23 @@ export function DeleteAssignmentModal({
         )}
 
         {submitError && (
-          <p role="alert" className="text-red-600 text-sm">
+          <p role="alert" className="text-red-600 text-sm dark:text-red-400">
             {submitError}
           </p>
         )}
 
-        <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-100">
+        <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-100 dark:border-gray-800">
           <button
             disabled={submitting}
             onClick={handleCancel}
-            className="text-sm font-medium text-gray-600 hover:underline disabled:opacity-50"
+            className="text-sm font-medium text-gray-600 hover:underline disabled:opacity-50 dark:text-gray-400"
           >
             Cancel
           </button>
           <button
             disabled={submitting}
             onClick={handleConfirm}
-            className="bg-red-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+            className="bg-red-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 dark:bg-red-700 dark:hover:bg-red-600"
           >
             Remove Assignment
           </button>

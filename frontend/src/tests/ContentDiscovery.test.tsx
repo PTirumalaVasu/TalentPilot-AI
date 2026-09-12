@@ -3,8 +3,14 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { AuthProvider } from '@/lib/auth/AuthContext';
+import { ThemeProvider } from '@/lib/theme/ThemeContext';
 import { ContentDiscovery } from '@/pages/employee/ContentDiscovery';
 import type { MyAssignmentsResponse } from '@/types/assignments';
+
+// Story 8.1: ContentDiscovery now renders <ThemeToggle>, which calls
+// useTheme() -- the shared window.matchMedia stub (frontend/src/tests/setup.ts)
+// covers jsdom's lack of a real implementation (code review: previously
+// duplicated here instead of centralized).
 
 const navigateMock = vi.fn();
 
@@ -33,9 +39,11 @@ import { listMyAssignments } from '@/lib/api/assignmentsApi';
 function renderPage() {
   return render(
     <MemoryRouter>
-      <AuthProvider>
-        <ContentDiscovery />
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <ContentDiscovery />
+        </AuthProvider>
+      </ThemeProvider>
     </MemoryRouter>
   );
 }

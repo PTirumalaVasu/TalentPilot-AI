@@ -71,10 +71,10 @@ export function ContentPreviewModal({
       <div className="space-y-4">
         <div className="flex items-start justify-between">
           <div>
-            <h2 id={titleId} className="text-lg font-bold text-gray-900" data-testid="watch-modal-title">
+            <h2 id={titleId} className="text-lg font-bold text-gray-900 dark:text-gray-100" data-testid="watch-modal-title">
               {title}
             </h2>
-            <p className="text-xs text-gray-500" data-testid="watch-modal-meta">
+            <p className="text-xs text-gray-500 dark:text-gray-400" data-testid="watch-modal-meta">
               {source}
               {durationHours != null ? ` · ${durationHours}h` : ''}
               {days != null ? ` · ≈ ${days} day${days === 1 ? '' : 's'} to complete (at 5 hrs/day)` : ''}
@@ -84,7 +84,7 @@ export function ContentPreviewModal({
             type="button"
             aria-label="Close"
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
+            className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
             data-testid="watch-modal-btn-close"
           >
             ✕
@@ -92,7 +92,7 @@ export function ContentPreviewModal({
         </div>
 
         <div
-          className="flex aspect-video items-center justify-center rounded-md bg-gray-100"
+          className="flex aspect-video items-center justify-center rounded-md bg-gray-100 dark:bg-gray-800"
           data-testid="watch-modal-body"
         >
           {youtubeId ? (
@@ -103,7 +103,7 @@ export function ContentPreviewModal({
               allowFullScreen
             />
           ) : (
-            <div className="p-6 text-center text-sm text-gray-600">
+            <div className="p-6 text-center text-sm text-gray-600 dark:text-gray-400">
               <p>
                 Preview not available for {source} in this prototype. Use &quot;Open in new tab&quot; below to
                 watch.
@@ -112,17 +112,17 @@ export function ContentPreviewModal({
           )}
         </div>
 
-        <div className="flex items-center justify-between border-t border-gray-100 pt-4">
+        <div className="flex items-center justify-between border-t border-gray-100 pt-4 dark:border-gray-800">
           <a
             href={url}
             target="_blank"
             rel="noreferrer"
-            className="text-sm font-medium text-blue-600 hover:underline"
+            className="text-sm font-medium text-blue-600 hover:underline dark:text-blue-400"
             data-testid="watch-modal-open-external"
           >
             Open in new tab ↗
           </a>
-          <button type="button" className="text-sm font-medium text-gray-600 hover:underline" onClick={onClose}>
+          <button type="button" className="text-sm font-medium text-gray-600 hover:underline dark:text-gray-400" onClick={onClose}>
             Close
           </button>
         </div>

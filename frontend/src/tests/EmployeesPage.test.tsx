@@ -3,7 +3,13 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { AuthProvider } from '@/lib/auth/AuthContext';
+import { ThemeProvider } from '@/lib/theme/ThemeContext';
 import { EmployeesPage } from '@/pages/hr/EmployeesPage';
+
+// Story 8.1: EmployeesPage renders through HrAppShell, which now renders
+// <ThemeToggle> (calls useTheme()) -- the shared window.matchMedia stub
+// (frontend/src/tests/setup.ts) covers jsdom's lack of a real implementation
+// (code review: previously duplicated here instead of centralized).
 
 const navigateMock = vi.fn();
 
@@ -63,9 +69,11 @@ function makeEmployee(overrides: Partial<EmployeeResponse> = {}): EmployeeRespon
 function renderPage() {
   return render(
     <MemoryRouter>
-      <AuthProvider>
-        <EmployeesPage />
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <EmployeesPage />
+        </AuthProvider>
+      </ThemeProvider>
     </MemoryRouter>
   );
 }

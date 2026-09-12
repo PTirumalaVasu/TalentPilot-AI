@@ -35,7 +35,9 @@ function StatusBadge({ archived }: { archived: boolean }) {
     <span
       className={
         'rounded-full border px-2 py-0.5 text-xs font-medium ' +
-        (archived ? 'border-gray-200 bg-gray-100 text-gray-500' : 'border-green-200 bg-green-50 text-green-700')
+        (archived
+          ? 'border-gray-200 bg-gray-100 text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400'
+          : 'border-green-200 bg-green-50 text-green-700 dark:border-green-900 dark:bg-green-950 dark:text-green-400')
       }
     >
       {archived ? 'Archived' : 'Active'}
@@ -61,7 +63,7 @@ function RowActions({
         onClick={() => onEdit(employee)}
         aria-label={`Edit ${employee.name}`}
         title="Edit"
-        className="mr-2 px-1 text-gray-500 hover:text-blue-600"
+        className="mr-2 px-1 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400"
       >
         ✎
       </button>
@@ -70,7 +72,7 @@ function RowActions({
         onClick={() => onRegeneratePassword(employee)}
         aria-label={`Regenerate password for ${employee.name}`}
         title="Regenerate Password"
-        className="mr-2 px-1 text-gray-500 hover:text-blue-600"
+        className="mr-2 px-1 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400"
       >
         ⚿
       </button>
@@ -79,7 +81,7 @@ function RowActions({
         onClick={() => onDeleteOrArchive(employee)}
         aria-label={`Delete/Archive ${employee.name}`}
         title="Delete/Archive"
-        className="px-1 text-gray-500 hover:text-red-600"
+        className="px-1 text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400"
       >
         ✕
       </button>
@@ -196,10 +198,10 @@ export function EmployeesPage() {
       <main className="px-6 pb-12">
         <div className="flex flex-wrap items-center justify-between gap-3 py-3">
           <div>
-            <h1 className="text-2xl font-black text-gray-900" data-testid="employees-tab-heading-title">
+            <h1 className="text-2xl font-black text-gray-900 dark:text-gray-100" data-testid="employees-tab-heading-title">
               Employees
             </h1>
-            <span className="text-sm text-gray-500" data-testid="employees-tab-summary-count">
+            <span className="text-sm text-gray-500 dark:text-gray-400" data-testid="employees-tab-summary-count">
               {employees ? `${employees.length} employees · ${activeCount} active` : ''}
             </span>
           </div>
@@ -209,13 +211,13 @@ export function EmployeesPage() {
               placeholder="Search by name…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-40 rounded-lg border border-gray-300 px-3 py-2 text-sm sm:w-48"
+              className="w-40 rounded-lg border border-gray-300 px-3 py-2 text-sm sm:w-48 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
               data-testid="employees-tab-search-input"
             />
             <select
               value={department}
               onChange={(e) => setDepartment(e.target.value)}
-              className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              className="rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
               data-testid="employees-tab-filter-department"
               aria-label="Filter by Department"
             >
@@ -229,7 +231,7 @@ export function EmployeesPage() {
             <select
               value={position}
               onChange={(e) => setPosition(e.target.value)}
-              className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              className="rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
               data-testid="employees-tab-filter-position"
               aria-label="Filter by Position"
             >
@@ -240,7 +242,7 @@ export function EmployeesPage() {
                 </option>
               ))}
             </select>
-            <label className="flex items-center gap-1.5 px-1 text-sm text-gray-600" data-testid="employees-tab-toggle-archived">
+            <label className="flex items-center gap-1.5 px-1 text-sm text-gray-600 dark:text-gray-400" data-testid="employees-tab-toggle-archived">
               <input
                 type="checkbox"
                 checked={showArchived}
@@ -249,13 +251,13 @@ export function EmployeesPage() {
               />
               Show archived
             </label>
-            <div className="flex overflow-hidden rounded-lg border border-gray-300" data-testid="employees-tab-view-toggle">
+            <div className="flex overflow-hidden rounded-lg border border-gray-300 dark:border-gray-600" data-testid="employees-tab-view-toggle">
               <button
                 type="button"
                 onClick={() => setView('table')}
                 aria-label="Table view"
                 aria-pressed={view === 'table'}
-                className={'px-3 py-2 text-sm ' + (view === 'table' ? 'bg-blue-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50')}
+                className={'px-3 py-2 text-sm ' + (view === 'table' ? 'bg-blue-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-800')}
               >
                 ▦
               </button>
@@ -264,7 +266,7 @@ export function EmployeesPage() {
                 onClick={() => setView('card')}
                 aria-label="Card view"
                 aria-pressed={view === 'card'}
-                className={'px-3 py-2 text-sm ' + (view === 'card' ? 'bg-blue-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50')}
+                className={'px-3 py-2 text-sm ' + (view === 'card' ? 'bg-blue-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-800')}
               >
                 ▤
               </button>
@@ -272,7 +274,7 @@ export function EmployeesPage() {
             <button
               type="button"
               onClick={showUnavailableToast}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700"
+              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600"
               data-testid="employees-tab-btn-new-employee"
             >
               + New Employee
@@ -280,32 +282,32 @@ export function EmployeesPage() {
           </div>
         </div>
 
-        {employees === null && !loadError && <p className="text-sm text-gray-500">Loading…</p>}
+        {employees === null && !loadError && <p className="text-sm text-gray-500 dark:text-gray-400">Loading…</p>}
 
         {loadError && (
           <div className="space-y-2">
-            <p className="text-sm text-red-600">{loadError}</p>
-            <button type="button" className="text-sm font-medium text-blue-600 hover:underline" onClick={() => void refetch()}>
+            <p className="text-sm text-red-600 dark:text-red-400">{loadError}</p>
+            <button type="button" className="text-sm font-medium text-blue-600 hover:underline dark:text-blue-400" onClick={() => void refetch()}>
               Retry
             </button>
           </div>
         )}
 
         {employees !== null && !loadError && employees.length === 0 && (
-          <p className="text-sm text-gray-500">No employees yet.</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">No employees yet.</p>
         )}
 
         {employees !== null && !loadError && employees.length > 0 && filtered.length === 0 && (
-          <p className="text-sm text-gray-500">No employees match your search.</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">No employees match your search.</p>
         )}
 
         {employees !== null && !loadError && filtered.length > 0 && view === 'table' && (
           <div className="overflow-x-auto">
             <table
-              className="w-full min-w-[720px] overflow-hidden rounded-lg border border-gray-200 bg-white text-sm"
+              className="w-full min-w-[720px] overflow-hidden rounded-lg border border-gray-200 bg-white text-sm dark:border-gray-700 dark:bg-gray-900"
               data-testid="employees-table"
             >
-              <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
+              <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-500 dark:bg-gray-800 dark:text-gray-400">
                 <tr>
                   <th className="px-4 py-3 text-left">ID</th>
                   <th className="px-4 py-3 text-left">Name</th>
@@ -318,12 +320,12 @@ export function EmployeesPage() {
               </thead>
               <tbody>
                 {pageItems.map((employee) => (
-                  <tr key={employee.id} className="border-t border-gray-100">
-                    <td className="px-4 py-3 text-gray-500">{employee.employee_code}</td>
-                    <td className="px-4 py-3 font-medium text-gray-900">{employee.name}</td>
-                    <td className="px-4 py-3 text-gray-600">{employee.position ?? '—'}</td>
-                    <td className="px-4 py-3 text-gray-600">{employee.department ?? '—'}</td>
-                    <td className="px-4 py-3 text-xs text-gray-400">{employee.email}</td>
+                  <tr key={employee.id} className="border-t border-gray-100 dark:border-gray-800">
+                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{employee.employee_code}</td>
+                    <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">{employee.name}</td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{employee.position ?? '—'}</td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{employee.department ?? '—'}</td>
+                    <td className="px-4 py-3 text-xs text-gray-400 dark:text-gray-500">{employee.email}</td>
                     <td className="px-4 py-3">
                       <StatusBadge archived={employee.archived_at !== null} />
                     </td>
@@ -345,18 +347,18 @@ export function EmployeesPage() {
         {employees !== null && !loadError && filtered.length > 0 && view === 'card' && (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3" data-testid="employees-grid">
             {pageItems.map((employee) => (
-              <div key={employee.id} className="rounded-lg border border-gray-200 bg-white p-4">
+              <div key={employee.id} className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900">
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="font-semibold text-gray-900">{employee.name}</p>
-                    <p className="text-xs text-gray-500">
+                    <p className="font-semibold text-gray-900 dark:text-gray-100">{employee.name}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
                       {employee.position ?? '—'} · {employee.department ?? '—'}
                     </p>
                   </div>
                   <StatusBadge archived={employee.archived_at !== null} />
                 </div>
-                <p className="mt-2 break-all text-xs text-gray-400">{employee.email}</p>
-                <div className="mt-3 border-t border-gray-100 pt-3">
+                <p className="mt-2 break-all text-xs text-gray-400 dark:text-gray-500">{employee.email}</p>
+                <div className="mt-3 border-t border-gray-100 pt-3 dark:border-gray-800">
                   <RowActions
                     employee={employee}
                     onEdit={setEditingEmployee}
@@ -371,7 +373,7 @@ export function EmployeesPage() {
 
         {filtered.length > PAGE_SIZE && (
           <div
-            className="mt-4 flex items-center justify-center gap-3 text-sm text-gray-600"
+            className="mt-4 flex items-center justify-center gap-3 text-sm text-gray-600 dark:text-gray-400"
             data-testid="employees-table-pagination"
           >
             <button
@@ -388,7 +390,7 @@ export function EmployeesPage() {
                 key={p}
                 type="button"
                 onClick={() => setPage(p)}
-                className={p === currentPage ? 'font-bold text-blue-600' : ''}
+                className={p === currentPage ? 'font-bold text-blue-600 dark:text-blue-400' : ''}
                 aria-label={`Page ${p}`}
                 aria-current={p === currentPage ? 'page' : undefined}
               >

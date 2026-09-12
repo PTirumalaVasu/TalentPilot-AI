@@ -73,28 +73,28 @@ export function DeleteArchiveEmployeeModal({ employee, open, onClose, onComplete
   return (
     <Dialog open={open} onClose={handleCancel} titleId={titleId} className="max-w-md">
       <div className="space-y-4">
-        <h2 id={titleId} className="text-lg font-bold text-gray-900" data-testid="delete-employee-heading">
+        <h2 id={titleId} className="text-lg font-bold text-gray-900 dark:text-gray-100" data-testid="delete-employee-heading">
           Remove {employee.name}?
         </h2>
         {hasHistory ? (
-          <p className="text-sm text-gray-700" data-testid="delete-employee-summary-archive">
+          <p className="text-sm text-gray-700 dark:text-gray-300" data-testid="delete-employee-summary-archive">
             &apos;{employee.name}&apos; has assignment history — they&apos;ll be archived, not deleted. Their
             records are kept, but they&apos;ll drop off the active roster and every assignment picker.
           </p>
         ) : (
-          <p className="text-sm text-gray-700" data-testid="delete-employee-summary-hard">
+          <p className="text-sm text-gray-700 dark:text-gray-300" data-testid="delete-employee-summary-hard">
             &apos;{employee.name}&apos; has no assignments yet — this will permanently remove them.
           </p>
         )}
 
         {submitError && <FormErrorText>{submitError}</FormErrorText>}
 
-        <div className="flex items-center justify-end gap-2 border-t border-gray-100 pt-2">
+        <div className="flex items-center justify-end gap-2 border-t border-gray-100 pt-2 dark:border-gray-800">
           <button
             type="button"
             disabled={submitting}
             onClick={handleCancel}
-            className="text-sm font-medium text-gray-600 hover:underline disabled:opacity-50"
+            className="text-sm font-medium text-gray-600 hover:underline disabled:opacity-50 dark:text-gray-400"
             data-testid="delete-employee-btn-cancel"
           >
             Cancel
@@ -103,7 +103,7 @@ export function DeleteArchiveEmployeeModal({ employee, open, onClose, onComplete
             type="button"
             disabled={submitting}
             onClick={handleConfirm}
-            className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-700 disabled:opacity-50"
+            className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-700 disabled:opacity-50 dark:bg-red-700 dark:hover:bg-red-600"
             data-testid="delete-employee-btn-confirm"
           >
             {submitting ? 'Working…' : hasHistory ? 'Archive Employee' : 'Remove Employee'}

@@ -51,16 +51,16 @@ export function Login() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4 font-sans">
+    <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4 font-sans dark:bg-gray-950">
       <Card className="w-full max-w-sm">
         <CardContent className="p-8">
           <div className="mb-6 text-center">
-            <div className="mb-1 text-lg font-bold text-gray-900">TalentPilot-AI</div>
-            <p className="text-sm text-gray-500">Sign in to continue</p>
+            <div className="mb-1 text-lg font-bold text-gray-900 dark:text-gray-100">TalentPilot-AI</div>
+            <p className="text-sm text-gray-500 dark:text-gray-400">Sign in to continue</p>
           </div>
 
           {formError && (
-            <FormErrorText className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-red-700">
+            <FormErrorText className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-400">
               {formError}
             </FormErrorText>
           )}

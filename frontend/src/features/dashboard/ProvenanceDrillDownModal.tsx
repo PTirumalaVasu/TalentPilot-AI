@@ -183,22 +183,22 @@ export function ProvenanceDrillDownModal({ assignmentId, open, onClose, onOverri
           <h2 id={titleId} className="sr-only">
             Loading assignment details
           </h2>
-          <div className="h-6 bg-gray-100 rounded animate-pulse w-2/3" />
-          <div className="h-4 bg-gray-100 rounded animate-pulse w-full" />
-          <div className="h-4 bg-gray-100 rounded animate-pulse w-full" />
-          <p className="text-sm text-gray-500">Loading details...</p>
+          <div className="h-6 bg-gray-100 rounded animate-pulse w-2/3 dark:bg-gray-800" />
+          <div className="h-4 bg-gray-100 rounded animate-pulse w-full dark:bg-gray-800" />
+          <div className="h-4 bg-gray-100 rounded animate-pulse w-full dark:bg-gray-800" />
+          <p className="text-sm text-gray-500 dark:text-gray-400">Loading details...</p>
         </div>
       )}
 
       {!loading && error && (
         <div className="space-y-3">
-          <h2 id={titleId} className="text-lg font-bold text-gray-900">
+          <h2 id={titleId} className="text-lg font-bold text-gray-900 dark:text-gray-100">
             Couldn't load details
           </h2>
-          <p role="alert" className="text-red-600 text-sm">{error}</p>
+          <p role="alert" className="text-red-600 text-sm dark:text-red-400">{error}</p>
           <button
             onClick={fetchDetail}
-            className="text-blue-600 hover:underline text-sm font-medium"
+            className="text-blue-600 hover:underline text-sm font-medium dark:text-blue-400"
           >
             Retry
           </button>
@@ -207,27 +207,27 @@ export function ProvenanceDrillDownModal({ assignmentId, open, onClose, onOverri
 
       {!loading && !error && data && confirming && data.provenance === "HR Override" && (
         <div className="space-y-4">
-          <h2 id={titleId} className="text-lg font-bold text-gray-900">
+          <h2 id={titleId} className="text-lg font-bold text-gray-900 dark:text-gray-100">
             Remove this HR Override?
           </h2>
-          <p className="text-sm text-gray-700">
+          <p className="text-sm text-gray-700 dark:text-gray-300">
             Status: {STATUS_DISPLAY[data.status]} (set by {data.override_set_by_name ?? "Unknown"}{" "}
             {data.override_set_at ? relativeTime(data.override_set_at) : "at an unknown time"})
           </p>
-          <p className="text-sm text-gray-700">Currently: {describeUnderlyingSignal(data)}</p>
-          {submitError && <p className="text-red-600 text-sm">{submitError}</p>}
-          <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-100">
+          <p className="text-sm text-gray-700 dark:text-gray-300">Currently: {describeUnderlyingSignal(data)}</p>
+          {submitError && <p className="text-red-600 text-sm dark:text-red-400">{submitError}</p>}
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-100 dark:border-gray-800">
             <button
               disabled={submitting}
               onClick={handleCancelOverride}
-              className="text-sm font-medium text-gray-600 hover:underline disabled:opacity-50"
+              className="text-sm font-medium text-gray-600 hover:underline disabled:opacity-50 dark:text-gray-400"
             >
               Cancel
             </button>
             <button
               disabled={submitting}
               onClick={handleConfirmReversal}
-              className="bg-red-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+              className="bg-red-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 dark:bg-red-700 dark:hover:bg-red-600"
             >
               Remove Override
             </button>
@@ -237,10 +237,10 @@ export function ProvenanceDrillDownModal({ assignmentId, open, onClose, onOverri
 
       {!loading && !error && data && confirming && data.provenance !== "HR Override" && (
         <div className="space-y-4">
-          <h2 id={titleId} className="text-lg font-bold text-gray-900">
+          <h2 id={titleId} className="text-lg font-bold text-gray-900 dark:text-gray-100">
             Mark {data.employee_name} as Ready for {data.skill_name}?
           </h2>
-          <label className="block text-sm text-gray-700">
+          <label className="block text-sm text-gray-700 dark:text-gray-300">
             Reason (optional)
             <textarea
               value={reason}
@@ -248,22 +248,22 @@ export function ProvenanceDrillDownModal({ assignmentId, open, onClose, onOverri
               disabled={submitting}
               rows={3}
               maxLength={1000}
-              className="mt-1 w-full rounded border border-gray-200 p-2 text-sm"
+              className="mt-1 w-full rounded border border-gray-200 p-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
             />
           </label>
-          {submitError && <p role="alert" className="text-red-600 text-sm">{submitError}</p>}
-          <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-100">
+          {submitError && <p role="alert" className="text-red-600 text-sm dark:text-red-400">{submitError}</p>}
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-100 dark:border-gray-800">
             <button
               disabled={submitting}
               onClick={handleCancelOverride}
-              className="text-sm font-medium text-gray-600 hover:underline disabled:opacity-50"
+              className="text-sm font-medium text-gray-600 hover:underline disabled:opacity-50 dark:text-gray-400"
             >
               Cancel
             </button>
             <button
               disabled={submitting}
               onClick={handleConfirmOverride}
-              className="bg-blue-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+              className="bg-blue-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 dark:bg-blue-700 dark:hover:bg-blue-600"
             >
               Confirm
             </button>
@@ -274,7 +274,7 @@ export function ProvenanceDrillDownModal({ assignmentId, open, onClose, onOverri
       {!loading && !error && data && !confirming && (
         <div className="space-y-4">
           <header>
-            <h2 id={titleId} className="text-lg font-bold text-gray-900">
+            <h2 id={titleId} className="text-lg font-bold text-gray-900 dark:text-gray-100">
               {data.employee_name} — {data.skill_name}
             </h2>
             <div className="mt-2">
@@ -284,12 +284,12 @@ export function ProvenanceDrillDownModal({ assignmentId, open, onClose, onOverri
 
           <ProvenanceSection data={data} />
 
-          <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+          <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-gray-800">
             <div className="flex gap-2">
               {data.provenance !== "HR Override" && (
                 <button
                   onClick={() => setConfirming(true)}
-                  className="text-sm font-medium text-blue-600 hover:underline"
+                  className="text-sm font-medium text-blue-600 hover:underline dark:text-blue-400"
                 >
                   Mark as Ready
                 </button>
@@ -297,7 +297,7 @@ export function ProvenanceDrillDownModal({ assignmentId, open, onClose, onOverri
               {data.provenance === "HR Override" && (
                 <button
                   onClick={() => setConfirming(true)}
-                  className="text-sm font-medium text-red-600 hover:underline"
+                  className="text-sm font-medium text-red-600 hover:underline dark:text-red-400"
                 >
                   Reverse Override
                 </button>
@@ -305,7 +305,7 @@ export function ProvenanceDrillDownModal({ assignmentId, open, onClose, onOverri
             </div>
             <button
               onClick={onClose}
-              className="bg-gray-100 text-gray-700 text-sm font-semibold px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors"
+              className="bg-gray-100 text-gray-700 text-sm font-semibold px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
             >
               Close
             </button>
@@ -320,16 +320,16 @@ function ProvenanceSection({ data }: { data: DrillDownResponse }) {
   switch (data.provenance) {
     case "Verified":
       return (
-        <section aria-label="Provenance detail" className="space-y-1 text-sm text-gray-700">
-          <p className="font-medium text-gray-900">✓ Verified via video playback</p>
+        <section aria-label="Provenance detail" className="space-y-1 text-sm text-gray-700 dark:text-gray-300">
+          <p className="font-medium text-gray-900 dark:text-gray-100">✓ Verified via video playback</p>
           <p>Watch Progress: {data.status_percentage ?? 0}%</p>
           <p>Last Updated: {relativeTime(data.last_updated)}</p>
         </section>
       );
     case "Self-reported":
       return (
-        <section aria-label="Provenance detail" className="space-y-1 text-sm text-gray-700">
-          <p className="font-medium text-gray-900">📝 Self-reported</p>
+        <section aria-label="Provenance detail" className="space-y-1 text-sm text-gray-700 dark:text-gray-300">
+          <p className="font-medium text-gray-900 dark:text-gray-100">📝 Self-reported</p>
           <p>Status: {STATUS_DISPLAY[data.status]}</p>
           <p>Last Updated: {relativeTime(data.last_updated)}</p>
           <p>
@@ -343,8 +343,8 @@ function ProvenanceSection({ data }: { data: DrillDownResponse }) {
       // against a future/clock-skewed last_updated producing a negative count.
       const staleDays = staleDaysSince(data.last_updated);
       return (
-        <section aria-label="Provenance detail" className="space-y-1 text-sm text-gray-700">
-          <p className="font-medium text-amber-700">⚠️ Needs Attention</p>
+        <section aria-label="Provenance detail" className="space-y-1 text-sm text-gray-700 dark:text-gray-300">
+          <p className="font-medium text-amber-700 dark:text-amber-400">⚠️ Needs Attention</p>
           <p>Status: {STATUS_DISPLAY[data.status]}</p>
           <p>Last Updated: {relativeTime(data.last_updated)}</p>
           <p>
@@ -361,8 +361,8 @@ function ProvenanceSection({ data }: { data: DrillDownResponse }) {
     }
     case "HR Override":
       return (
-        <section aria-label="Provenance detail" className="space-y-1 text-sm text-gray-700">
-          <p className="font-medium text-gray-900">🔒 HR Override</p>
+        <section aria-label="Provenance detail" className="space-y-1 text-sm text-gray-700 dark:text-gray-300">
+          <p className="font-medium text-gray-900 dark:text-gray-100">🔒 HR Override</p>
           <p>Override Status: {STATUS_DISPLAY[data.status]}</p>
           <p>Overridden by: {data.override_set_by_name ?? "Unknown"}</p>
           <p>
@@ -376,8 +376,8 @@ function ProvenanceSection({ data }: { data: DrillDownResponse }) {
     case "Not Started":
     default:
       return (
-        <section aria-label="Provenance detail" className="space-y-1 text-sm text-gray-700">
-          <p className="font-medium text-gray-900">No signal yet</p>
+        <section aria-label="Provenance detail" className="space-y-1 text-sm text-gray-700 dark:text-gray-300">
+          <p className="font-medium text-gray-900 dark:text-gray-100">No signal yet</p>
           <p>This assignment hasn't started — nothing has been watched or reported.</p>
         </section>
       );
@@ -413,7 +413,7 @@ function UnderlyingSignal({ data }: { data: DrillDownResponse }) {
   if (!data.underlying_provenance) return null;
 
   return (
-    <p className="mt-2 pt-2 border-t border-gray-100 text-gray-600" aria-label="Underlying signal">
+    <p className="mt-2 pt-2 border-t border-gray-100 text-gray-600 dark:border-gray-800 dark:text-gray-400" aria-label="Underlying signal">
       Original signal: {describeUnderlyingSignal(data)}
     </p>
   );

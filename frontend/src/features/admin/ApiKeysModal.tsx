@@ -180,21 +180,21 @@ export function ApiKeysModal({ open, onClose }: ApiKeysModalProps) {
     <Dialog open={open} onClose={onClose} titleId={titleId} className="max-w-xl">
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h2 id={titleId} className="text-lg font-bold text-gray-900" data-testid="api-keys-modal-header-title">
+          <h2 id={titleId} className="text-lg font-bold text-gray-900 dark:text-gray-100" data-testid="api-keys-modal-header-title">
             Manage API Keys
           </h2>
           <button
             type="button"
             aria-label="Close"
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
+            className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
             data-testid="api-keys-modal-btn-close"
           >
             ✕
           </button>
         </div>
 
-        {loading && <p className="text-sm text-gray-500">Loading…</p>}
+        {loading && <p className="text-sm text-gray-500 dark:text-gray-400">Loading…</p>}
         {loadError && (
           <div className="space-y-2">
             <FormErrorText>{loadError}</FormErrorText>
@@ -207,10 +207,10 @@ export function ApiKeysModal({ open, onClose }: ApiKeysModalProps) {
         {!loading && !loadError && status && (
           <>
             {/* YouTube row */}
-            <div className="space-y-2 border-b border-gray-100 pb-4" data-testid="api-keys-modal-youtube-row">
+            <div className="space-y-2 border-b border-gray-100 pb-4 dark:border-gray-800" data-testid="api-keys-modal-youtube-row">
               <div className="flex items-center justify-between">
                 <Label htmlFor="youtube-key-input">YouTube (your personal key)</Label>
-                <span className="text-xs text-gray-500" data-testid="api-keys-modal-youtube-status">
+                <span className="text-xs text-gray-500 dark:text-gray-400" data-testid="api-keys-modal-youtube-status">
                   {status.youtube.configured ? 'Connected' : 'Not connected'}
                 </span>
               </div>
@@ -238,7 +238,7 @@ export function ApiKeysModal({ open, onClose }: ApiKeysModalProps) {
                 {status.youtube.configured && !youtubeRemoveConfirm && (
                   <button
                     type="button"
-                    className="text-sm font-medium text-red-600 hover:underline disabled:opacity-50"
+                    className="text-sm font-medium text-red-600 hover:underline disabled:opacity-50 dark:text-red-400"
                     disabled={youtubeSaving}
                     onClick={() => setYoutubeRemoveConfirm(true)}
                     data-testid="api-keys-modal-btn-remove-youtube"
@@ -249,10 +249,10 @@ export function ApiKeysModal({ open, onClose }: ApiKeysModalProps) {
               </div>
               {youtubeRemoveConfirm && (
                 <div className="flex items-center gap-2 text-sm">
-                  <span className="text-gray-700">Remove this key?</span>
+                  <span className="text-gray-700 dark:text-gray-300">Remove this key?</span>
                   <button
                     type="button"
-                    className="font-medium text-red-600 hover:underline disabled:opacity-50"
+                    className="font-medium text-red-600 hover:underline disabled:opacity-50 dark:text-red-400"
                     disabled={youtubeRemoving}
                     onClick={handleConfirmRemoveYoutube}
                   >
@@ -260,7 +260,7 @@ export function ApiKeysModal({ open, onClose }: ApiKeysModalProps) {
                   </button>
                   <button
                     type="button"
-                    className="text-gray-600 hover:underline disabled:opacity-50"
+                    className="text-gray-600 hover:underline disabled:opacity-50 dark:text-gray-400"
                     disabled={youtubeRemoving}
                     onClick={() => setYoutubeRemoveConfirm(false)}
                   >
@@ -275,7 +275,7 @@ export function ApiKeysModal({ open, onClose }: ApiKeysModalProps) {
             <div className="space-y-2" data-testid="api-keys-modal-udemy-row">
               <div className="flex items-center justify-between">
                 <Label htmlFor="udemy-client-id-input">Udemy (organization-wide)</Label>
-                <span className="text-xs text-gray-500" data-testid="api-keys-modal-udemy-status">
+                <span className="text-xs text-gray-500 dark:text-gray-400" data-testid="api-keys-modal-udemy-status">
                   {status.udemy.configured
                     ? `Connected by ${status.udemy.configured_by ?? 'an HR Admin'}${
                         status.udemy.configured_at ? `, ${formatConnectedAt(status.udemy.configured_at)}` : ''
@@ -312,7 +312,7 @@ export function ApiKeysModal({ open, onClose }: ApiKeysModalProps) {
                 {status.udemy.configured && !udemyRemoveConfirm && (
                   <button
                     type="button"
-                    className="text-sm font-medium text-red-600 hover:underline disabled:opacity-50"
+                    className="text-sm font-medium text-red-600 hover:underline disabled:opacity-50 dark:text-red-400"
                     disabled={udemySaving}
                     onClick={() => setUdemyRemoveConfirm(true)}
                     data-testid="api-keys-modal-btn-remove-udemy"
@@ -323,10 +323,10 @@ export function ApiKeysModal({ open, onClose }: ApiKeysModalProps) {
               </div>
               {udemyRemoveConfirm && (
                 <div className="flex items-center gap-2 text-sm">
-                  <span className="text-gray-700">Remove this credential?</span>
+                  <span className="text-gray-700 dark:text-gray-300">Remove this credential?</span>
                   <button
                     type="button"
-                    className="font-medium text-red-600 hover:underline disabled:opacity-50"
+                    className="font-medium text-red-600 hover:underline disabled:opacity-50 dark:text-red-400"
                     disabled={udemyRemoving}
                     onClick={handleConfirmRemoveUdemy}
                   >
@@ -334,7 +334,7 @@ export function ApiKeysModal({ open, onClose }: ApiKeysModalProps) {
                   </button>
                   <button
                     type="button"
-                    className="text-gray-600 hover:underline disabled:opacity-50"
+                    className="text-gray-600 hover:underline disabled:opacity-50 dark:text-gray-400"
                     disabled={udemyRemoving}
                     onClick={() => setUdemyRemoveConfirm(false)}
                   >
@@ -343,15 +343,15 @@ export function ApiKeysModal({ open, onClose }: ApiKeysModalProps) {
                 </div>
               )}
               {udemyError && <FormErrorText>{udemyError}</FormErrorText>}
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-gray-500 dark:text-gray-400">
                 This credential is shared across all HR Admins, not personal to your account.
               </p>
             </div>
           </>
         )}
 
-        <div className="flex justify-end border-t border-gray-100 pt-4">
-          <button type="button" className="text-sm font-medium text-gray-600 hover:underline" onClick={onClose}>
+        <div className="flex justify-end border-t border-gray-100 pt-4 dark:border-gray-800">
+          <button type="button" className="text-sm font-medium text-gray-600 hover:underline dark:text-gray-400" onClick={onClose}>
             Close
           </button>
         </div>

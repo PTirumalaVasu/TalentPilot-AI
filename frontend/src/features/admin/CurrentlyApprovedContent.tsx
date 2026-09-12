@@ -79,19 +79,19 @@ export function CurrentlyApprovedContent({
       {!rejected && (
         <Card
           data-testid="content-lookup-current-approved"
-          className="border-green-200 bg-green-50"
+          className="border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950"
         >
           <CardContent className="space-y-2">
             <div className="flex items-center justify-between">
-              <span className="font-medium text-gray-900">{title}</span>
-              <span className="text-xs font-medium uppercase text-gray-500">{source}</span>
+              <span className="font-medium text-gray-900 dark:text-gray-100">{title}</span>
+              <span className="text-xs font-medium uppercase text-gray-500 dark:text-gray-400">{source}</span>
             </div>
             {days != null && (
-              <p className="text-xs text-gray-500" data-testid="content-lookup-result-days-estimate">
+              <p className="text-xs text-gray-500 dark:text-gray-400" data-testid="content-lookup-result-days-estimate">
                 ≈ {days} day{days === 1 ? '' : 's'} to complete (at 5 hrs/day)
               </p>
             )}
-            <p className="text-xs text-gray-500">Approving a new link below will also replace this.</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Approving a new link below will also replace this.</p>
             <div className="flex items-center gap-2">
               <Button
                 variant="outline"

@@ -29,17 +29,17 @@ export function SkillCard({ skill, onEdit, onDelete, onView }: SkillCardProps) {
 
   return (
     <div
-      className="flex flex-col rounded-lg bg-white p-4 shadow-sm"
+      className="flex flex-col rounded-lg bg-white p-4 shadow-sm dark:bg-gray-900"
       data-testid="skills-tab-skill-card"
     >
       <div className="mb-1 flex items-start justify-between gap-2">
-        <h2 className="text-sm font-semibold leading-snug text-gray-900">{skill.name}</h2>
+        <h2 className="text-sm font-semibold leading-snug text-gray-900 dark:text-gray-100">{skill.name}</h2>
         {content ? (
-          <span className="shrink-0 rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">
+          <span className="shrink-0 rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700 dark:bg-green-950 dark:text-green-400">
             ✓ Approved
           </span>
         ) : (
-          <span className="shrink-0 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
+          <span className="shrink-0 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-400">
             ⚠ None yet
           </span>
         )}
@@ -48,7 +48,7 @@ export function SkillCard({ skill, onEdit, onDelete, onView }: SkillCardProps) {
       <div className="mb-2 flex items-center gap-3">
         {skill.ever_assigned ? (
           <span
-            className="inline-flex items-center gap-1 text-xs text-gray-400"
+            className="inline-flex items-center gap-1 text-xs text-gray-400 dark:text-gray-500"
             data-testid="skills-tab-skill-card-lock"
           >
             🔒 Locked — assigned to an Employee
@@ -58,7 +58,7 @@ export function SkillCard({ skill, onEdit, onDelete, onView }: SkillCardProps) {
             <button
               type="button"
               aria-label="Edit"
-              className="text-xs text-gray-500 hover:text-blue-600"
+              className="text-xs text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400"
               onClick={() => onEdit(skill)}
               data-testid="skills-tab-btn-edit-skill"
             >
@@ -67,7 +67,7 @@ export function SkillCard({ skill, onEdit, onDelete, onView }: SkillCardProps) {
             <button
               type="button"
               aria-label="Delete"
-              className="text-xs text-gray-500 hover:text-red-600"
+              className="text-xs text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400"
               onClick={() => onDelete(skill)}
               data-testid="skills-tab-btn-delete-skill"
             >
@@ -79,10 +79,10 @@ export function SkillCard({ skill, onEdit, onDelete, onView }: SkillCardProps) {
 
       {content ? (
         <div className="mb-3 flex flex-1 items-center gap-2 text-xs" data-testid="skills-tab-skill-card-link-row">
-          <span className="w-14 shrink-0 font-semibold uppercase text-gray-400">{content.source}</span>
+          <span className="w-14 shrink-0 font-semibold uppercase text-gray-400 dark:text-gray-500">{content.source}</span>
           <button
             type="button"
-            className="min-w-0 flex-1 truncate text-left text-blue-600 hover:underline"
+            className="min-w-0 flex-1 truncate text-left text-blue-600 hover:underline dark:text-blue-400"
             onClick={() =>
               onView({
                 title: content.title,
@@ -95,10 +95,10 @@ export function SkillCard({ skill, onEdit, onDelete, onView }: SkillCardProps) {
           >
             {content.title}
           </button>
-          {days != null && <span className="shrink-0 text-gray-400">≈{days}d</span>}
+          {days != null && <span className="shrink-0 text-gray-400 dark:text-gray-500">≈{days}d</span>}
         </div>
       ) : (
-        <p className="mb-3 flex-1 text-xs text-gray-400">No approved content yet for this skill.</p>
+        <p className="mb-3 flex-1 text-xs text-gray-400 dark:text-gray-500">No approved content yet for this skill.</p>
       )}
     </div>
   );

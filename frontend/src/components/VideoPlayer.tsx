@@ -301,11 +301,19 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       />
 
       {!isReady && !error && (
-        <p style={{ marginTop: '0.5rem', color: '#666' }}>Loading player...</p>
+        // Code review finding: this file was otherwise untouched by Story
+        // 8.1's dark-mode pass (it's inline-style, not Tailwind-classed, so
+        // `dark:` variants don't apply to it) -- these two captions are
+        // reachable from Content Discovery's inline video view and
+        // AssignmentWatch.tsx, both AC3 surfaces, so they get a themed
+        // className for color specifically instead of the fixed inline
+        // '#666', which read at borderline-failing contrast once the
+        // surrounding page is dark.
+        <p className="mt-2 text-gray-600 dark:text-gray-400">Loading player...</p>
       )}
 
       {isReady && !error && (
-        <p style={{ marginTop: '0.5rem', color: '#666', fontSize: '0.875rem' }}>
+        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
           ✓ Capture service active (posting every 12s or on 3+ samples)
         </p>
       )}

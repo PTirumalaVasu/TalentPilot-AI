@@ -9,9 +9,9 @@ interface AssignmentCardProps {
 
 function StatusBadge({ status }: { status: AssignmentContentItem['status'] }) {
   const config = {
-    NOT_STARTED: { icon: '⊕', label: 'To Start', className: 'bg-gray-100 text-gray-800' },
-    IN_PROGRESS: { icon: '⟳', label: 'In Progress', className: 'bg-blue-100 text-blue-800' },
-    COMPLETED: { icon: '✓', label: 'Completed', className: 'bg-green-100 text-green-800' },
+    NOT_STARTED: { icon: '⊕', label: 'To Start', className: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200' },
+    IN_PROGRESS: { icon: '⟳', label: 'In Progress', className: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' },
+    COMPLETED: { icon: '✓', label: 'Completed', className: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' },
   }[status];
 
   return (
@@ -61,7 +61,7 @@ export function AssignmentCard({ item, onSelect }: AssignmentCardProps) {
       }}
     >
       <div className="flex items-start justify-between gap-2">
-        <h3 className="font-semibold text-gray-900">{item.skill_name}</h3>
+        <h3 className="font-semibold text-gray-900 dark:text-gray-100">{item.skill_name}</h3>
         <StatusBadge status={item.status} />
       </div>
 
@@ -77,13 +77,13 @@ export function AssignmentCard({ item, onSelect }: AssignmentCardProps) {
             <div
               role="img"
               aria-label={`${item.content.title}${durationLabel ? ` - ${durationLabel}` : ''}`}
-              className="w-full h-24 bg-gray-100 rounded-md flex items-center justify-center text-gray-400 text-xs"
+              className="w-full h-24 bg-gray-100 rounded-md flex items-center justify-center text-gray-400 text-xs dark:bg-gray-800 dark:text-gray-500"
             >
               No preview available
             </div>
           )}
-          <p className="text-sm text-gray-600">{item.content.title}</p>
-          <div className="flex items-center gap-2 text-xs text-gray-500 flex-wrap">
+          <p className="text-sm text-gray-600 dark:text-gray-400">{item.content.title}</p>
+          <div className="flex items-center gap-2 text-xs text-gray-500 flex-wrap dark:text-gray-400">
             <span className="font-medium">{item.content.source}</span>
             {durationLabel && (
               <>
@@ -93,37 +93,37 @@ export function AssignmentCard({ item, onSelect }: AssignmentCardProps) {
             )}
           </div>
           {item.content.description && (
-            <p className="text-xs text-gray-500 line-clamp-2">{item.content.description}</p>
+            <p className="text-xs text-gray-500 line-clamp-2 dark:text-gray-400">{item.content.description}</p>
           )}
-          <div className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 w-fit">
+          <div className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 w-fit dark:bg-green-900 dark:text-green-200">
             ✓ Approved
           </div>
           {item.status === 'COMPLETED' ? (
-            <div className="pt-2 border-t border-gray-100">
-              <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                <div className="h-full bg-green-500" style={{ width: '100%' }} />
+            <div className="pt-2 border-t border-gray-100 dark:border-gray-800">
+              <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden dark:bg-gray-700">
+                <div className="h-full bg-green-500 dark:bg-green-400" style={{ width: '100%' }} />
               </div>
-              <p className="text-xs text-gray-600 font-medium mt-1">100% watched</p>
+              <p className="text-xs text-gray-600 font-medium mt-1 dark:text-gray-400">100% watched</p>
             </div>
           ) : item.watch_position > 0 && percentWatched !== null ? (
-            <div className="pt-2 border-t border-gray-100">
-              <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+            <div className="pt-2 border-t border-gray-100 dark:border-gray-800">
+              <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden dark:bg-gray-700">
                 {/* A real but small percentage (e.g. 1%) renders as a few px --
                     functionally invisible against the bar's rounded corners.
                     Floor the visible width at 4% so any nonzero progress reads
                     as a genuine, perceptible sliver rather than an empty bar. */}
-                <div className="h-full bg-blue-500" style={{ width: `${Math.max(percentWatched, 4)}%` }} />
+                <div className="h-full bg-blue-500 dark:bg-blue-400" style={{ width: `${Math.max(percentWatched, 4)}%` }} />
               </div>
-              <p className="text-xs text-gray-600 font-medium mt-1">{percentWatched}% watched</p>
+              <p className="text-xs text-gray-600 font-medium mt-1 dark:text-gray-400">{percentWatched}% watched</p>
             </div>
           ) : (
-            <p className="text-xs text-gray-500 pt-2 border-t border-gray-100">Not started yet</p>
+            <p className="text-xs text-gray-500 pt-2 border-t border-gray-100 dark:text-gray-400 dark:border-gray-800">Not started yet</p>
           )}
         </>
       ) : (
-        <div className="text-sm text-gray-500">
+        <div className="text-sm text-gray-500 dark:text-gray-400">
           No recommended content yet for this skill.{' '}
-          <a href="mailto:rita@sails.example.com" className="text-talentpilot-600 underline" onClick={(e) => e.stopPropagation()}>
+          <a href="mailto:rita@sails.example.com" className="text-talentpilot-600 underline dark:text-blue-400" onClick={(e) => e.stopPropagation()}>
             Contact Rita
           </a>
         </div>

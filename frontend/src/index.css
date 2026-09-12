@@ -1,8 +1,26 @@
 @import "tailwindcss";
 @config "../tailwind.config.js";
 
+/* Story 8.1 (FR-30): Tailwind v4 has no `darkMode: 'class'` config option --
+   manual (non-OS-driven) dark-mode toggling requires this custom variant so
+   `dark:` utilities respond to a `.dark` class on <html> instead of only
+   `prefers-color-scheme`. See ThemeContext.tsx for how that class is set. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @layer base {
+  /* Code review finding: without this, native controls (select dropdown
+     popups, scrollbars, checkboxes) keep following the OS's own color
+     scheme instead of the app's chosen theme -- e.g. a white native <select>
+     popup over the Department/Position filters on an otherwise-dark
+     EmployeesPage.tsx. */
+  :root {
+    color-scheme: light;
+  }
+  :root.dark {
+    color-scheme: dark;
+  }
+
   body {
-    @apply bg-gray-50 font-sans text-gray-900;
+    @apply bg-gray-50 font-sans text-gray-900 dark:bg-gray-950 dark:text-gray-100;
   }
 }

@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { AuthProvider } from '@/lib/auth/AuthContext';
+import { ThemeProvider } from '@/lib/theme/ThemeContext';
 import { Login } from '@/pages/Login';
 
 const navigateMock = vi.fn();
@@ -22,9 +23,11 @@ import { login } from '@/lib/api/authApi';
 function renderLogin() {
   return render(
     <MemoryRouter initialEntries={['/login']}>
-      <AuthProvider>
-        <Login />
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <Login />
+        </AuthProvider>
+      </ThemeProvider>
     </MemoryRouter>
   );
 }
@@ -39,6 +42,21 @@ describe('Login', () => {
   beforeEach(() => {
     vi.mocked(login).mockReset();
     navigateMock.mockReset();
+  });
+
+  it('Story 8.1 AC3: renders under an active dark theme with no toggle of its own', () => {
+    window.localStorage.setItem('theme', 'dark');
+    renderLogin();
+
+    expect(document.documentElement.classList.contains('dark')).toBe(true);
+    // No user-menu exists on Login (Scope Note 7) -- the toggle only
+    // appears alongside one, so it must be absent here.
+    expect(screen.queryByTestId('theme-toggle')).not.toBeInTheDocument();
+    // The page itself still renders normally in the active theme.
+    expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument();
+
+    window.localStorage.removeItem('theme');
+    document.documentElement.classList.remove('dark');
   });
 
   it('shows validation errors and never calls the API for an empty submission', async () => {

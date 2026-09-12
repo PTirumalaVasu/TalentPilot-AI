@@ -124,14 +124,14 @@ export function EditEmployeeModal({ open, employee, onClose, onSaved }: EditEmpl
     <Dialog open={open} onClose={onClose} titleId={titleId} className="max-w-lg">
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 id={titleId} className="text-lg font-bold text-gray-900" data-testid="edit-employee-header-title">
+          <h2 id={titleId} className="text-lg font-bold text-gray-900 dark:text-gray-100" data-testid="edit-employee-header-title">
             Edit {employee.name}
           </h2>
           <button
             type="button"
             aria-label="Close"
             onClick={onClose}
-            className="text-xl leading-none text-gray-400 hover:text-gray-600"
+            className="text-xl leading-none text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
             data-testid="edit-employee-btn-close"
           >
             ✕
@@ -249,7 +249,7 @@ export function EditEmployeeModal({ open, employee, onClose, onSaved }: EditEmpl
 
         {duplicateEmail && (
           <div
-            className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800"
+            className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300"
             data-testid="edit-employee-duplicate-notice"
           >
             An employee with this email already exists.

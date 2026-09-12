@@ -371,16 +371,16 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
           <div className="py-3 flex items-center justify-between">
             <button
               onClick={onNewAssignment}
-              className="bg-blue-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+              className="bg-blue-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors dark:bg-blue-700 dark:hover:bg-blue-600"
             >
               + New Assignment
             </button>
           </div>
-          <div data-testid="dashboard-loading" className="bg-white rounded-lg shadow-sm p-4 space-y-3">
-            <div className="h-6 bg-gray-100 rounded animate-pulse w-full"></div>
-            <div className="h-6 bg-gray-100 rounded animate-pulse w-full"></div>
-            <div className="h-6 bg-gray-100 rounded animate-pulse w-full"></div>
-            <div className="h-6 bg-gray-100 rounded animate-pulse w-full"></div>
+          <div data-testid="dashboard-loading" className="bg-white rounded-lg shadow-sm p-4 space-y-3 dark:bg-gray-900">
+            <div className="h-6 bg-gray-100 rounded animate-pulse w-full dark:bg-gray-800"></div>
+            <div className="h-6 bg-gray-100 rounded animate-pulse w-full dark:bg-gray-800"></div>
+            <div className="h-6 bg-gray-100 rounded animate-pulse w-full dark:bg-gray-800"></div>
+            <div className="h-6 bg-gray-100 rounded animate-pulse w-full dark:bg-gray-800"></div>
           </div>
         </div>
       );
@@ -395,12 +395,12 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
           <div className="py-3 flex items-center justify-between">
             <button
               onClick={onNewAssignment}
-              className="bg-blue-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+              className="bg-blue-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors dark:bg-blue-700 dark:hover:bg-blue-600"
             >
               + New Assignment
             </button>
           </div>
-          <div className="text-center py-12 border-2 border-dashed border-red-200 rounded-lg text-red-600">
+          <div className="text-center py-12 border-2 border-dashed border-red-200 rounded-lg text-red-600 dark:border-red-900 dark:text-red-400">
             <span role="alert">{state.error}</span>
             <button onClick={handleRetry} className="underline font-medium ml-1">
               Retry
@@ -419,12 +419,12 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
           <div className="py-3 flex items-center justify-between">
             <button
               onClick={onNewAssignment}
-              className="bg-blue-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+              className="bg-blue-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors dark:bg-blue-700 dark:hover:bg-blue-600"
             >
               + New Assignment
             </button>
           </div>
-          <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-lg text-gray-500">
+          <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-lg text-gray-500 dark:border-gray-700 dark:text-gray-400">
             No assignments yet — click <strong>+ New Assignment</strong> to get started
           </div>
         </div>
@@ -443,7 +443,7 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
         <div className="py-3 flex items-center justify-between">
           <button
             onClick={onNewAssignment}
-            className="bg-blue-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+            className="bg-blue-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors dark:bg-blue-700 dark:hover:bg-blue-600"
           >
             + New Assignment
           </button>
@@ -451,25 +451,25 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
 
         {/* Title and Summary */}
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-black text-gray-900">Skill Assignments</h2>
-          <span className="text-sm text-gray-500">Total: {state.totalCount} assignment{state.totalCount !== 1 ? 's' : ''}</span>
+          <h2 className="text-2xl font-black text-gray-900 dark:text-gray-100">Skill Assignments</h2>
+          <span className="text-sm text-gray-500 dark:text-gray-400">Total: {state.totalCount} assignment{state.totalCount !== 1 ? 's' : ''}</span>
         </div>
 
         {/* Accordion with grouped assignments by employee */}
-        <div className="bg-white rounded-lg overflow-hidden shadow-sm">
+        <div className="bg-white rounded-lg overflow-hidden shadow-sm dark:bg-gray-900">
           {sortedEmployees.map((employeeName, index) => (
-            <div key={employeeName} className={`border-b border-gray-200 ${index === sortedEmployees.length - 1 ? 'border-b-0' : ''}`}>
+            <div key={employeeName} className={`border-b border-gray-200 dark:border-gray-700 ${index === sortedEmployees.length - 1 ? 'border-b-0' : ''}`}>
               <button
                 onClick={() => toggleEmployee(employeeName)}
-                className="w-full flex items-center justify-between px-4 py-3 text-left font-medium text-gray-900 hover:bg-gray-50 transition-colors"
+                className="w-full flex items-center justify-between px-4 py-3 text-left font-medium text-gray-900 hover:bg-gray-50 transition-colors dark:text-gray-100 dark:hover:bg-gray-800"
               >
                 <span className="font-semibold">{employeeName} ({groupedAssignments.get(employeeName)?.length || 0} skills)</span>
-                <span className={`text-gray-500 transition-transform ${expandedGroups.has(employeeName) ? "rotate-180" : ""}`}>
+                <span className={`text-gray-500 transition-transform dark:text-gray-400 ${expandedGroups.has(employeeName) ? "rotate-180" : ""}`}>
                   ▼
                 </span>
               </button>
               {expandedGroups.has(employeeName) && (
-                <div className="bg-gray-50 border-t border-gray-200">
+                <div className="bg-gray-50 border-t border-gray-200 dark:bg-gray-800 dark:border-gray-700">
                   <div className="px-4 py-3">
                     <table className="w-full border-collapse text-sm" style={{ tableLayout: 'fixed' }}>
                       <colgroup>
@@ -481,7 +481,7 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
                         <col style={{ width: '8%' }} />
                       </colgroup>
                       <thead>
-                        <tr className="border-b border-gray-300 text-left text-gray-600">
+                        <tr className="border-b border-gray-300 text-left text-gray-600 dark:border-gray-600 dark:text-gray-400">
                           <th className="px-3 py-2 font-medium">Assigned Skill</th>
                           <th className="px-3 py-2 font-medium">Status</th>
                           <th className="px-3 py-2 font-medium">Progress</th>
@@ -497,49 +497,49 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
                           const isStale = row.provenance === "Needs Attention";
                           const staleDays = isStale ? staleDaysSince(row.last_updated) : null;
                           return (
-                          <tr key={row.assignment_id} className="border-b border-gray-200 hover:bg-gray-100 transition-colors align-middle">
+                          <tr key={row.assignment_id} className="border-b border-gray-200 hover:bg-gray-100 transition-colors align-middle dark:border-gray-700 dark:hover:bg-gray-800">
                             <td className="px-3 py-2 truncate align-middle">{row.skill_name}</td>
                             <td className="px-3 py-2 text-left align-middle">
                               <div className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium" role="status">
                                 {row.status === "In Progress" && row.status_percentage !== null ? (
-                                  <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded whitespace-nowrap">In Progress ({row.status_percentage}%)</span>
+                                  <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded whitespace-nowrap dark:bg-blue-900 dark:text-blue-200">In Progress ({row.status_percentage}%)</span>
                                 ) : row.status === "Completed" ? (
-                                  <span className="bg-green-100 text-green-700 px-2 py-1 rounded">Completed</span>
+                                  <span className="bg-green-100 text-green-700 px-2 py-1 rounded dark:bg-green-900 dark:text-green-200">Completed</span>
                                 ) : (
-                                  <span className="bg-gray-100 text-gray-700 px-2 py-1 rounded">Not Started</span>
+                                  <span className="bg-gray-100 text-gray-700 px-2 py-1 rounded dark:bg-gray-800 dark:text-gray-200">Not Started</span>
                                 )}
                               </div>
                             </td>
                             <td className="px-3 py-2 align-middle">
                               {row.status === "In Progress" && row.status_percentage !== null ? (
                                 <div className="flex items-center gap-2">
-                                  <div className="w-16 h-1 bg-gray-200 rounded-full overflow-hidden">
+                                  <div className="w-16 h-1 bg-gray-200 rounded-full overflow-hidden dark:bg-gray-700">
                                     <div
-                                      className="h-full bg-blue-600"
+                                      className="h-full bg-blue-600 dark:bg-blue-500"
                                       style={{ width: `${row.status_percentage}%` }}
                                     ></div>
                                   </div>
-                                  <span className="text-xs text-gray-500">{row.status_percentage}%</span>
+                                  <span className="text-xs text-gray-500 dark:text-gray-400">{row.status_percentage}%</span>
                                 </div>
                               ) : row.status === "Completed" ? (
                                 <div className="flex items-center gap-2">
-                                  <div className="w-16 h-1 bg-gray-200 rounded-full overflow-hidden">
-                                    <div className="h-full bg-green-600" style={{ width: "100%" }}></div>
+                                  <div className="w-16 h-1 bg-gray-200 rounded-full overflow-hidden dark:bg-gray-700">
+                                    <div className="h-full bg-green-600 dark:bg-green-500" style={{ width: "100%" }}></div>
                                   </div>
-                                  <span className="text-xs text-gray-500">100%</span>
+                                  <span className="text-xs text-gray-500 dark:text-gray-400">100%</span>
                                 </div>
                               ) : (
-                                <span className="text-xs text-gray-400">-</span>
+                                <span className="text-xs text-gray-400 dark:text-gray-500">-</span>
                               )}
                             </td>
-                            <td className={`px-3 py-2 text-xs truncate align-middle ${isStale ? "text-red-700 font-medium" : "text-gray-500"}`}>
+                            <td className={`px-3 py-2 text-xs truncate align-middle ${isStale ? "text-red-700 font-medium dark:text-red-400" : "text-gray-500 dark:text-gray-400"}`}>
                               {formatDistanceToNow(new Date(row.last_updated), { addSuffix: true })}
                               {isStale && ` (${formatStaleDaysText(staleDays!)})`}
                             </td>
                             <td className="px-3 py-2 align-middle">
                               <button
                                 onClick={() => handleViewDetails(row.assignment_id)}
-                                className="text-blue-600 hover:text-blue-800 text-sm font-medium whitespace-nowrap"
+                                className="text-blue-600 hover:text-blue-800 text-sm font-medium whitespace-nowrap dark:text-blue-400 dark:hover:text-blue-300"
                                 aria-label={`View details for ${row.employee_name} ${row.skill_name}`}
                               >
                                 View Details
@@ -548,7 +548,7 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
                             <td className="px-3 py-2">
                               <button
                                 onClick={() => handleDeleteClick(row)}
-                                className="inline-flex items-center justify-center w-9 h-9 rounded-full text-red-600 hover:bg-red-100 hover:text-red-700 transition-colors"
+                                className="inline-flex items-center justify-center w-9 h-9 rounded-full text-red-600 hover:bg-red-100 hover:text-red-700 transition-colors dark:text-red-400 dark:hover:bg-red-950 dark:hover:text-red-300"
                                 aria-label={`Remove assignment for ${row.employee_name} ${row.skill_name}`}
                                 title="Delete"
                               >
@@ -593,23 +593,23 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
           <button
             onClick={() => handlePageChange(state.page - 1)}
             disabled={state.page === 1}
-            className="px-3 py-1 rounded border border-gray-200 text-gray-400 disabled:cursor-not-allowed hover:border-gray-300 disabled:hover:border-gray-200"
+            className="px-3 py-1 rounded border border-gray-200 text-gray-400 disabled:cursor-not-allowed hover:border-gray-300 disabled:hover:border-gray-200 dark:border-gray-700 dark:text-gray-500 dark:hover:border-gray-600 dark:disabled:hover:border-gray-700"
           >
             Previous
           </button>
-          <button className="px-3 py-1 rounded border border-blue-600 bg-blue-50 text-blue-700 font-medium">
+          <button className="px-3 py-1 rounded border border-blue-600 bg-blue-50 text-blue-700 font-medium dark:border-blue-800 dark:bg-blue-950 dark:text-blue-300">
             {state.page}
           </button>
           <button
             onClick={() => handlePageChange(state.page + 1)}
             disabled={state.page >= totalPages}
-            className="px-3 py-1 rounded border border-gray-200 text-gray-400 disabled:cursor-not-allowed hover:border-gray-300 disabled:hover:border-gray-200"
+            className="px-3 py-1 rounded border border-gray-200 text-gray-400 disabled:cursor-not-allowed hover:border-gray-300 disabled:hover:border-gray-200 dark:border-gray-700 dark:text-gray-500 dark:hover:border-gray-600 dark:disabled:hover:border-gray-700"
           >
             Next
           </button>
         </div>
 
-        <p className="text-center text-xs text-gray-400 mt-8">App v0.1.0</p>
+        <p className="text-center text-xs text-gray-400 mt-8 dark:text-gray-500">App v0.1.0</p>
       </div>
     );
   }

@@ -100,18 +100,18 @@ export function Combobox({
         }}
         onFocus={() => setOpen(true)}
         onKeyDown={handleKeyDown}
-        className="flex h-10 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-talentpilot-500 disabled:cursor-not-allowed disabled:opacity-50"
+        className="flex h-10 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-talentpilot-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 dark:placeholder:text-gray-500"
       />
       {open && !disabled && (
         <ul
           id={listboxId}
           role="listbox"
-          className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-lg border border-gray-200 bg-white shadow-lg"
+          className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-900"
         >
           {loading ? (
-            <li className="px-3 py-2 text-sm text-gray-400">Loading…</li>
+            <li className="px-3 py-2 text-sm text-gray-400 dark:text-gray-500">Loading…</li>
           ) : options.length === 0 ? (
-            <li className="px-3 py-2 text-sm text-gray-400">No results</li>
+            <li className="px-3 py-2 text-sm text-gray-400 dark:text-gray-500">No results</li>
           ) : (
             options.map((option, index) => (
               <li
@@ -119,8 +119,8 @@ export function Combobox({
                 role="option"
                 aria-selected={option.id === value}
                 className={cn(
-                  'cursor-pointer px-3 py-2 text-sm hover:bg-gray-50',
-                  index === activeIndex && 'bg-talentpilot-50'
+                  'cursor-pointer px-3 py-2 text-sm hover:bg-gray-50 dark:text-gray-100 dark:hover:bg-gray-800',
+                  index === activeIndex && 'bg-talentpilot-50 dark:bg-blue-950'
                 )}
                 // onMouseDown (not onClick) fires before the input's onBlur,
                 // so the click actually registers instead of the listbox
@@ -132,7 +132,7 @@ export function Combobox({
                 }}
               >
                 {option.label}
-                {option.sublabel && <span className="ml-1 text-gray-400">· {option.sublabel}</span>}
+                {option.sublabel && <span className="ml-1 text-gray-400 dark:text-gray-500">· {option.sublabel}</span>}
               </li>
             ))
           )}

@@ -7,7 +7,7 @@ export const Label = React.forwardRef<HTMLLabelElement, LabelProps>(
   ({ className, ...props }, ref) => (
     <label
       ref={ref}
-      className={cn('text-xs font-medium leading-none text-gray-600', className)}
+      className={cn('text-xs font-medium leading-none text-gray-600 dark:text-gray-400', className)}
       {...props}
     />
   )

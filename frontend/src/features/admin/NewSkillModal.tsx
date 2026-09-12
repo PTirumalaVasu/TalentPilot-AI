@@ -98,14 +98,14 @@ export function NewSkillModal({ open, onClose, onCreated, onUseExisting }: NewSk
     <Dialog open={open} onClose={onClose} titleId={titleId} className="max-w-md">
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 id={titleId} className="text-lg font-bold text-gray-900" data-testid="new-skill-header-title">
+          <h2 id={titleId} className="text-lg font-bold text-gray-900 dark:text-gray-100" data-testid="new-skill-header-title">
             New Skill
           </h2>
           <button
             type="button"
             aria-label="Close"
             onClick={onClose}
-            className="text-xl leading-none text-gray-400 hover:text-gray-600"
+            className="text-xl leading-none text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
             data-testid="new-skill-btn-close"
           >
             ✕
@@ -135,7 +135,7 @@ export function NewSkillModal({ open, onClose, onCreated, onUseExisting }: NewSk
           <textarea
             id="new-skill-description-input"
             rows={2}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
             placeholder="Description (optional)"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
@@ -146,7 +146,7 @@ export function NewSkillModal({ open, onClose, onCreated, onUseExisting }: NewSk
 
         {duplicate && (
           <div
-            className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800"
+            className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300"
             data-testid="new-skill-duplicate-notice"
           >
             A skill named &apos;{name.trim()}&apos; already exists.{' '}

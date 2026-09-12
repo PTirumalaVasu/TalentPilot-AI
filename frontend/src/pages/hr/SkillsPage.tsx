@@ -64,17 +64,17 @@ export function SkillsPage() {
       <main className="px-6 pb-12">
         <div className="flex items-center justify-between py-3">
           <div>
-            <h1 className="text-2xl font-black text-gray-900" data-testid="skills-tab-heading-title">
+            <h1 className="text-2xl font-black text-gray-900 dark:text-gray-100" data-testid="skills-tab-heading-title">
               Skills
             </h1>
-            <span className="text-sm text-gray-500" data-testid="skills-tab-summary-count">
+            <span className="text-sm text-gray-500 dark:text-gray-400" data-testid="skills-tab-summary-count">
               {skills ? `${skills.length} skills · ${approvedCount} with approved content` : ''}
             </span>
           </div>
           <div className="flex items-center gap-2">
             <button
               type="button"
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700"
+              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600"
               onClick={() => setNewSkillModalOpen(true)}
               data-testid="skills-tab-btn-new-skill"
             >
@@ -82,7 +82,7 @@ export function SkillsPage() {
             </button>
             <button
               type="button"
-              className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50"
+              className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
               onClick={() => setApiKeysModalOpen(true)}
               data-testid="skills-tab-btn-manage-keys"
             >
@@ -91,19 +91,19 @@ export function SkillsPage() {
           </div>
         </div>
 
-        {skills === null && !loadError && <p className="text-sm text-gray-500">Loading…</p>}
+        {skills === null && !loadError && <p className="text-sm text-gray-500 dark:text-gray-400">Loading…</p>}
 
         {loadError && (
           <div className="space-y-2">
-            <p className="text-sm text-red-600">{loadError}</p>
-            <button type="button" className="text-sm font-medium text-blue-600 hover:underline" onClick={() => void refetch()}>
+            <p className="text-sm text-red-600 dark:text-red-400">{loadError}</p>
+            <button type="button" className="text-sm font-medium text-blue-600 hover:underline dark:text-blue-400" onClick={() => void refetch()}>
               Retry
             </button>
           </div>
         )}
 
         {skills !== null && !loadError && skills.length === 0 && (
-          <p className="text-sm text-gray-500">No skills yet.</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">No skills yet.</p>
         )}
 
         {skills !== null && !loadError && skills.length > 0 && (

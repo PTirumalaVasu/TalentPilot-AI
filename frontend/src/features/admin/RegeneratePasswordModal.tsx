@@ -102,21 +102,21 @@ export function RegeneratePasswordModal({ employee, open, onClose, onCopied }: R
     >
       {step !== 'revealed' ? (
         <div className="space-y-4">
-          <h2 id={titleId} className="text-lg font-bold text-gray-900" data-testid="regen-password-heading">
+          <h2 id={titleId} className="text-lg font-bold text-gray-900 dark:text-gray-100" data-testid="regen-password-heading">
             Regenerate password for {employee.name}?
           </h2>
-          <p className="text-sm text-gray-700" data-testid="regen-password-summary">
+          <p className="text-sm text-gray-700 dark:text-gray-300" data-testid="regen-password-summary">
             Their current password will stop working immediately. You&apos;ll get a new one to share with them.
           </p>
 
           {submitError && <FormErrorText>{submitError}</FormErrorText>}
 
-          <div className="flex items-center justify-end gap-2 border-t border-gray-100 pt-2">
+          <div className="flex items-center justify-end gap-2 border-t border-gray-100 pt-2 dark:border-gray-800">
             <button
               type="button"
               disabled={step === 'regenerating'}
               onClick={handleCancel}
-              className="text-sm font-medium text-gray-600 hover:underline disabled:opacity-50"
+              className="text-sm font-medium text-gray-600 hover:underline disabled:opacity-50 dark:text-gray-400"
               data-testid="regen-password-btn-cancel"
             >
               Cancel
@@ -125,7 +125,7 @@ export function RegeneratePasswordModal({ employee, open, onClose, onCopied }: R
               type="button"
               disabled={step === 'regenerating'}
               onClick={() => void handleConfirm()}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
+              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:opacity-50 dark:bg-blue-700 dark:hover:bg-blue-600"
               data-testid="regen-password-btn-confirm"
             >
               {step === 'regenerating' ? 'Working…' : 'Regenerate Password'}
@@ -134,14 +134,14 @@ export function RegeneratePasswordModal({ employee, open, onClose, onCopied }: R
         </div>
       ) : (
         <div className="space-y-4">
-          <h2 id={titleId} className="text-lg font-bold text-gray-900" data-testid="password-reveal-title">
+          <h2 id={titleId} className="text-lg font-bold text-gray-900 dark:text-gray-100" data-testid="password-reveal-title">
             Password regenerated
           </h2>
-          <p className="text-sm text-gray-700" data-testid="password-reveal-summary">
+          <p className="text-sm text-gray-700 dark:text-gray-300" data-testid="password-reveal-summary">
             Share this password with {employee.name} — it won&apos;t be shown again.
           </p>
           <p
-            className="select-all rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 font-mono text-sm text-gray-900"
+            className="select-all rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 font-mono text-sm text-gray-900 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
             data-testid="password-reveal-value"
           >
             {generatedPassword}
@@ -149,21 +149,21 @@ export function RegeneratePasswordModal({ employee, open, onClose, onCopied }: R
           <button
             type="button"
             onClick={() => void handleCopy()}
-            className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
             data-testid="password-reveal-btn-copy"
           >
             Copy
           </button>
-          <p className="text-xs text-gray-500" data-testid="password-reveal-recovery-note">
+          <p className="text-xs text-gray-500 dark:text-gray-400" data-testid="password-reveal-recovery-note">
             Lost this before sharing it? Use &quot;Regenerate Password&quot; from the employee&apos;s row — a lost
             password is a quick fix, not a dead end.
           </p>
 
-          <div className="flex items-center justify-end border-t border-gray-100 pt-2">
+          <div className="flex items-center justify-end border-t border-gray-100 pt-2 dark:border-gray-800">
             <button
               type="button"
               onClick={handleDone}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700"
+              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600"
               data-testid="password-reveal-btn-done"
             >
               Done

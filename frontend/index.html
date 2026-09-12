@@ -5,6 +5,26 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>TalentPilot-AI</title>
 
+    <!-- Story 8.1 (FR-30): applies the persisted/OS-preferred theme before
+         first paint, so a dark-mode user never sees a light flash while
+         React mounts. Kept manually in sync with
+         src/lib/theme/ThemeContext.tsx's getInitialTheme() -- this script
+         can't import that module (it must run synchronously, pre-bundle). -->
+    <script>
+      (function () {
+        try {
+          var stored = window.localStorage.getItem('theme');
+          var isDark =
+            stored === 'dark' ||
+            (stored !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          if (isDark) document.documentElement.classList.add('dark');
+        } catch (e) {
+          // localStorage/matchMedia unavailable -- default to light, same as
+          // getInitialTheme()'s own fallback.
+        }
+      })();
+    </script>
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
