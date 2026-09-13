@@ -72,3 +72,34 @@ class DashboardStatsResponse(BaseModel):
     in_progress_count: int
     not_started_count: int
     overall_percent: int
+
+
+class NeedsAttentionEntry(BaseModel):
+    """One flagged Assignment backing the Needs Attention segment (Story
+    9.2, FR-32/UX-DR45). One row per flagged Assignment, not per Employee --
+    an Employee with more than one Needs Attention Assignment produces more
+    than one entry here (see EmployeeSegmentationResponse's docstring)."""
+
+    employee_id: uuid.UUID
+    employee_name: str
+    assignment_id: uuid.UUID
+    skill_id: uuid.UUID
+    skill_name: str
+
+
+class EmployeeSegmentationResponse(BaseModel):
+    """Response for GET /api/dashboard/segmentation -- per-Employee On
+    Track / In Progress / Needs Attention classification for the Skill
+    Assignment Dashboard's pie chart (Story 9.2, FR-32/AR-27/AR-28). Pure
+    computed aggregate, no ORM passthrough.
+
+    `needs_attention_count` is the number of *distinct flagged Employees*
+    (matching the pie chart's segment count) -- it is NOT the length of
+    `needs_attention`, which is one row per flagged Assignment and can
+    exceed `needs_attention_count` when an Employee has more than one
+    Needs Attention Assignment. Do not conflate the two."""
+
+    on_track_count: int
+    in_progress_count: int
+    needs_attention_count: int
+    needs_attention: list[NeedsAttentionEntry]

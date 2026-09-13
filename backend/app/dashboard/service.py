@@ -7,14 +7,30 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.assignments.models import AssignmentOverride
+from app.assignments.models import Assignment, AssignmentOverride
 from app.assignments.service import AssignmentsService
 from app.content.service import match_content_for_skill
-from app.dashboard.schemas import DashboardResponse, AssignmentRowResponse, DashboardStatsResponse
+from app.dashboard.schemas import (
+    AssignmentRowResponse,
+    DashboardResponse,
+    DashboardStatsResponse,
+    EmployeeSegmentationResponse,
+    NeedsAttentionEntry,
+)
 from app.progress.service import STATUS_DISPLAY, ProgressService
 from app.progress.models import SkillProgress
 
 logger = logging.getLogger(__name__)
+
+# Story 9.2 (FR-32, AR-28): PRD Open Question 20 -- this is a PM-drafted
+# default, not user-confirmed, and therefore the item most likely to change
+# once a real HR Admin sees the pie chart (addendum.md's own framing).
+# Module-level constant, not a Settings/.env field, mirroring
+# progress/service.py's NEEDS_ATTENTION_STALENESS_DAYS precedent -- lives
+# here (not progress/service.py) because Employee Segmentation is a
+# dashboard-owned aggregation (AR-26), not part of progress/'s AD-3
+# per-Assignment Status/Provenance derivation authority.
+ON_TRACK_THRESHOLD = 0.8
 
 
 class DashboardService:
@@ -191,6 +207,105 @@ class DashboardService:
             in_progress_count=in_progress_count,
             not_started_count=not_started_count,
             overall_percent=overall_percent,
+        )
+
+    @staticmethod
+    async def get_employee_segmentation(session: AsyncSession) -> EmployeeSegmentationResponse:
+        """
+        Per-Employee On Track / In Progress / Needs Attention classification
+        for the Skill Assignment Dashboard's pie chart (Story 9.2, FR-32,
+        AR-27, AR-28).
+
+        Read-composition only (AR-26, no new table): reuses the exact same
+        org-wide read + archived-Employee filter + override batch-load
+        `get_dashboard_stats` (Story 9.1) already introduced -- the only new
+        step this method adds is grouping that same filtered Assignment list
+        by Employee (AR-27's "first per-Employee, full-roster aggregation
+        read" -- no new SQL query, just a new in-memory groupby over data
+        already fetched by one query + one batch-load).
+
+        Classification priority (exact order, epics.md Story 9.2 AC1):
+        1. Needs Attention -- at least one Assignment's derived provenance is
+           "Needs Attention". Overrides everything else.
+        2. On Track -- no Needs Attention assignments, and completion rate
+           (Completed / total active Assignments for that Employee) >=
+           ON_TRACK_THRESHOLD.
+        3. In Progress -- everything else (explicit catch-all, including
+           Employees at 0% complete -- there is deliberately no separate
+           "Not Started" segment, per FR-32 consequence #3).
+
+        An Employee with zero active Assignments never appears in any group
+        here (they simply have no rows in the filtered Assignment list), so
+        they are excluded "for free" -- no separate exclusion check needed.
+        """
+        from app.assignments.repository import list_assignments_for_dashboard
+        from app.progress.repository import ProgressRepository
+
+        all_assignments = await list_assignments_for_dashboard(session)
+
+        # Same archived-Employee exclusion as get_dashboard_stats (Story
+        # 9.1) -- list_assignments_for_dashboard only filters
+        # Assignment.active, not Employee.archived_at.
+        assignments = [a for a in all_assignments if a.employee is not None and a.employee.archived_at is None]
+
+        assignment_ids = [a.id for a in assignments]
+        override_map = await DashboardService._batch_load_overrides(session, assignment_ids)
+
+        by_employee: dict[UUID, list[Assignment]] = {}
+        for assignment in assignments:
+            by_employee.setdefault(assignment.employee_id, []).append(assignment)
+
+        on_track_count = 0
+        in_progress_count = 0
+        needs_attention_entries: list[NeedsAttentionEntry] = []
+        needs_attention_employee_count = 0
+
+        for employee_id, employee_assignments in by_employee.items():
+            employee_name = employee_assignments[0].employee.name if employee_assignments[0].employee else "Unknown"
+            completed_count = 0
+            flagged_for_this_employee: list[NeedsAttentionEntry] = []
+
+            for assignment in employee_assignments:
+                progress = assignment.progress
+                override = override_map.get(assignment.id)
+                # Deliberately the same no-side-effect video_duration
+                # resolution as get_dashboard_stats -- no match_content_for_skill
+                # fallback, since that can trigger a Content re-embed write,
+                # which this read-only endpoint must not do.
+                video_duration = ProgressRepository.get_video_duration(assignment)
+
+                status, provenance, _, _ = DashboardService._compute_status_and_provenance_from_data(
+                    assignment, progress, override, video_duration=video_duration
+                )
+
+                if status == "Completed":
+                    completed_count += 1
+
+                if provenance == "Needs Attention":
+                    skill_name = assignment.skill.name if assignment.skill else "Unknown"
+                    flagged_for_this_employee.append(
+                        NeedsAttentionEntry(
+                            employee_id=employee_id,
+                            employee_name=employee_name,
+                            assignment_id=assignment.id,
+                            skill_id=assignment.skill_id,
+                            skill_name=skill_name,
+                        )
+                    )
+
+            if flagged_for_this_employee:
+                needs_attention_employee_count += 1
+                needs_attention_entries.extend(flagged_for_this_employee)
+            elif completed_count / len(employee_assignments) >= ON_TRACK_THRESHOLD:
+                on_track_count += 1
+            else:
+                in_progress_count += 1
+
+        return EmployeeSegmentationResponse(
+            on_track_count=on_track_count,
+            in_progress_count=in_progress_count,
+            needs_attention_count=needs_attention_employee_count,
+            needs_attention=needs_attention_entries,
         )
 
     @staticmethod

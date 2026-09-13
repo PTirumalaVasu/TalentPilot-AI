@@ -6,7 +6,8 @@ why plain function-scoped @pytest.mark.asyncio doesn't work here (this is a
 live-DB-touching router).
 """
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from unittest import mock
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -16,7 +17,13 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from app.assignments.models import Assignment, AssignmentOverride, ContentCatalog, SkillProgress
 from app.core.config import settings
 from app.core.seed_ids import CASEY_ID, MORGAN_ID, RITA_ID
-from app.core.seeds import SKILL_DATA_VIZ_ID, SKILL_SALESFORCE_ID
+from app.core.seeds import (
+    SKILL_COMMUNICATION_ID,
+    SKILL_DATA_VIZ_ID,
+    SKILL_PYTHON_ID,
+    SKILL_SALESFORCE_ID,
+    SKILL_SQL_ID,
+)
 from app.main import app
 
 pytestmark = pytest.mark.asyncio(loop_scope="module")
@@ -449,3 +456,427 @@ async def test_dashboard_assignments_returns_multiple_org_wide_rows_for_hr_admin
     finally:
         for cid in created_ids:
             await _cleanup_assignment(cid)
+
+
+async def _get_segmentation(client: AsyncClient) -> dict:
+    response = await client.get("/api/dashboard/segmentation")
+    assert response.status_code == 200
+    return response.json()
+
+
+async def _create_throwaway_employee(client: AsyncClient, label: str) -> uuid.UUID:
+    """Story 9.2: bucket membership is a per-Employee aggregate across ALL of
+    that Employee's active Assignments, so the seeded demo Employees
+    (CASEY/MORGAN/RITA/etc.) can't be used for precise bucket assertions --
+    their existing assignments from other tests in this shared dev DB would
+    make the resulting bucket unpredictable. Mirrors Story 9.1's
+    test_dashboard_stats_excludes_archived_employee_and_their_assignments,
+    which hit the same problem and solved it the same way."""
+    response = await client.post(
+        "/api/admin/employees",
+        json={
+            "employee_code": f"T9-2-{label}-{uuid.uuid4().hex[:8]}",
+            "name": f"Story 9.2 Test Employee {label}",
+            "email": f"story9-2-{label}-{uuid.uuid4().hex[:8]}@example.com",
+        },
+    )
+    assert response.status_code == 201
+    return uuid.UUID(response.json()["id"])
+
+
+async def _delete_employee_hard(employee_id: uuid.UUID) -> None:
+    async with _session_factory() as session:
+        from app.auth.models import Account
+        from app.employees.models import Employee
+
+        # Account.id == Employee.id (AR-24) -- delete the account first or
+        # the FK (accounts_id_fkey) blocks the employee delete.
+        await session.execute(delete(Account).where(Account.id == employee_id))
+        await session.execute(delete(Employee).where(Employee.id == employee_id))
+        await session.commit()
+
+
+async def _set_override_completed(client: AsyncClient, assignment_id: uuid.UUID) -> None:
+    response = await client.post(f"/api/assignments/{assignment_id}/override", json={"action": "set"})
+    assert response.status_code == 200
+
+
+async def _insert_stale_self_reported_progress(assignment_id: uuid.UUID) -> None:
+    """Produces a genuine (not overridden) 'Needs Attention' Provenance:
+    unverified progress whose event_time is well past
+    NEEDS_ATTENTION_STALENESS_DAYS (7), matching the exact shape
+    test_provenance_detail.py's test_unverified_stale_progress_is_needs_attention
+    uses at the unit level."""
+    async with _session_factory() as session:
+        progress = SkillProgress(
+            id=uuid.uuid4(),
+            assignment_id=assignment_id,
+            watch_position=100,
+            event_time=datetime.now(timezone.utc) - timedelta(days=14),
+            verified=False,
+            updated_at=datetime.now(timezone.utc) - timedelta(days=14),
+        )
+        session.add(progress)
+        await session.commit()
+
+
+async def test_employee_segmentation_requires_authentication():
+    async with _client() as client:
+        response = await client.get("/api/dashboard/segmentation")
+        assert response.status_code == 401
+
+
+async def test_employee_segmentation_forbidden_for_employee_role():
+    async with _client() as client:
+        await _login(client, email="casey@sails.example.com")
+        response = await client.get("/api/dashboard/segmentation")
+        assert response.status_code == 403
+        assert response.json()["code"] == "FORBIDDEN_NOT_HR_ADMIN"
+
+
+async def test_employee_segmentation_on_track_employee():
+    """Story 9.2 AC1: 100% completion, no Needs Attention assignments ->
+    On Track."""
+    employee_id = None
+    assignment_id = None
+    try:
+        async with _client() as client:
+            await _login(client)
+            before = await _get_segmentation(client)
+
+            employee_id = await _create_throwaway_employee(client, "ontrack")
+            create_response = await client.post(
+                "/api/assignments",
+                json={"employee_id": str(employee_id), "skill_id": str(SKILL_DATA_VIZ_ID)},
+            )
+            assert create_response.status_code == 201
+            assignment_id = uuid.UUID(create_response.json()["id"])
+            await _set_override_completed(client, assignment_id)
+
+            after = await _get_segmentation(client)
+
+        assert after["on_track_count"] - before["on_track_count"] == 1
+        assert after["in_progress_count"] == before["in_progress_count"]
+        assert after["needs_attention_count"] == before["needs_attention_count"]
+    finally:
+        if assignment_id is not None:
+            await _cleanup_assignment(assignment_id)
+        if employee_id is not None:
+            await _delete_employee_hard(employee_id)
+
+
+async def test_employee_segmentation_in_progress_catchall_for_zero_percent():
+    """Story 9.2 AC1/Scope Note 5: an Employee at 0% complete (Not Started,
+    no signal at all) has no Needs Attention flag and completion rate 0.0 <
+    ON_TRACK_THRESHOLD, so falls into the explicit In Progress catch-all --
+    there is deliberately no 4th 'Not Started' segment (FR-32 consequence #3)."""
+    employee_id = None
+    assignment_id = None
+    try:
+        async with _client() as client:
+            await _login(client)
+            before = await _get_segmentation(client)
+
+            employee_id = await _create_throwaway_employee(client, "inprogress")
+            create_response = await client.post(
+                "/api/assignments",
+                json={"employee_id": str(employee_id), "skill_id": str(SKILL_SQL_ID)},
+            )
+            assert create_response.status_code == 201
+            assignment_id = uuid.UUID(create_response.json()["id"])
+
+            after = await _get_segmentation(client)
+
+        assert after["in_progress_count"] - before["in_progress_count"] == 1
+        assert after["on_track_count"] == before["on_track_count"]
+        assert after["needs_attention_count"] == before["needs_attention_count"]
+    finally:
+        if assignment_id is not None:
+            await _cleanup_assignment(assignment_id)
+        if employee_id is not None:
+            await _delete_employee_hard(employee_id)
+
+
+async def test_employee_segmentation_needs_attention_overrides_high_completion():
+    """Story 9.2 AC1: the priority rule, not just additive bucketing. This
+    Employee's 4/5 = 80% completion rate would independently qualify as
+    On Track (>= ON_TRACK_THRESHOLD's 0.8 default), but a single genuine
+    Needs Attention assignment must still force the whole Employee into the
+    Needs Attention bucket instead."""
+    employee_id = None
+    assignment_ids: list[uuid.UUID] = []
+    try:
+        async with _client() as client:
+            await _login(client)
+            before = await _get_segmentation(client)
+
+            employee_id = await _create_throwaway_employee(client, "needsattn")
+            completed_skills = [SKILL_DATA_VIZ_ID, SKILL_SALESFORCE_ID, SKILL_PYTHON_ID, SKILL_SQL_ID]
+            for skill_id in completed_skills:
+                create_response = await client.post(
+                    "/api/assignments",
+                    json={"employee_id": str(employee_id), "skill_id": str(skill_id)},
+                )
+                assert create_response.status_code == 201
+                aid = uuid.UUID(create_response.json()["id"])
+                assignment_ids.append(aid)
+                await _set_override_completed(client, aid)
+
+            create_response = await client.post(
+                "/api/assignments",
+                json={"employee_id": str(employee_id), "skill_id": str(SKILL_COMMUNICATION_ID)},
+            )
+            assert create_response.status_code == 201
+            flagged_assignment_id = uuid.UUID(create_response.json()["id"])
+            assignment_ids.append(flagged_assignment_id)
+            await _insert_stale_self_reported_progress(flagged_assignment_id)
+
+            after = await _get_segmentation(client)
+
+        assert after["needs_attention_count"] - before["needs_attention_count"] == 1
+        assert after["on_track_count"] == before["on_track_count"]
+        assert after["in_progress_count"] == before["in_progress_count"]
+
+        flagged_entries = [e for e in after["needs_attention"] if e["employee_id"] == str(employee_id)]
+        assert len(flagged_entries) == 1
+        entry = flagged_entries[0]
+        assert entry["assignment_id"] == str(flagged_assignment_id)
+        assert entry["skill_id"] == str(SKILL_COMMUNICATION_ID)
+        assert entry["skill_name"] == "Communication Skills"
+        assert entry["employee_name"] == "Story 9.2 Test Employee needsattn"
+    finally:
+        for aid in assignment_ids:
+            await _cleanup_assignment(aid)
+        if employee_id is not None:
+            await _delete_employee_hard(employee_id)
+
+
+async def test_employee_segmentation_on_track_boundary_without_override():
+    """Story 9.2 code review patch: the existing On Track test used 100%
+    completion via HR Override, which never actually exercised the
+    ON_TRACK_THRESHOLD comparison itself (it would pass regardless of the
+    threshold value). This test uses a genuine natural 4/5 = 80% completion
+    rate with zero overrides and zero Needs Attention flags, landing exactly
+    on ON_TRACK_THRESHOLD's default -- proving the `>=` comparison itself,
+    not just the override-masked priority rule."""
+    employee_id = None
+    assignment_ids: list[uuid.UUID] = []
+    try:
+        async with _client() as client:
+            await _login(client)
+            before = await _get_segmentation(client)
+
+            employee_id = await _create_throwaway_employee(client, "boundary80")
+            completed_skills = [SKILL_DATA_VIZ_ID, SKILL_SALESFORCE_ID, SKILL_PYTHON_ID, SKILL_SQL_ID]
+            for skill_id in completed_skills:
+                create_response = await client.post(
+                    "/api/assignments",
+                    json={"employee_id": str(employee_id), "skill_id": str(skill_id)},
+                )
+                assert create_response.status_code == 201
+                aid = uuid.UUID(create_response.json()["id"])
+                assignment_ids.append(aid)
+                await _set_override_completed(client, aid)
+
+            # 5th assignment left Not Started -- 4/5 = 80% completion, no
+            # Needs Attention flags anywhere.
+            create_response = await client.post(
+                "/api/assignments",
+                json={"employee_id": str(employee_id), "skill_id": str(SKILL_COMMUNICATION_ID)},
+            )
+            assert create_response.status_code == 201
+            assignment_ids.append(uuid.UUID(create_response.json()["id"]))
+
+            after = await _get_segmentation(client)
+
+        assert after["on_track_count"] - before["on_track_count"] == 1
+        assert after["in_progress_count"] == before["in_progress_count"]
+        assert after["needs_attention_count"] == before["needs_attention_count"]
+    finally:
+        for aid in assignment_ids:
+            await _cleanup_assignment(aid)
+        if employee_id is not None:
+            await _delete_employee_hard(employee_id)
+
+
+async def test_employee_segmentation_below_threshold_lands_in_progress():
+    """Story 9.2 code review patch: complements the boundary-at-threshold
+    test above with a ratio just below ON_TRACK_THRESHOLD (3/4 = 75%, no
+    Needs Attention flags) to prove the `>=` comparison correctly excludes
+    a near-miss from On Track rather than only ever being tested at 0% or
+    100%."""
+    employee_id = None
+    assignment_ids: list[uuid.UUID] = []
+    try:
+        async with _client() as client:
+            await _login(client)
+            before = await _get_segmentation(client)
+
+            employee_id = await _create_throwaway_employee(client, "belowthreshold")
+            completed_skills = [SKILL_DATA_VIZ_ID, SKILL_SALESFORCE_ID, SKILL_PYTHON_ID]
+            for skill_id in completed_skills:
+                create_response = await client.post(
+                    "/api/assignments",
+                    json={"employee_id": str(employee_id), "skill_id": str(skill_id)},
+                )
+                assert create_response.status_code == 201
+                aid = uuid.UUID(create_response.json()["id"])
+                assignment_ids.append(aid)
+                await _set_override_completed(client, aid)
+
+            # 4th assignment left Not Started -- 3/4 = 75% completion, below
+            # ON_TRACK_THRESHOLD's default 0.8.
+            create_response = await client.post(
+                "/api/assignments",
+                json={"employee_id": str(employee_id), "skill_id": str(SKILL_SQL_ID)},
+            )
+            assert create_response.status_code == 201
+            assignment_ids.append(uuid.UUID(create_response.json()["id"]))
+
+            after = await _get_segmentation(client)
+
+        assert after["in_progress_count"] - before["in_progress_count"] == 1
+        assert after["on_track_count"] == before["on_track_count"]
+        assert after["needs_attention_count"] == before["needs_attention_count"]
+    finally:
+        for aid in assignment_ids:
+            await _cleanup_assignment(aid)
+        if employee_id is not None:
+            await _delete_employee_hard(employee_id)
+
+
+async def test_employee_segmentation_override_clears_needs_attention_flag():
+    """Story 9.2 code review patch: proves the one real behavioral
+    interaction between Needs Attention and HR Override that the story's
+    Dev Notes claimed was 'confirmed safe via direct code reading' but never
+    actually tested -- once a genuinely stale (Needs Attention) Assignment
+    is HR-Overridden, get_provenance_detail reports provenance "HR Override"
+    (never "Needs Attention") for it, so the Employee must fall out of the
+    Needs Attention bucket entirely rather than remaining flagged."""
+    employee_id = None
+    assignment_id = None
+    try:
+        async with _client() as client:
+            await _login(client)
+            before = await _get_segmentation(client)
+
+            employee_id = await _create_throwaway_employee(client, "overrideclears")
+            create_response = await client.post(
+                "/api/assignments",
+                json={"employee_id": str(employee_id), "skill_id": str(SKILL_DATA_VIZ_ID)},
+            )
+            assert create_response.status_code == 201
+            assignment_id = uuid.UUID(create_response.json()["id"])
+            await _insert_stale_self_reported_progress(assignment_id)
+
+            during = await _get_segmentation(client)
+            assert during["needs_attention_count"] - before["needs_attention_count"] == 1
+
+            await _set_override_completed(client, assignment_id)
+
+            after = await _get_segmentation(client)
+
+        assert after["needs_attention_count"] == before["needs_attention_count"]
+        assert after["on_track_count"] - before["on_track_count"] == 1
+        assert after["in_progress_count"] == before["in_progress_count"]
+        assert not any(e["employee_id"] == str(employee_id) for e in after["needs_attention"])
+    finally:
+        if assignment_id is not None:
+            await _cleanup_assignment(assignment_id)
+        if employee_id is not None:
+            await _delete_employee_hard(employee_id)
+
+
+async def test_employee_segmentation_never_triggers_content_reembed_write():
+    """Story 9.2 code review patch: the whole point of deliberately omitting
+    the match_content_for_skill fallback (Scope Note 3) is that this GET
+    endpoint must never trigger a Content re-embed write. Nothing previously
+    asserted this -- a future regression reintroducing that call would pass
+    every other test silently. Patches app.dashboard.service.match_content_for_skill
+    (imported at module level in dashboard/service.py, used only by the
+    sibling get_dashboard_assignments) and asserts it is never invoked by
+    get_employee_segmentation."""
+    employee_id = None
+    assignment_id = None
+    try:
+        async with _client() as client:
+            await _login(client)
+
+            employee_id = await _create_throwaway_employee(client, "nosideeffect")
+            # No content_id, no progress row -- an assignment whose duration
+            # can't be resolved without the fallback, so if the fallback were
+            # (re)called, it would actually be exercised, not skipped as a
+            # no-op.
+            create_response = await client.post(
+                "/api/assignments",
+                json={"employee_id": str(employee_id), "skill_id": str(SKILL_DATA_VIZ_ID)},
+            )
+            assert create_response.status_code == 201
+            assignment_id = uuid.UUID(create_response.json()["id"])
+
+            with mock.patch("app.dashboard.service.match_content_for_skill") as mocked:
+                response = await client.get("/api/dashboard/segmentation")
+                assert response.status_code == 200
+                mocked.assert_not_called()
+    finally:
+        if assignment_id is not None:
+            await _cleanup_assignment(assignment_id)
+        if employee_id is not None:
+            await _delete_employee_hard(employee_id)
+
+
+async def test_employee_segmentation_excludes_employee_with_zero_active_assignments():
+    """Story 9.2 AC3: an active Employee with zero active Assignments is
+    excluded entirely -- not counted toward any of the three buckets."""
+    employee_id = None
+    try:
+        async with _client() as client:
+            await _login(client)
+            before = await _get_segmentation(client)
+
+            employee_id = await _create_throwaway_employee(client, "noassignments")
+
+            after = await _get_segmentation(client)
+
+        assert after["on_track_count"] == before["on_track_count"]
+        assert after["in_progress_count"] == before["in_progress_count"]
+        assert after["needs_attention_count"] == before["needs_attention_count"]
+    finally:
+        if employee_id is not None:
+            await _delete_employee_hard(employee_id)
+
+
+async def test_employee_segmentation_excludes_archived_employee():
+    """Story 9.2 AC3, mirroring Story 9.1's
+    test_dashboard_stats_excludes_archived_employee_and_their_assignments:
+    archiving an Employee (DELETE, which archives once they have Assignment
+    history) must drop them out of whichever bucket they were in."""
+    employee_id = None
+    assignment_id = None
+    try:
+        async with _client() as client:
+            await _login(client)
+            before_create = await _get_segmentation(client)
+
+            employee_id = await _create_throwaway_employee(client, "archived")
+            create_response = await client.post(
+                "/api/assignments",
+                json={"employee_id": str(employee_id), "skill_id": str(SKILL_DATA_VIZ_ID)},
+            )
+            assert create_response.status_code == 201
+            assignment_id = uuid.UUID(create_response.json()["id"])
+            await _set_override_completed(client, assignment_id)
+
+            after_create = await _get_segmentation(client)
+            assert after_create["on_track_count"] - before_create["on_track_count"] == 1
+
+            archive_response = await client.delete(f"/api/admin/employees/{employee_id}")
+            assert archive_response.status_code == 200
+
+            after_archive = await _get_segmentation(client)
+            assert after_archive["on_track_count"] == before_create["on_track_count"]
+    finally:
+        if assignment_id is not None:
+            await _cleanup_assignment(assignment_id)
+        if employee_id is not None:
+            await _delete_employee_hard(employee_id)

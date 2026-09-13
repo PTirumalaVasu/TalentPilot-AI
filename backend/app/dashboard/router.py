@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.schemas import CurrentUser
 from app.auth.service import get_current_user, require_hr_admin
 from app.core.db import get_db
-from app.dashboard.schemas import DashboardResponse, DashboardStatsResponse
+from app.dashboard.schemas import DashboardResponse, DashboardStatsResponse, EmployeeSegmentationResponse
 from app.dashboard.service import DashboardService
 
 router = APIRouter(tags=["dashboard"], dependencies=[Depends(get_current_user)])
@@ -72,3 +72,25 @@ async def get_dashboard_stats(
         DashboardStatsResponse with org-wide counts and progress breakdown
     """
     return await DashboardService.get_dashboard_stats(session)
+
+
+@router.get("/segmentation", response_model=EmployeeSegmentationResponse)
+async def get_employee_segmentation(
+    current_user: Annotated[CurrentUser, Depends(require_hr_admin)],
+    session: Annotated[AsyncSession, Depends(get_db)],
+) -> EmployeeSegmentationResponse:
+    """
+    Per-Employee On Track / In Progress / Needs Attention classification for
+    the Skill Assignment Dashboard's pie chart (Story 9.2, FR-32).
+
+    **Access Control (AD-6):** identical to `GET /api/dashboard` -- requires
+    HR_ADMIN (403 for EMPLOYEE, 401 for unauthenticated).
+
+    Not paginated -- this is a single computed aggregate object, not a list.
+
+    Returns:
+        EmployeeSegmentationResponse with bucket counts and the Needs
+        Attention detail list (Story 9.4's popover needs this without a
+        second round-trip).
+    """
+    return await DashboardService.get_employee_segmentation(session)

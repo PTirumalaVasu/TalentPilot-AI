@@ -93,6 +93,36 @@ async def test_dashboard_stats_service_returns_response_structure(db_session: As
 
 
 @pytest.mark.asyncio
+async def test_employee_segmentation_service_returns_response_structure(db_session: AsyncSession):
+    """Test: DashboardService.get_employee_segmentation (Story 9.2) returns
+    the right shape. No absolute-value assertions -- same live-shared-dev-DB
+    convention as test_dashboard_stats_service_returns_response_structure
+    above. Precise bucket-membership assertions (On Track / In Progress /
+    Needs Attention, priority override, zero-assignment exclusion) live in
+    test_dashboard_router.py, which creates and cleans up its own rows."""
+    response = await DashboardService.get_employee_segmentation(db_session)
+
+    assert isinstance(response.on_track_count, int)
+    assert isinstance(response.in_progress_count, int)
+    assert isinstance(response.needs_attention_count, int)
+    assert response.on_track_count >= 0
+    assert response.in_progress_count >= 0
+    assert response.needs_attention_count >= 0
+    assert isinstance(response.needs_attention, list)
+    # needs_attention_count is the distinct-Employee count; the list is at
+    # flagged-Assignment granularity (one row per flagged Assignment), so
+    # its row count may exceed needs_attention_count, but the number of
+    # *distinct* employee_ids in it must match exactly.
+    assert len({entry.employee_id for entry in response.needs_attention}) == response.needs_attention_count
+    for entry in response.needs_attention:
+        assert hasattr(entry, "employee_id")
+        assert hasattr(entry, "employee_name")
+        assert hasattr(entry, "assignment_id")
+        assert hasattr(entry, "skill_id")
+        assert hasattr(entry, "skill_name")
+
+
+@pytest.mark.asyncio
 async def test_dashboard_requires_hr_admin_role():
     """Test: GET /api/dashboard returns 403 Forbidden for EMPLOYEE role (AC10)."""
     # Create EMPLOYEE JWT. The app only reads the session from the
