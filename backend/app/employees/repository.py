@@ -20,6 +20,19 @@ from app.auth import repository as auth_repository
 from app.employees.models import Employee
 
 
+async def count_active_employees(db: AsyncSession) -> int:
+    """COUNT of active (non-archived) Employees, for the Skill Assignment
+    Dashboard's org-wide stats (Story 9.1, FR-31). A dedicated COUNT query
+    rather than loading every Employee row via `list_all_employees` just to
+    take `len()` -- this endpoint only needs the number. Lives here, not in
+    `assignments/repository.py` (which also touches `Employee` via
+    `list_employees`), because `employees/` is this table's actual AD-1
+    owner -- new reads should follow that rule even though one older,
+    pre-AD-1-documentation exception already exists elsewhere."""
+    result = await db.execute(select(func.count()).select_from(Employee).where(Employee.archived_at.is_(None)))
+    return result.scalar_one()
+
+
 async def list_all_employees(db: AsyncSession) -> list[Employee]:
     """Full roster read (Story 7.3, FR-25) -- every Employee, active and
     archived alike. No `archived_at` filter: the frontend's "show archived"

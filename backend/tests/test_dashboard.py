@@ -73,6 +73,26 @@ async def test_dashboard_response_schema(db_session: AsyncSession):
 
 
 @pytest.mark.asyncio
+async def test_dashboard_stats_service_returns_response_structure(db_session: AsyncSession):
+    """Test: DashboardService.get_dashboard_stats (Story 9.1) returns the
+    right shape. No absolute-value assertions -- this runs against the live
+    seeded/shared dev DB (same convention as the tests above), so only
+    structural/invariant checks are reliable here. Precise value assertions
+    (mixed statuses, HR Override, archived-Employee exclusion) live in
+    test_dashboard_router.py, which creates and cleans up its own rows."""
+    response = await DashboardService.get_dashboard_stats(db_session)
+
+    assert isinstance(response.total_employees, int)
+    assert isinstance(response.total_skills_assigned, int)
+    assert isinstance(response.total_completed, int)
+    assert response.total_employees >= 0
+    assert response.total_skills_assigned >= 0
+    assert response.total_completed == response.completed_count
+    assert response.completed_count + response.in_progress_count + response.not_started_count == response.total_skills_assigned
+    assert 0 <= response.overall_percent <= 100
+
+
+@pytest.mark.asyncio
 async def test_dashboard_requires_hr_admin_role():
     """Test: GET /api/dashboard returns 403 Forbidden for EMPLOYEE role (AC10)."""
     # Create EMPLOYEE JWT. The app only reads the session from the

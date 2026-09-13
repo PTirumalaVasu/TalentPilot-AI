@@ -13,6 +13,7 @@ highPriorityFixesApplied:
   - 'E5.S5b: NEW story created for HR Override Reversal with complete flow'
 inputDocuments:
   - '_bmad-output/planning-artifacts/prds/prd-TalentPilot-AI-2026-07-09/prd.md'
+  - '_bmad-output/planning-artifacts/prds/prd-TalentPilot-AI-2026-07-09/addendum.md'
   - '_bmad-output/planning-artifacts/architecture/architecture-TalentPilot-AI-2026-07-09/ARCHITECTURE-SPINE.md'
   - '_bmad-output/C-UX-Scenarios/00-ux-scenarios.md'
   - '_bmad-output/C-UX-Scenarios/01-ritas-trust-call/01-ritas-trust-call.md'
@@ -20,10 +21,11 @@ inputDocuments:
   - '_bmad-output/C-UX-Scenarios/03-ritas-assignment-and-track/03-ritas-assignment-and-track.md'
   - '_bmad-output/C-UX-Scenarios/04-ritas-content-curation/04.1-skills-content-sourcing/04.1-skills-content-sourcing.md'
   - '_bmad-output/C-UX-Scenarios/05-ritas-roster-management/05-ritas-roster-management.md'
+  - '_bmad-output/C-UX-Scenarios/06-ritas-pulse-check/06.1-skill-assignment-dashboard/06.1-skill-assignment-dashboard.md'
 projectName: 'TalentPilot-AI'
 extractedAt: '2026-07-09'
-extendedAt: '2026-09-11'
-extensionNote: 'Epic 6 (Admin-Assisted Content Sourcing, FR-16-23) added 2026-09-08 via bmad-create-epics-and-stories, extending scope on top of the original FR-1-14 extraction -- Epics 1-5 unchanged. FR-15 backfilled into the Requirements Inventory (was already realized by Stories 3.7/5.7, added earlier via bmad-correct-course without an inventory entry). Epic 7 (Employee Roster Management, HR Admin Navigation Shell, Application Theming; FR-24-30) added 2026-09-11 via bmad-create-epics-and-stories, extending scope again on top of Epic 6 -- Epics 1-6 unchanged. Source PRD update, Trigger Map extension, UX scenario (05-ritas-roster-management), and a working HTML prototype were all completed the same session before this epic was authored.'
+extendedAt: '2026-09-13'
+extensionNote: 'Epic 6 (Admin-Assisted Content Sourcing, FR-16-23) added 2026-09-08 via bmad-create-epics-and-stories, extending scope on top of the original FR-1-14 extraction -- Epics 1-5 unchanged. FR-15 backfilled into the Requirements Inventory (was already realized by Stories 3.7/5.7, added earlier via bmad-correct-course without an inventory entry). Epic 7 (Employee Roster Management, HR Admin Navigation Shell, Application Theming; FR-24-30) added 2026-09-11 via bmad-create-epics-and-stories, extending scope again on top of Epic 6 -- Epics 1-6 unchanged. Source PRD update, Trigger Map extension, UX scenario (05-ritas-roster-management), and a working HTML prototype were all completed the same session before this epic was authored. Epic 9 (Skill Assignment Dashboard, FR-31-33 + FR-29 amendment) added 2026-09-13 via bmad-create-epics-and-stories, extending scope again on top of Epic 8 -- Epics 1-8 unchanged. Source PRD update (Sec4.10), Trigger Map extension (Scenario scored 3/8, not filed as Enabling), new Scenario 06 (Ritas Pulse Check), Phase 4 UX design, and a fully-wired HTML prototype (06.1-Skill-Assignment-Dashboard.html) were all completed in a prior session before this epic was authored.'
 ---
 
 # TalentPilot-AI - Epic Breakdown
@@ -42,9 +44,11 @@ This document provides the complete epic and story breakdown for TalentPilot-AI,
 
 ## Requirements Inventory
 
-### Functional Requirements (30 total)
+### Functional Requirements (33 total)
 
 `[UPDATED 2026-09-08]` Original extraction covered FR-1 through FR-14. FR-15 (Assignment soft-delete) was added later via `bmad-correct-course` directly into Epic 3/Epic 5 stories (3.7, 5.7) without a Requirements Inventory entry — backfilled here for completeness. FR-16 through FR-23 (Feature 4.6, Admin-Assisted Content Sourcing) were added via a `bmad-prd` update the same day as this extension; see `prd.md` §4.6 for full FR text.
+
+`[UPDATED 2026-09-13]` FR-31 through FR-33 (Feature 4.10, Skill Assignment Dashboard) added via a `bmad-prd` update; see `prd.md` §4.10 for full FR text. That same update amended FR-29 (see Feature 4.8 below) to a 4-link nav — real follow-up work against the already-shipped Story 7.7, not a new FR number.
 
 **Feature 4.1: Skill Assignment Flow**
 - FR-1: HR Admin assigns a Skill to an Employee
@@ -90,14 +94,19 @@ This document provides the complete epic and story breakdown for TalentPilot-AI,
 - FR-28: HR Admin regenerates an Employee's password
 
 **Feature 4.8: HR Admin Navigation Shell** `[ADDED 2026-09-11]`
-- FR-29: HR Admin's primary navigation is presented in a left-side pane
+- FR-29: HR Admin's primary navigation is presented in a left-side pane `[AMENDED 2026-09-13]` — now 4 entries (Dashboard, Skill Assignments, Skills, Employees), not 3. Story 7.7 shipped the original 3-entry version; Epic 9 carries the follow-up work.
 
 **Feature 4.9: Application Theming** `[ADDED 2026-09-11]`
 - FR-30: User switches between Light and Dark theme
 
+**Feature 4.10: Skill Assignment Dashboard** `[ADDED 2026-09-13]`
+- FR-31: HR Admin views org-wide assignment stats on the landing page (Total Employees, Total Skills Assigned, Total Completed)
+- FR-32: HR Admin views an Assignment Progress breakdown (Completed/In Progress/Not Started + Overall %) and an Employee Segmentation pie chart (On Track / In Progress / Needs Attention)
+- FR-33: HR Admin reaches the full Readiness Dashboard grid via its own nav entry ("Skill Assignments"), or a single Employee's Skill Progress via drill-down from the Needs Attention segment
+
 ---
 
-### Non-Functional Requirements (19 total)
+### Non-Functional Requirements (20 total)
 
 **Latency:**
 - NFR-L1: Readiness Dashboard loads in under 2 seconds
@@ -105,6 +114,7 @@ This document provides the complete epic and story breakdown for TalentPilot-AI,
 - NFR-L3: New Assignment appears on dashboard within 1 second of confirm
 - NFR-L4: Video resume starts within 1 second of clicking Continue Watching
 - NFR-L5: Dashboard rows reflect a new watch-position update within 30 seconds without manual refresh
+- NFR-L6: Skill Assignment Dashboard landing page targets the same under-2-second load budget as the Readiness Dashboard (PRD §8, `[ADDED 2026-09-13]`)
 
 **Data Integrity:**
 - NFR-DI1: Watch-progress writes are ordered by event timestamp, never by position value (FR-7 binding)
@@ -145,7 +155,7 @@ This document provides the complete epic and story breakdown for TalentPilot-AI,
 
 ---
 
-### Architectural Requirements (25 total)
+### Architectural Requirements (28 total)
 
 **Architectural Invariants (binding all FRs):**
 - AR-1: Single-owner data modules — each table has exactly one owning module; all other features access via Service API (AD-1)
@@ -161,6 +171,9 @@ This document provides the complete epic and story breakdown for TalentPilot-AI,
 - AR-23: `skills` owned solely by `skills/`; the permanent create/edit/delete lock (FR-21/22) is a local `ever_assigned` boolean, set by `assignments/` — never a live cross-module check (AD-11) `[ADDED 2026-09-08]`
 - AR-24: Employee credential storage must reconcile with the existing-but-unused `Account`/`password_hash` model (`backend/app/auth/models.py`) rather than bolting a new password column onto `Employee` from a green field — architecture decision not yet made (PRD Open Question 18) `[ADDED 2026-09-11]`
 - AR-25: Archiving an Employee (FR-27) must revalidate sessions server-side on every subsequent protected request, not only at new-login time — the current session mechanism only checks per-token revocation, not per-user active/archived status (PRD FR-27 consequence) `[ADDED 2026-09-11]`
+- AR-26: Skill Assignment Dashboard (FR-31/32) is a read-composition owned by the `dashboard/` module — no new table, same "reads across modules, owns no data" pattern already established by the existing Readiness Dashboard (AD-3/AD-8) `[ADDED 2026-09-13]`
+- AR-27: Employee Segmentation's per-Employee aggregation across the *entire active roster* on every page load is a new query access pattern — the first "compute something for every Employee, every page load" read in this project (existing dashboard reads are per-Assignment-row, never full-roster aggregation) — flagged for a query-plan/index check once real data volume is known `[ADDED 2026-09-13]`
+- AR-28: The Employee Segmentation "On Track" threshold (80%) must be implemented as a single named config constant, never scattered inline — PRD Open Question 20 flags it as a PM-drafted default, not user-confirmed, and therefore the item most likely to change once a real HR Admin sees the pie chart `[ADDED 2026-09-13]`
 
 **Data Model Consistency:**
 - AR-10: Entity IDs are opaque UUIDs; all timestamps ISO-8601 UTC
@@ -180,7 +193,7 @@ This document provides the complete epic and story breakdown for TalentPilot-AI,
 
 ---
 
-### UX Design Requirements (43 total)
+### UX Design Requirements (48 total)
 
 **Scenario-Driven Interaction Contracts:**
 - UX-DR1: Assignment Dashboard grid displays one row per Employee×Skill assignment with Status badge (Not Started / In Progress / Completed) as primary at-a-glance signal
@@ -239,6 +252,13 @@ This document provides the complete epic and story breakdown for TalentPilot-AI,
 - UX-DR42: All row/card action icon buttons (Edit, Regenerate Password, Delete/Archive) carry descriptive `aria-label`s naming the action and the Employee, never icon-only with no accessible name
 - UX-DR43: The roster's Table view scrolls horizontally at narrow viewports rather than compressing columns to illegibility
 
+**Skill Assignment Dashboard (06.1 Landing Page)** `[ADDED 2026-09-13]`:
+- UX-DR44: Employee Segmentation pie chart is the primary, visually larger element on the page (larger card + larger heading token than the Assignment Progress Ring); org-wide stats and the Progress Ring are secondary/supporting — a deliberate D1/D2 hierarchy decision, not incidental layout
+- UX-DR45: Needs Attention is the only actionable segment — clicking it opens a lightweight on-page popover naming just the flagged Employees (name + flagged Skill); On Track and In Progress remain informational-only, with no click interaction
+- UX-DR46: When the Needs Attention count is 0, the segment renders as a genuinely different, non-interactive element (no button role, no hint text, no popover markup at all) — not merely visually disabled
+- UX-DR47: HR Admin's left-pane nav gains a 4th entry, "Skill Assignments," pointing to the existing unfiltered Readiness Dashboard grid; `Dashboard` no longer opens directly on that grid
+- UX-DR48: The full grid and the per-Employee Skill Progress drill-down are both reached *from* this landing page (nav entry, or a Needs Attention popover employee link) — this page introduces no new grid/drill-down UI of its own, reusing the existing Readiness Dashboard views
+
 ---
 
 ### FR Coverage Map
@@ -274,8 +294,11 @@ This document provides the complete epic and story breakdown for TalentPilot-AI,
 | FR-26 | `employees/` | Epic 7 | TBD | Pending |
 | FR-27 | `employees/` | Epic 7 | TBD | Pending |
 | FR-28 | `employees/` (or `auth/`, TBD per AR-24) | Epic 7 | TBD | Pending |
-| FR-29 | frontend (app shell) | Epic 7 | TBD | Pending |
+| FR-29 | frontend (app shell) | Epic 7 (shipped 3-link) + Epic 9 (4-link amendment) | TBD | Pending — amendment |
 | FR-30 | frontend (app shell) | Epic 8 | TBD | Pending |
+| FR-31 | `dashboard/` (read-composition) | Epic 9 | TBD | Pending |
+| FR-32 | `dashboard/` (read-composition) | Epic 9 | TBD | Pending |
+| FR-33 | frontend (app shell) + `dashboard/` | Epic 9 | TBD | Pending |
 
 ---
 
@@ -291,6 +314,7 @@ Based on the Architecture Spine's module dependency order (AD-8) and the build-t
 6. **Epic 6: Admin-Assisted Content Sourcing** `[ADDED 2026-09-08]` — HR Admin credential mgmt, live/manual content sourcing, Skill CRUD (FR-16 through FR-23); depends on Epic 1 (auth), Epic 2 (`content/` module + `youtube_client.py`/embedding), Epic 3 (`assignments/`, for the `ever_assigned` flag wiring, AD-11 point 3)
 7. **Epic 7: Employee Roster Management** `[ADDED 2026-09-11]` — HR Admin Employee CRUD + login provisioning + left-pane nav shell (FR-24 through FR-29); depends on Epic 1 (auth — must reconcile with the existing mock credential store, AR-24) and touches every existing HR Admin page's shell (01.1, 04.1) for the nav relocation
 8. **Epic 8: Application Theming** `[ADDED 2026-09-11]` — Light/Dark mode, app-wide (FR-30); frontend-only, no epic dependencies
+9. **Epic 9: Skill Assignment Dashboard** `[ADDED 2026-09-13]` — HR Admin landing page: org-wide stats, Assignment Progress ring, Employee Segmentation pie chart, nav shell's 4th entry (FR-29 amendment, FR-31 through FR-33); pure read-composition (AR-26), no new table; depends on Epic 1 (auth), Epic 3 (`assignments/`), Epic 4/5 (`progress/` Status/Provenance derivation), and Epic 7 (touches the shipped nav shell for its 4th link)
 
 ---
 
@@ -304,6 +328,7 @@ Based on the Architecture Spine's module dependency order (AD-8) and the build-t
 - **Epic 6:** Admin-Assisted Content Sourcing (FR-16 through FR-23; AR-22, AR-23) `[ADDED 2026-09-08]`
 - **Epic 7:** Employee Roster Management (FR-24 through FR-29; AR-24, AR-25) `[ADDED 2026-09-11]`
 - **Epic 8:** Application Theming (FR-30) `[ADDED 2026-09-11]`
+- **Epic 9:** Skill Assignment Dashboard (FR-29 amendment, FR-31 through FR-33; AR-26, AR-27, AR-28) `[ADDED 2026-09-13]`
 
 ---
 
@@ -2728,9 +2753,155 @@ So that I can use whichever mode I prefer, consistently, across the whole produc
 
 ---
 
+## EPIC 9: Skill Assignment Dashboard
+
+> Added via `bmad-prd` update, 2026-09-12 — not in the original PRD/epics.md scope. Realizes FR-31 through FR-33 and amends FR-29 (PRD §4.10, §4.8 amendment).
+
+**Epic Goal:** Give HR Admin an org-wide "how are we doing" landing page the moment they log in — org-wide stats, an Assignment Progress ring, and an Employee Segmentation pie chart that gets them straight to whoever needs attention — without losing any of the existing detailed grid, which relocates to its own nav entry.
+
+**Owned by:** `dashboard/` module (read-composition, no new table, AR-26); frontend app shell (FR-29 amendment)
+
+**Binds:** FR-29 (amendment), FR-31, FR-32, FR-33, NFR-L6, AR-26, AR-27, AR-28, UX-DR44 through UX-DR48
+
+**Dependencies:** Epic 1 (auth/session gate), Epic 3 (`assignments/`), Epic 4/5 (`progress/` Status/Provenance derivation), Epic 7 (touches the shipped nav shell, `HrAppShell.tsx`, for its 4th link)
+
+---
+
+### Story 9.1: Backend: Org-Wide Stats & Assignment Progress Endpoint
+
+As an **HR Admin**,
+I want org-wide assignment stats and progress computed for me,
+So that I can see the health of the whole org at a glance without opening the full grid (FR-31).
+
+**Acceptance Criteria:**
+
+**Given** active (non-archived) Employees and active (non-soft-deleted) Assignments exist
+**When** the dashboard's stats endpoint is called
+**Then** it returns Total Employees (active/non-archived count), Total Skills Assigned (active Assignment count), and Total Completed (Assignments whose derived Status is Completed) — all computed server-side from the single derivation authority (`progress/`, AD-3), never re-derived independently on the frontend
+
+**Given** the same active Assignment set
+**When** the Assignment Progress breakdown is requested
+**Then** Completed/In Progress/Not Started counts and Overall % (`completed/total * 100`, rounded) are returned, matching the exact Status values FR-8 already defines — not a parallel status computation
+
+**Given** an archived Employee or a soft-deleted Assignment
+**When** computing any of these counts
+**Then** it is excluded, mirroring the existing archived/soft-delete exclusion rule already used by FR-25 (roster) and FR-4 (Content Discovery)
+
+**And** this endpoint is read-only, owned by `dashboard/` (AR-26), and adds no new table — reads across `assignments`/`employees`/`progress` exactly as the existing Readiness Dashboard already does (AD-8)
+
+**Given** the endpoint is called by a non-HR-Admin session
+**When** the request is evaluated
+**Then** it is refused with the same access-denied response FR-14 already defines for every other HR-only endpoint
+
+---
+
+### Story 9.2: Backend: Employee Segmentation Endpoint
+
+As an **HR Admin**,
+I want each Employee classified as On Track / In Progress / Needs Attention,
+So that I can immediately see who actually needs my attention without scanning the full grid myself (FR-32, AR-27, AR-28).
+
+**Acceptance Criteria:**
+
+**Given** an active Employee with at least one active Assignment
+**When** segmentation is computed
+**Then** it is classified using this exact priority order: **Needs Attention** if any of their Assignments carries the "Needs Attention" Provenance Label (FR-10's existing 7-day staleness rule) — overriding everything else; else **On Track** if their completion rate (Completed Assignments ÷ their total active Assignments) is ≥ `ON_TRACK_THRESHOLD`; else **In Progress**
+
+**Given** `ON_TRACK_THRESHOLD`
+**When** it is implemented
+**Then** it exists as exactly one named config constant (AR-28) — not duplicated or inlined at more than one call site — defaulted to 0.8 per the PRD's own PM-drafted default, with a comment pointing at PRD Open Question 20 as still-unconfirmed
+
+**Given** an active Employee with zero active Assignments
+**When** segmentation runs
+**Then** that Employee is excluded entirely from the segmentation response (not counted toward any of the three buckets, and not silently defaulted into one)
+
+**Given** the "Needs Attention" bucket
+**When** its response is built
+**Then** it includes, for each flagged Employee, their id/name and the specific flagged Skill/Assignment — the frontend's popover (Story 9.4) needs this to render without a second round-trip
+
+**And** this is the first "compute something for every Employee, every page load" read in this project (AR-27) — a query-plan check against the actual roster size is recorded in this story's Dev Notes before being marked done, not assumed fine
+
+---
+
+### Story 9.3: Frontend: Skill Assignment Dashboard Landing Page
+
+As an **HR Admin**,
+I want to land on an org-wide dashboard when I log in,
+So that I can get a temperature check before diving into individual assignments (FR-31, FR-32 display, UX-DR44).
+
+**Acceptance Criteria:**
+
+**Given** I log in as HR Admin, or click "Dashboard" in the left nav
+**When** the page loads
+**Then** I land on the new Skill Assignment Dashboard (not the full grid) within the NFR-L6 2-second budget, showing Total Employees/Total Skills Assigned/Total Completed, the Assignment Progress ring, and the Employee Segmentation pie chart — all populated from Stories 9.1/9.2's endpoints, never hardcoded
+
+**Given** the page's visual hierarchy (UX-DR44)
+**When** it renders
+**Then** the Employee Segmentation pie chart is visually larger (card width and heading size) than the Assignment Progress ring — the three stats and the ring are secondary/supporting, not competing for primary attention
+
+**Given** the page while data is loading, or if it fails to load, or if there is genuinely nothing to show (zero active Employees or zero active Assignments)
+**When** each of those conditions applies
+**Then** a distinct Loading / Error (with Retry) / Empty (with a link into the Skill Assignment Flow) state renders — the same three-state discipline already required of every other data-backed page in this product (FR-4, FR-8)
+
+**And** every stat, the ring segments, and the pie segments are labeled with text/numbers, never color-only (NFR-A2's existing rule, extended here)
+
+---
+
+### Story 9.4: Frontend: Needs Attention Popover & Drill-Down
+
+As an **HR Admin**,
+I want to click straight through to whoever needs attention,
+So that the pie chart is something I can act on, not just something I read (FR-33, UX-DR45, UX-DR46).
+
+**Acceptance Criteria:**
+
+**Given** the Needs Attention segment shows a count greater than zero
+**When** I click it
+**Then** a popover opens listing exactly those flagged Employees (name + their flagged Skill, from Story 9.2's response), each a link into that Employee's existing Skill Progress drill-down (the same per-Employee view FR-9 already provides — not a new view built for this story)
+
+**Given** the Needs Attention count is exactly zero
+**When** the page renders
+**Then** that segment is a genuinely non-interactive element — no button role, no "click to see who" hint, no popover markup at all (UX-DR46) — not merely a disabled-looking button
+
+**Given** the On Track or In Progress segments
+**When** I click them
+**Then** nothing happens — per UX-DR45, only Needs Attention is actionable, and this is a deliberate asymmetry, not an oversight to fix later
+
+**Given** the popover is open
+**When** I press Escape, click outside it, or click one of its Employee links
+**Then** it closes and (for Escape) returns keyboard focus to the segment button — matching this product's existing modal/dropdown close conventions (FR-9's drill-down, the existing user-menu dropdown)
+
+**And** clicking "Skill Assignments" in the left nav (Story 9.5) reaches the full, unfiltered grid — this story's popover is the only way this page reaches a *single* Employee's view; the full grid is a separate, nav-level destination, not built by this story
+
+---
+
+### Story 9.5: Frontend: Nav Shell — Add "Skill Assignments" Entry
+
+As an **HR Admin**,
+I want the full assignment grid to keep its own clear place in the nav,
+So that relocating "Dashboard" to the new landing page doesn't cost me access to the detailed view I already rely on (FR-29 amendment, UX-DR47, UX-DR48).
+
+**Acceptance Criteria:**
+
+**Given** the existing left-pane nav (Story 7.7: Dashboard, Skills, Employees)
+**When** this story ships
+**Then** it shows four entries — Dashboard, **Skill Assignments**, Skills, Employees — in that order, with the same active-state/keyboard/aria-label treatment Story 7.7 already established for the other three (no new pattern invented)
+
+**Given** the "Dashboard" link
+**When** it is clicked
+**Then** it opens the new Skill Assignment Dashboard (Story 9.3) — it no longer opens the full grid directly, which is the one behavior change to an already-shipped nav entry this story makes
+
+**Given** the new "Skill Assignments" link
+**When** it is clicked
+**Then** it opens the existing full Readiness Dashboard grid, completely unfiltered, exactly as it rendered before this epic — UJ-1's already-validated "scan 15-20 rows" flow is unchanged, just relocated one nav click (UX-DR48)
+
+**And** this story is frontend-only (`HrAppShell.tsx` per Story 7.7's precedent) — no backend/API change, matching AR-26's read-composition framing for the rest of this epic
+
+---
+
 ## Next Steps
 
-**Epics 1 through 8 are all defined** (75 original requirements + 22 added 2026-09-08 for Epic 6 + 20 added 2026-09-11 for Epics 7-8 = 117 total). Epics 1-6 are fully implemented (see `_bmad-output/implementation-artifacts/sprint-status.yaml` — all `done`). Epics 7-8 are newly authored and awaiting `bmad-create-story`/`bmad-dev-story` to begin implementation:
+**Epics 1 through 9 are all defined** (75 original requirements + 22 added 2026-09-08 for Epic 6 + 20 added 2026-09-11 for Epics 7-8 + 11 added 2026-09-13 for Epic 9 = 128 total). Epics 1-8 are fully implemented (see `_bmad-output/implementation-artifacts/sprint-status.yaml` — all `done`, including all 8 retrospectives). Epic 9 is newly authored (2026-09-13) and awaiting `bmad-create-story`/`bmad-dev-story` to begin implementation:
 
 1. **Epic 1:** Authentication & Session Gate — done
 2. **Epic 2:** Content Catalog & Semantic Matching — done
@@ -2738,9 +2909,10 @@ So that I can use whichever mode I prefer, consistently, across the whole produc
 4. **Epic 4:** Video Progress Capture & Resume — done
 5. **Epic 5:** Readiness Dashboard & Override — done
 6. **Epic 6:** Admin-Assisted Content Sourcing — done
-7. **Epic 7:** Employee Roster Management — backlog (7 stories: schema/credential foundation, create, view, edit, delete/archive, regenerate password, nav shell)
-8. **Epic 8:** Application Theming — backlog (1 story)
+7. **Epic 7:** Employee Roster Management — done `[CORRECTED 2026-09-13 — this section previously read "backlog," stale relative to sprint-status.yaml]`
+8. **Epic 8:** Application Theming — done `[CORRECTED 2026-09-13 — same stale-status fix as Epic 7 above]`
+9. **Epic 9:** Skill Assignment Dashboard — backlog (5 stories: org-wide stats/progress endpoint, employee segmentation endpoint, landing page frontend, needs-attention popover/drill-down, nav shell 4th entry)
 
-Recommended build order for Epic 7: Story 7.1 (foundation) first — every other Epic 7 story depends on its schema/credential decision. Story 7.7 (nav shell) last, since it needs Story 7.3's Employees page to exist as a real nav target. Epic 8 has no ordering constraint and no dependency on Epic 7.
+Recommended build order for Epic 9: Story 9.1 and 9.2 (backend endpoints) first, in either order — both are independent reads with no shared dependency. Story 9.3 (landing page) next, since it consumes both endpoints. Story 9.4 (popover) after 9.3, since it's a UI addition to the same page. Story 9.5 (nav shell) last, since it repoints "Dashboard" to Story 9.3's page, which must exist first.
 
 **[C] Continue to Step 02 (Epic Design) for detailed story refinement and dependencies mapping:**

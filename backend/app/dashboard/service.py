@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.assignments.models import AssignmentOverride
 from app.assignments.service import AssignmentsService
 from app.content.service import match_content_for_skill
-from app.dashboard.schemas import DashboardResponse, AssignmentRowResponse
+from app.dashboard.schemas import DashboardResponse, AssignmentRowResponse, DashboardStatsResponse
 from app.progress.service import STATUS_DISPLAY, ProgressService
 from app.progress.models import SkillProgress
 
@@ -112,6 +112,85 @@ class DashboardService:
             total_count=assignments_page.total_count,
             page=page,
             page_size=page_size,
+        )
+
+    @staticmethod
+    async def get_dashboard_stats(session: AsyncSession) -> DashboardStatsResponse:
+        """
+        Org-wide stats + Assignment Progress breakdown for the Skill
+        Assignment Dashboard landing page (Story 9.1, FR-31/FR-32).
+
+        Read-composition only (AR-26, no new table): reuses
+        `assignments/`'s org-wide read, `employees/`'s active-count read, and
+        `progress/`'s single Status/Provenance derivation authority (AD-3) --
+        does not recompute Status independently.
+        """
+        from app.assignments.repository import list_assignments_for_dashboard
+        from app.employees.repository import count_active_employees
+        from app.progress.repository import ProgressRepository
+
+        all_assignments = await list_assignments_for_dashboard(session)
+
+        # AC3: an archived Employee's assignments are excluded from every
+        # count here, not just from total_employees. `list_assignments_for_dashboard`
+        # only filters Assignment.active -- it does not know about
+        # Employee.archived_at -- so that exclusion happens here instead of
+        # widening the (dead-but-resurrected) repository query's own filter.
+        assignments = [a for a in all_assignments if a.employee is not None and a.employee.archived_at is None]
+
+        # `list_assignments_for_dashboard` already eager-loads `.progress`
+        # (unlike `list_assignments_for_hr`, which is why
+        # get_dashboard_assignments above needs a separate
+        # _batch_load_progress step) -- only overrides need a batch fetch here.
+        assignment_ids = [a.id for a in assignments]
+        override_map = await DashboardService._batch_load_overrides(session, assignment_ids)
+
+        completed_count = 0
+        in_progress_count = 0
+        not_started_count = 0
+
+        for assignment in assignments:
+            progress = assignment.progress
+            override = override_map.get(assignment.id)
+
+            # Deliberately NOT the same fallback get_dashboard_assignments uses
+            # above. That fallback calls match_content_for_skill, which can
+            # re-embed Content as a side effect (content/service.py) when no
+            # match clears the threshold -- a real write, contradicting this
+            # endpoint's AC4 "read-only" guarantee. Code review 2026-09-13,
+            # decision-needed #1: user chose to harden this endpoint rather
+            # than accept the inherited side effect, even though the sibling
+            # endpoint still has it. Consequence: an assignment with partial
+            # watch progress but no known duration (no content_id, or
+            # content with no duration metadata) classifies as Not Started
+            # here instead of a percentage-based In Progress/Completed --
+            # slightly less accurate than the sibling endpoint, in exchange
+            # for genuinely no writes from a GET.
+            video_duration = ProgressRepository.get_video_duration(assignment)
+
+            status, _, _, _ = DashboardService._compute_status_and_provenance_from_data(
+                assignment, progress, override, video_duration=video_duration
+            )
+
+            if status == "Completed":
+                completed_count += 1
+            elif status == "In Progress":
+                in_progress_count += 1
+            else:
+                not_started_count += 1
+
+        total_employees = await count_active_employees(session)
+        total_skills_assigned = len(assignments)
+        overall_percent = round(completed_count / total_skills_assigned * 100) if total_skills_assigned else 0
+
+        return DashboardStatsResponse(
+            total_employees=total_employees,
+            total_skills_assigned=total_skills_assigned,
+            total_completed=completed_count,
+            completed_count=completed_count,
+            in_progress_count=in_progress_count,
+            not_started_count=not_started_count,
+            overall_percent=overall_percent,
         )
 
     @staticmethod

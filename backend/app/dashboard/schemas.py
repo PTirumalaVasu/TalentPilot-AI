@@ -50,3 +50,25 @@ class DashboardResponse(BaseModel):
     total_count: int
     page: int
     page_size: int
+
+
+class DashboardStatsResponse(BaseModel):
+    """Response for GET /api/dashboard/stats — org-wide stats and Assignment
+    Progress breakdown for the Skill Assignment Dashboard landing page
+    (Story 9.1, FR-31/FR-32). Pure computed aggregate, no ORM passthrough.
+
+    `total_completed` and `completed_count` are always numerically identical
+    -- this is intentional, not an accidental duplication (code review
+    2026-09-13): they back two separate UI elements (the FR-31 top-line
+    "Total Completed" stat and the FR-32 Assignment Progress breakdown's
+    "Completed" count) that happen to share one underlying number. Keep both
+    fields; do not collapse them into one without updating both call sites'
+    UI intent."""
+
+    total_employees: int
+    total_skills_assigned: int
+    total_completed: int
+    completed_count: int
+    in_progress_count: int
+    not_started_count: int
+    overall_percent: int
