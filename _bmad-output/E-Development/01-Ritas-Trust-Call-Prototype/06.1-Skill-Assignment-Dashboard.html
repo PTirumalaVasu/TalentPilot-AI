@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <script src="shared/auth.js"></script>
+    <script>TalentPilotAuth.requireRole('HR');</script>
+    <meta name="viewport" content="width=1440, initial-scale=1.0">
+    <title>06.1 Skill Assignment Dashboard - TalentPilot-AI</title>
+
+    <!-- Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Tailwind Config (Design Tokens) -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'talentpilot': {
+                            50: '#eff6ff',
+                            100: '#dbeafe',
+                            500: '#2563eb',
+                            600: '#1d4ed8',
+                            700: '#1e40af',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Dev Mode Styles (feedback/testing tool) -->
+    <link rel="stylesheet" href="components/dev-mode.css">
+</head>
+<body class="min-h-screen bg-gray-50 font-sans">
+    <!-- ========================================================================
+         DEV MODE TOGGLE (Shift+Click any element to copy its Object ID)
+         ======================================================================== -->
+    <button id="dev-mode-toggle" class="dev-mode-toggle" title="Toggle Dev Mode (Ctrl+E)">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+        </svg>
+        <span>Dev Mode: OFF</span>
+    </button>
+    <div id="dev-mode-tooltip" class="dev-mode-tooltip" style="display: none;"></div>
+
+    <div class="flex min-h-screen">
+        <!-- ====================================================================
+             LEFT NAV PANE (shared shell, FR-29 — extended here to 4 links.
+             First page spec'd/built with the current 4-link nav — 01.1/04.1/05.1
+             still show older versions, tracked in the design log Backlog.)
+             ==================================================================== -->
+        <aside id="app-nav-sidebar" data-object-id="app-nav-sidebar"
+               class="w-56 shrink-0 bg-white border-r border-gray-200 flex flex-col">
+            <a href="06.1-Skill-Assignment-Dashboard.html" id="app-nav-logo" data-object-id="app-nav-logo"
+               class="flex items-center gap-2 font-bold text-lg text-gray-900 px-5 py-5 border-b border-gray-100">
+                TalentPilot-AI
+            </a>
+            <nav class="flex-1 px-3 py-4 space-y-1 text-sm">
+                <a href="#" id="app-nav-link-dashboard" data-object-id="app-nav-link-dashboard"
+                   aria-current="page"
+                   class="block px-3 py-2 rounded-lg bg-talentpilot-50 text-talentpilot-700 font-medium">Dashboard</a>
+                <a href="01.1-Skills-Dashboard.html" id="app-nav-link-skill-assignments" data-object-id="app-nav-link-skill-assignments"
+                   class="block px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors">Skill Assignments</a>
+                <a href="04.1-Skills-Tab.html" id="app-nav-link-skills" data-object-id="app-nav-link-skills"
+                   class="block px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors">Skills</a>
+                <a href="05.1-Employees-Tab.html" id="app-nav-link-employees" data-object-id="app-nav-link-employees"
+                   class="block px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors">Employees</a>
+            </nav>
+        </aside>
+
+        <div class="flex-1 min-w-0">
+            <!-- ================================================================
+                 TOP BAR (slim, shared) — user menu only, nav links live in sidebar
+                 ================================================================ -->
+            <header class="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-end">
+                <div id="app-topbar-user-menu" data-object-id="app-topbar-user-menu" class="relative">
+                    <button type="button" onclick="toggleUserMenu()" class="flex items-center gap-2 text-sm text-gray-700">
+                        <span class="w-8 h-8 rounded-full bg-talentpilot-100 flex items-center justify-center text-talentpilot-700 font-medium">R</span>
+                        Rita
+                    </button>
+                    <div class="hidden absolute right-0 mt-2 w-40 bg-white border border-gray-200 rounded-lg shadow-lg z-10" data-dropdown>
+                        <a href="#" onclick="handleSignOut()" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg">Sign Out</a>
+                    </div>
+                </div>
+            </header>
+
+            <!-- ================================================================
+                 PAGE HEADING
+                 ================================================================ -->
+            <div class="px-6 pt-6">
+                <h1 id="dashboard-heading-title" data-object-id="dashboard-heading-title"
+                    class="text-3xl font-black text-gray-900">Dashboard</h1>
+                <p id="dashboard-heading-subtitle" data-object-id="dashboard-heading-subtitle"
+                   class="text-sm text-gray-500 mt-1">Org-wide skill assignment overview</p>
+            </div>
+
+            <main id="dashboard-main" class="px-6 pb-12">
+
+                <!-- ============================================================
+                     LOADED STATE (data-driven — populated by renderDashboard())
+                     ============================================================ -->
+                <div id="dashboard-state-loaded" class="hidden">
+
+                    <!-- Top-line stats row (secondary) -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+                        <div id="dashboard-stat-employees" data-object-id="dashboard-stat-employees"
+                             class="bg-white border border-gray-200 rounded-lg px-5 py-4">
+                            <p class="text-sm text-gray-500">Total Employees</p>
+                            <p class="stat-value text-3xl font-bold text-gray-900 mt-1">—</p>
+                        </div>
+                        <div id="dashboard-stat-skills-assigned" data-object-id="dashboard-stat-skills-assigned"
+                             class="bg-white border border-gray-200 rounded-lg px-5 py-4">
+                            <p class="text-sm text-gray-500">Total Skills Assigned</p>
+                            <p class="stat-value text-3xl font-bold text-gray-900 mt-1">—</p>
+                        </div>
+                        <div id="dashboard-stat-completed" data-object-id="dashboard-stat-completed"
+                             class="bg-white border border-gray-200 rounded-lg px-5 py-4">
+                            <p class="text-sm text-gray-500">Total Completed</p>
+                            <p class="stat-value text-3xl font-bold text-gray-900 mt-1">—</p>
+                        </div>
+                    </div>
+
+                    <!-- Progress ring (secondary) + Segmentation pie chart (PRIMARY, larger) -->
+                    <div class="grid grid-cols-1 lg:grid-cols-[1fr_1.5fr] gap-4 mt-4">
+
+                        <!-- Assignment Progress Ring (secondary) -->
+                        <div id="dashboard-progress-card" data-object-id="dashboard-progress-card"
+                             class="bg-white border border-gray-200 rounded-lg p-6 flex flex-col items-center">
+                            <h2 id="dashboard-progress-heading" data-object-id="dashboard-progress-heading"
+                                class="text-lg font-bold text-gray-900 self-start mb-4">Assignment Progress</h2>
+                            <div id="dashboard-progress-ring" data-object-id="dashboard-progress-ring"
+                                 class="relative w-40 h-40 rounded-full">
+                                <div class="absolute inset-3 bg-white rounded-full flex items-center justify-center">
+                                    <span class="ring-percent-label text-2xl font-bold text-gray-900">—</span>
+                                </div>
+                            </div>
+                            <div class="mt-5 w-full space-y-1.5 text-sm">
+                                <p id="dashboard-progress-legend-completed" data-object-id="dashboard-progress-legend-completed"
+                                   class="flex items-center gap-2 text-gray-700">
+                                    <span class="w-2.5 h-2.5 rounded-full bg-talentpilot-700 inline-block"></span>
+                                    <span class="legend-text">Completed — —</span>
+                                </p>
+                                <p id="dashboard-progress-legend-inprogress" data-object-id="dashboard-progress-legend-inprogress"
+                                   class="flex items-center gap-2 text-gray-700">
+                                    <span class="w-2.5 h-2.5 rounded-full bg-blue-300 inline-block"></span>
+                                    <span class="legend-text">In Progress — —</span>
+                                </p>
+                                <p id="dashboard-progress-legend-notstarted" data-object-id="dashboard-progress-legend-notstarted"
+                                   class="flex items-center gap-2 text-gray-700">
+                                    <span class="w-2.5 h-2.5 rounded-full bg-gray-300 inline-block"></span>
+                                    <span class="legend-text">Not Started — —</span>
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Employee Segmentation (PRIMARY — the page's actual job) -->
+                        <div id="dashboard-segmentation-card" data-object-id="dashboard-segmentation-card"
+                             class="bg-white border-2 border-gray-200 rounded-lg p-6">
+                            <h2 id="dashboard-segmentation-heading" data-object-id="dashboard-segmentation-heading"
+                                class="text-xl font-bold text-gray-900 mb-4">Employee Segmentation</h2>
+                            <div class="flex flex-col sm:flex-row items-center gap-8">
+                                <div id="dashboard-segmentation-pie" data-object-id="dashboard-segmentation-pie"
+                                     class="w-52 h-52 rounded-full shrink-0">
+                                </div>
+                                <div class="space-y-3 text-sm w-full">
+                                    <p id="dashboard-segmentation-legend-ontrack" data-object-id="dashboard-segmentation-legend-ontrack"
+                                       class="flex items-center gap-2 text-gray-700">
+                                        <span class="w-3 h-3 rounded-full bg-green-600 inline-block"></span>
+                                        <span class="legend-text">On Track — —</span>
+                                    </p>
+                                    <p id="dashboard-segmentation-legend-inprogress" data-object-id="dashboard-segmentation-legend-inprogress"
+                                       class="flex items-center gap-2 text-gray-700">
+                                        <span class="w-3 h-3 rounded-full bg-amber-500 inline-block"></span>
+                                        <span class="legend-text">In Progress — —</span>
+                                    </p>
+                                    <div class="relative" id="needs-attention-wrap">
+                                        <!-- Rendered entirely by JS: a <button> when count > 0, plain <span> when count is 0.
+                                             See renderSegmentation() — this is not just visually disabled, it's a different element. -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ============================================================
+                     LOADING STATE (shown briefly on every real page load)
+                     ============================================================ -->
+                <div id="dashboard-state-loading" class="hidden mt-6 animate-pulse">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="h-20 bg-gray-200 rounded-lg"></div>
+                        <div class="h-20 bg-gray-200 rounded-lg"></div>
+                        <div class="h-20 bg-gray-200 rounded-lg"></div>
+                    </div>
+                    <div class="grid grid-cols-1 lg:grid-cols-[1fr_1.5fr] gap-4 mt-4">
+                        <div class="h-72 bg-gray-200 rounded-lg"></div>
+                        <div class="h-72 bg-gray-200 rounded-lg"></div>
+                    </div>
+                </div>
+
+                <!-- ============================================================
+                     EMPTY STATE (renders when there is truly nothing to show)
+                     ============================================================ -->
+                <div id="dashboard-state-empty" class="hidden mt-6 bg-white border border-gray-200 rounded-lg p-12 text-center">
+                    <p class="text-gray-600">Nothing to show yet — assign a Skill to get started.</p>
+                    <a href="03.1-Skill-Assignment-Flow.html" class="inline-block mt-4 bg-talentpilot-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-talentpilot-700 transition-colors">
+                        + New Assignment
+                    </a>
+                </div>
+
+                <!-- ============================================================
+                     ERROR STATE
+                     ============================================================ -->
+                <div id="dashboard-state-error" class="hidden mt-6 bg-white border border-gray-200 rounded-lg p-12 text-center">
+                    <p class="text-gray-600">Couldn't load dashboard data.</p>
+                    <button onclick="loadAndRenderDashboard()" class="inline-block mt-4 bg-talentpilot-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-talentpilot-700 transition-colors">
+                        Retry
+                    </button>
+                </div>
+
+                <p id="dashboard-version-info" data-object-id="dashboard-version-info"
+                   class="text-center text-xs text-gray-400 mt-8">App v0.1.0</p>
+            </main>
+        </div>
+    </div>
+
+    <script src="data/demo-data.js"></script>
+    <script src="shared/prototype-api.js"></script>
+    <script src="shared/utils.js"></script>
+    <script src="shared/init.js"></script>
+    <script src="components/dev-mode.js"></script>
+    <script>
+        // ====================================================================
+        // Constants
+        // ====================================================================
+        // PRD Open Question 20: this threshold is a PM-drafted default, not yet
+        // user-confirmed. Named constant per the spec's own guidance, so it's
+        // one place to change, not scattered inline.
+        const ON_TRACK_THRESHOLD = 0.8;
+
+        // ====================================================================
+        // Computation helpers
+        // ====================================================================
+        function computeAssignmentStatus(watchPercent) {
+            if (watchPercent >= 100) return 'Completed';
+            if (watchPercent > 0) return 'In Progress';
+            return 'Not Started';
+        }
+
+        // Per-employee segmentation, per PRD FR-32:
+        // Needs Attention (>=1 assignment w/ provenance "Needs Attention", takes
+        // priority) > On Track (no Needs Attention AND completion >= threshold)
+        // > In Progress (everything else). Employees with zero assignments are
+        // excluded by the caller before this is invoked.
+        function computeEmployeeSegment(employeeAssignments, threshold) {
+            const hasNeedsAttention = employeeAssignments.some((a) => a.provenance === 'Needs Attention');
+            if (hasNeedsAttention) return 'needsAttention';
+            const completedCount = employeeAssignments.filter((a) => computeAssignmentStatus(a.watchPercent) === 'Completed').length;
+            const completionRate = completedCount / employeeAssignments.length;
+            return completionRate >= threshold ? 'onTrack' : 'inProgress';
+        }
+
+        function conicGradient(stops) {
+            // stops: [{ color, count }] — renders a conic-gradient with each
+            // slice's share of the circle proportional to its count over the total.
+            const total = stops.reduce((sum, s) => sum + s.count, 0);
+            if (total === 0) return 'conic-gradient(#e5e7eb 0% 100%)';
+            let acc = 0;
+            const parts = stops.map((s) => {
+                const start = (acc / total) * 100;
+                acc += s.count;
+                const end = (acc / total) * 100;
+                return `${s.color} ${start}% ${end}%`;
+            });
+            return `conic-gradient(${parts.join(', ')})`;
+        }
+
+        // ====================================================================
+        // State switching
+        // ====================================================================
+        function setDashboardState(state) {
+            ['loaded', 'loading', 'empty', 'error'].forEach((s) => {
+                document.getElementById('dashboard-state-' + s).classList.toggle('hidden', s !== state);
+            });
+        }
+
+        // ====================================================================
+        // Rendering
+        // ====================================================================
+        function renderDashboard(employees, assignments) {
+            const withStatus = assignments.map((a) => ({ ...a, computedStatus: computeAssignmentStatus(a.watchPercent) }));
+
+            // --- Stats ---
+            const totalEmployees = employees.length;
+            const totalAssigned = withStatus.length;
+            const totalCompleted = withStatus.filter((a) => a.computedStatus === 'Completed').length;
+
+            document.querySelector('#dashboard-stat-employees .stat-value').textContent = totalEmployees;
+            document.querySelector('#dashboard-stat-skills-assigned .stat-value').textContent = totalAssigned;
+            document.querySelector('#dashboard-stat-completed .stat-value').textContent = totalCompleted;
+
+            // --- Assignment Progress Ring ---
+            const completedCount = totalCompleted;
+            const inProgressCount = withStatus.filter((a) => a.computedStatus === 'In Progress').length;
+            const notStartedCount = withStatus.filter((a) => a.computedStatus === 'Not Started').length;
+            const overallPercent = totalAssigned === 0 ? 0 : Math.round((completedCount / totalAssigned) * 100);
+
+            document.getElementById('dashboard-progress-ring').style.background = conicGradient([
+                { color: '#1d4ed8', count: completedCount },
+                { color: '#93c5fd', count: inProgressCount },
+                { color: '#e5e7eb', count: notStartedCount },
+            ]);
+            document.querySelector('#dashboard-progress-ring .ring-percent-label').textContent = overallPercent + '%';
+            document.querySelector('#dashboard-progress-legend-completed .legend-text').textContent = 'Completed — ' + completedCount;
+            document.querySelector('#dashboard-progress-legend-inprogress .legend-text').textContent = 'In Progress — ' + inProgressCount;
+            document.querySelector('#dashboard-progress-legend-notstarted .legend-text').textContent = 'Not Started — ' + notStartedCount;
+
+            // --- Employee Segmentation ---
+            const assignmentsByEmployee = {};
+            withStatus.forEach((a) => {
+                (assignmentsByEmployee[a.employeeId] = assignmentsByEmployee[a.employeeId] || []).push(a);
+            });
+
+            const segments = { onTrack: [], inProgress: [], needsAttention: [] };
+            employees.forEach((emp) => {
+                const empAssignments = assignmentsByEmployee[emp.id];
+                if (!empAssignments || empAssignments.length === 0) return; // excluded entirely, per spec
+                const segment = computeEmployeeSegment(empAssignments, ON_TRACK_THRESHOLD);
+                const flagged = empAssignments.find((a) => a.provenance === 'Needs Attention');
+                segments[segment].push({ employee: emp, flaggedAssignment: flagged });
+            });
+
+            document.getElementById('dashboard-segmentation-pie').style.background = conicGradient([
+                { color: '#16a34a', count: segments.onTrack.length },
+                { color: '#f59e0b', count: segments.inProgress.length },
+                { color: '#dc2626', count: segments.needsAttention.length },
+            ]);
+            document.querySelector('#dashboard-segmentation-legend-ontrack .legend-text').textContent = 'On Track — ' + segments.onTrack.length;
+            document.querySelector('#dashboard-segmentation-legend-inprogress .legend-text').textContent = 'In Progress — ' + segments.inProgress.length;
+
+            renderNeedsAttention(segments.needsAttention);
+        }
+
+        function renderNeedsAttention(needsAttentionList) {
+            const wrap = document.getElementById('needs-attention-wrap');
+            const count = needsAttentionList.length;
+
+            if (count === 0) {
+                // Genuinely non-interactive: a <span>, not a <button> — not just
+                // visually muted. No hint text, no popover markup at all.
+                wrap.innerHTML = `
+                    <span id="dashboard-segmentation-legend-needsattention" data-object-id="dashboard-segmentation-legend-needsattention"
+                          class="flex items-center gap-2 text-gray-500">
+                        <span class="w-3 h-3 rounded-full bg-gray-300 inline-block"></span>
+                        Needs Attention — 0
+                    </span>`;
+                return;
+            }
+
+            const rows = needsAttentionList.map((item, i) => {
+                const name = escapeHtml(item.employee.firstName + (item.employee.lastName ? ' ' + item.employee.lastName : ''));
+                const skillName = escapeHtml((item.flaggedAssignment && item.flaggedAssignment.skill && item.flaggedAssignment.skill.name) || 'a skill');
+                return `<a href="01.1-Skills-Dashboard.html?employee=${encodeURIComponent(item.employee.id)}"
+                           id="popover-item-${i}" data-object-id="dashboard-needs-attention-popover-item"
+                           class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                            ${name} — ${skillName}
+                        </a>`;
+            }).join('');
+
+            wrap.innerHTML = `
+                <button type="button" id="dashboard-segmentation-legend-needsattention" data-object-id="dashboard-segmentation-legend-needsattention"
+                        onclick="toggleNeedsAttentionPopover()"
+                        aria-label="Needs Attention, ${count} employee${count === 1 ? '' : 's'}, click to see who"
+                        aria-expanded="false"
+                        class="flex items-center gap-2 text-red-700 font-semibold hover:underline">
+                    <span class="w-3 h-3 rounded-full bg-red-600 inline-block"></span>
+                    Needs Attention — ${count}
+                </button>
+                <p id="dashboard-segmentation-hint" data-object-id="dashboard-segmentation-hint"
+                   class="text-xs text-gray-400 ml-5 mt-0.5">Click to see who</p>
+                <div id="dashboard-needs-attention-popover" data-object-id="dashboard-needs-attention-popover"
+                     class="hidden absolute left-0 top-full mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-10 py-2">
+                    ${rows}
+                </div>`;
+        }
+
+        // ====================================================================
+        // Needs Attention popover — open/close + keyboard behavior
+        // ====================================================================
+        function toggleNeedsAttentionPopover() {
+            const popover = document.getElementById('dashboard-needs-attention-popover');
+            const trigger = document.getElementById('dashboard-segmentation-legend-needsattention');
+            const opening = popover.classList.contains('hidden');
+            popover.classList.toggle('hidden');
+            trigger.setAttribute('aria-expanded', String(opening));
+            if (opening) {
+                const firstLink = popover.querySelector('a');
+                if (firstLink) firstLink.focus();
+            }
+        }
+
+        function closeNeedsAttentionPopover(returnFocus) {
+            const popover = document.getElementById('dashboard-needs-attention-popover');
+            const trigger = document.getElementById('dashboard-segmentation-legend-needsattention');
+            if (!popover || popover.classList.contains('hidden')) return;
+            popover.classList.add('hidden');
+            if (trigger) trigger.setAttribute('aria-expanded', 'false');
+            if (returnFocus && trigger) trigger.focus();
+        }
+
+        document.addEventListener('click', function (e) {
+            const popover = document.getElementById('dashboard-needs-attention-popover');
+            const trigger = document.getElementById('dashboard-segmentation-legend-needsattention');
+            if (!popover || popover.classList.contains('hidden')) return;
+            if (!popover.contains(e.target) && e.target !== trigger) {
+                closeNeedsAttentionPopover(false);
+            }
+        });
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') closeNeedsAttentionPopover(true);
+        });
+
+        // ====================================================================
+        // User menu (top bar)
+        // ====================================================================
+        function toggleUserMenu() { document.querySelector('#app-topbar-user-menu [data-dropdown]').classList.toggle('hidden'); }
+        function handleSignOut() { window.location.href = 'login.html'; }
+
+        // ====================================================================
+        // Load + render, with real (simulated) Loading/Empty/Error states.
+        // ?demo_state=empty|error remains a TESTING-ONLY override (seed data
+        // always has content) — see work file's migration_todos.
+        // ====================================================================
+        async function loadAndRenderDashboard() {
+            setDashboardState('loading');
+            const forcedState = new URLSearchParams(window.location.search).get('demo_state');
+
+            try {
+                // Simulated network latency, matches 01.1's convention of a brief
+                // artificial delay so the Loading state is actually observable.
+                await new Promise((resolve) => setTimeout(resolve, 400));
+
+                if (forcedState === 'error') {
+                    throw new Error('Simulated failure (?demo_state=error)');
+                }
+
+                const [employees, assignments] = await Promise.all([
+                    PrototypeAPI.getEmployees(),
+                    PrototypeAPI.getAssignments(),
+                ]);
+
+                const effectiveEmployees = forcedState === 'empty' ? [] : employees;
+                const effectiveAssignments = forcedState === 'empty' ? [] : assignments;
+
+                if (effectiveEmployees.length === 0 || effectiveAssignments.length === 0) {
+                    setDashboardState('empty');
+                    return;
+                }
+
+                renderDashboard(effectiveEmployees, effectiveAssignments);
+                setDashboardState('loaded');
+            } catch (err) {
+                console.error('❌ Failed to load dashboard data:', err);
+                setDashboardState('error');
+            }
+        }
+
+        // Called by shared/init.js after DEMO_DATA is seeded
+        window.initPage = function () {
+            loadAndRenderDashboard();
+        };
+    </script>
+</body>
+</html>

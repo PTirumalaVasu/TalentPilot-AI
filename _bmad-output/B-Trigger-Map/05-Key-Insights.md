@@ -81,6 +81,12 @@
 - Stay low-friction and infrequent-touch for Rita — this is genuinely in tension with the product's own reason for existing, not a neutral addition. Rita's Fear #3 is explicitly **"the chore just relocates instead of disappearing"** (see Critical Success Factors above); a heavy or frequently-revisited Employee CRUD flow (creating accounts, sharing passwords out-of-band, maintaining profiles) reintroduces exactly that fear in a new shape. Treat "does this feel like a new chore?" as a real design-review question for FR-24–28, not a rhetorical one.
 - Never be framed as, or feel like, a second system Rita has to maintain alongside the dashboard — same "one continuous system" principle already locked for the HR Assignment Flow above.
 
+### Skill Assignment Dashboard (Landing Page) Must: `[ADDED 2026-09-13]`
+- Answer "how's the org doing overall, and who needs my attention" as a genuine complement to Want #3 ("a fast, confident readiness call") — not a decorative stat-wall. If Rita glances at the Employee Segmentation pie chart and still has to open the full grid to figure out who's actually a problem, it's failed at the one job it exists to do.
+- Treat the "Needs Attention" pie segment with the same non-negotiable legibility rules already locked for the dashboard grid above: never color-only, and clicking it must lead straight to the specific employees behind that count (FR-33) — an aggregate number Rita can't act on immediately just relocates her verification work rather than removing it, the same failure mode named in Fear #3.
+- `[FLAGGED]` This page is the closest thing that has actually shipped to the "Needs Attention filter" this document scored as Must-Have MVP back in Phase 2 (see Development Phases below and `06-Feature-Impact.md`'s flagged drift) — but it segments *employees* org-wide, it doesn't filter the *row grid* itself. Don't let its existence quietly stand in as "the Needs-Attention filter got built after all" without someone deciding that's actually sufficient.
+- Stay a genuinely optional first glance, not a gate Rita has to pass through — UJ-1's validated grid-and-drill-down flow (unchanged, §4.10/FR-33) must keep working exactly as it does today for a Rita who skips the landing page's stats entirely and goes straight to `Skill Assignments`.
+
 ---
 
 ## Emotional Transformation Goals

@@ -16,10 +16,14 @@
 | 02 | Casey's Resume & Watch | Casey the Continuer | 2 | ⭐ P1 | ✅ Outlined |
 | 03 | Rita's Assignment & Track | Rita the Referee | 2 | ⭐ P1 | ✅ Outlined |
 | 04 | Rita's Content Curation | Rita the Referee | 1 | 🔹 P2 | ✅ Spec Complete |
+| 05 | Rita's Roster Management | Rita the Referee | 3 | 🔹 P3 (Admin/Enabling) | ✅ Spec Complete |
+| 06 | Rita's Pulse Check | Rita the Referee | 1 | 🔹 P2 | ✅ Outlined |
 
-**Total Page Inventory:** 8 core views across 4 scenarios | **Total Scenarios:** 4
+**Total Page Inventory:** 11 core views across 6 scenarios | **Total Scenarios:** 6
 
 `[ADDED 2026-09-08]` Scenario 04 is new — added via `bmad-prd` update (PRD §4.6, FR-16–FR-19) after the original Phase 3 scenario set was outlined; it did not go through the original Phase 2/3 workshop sequence the same way 01–03 did, but follows the same Q1-Q8 Effect Mapping structure and ties to an existing Trigger Map objective (Objective 5, fast/relevant content discovery).
+
+`[ADDED 2026-09-13]` Scenarios 05 and 06 were likewise added via later `bmad-prd`/Trigger Map updates and had never been folded into this index — a pre-existing gap (05 was created 2026-09-11 but this file was never updated for it), caught and fixed while adding 06. Scenario 05 (Employee Roster Management) is filed as pure Enabling/Admin infrastructure (P3, outside the psychological scoring model — see `06-Feature-Impact.md`'s Enabling Features section). Scenario 06 (Skill Assignment Dashboard) is P2 — scored on the real Feature-Impact rubric (3/8) since it has a genuine, if complementary, connection to Rita's driving forces, not pure plumbing.
 
 ---
 
@@ -67,6 +71,32 @@
 
 ---
 
+### [05: Rita's Roster Management](05-ritas-roster-management/05-ritas-roster-management.md)
+**Persona:** Rita the Referee (PRIMARY 👥) — "This takes two minutes and I never have to think about it again"
+**Pages:** Employees Tab (Roster), Create Employee Panel, Password Reveal Panel
+**User Value:** Onboards a new hire herself — creates the Employee record, gets a one-time system-generated password to share out-of-band — without waiting on engineering to add them to a hardcoded list
+**Business Value:** Closes the roster-provisioning gap (PRD Open Question 9); the roster reflects real headcount instead of demo data
+**Format:** Screen Flow (list → create form → password reveal)
+
+**Key Interaction:** Rita clicks "+ New Employee" from the roster list, enters Name/Email/Employee ID/Code, submits, and sees a system-generated password shown once — she copies it to share with the new hire, who is now immediately selectable in the Skill Assignment Flow (Scenario 03).
+
+**Filed as Enabling/Admin infrastructure** (P3, outside the 8-point psychological scoring rubric) — see `06-Feature-Impact.md`'s Enabling Features section. Rita's actual design test here is whether this stays genuinely low-friction, given her named Fear #3 ("the chore just relocates instead of disappearing").
+
+---
+
+### [06: Rita's Pulse Check](06-ritas-pulse-check/06-ritas-pulse-check.md)
+**Persona:** Rita the Referee (PRIMARY 👥) — "I see at a glance that things are basically fine, and if they're not, I know exactly who to look at"
+**Pages:** Skill Assignment Dashboard (landing page)
+**User Value:** Confirms org-wide readiness health, or immediately spots who needs attention, within seconds of logging in — before anyone's asked a specific staffing question
+**Business Value:** Widens "primary source of truth" adoption to general check-ins, not only specific staffing calls (UJ-1's existing scope) — direct evidence toward Objective 1 and Objective 3
+**Format:** Storyboard (single view, on-page states only — no page-to-page navigation required for scenario success)
+
+**Key Interaction:** Rita logs in, lands on the new `Dashboard` landing page, and reads the org-wide stats, Assignment Progress ring, and Employee Segmentation pie chart (On Track / In Progress / Needs Attention) — the scenario succeeds the moment she has her answer, with no further click required.
+
+**Scored on the real Feature-Impact rubric** (3/8, not filed as Enabling) — it has a genuine, if complementary, connection to Rita's Want #2/#3 and Fear #2. Its two drill-down exits (full grid, per-employee view) both reuse Scenario 01's existing page (01.1), not new pages of their own.
+
+---
+
 ## Page Coverage Matrix
 
 | Page | Scenario | Purpose in Flow |
@@ -78,10 +108,14 @@
 | Skill Assignment Flow | 03 | Rita opens form, selects employee & skill, system auto-links approved content, Rita confirms assignment |
 | Assignment Confirmation & Auto-Update | 03 | New assignment row appears on dashboard; status shows `Assigned · Awaiting first watch` |
 | Skills Tab (Content Sourcing) | 04 | Rita searches YouTube/Udemy or pastes a link, reviews candidates with a days-to-complete estimate, approves one for a Skill |
+| Employees Tab (Roster) | 05 | Rita sees the current roster (table/card toggle), initiates adding a new hire |
+| Create Employee Panel | 05 | Rita enters Name/Email/Employee ID/Code, submits |
+| Password Reveal Panel | 05 | Rita sees and copies the one-time system-generated password |
+| Skill Assignment Dashboard | 06 | Rita reads org-wide stats, Assignment Progress ring, and Employee Segmentation pie chart; confirms health or spots who needs attention |
 
-**Coverage:** 7/8 pages assigned to scenarios
+**Coverage:** 11/11 pages assigned to scenarios
 
-**Page Not Yet Assigned:** Needs Attention Filter View (skipped per user decision; integrated into Assignment Dashboard via direct drill-down on stale rows)
+**Page Not Yet Assigned:** Needs Attention Filter View — `[FLAGGED 2026-09-13]` this was never actually built as a dedicated filter control; PRD §6.2 explicitly decided against it in favor of per-row drill-down (FR-9) + visual flagging (FR-10). Scenario 06's Employee Segmentation pie chart (Needs Attention as one of its three buckets) is the closest thing that's actually shipped to this — but it's an org-wide per-Employee summary, not a row-level filter, so this line item stays only partially resolved. See `06-Feature-Impact.md`'s flagged drift.
 
 ---
 
@@ -173,6 +207,8 @@ The design phase starts from Scenario 01, Step 01.1 (Assignment Dashboard) and p
 - [Scenario 02: Casey's Resume & Watch](02-caseys-resume-and-watch/02-caseys-resume-and-watch.md)
 - [Scenario 03: Rita's Assignment & Track](03-ritas-assignment-and-track/03-ritas-assignment-and-track.md)
 - [Scenario 04: Rita's Content Curation](04-ritas-content-curation/04-ritas-content-curation.md)
+- [Scenario 05: Rita's Roster Management](05-ritas-roster-management/05-ritas-roster-management.md)
+- [Scenario 06: Rita's Pulse Check](06-ritas-pulse-check/06-ritas-pulse-check.md)
 
 **By Page:**
 - [01.1 - Assignment Dashboard](01-ritas-trust-call/01.1-assignment-dashboard/01.1-assignment-dashboard.md)
@@ -182,6 +218,10 @@ The design phase starts from Scenario 01, Step 01.1 (Assignment Dashboard) and p
 - [03.1 - Skill Assignment Flow](03-ritas-assignment-and-track/03.1-skill-assignment-flow/03.1-skill-assignment-flow.md)
 - [03.2 - Assignment Confirmation & Auto-Update](03-ritas-assignment-and-track/03.2-assignment-confirmation-and-auto-update/03.2-assignment-confirmation-and-auto-update.md)
 - [04.1 - Skills Tab (Content Sourcing)](04-ritas-content-curation/04.1-skills-content-sourcing/04.1-skills-content-sourcing.md)
+- [05.1 - Employees Tab (Roster)](05-ritas-roster-management/05.1-employees-roster/05.1-employees-roster.md)
+- [05.2 - Create Employee Panel](05-ritas-roster-management/05.2-create-employee/05.2-create-employee.md)
+- [05.3 - Password Reveal Panel](05-ritas-roster-management/05.3-password-reveal/05.3-password-reveal.md)
+- [06.1 - Skill Assignment Dashboard](06-ritas-pulse-check/06.1-skill-assignment-dashboard/06.1-skill-assignment-dashboard.md)
 
 ---
 

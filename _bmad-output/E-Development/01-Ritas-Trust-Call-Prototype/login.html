@@ -80,8 +80,11 @@
 
     <script src="shared/auth.js"></script>
     <script>
-        // This folder (Rita's Trust Call) only contains an HR view.
-        const HR_HOME = '01.1-Skills-Dashboard.html';
+        // This folder hosts multiple scenarios' HR views (01.1, 04.1, 05.1, 06.1).
+        // HR lands on 06.1 (Skill Assignment Dashboard) first as of 2026-09-13 —
+        // PRD Sec4.10 repoints the "Dashboard" destination here; the full grid
+        // (01.1) is now reached via the "Skill Assignments" nav link instead.
+        const HR_HOME = '06.1-Skill-Assignment-Dashboard.html';
         const EMPLOYEE_HOME = null;
 
         function showWrongRoleNotice(message) {

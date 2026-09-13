@@ -1,0 +1,329 @@
+# ============================================================================
+# PROTOTYPE WORK FILE: 06.1 Skill Assignment Dashboard
+# ============================================================================
+# Purpose: Complete planning document for section-by-section implementation
+# Created: 2026-09-13
+# Page Spec: ../../../C-UX-Scenarios/06-ritas-pulse-check/06.1-skill-assignment-dashboard/06.1-skill-assignment-dashboard.md
+# Logical View Map: ./06-Logical-View-Map.md
+# ============================================================================
+
+metadata:
+  page_number: "06.1"
+  page_name: "Skill Assignment Dashboard"
+  scenario: "06-Ritas-Pulse-Check"
+  complexity: "medium"
+  estimated_sections: 7
+  estimated_time: "140 minutes"
+
+  device_compatibility:
+    type: "desktop-only"
+    primary_viewport: "1440px"
+    test_viewports:
+      - width: 1280
+        height: 800
+        device: "Desktop (minimum)"
+      - width: 1440
+        height: 900
+        device: "Desktop (laptop common)"
+      - width: 1920
+        height: 1080
+        device: "Desktop (external monitor)"
+    breakpoints: []
+    touch_optimized: false
+    hover_interactions: true
+
+  dependencies:
+    - "shared/prototype-api.js"
+    - "shared/init.js"
+    - "shared/utils.js"
+    - "shared/auth.js"
+
+design_tokens:
+  colors:
+    primary: "#2563eb"
+    on_track: "#16a34a"
+    in_progress: "#f59e0b"
+    needs_attention: "#dc2626"
+  tailwind_config:
+    theme_extend:
+      colors:
+        "talentpilot":
+          50: "#eff6ff"
+          100: "#dbeafe"
+          500: "#2563eb"
+          600: "#1d4ed8"
+          700: "#1e40af"
+      fontFamily:
+        sans: "['Inter', 'system-ui', 'sans-serif']"
+
+page_purpose: |
+  Give Rita an org-wide readiness temperature check the moment she logs in.
+  The page's real job (per D1/D2 discussion) is narrower than "show stats":
+  get Rita to the specific employees who need her, fast. Stats and the
+  progress ring are secondary context; Employee Segmentation is primary.
+
+user_context:
+  - "Rita logs in at her desk, start of her workday, before any specific staffing question has come in"
+  - "Hoping things are basically fine; worried a clean-looking summary hides real problems"
+  - "Dashboard nav entry now opens here first, not the full row grid (01.1)"
+
+success_criteria:
+  - "Stats, ring, and segmentation are computed from data (employees + assignments), never hardcoded"
+  - "Needs Attention segment is genuinely non-clickable when count is 0, not just visually muted"
+  - "Needs Attention popover lists only the actually-flagged employees, from real data"
+  - "Loading/Empty/Error are real states driven by data conditions, not a debug-only URL toggle"
+  - "Left nav shows the current 4-link version (Dashboard/Skill Assignments/Skills/Employees)"
+
+demo_data_needed:
+  source: "../data/demo-data.js (window.DEMO_DATA)"
+  approach: >
+    ADDITIVE ONLY — do not modify the 4 existing employees or 6 existing
+    assignments Scenario 01 already built and tested against (that data is
+    "complete"/approved per work/Skills-Dashboard-Work.yaml). Add 3 new
+    employees + 5 new assignments, correctly modeled on the CURRENT
+    Status/Provenance split (Status derived from watchPercent; Provenance is
+    an independent field, including a genuine "Needs Attention" value) so
+    this page has a realistic, non-empty Needs Attention case to demonstrate
+    without touching already-approved data. Existing employees end up
+    distributed across On Track/In Progress by the same computed rule
+    (none currently carry provenance "Needs Attention").
+  new_employees:
+    - { id: "emp-alex", firstName: "Alex", lastName: "Kim" }
+    - { id: "emp-taylor", firstName: "Taylor", lastName: "Singh" }
+    - { id: "emp-riley", firstName: "Riley", lastName: "Brooks" }
+  new_assignments_summary: >
+    Alex: 2 assignments, both Verified/Completed (100%) -> On Track.
+    Taylor: 2 assignments, In Progress, no Needs Attention -> In Progress bucket.
+    Riley: 1 assignment, provenance "Needs Attention" (stale self-reported,
+    15 days) -> Needs Attention bucket, the only flagged employee in the demo.
+  known_pre_existing_bug_not_fixed_here: >
+    assign-004 (Sam) has status:"Needs Attention" as a STATUS value with
+    provenance:"Self-reported" — this is exactly the Status/Provenance
+    conflation the real architecture (AD-3) already flagged and corrected.
+    Left as-is (not fixed) to avoid changing already-approved Scenario 01
+    behavior as a side effect of this unrelated page build. Segmentation
+    logic reads `provenance` only, so this does not cause a false positive.
+
+computed_constants:
+  ON_TRACK_THRESHOLD: 0.8   # PRD Open Question 20 — PM default, not user-confirmed
+
+# ============================================================================
+# OBJECT ID MAP
+# ============================================================================
+
+object_ids:
+  nav_shell:
+    - "app-nav-sidebar"
+    - "app-nav-logo"
+    - "app-nav-link-dashboard"
+    - "app-nav-link-skill-assignments"
+    - "app-nav-link-skills"
+    - "app-nav-link-employees"
+    - "app-topbar-user-menu"
+
+  page_heading:
+    - "dashboard-heading-title"
+    - "dashboard-heading-subtitle"
+
+  stats:
+    - "dashboard-stat-employees"
+    - "dashboard-stat-skills-assigned"
+    - "dashboard-stat-completed"
+
+  progress:
+    - "dashboard-progress-card"
+    - "dashboard-progress-heading"
+    - "dashboard-progress-ring"
+    - "dashboard-progress-legend-completed"
+    - "dashboard-progress-legend-inprogress"
+    - "dashboard-progress-legend-notstarted"
+
+  segmentation:
+    - "dashboard-segmentation-card"
+    - "dashboard-segmentation-heading"
+    - "dashboard-segmentation-pie"
+    - "dashboard-segmentation-legend-ontrack"
+    - "dashboard-segmentation-legend-inprogress"
+    - "dashboard-segmentation-legend-needsattention"
+    - "dashboard-segmentation-hint"
+    - "dashboard-needs-attention-popover"
+    - "dashboard-needs-attention-popover-item"
+
+  footer:
+    - "dashboard-version-info"
+
+# ============================================================================
+# SECTION BREAKDOWN
+# ============================================================================
+
+sections:
+  - id: "section-1"
+    name: "Page Structure & Shared Shell"
+    scope: "HTML skeleton, 4-link left nav (Dashboard active), top bar user menu, page heading"
+    files_affected: ["06.1-Skill-Assignment-Dashboard.html"]
+    dependencies: []
+    object_ids: ["app-nav-sidebar", "app-nav-logo", "app-nav-link-dashboard", "app-nav-link-skill-assignments", "app-nav-link-skills", "app-nav-link-employees", "app-topbar-user-menu", "dashboard-heading-title", "dashboard-heading-subtitle"]
+    acceptance_criteria:
+      - "Nav shows all 4 links; Dashboard is visually active (bg highlight, not color-only — also has aria-current)"
+      - "Skill Assignments/Skills/Employees links navigate to 01.1/04.1/05.1 respectively"
+      - "User menu opens/closes, Sign Out present"
+
+  - id: "section-2"
+    name: "Top-line Stats Row (data-driven)"
+    scope: "Total Employees / Total Skills Assigned / Total Completed, computed from PrototypeAPI data"
+    files_affected: ["06.1-Skill-Assignment-Dashboard.html"]
+    dependencies: ["section-1"]
+    object_ids: ["dashboard-stat-employees", "dashboard-stat-skills-assigned", "dashboard-stat-completed"]
+    acceptance_criteria:
+      - "Total Employees = employees.length (7 with the additive demo data)"
+      - "Total Skills Assigned = assignments.length (11)"
+      - "Total Completed = count of assignments with computed Status === 'Completed' (3)"
+
+  - id: "section-3"
+    name: "Assignment Progress Ring (data-driven)"
+    scope: "Donut ring (conic-gradient) + Completed/In Progress/Not Started legend + Overall %"
+    files_affected: ["06.1-Skill-Assignment-Dashboard.html"]
+    dependencies: ["section-2"]
+    object_ids: ["dashboard-progress-card", "dashboard-progress-heading", "dashboard-progress-ring", "dashboard-progress-legend-completed", "dashboard-progress-legend-inprogress", "dashboard-progress-legend-notstarted"]
+    acceptance_criteria:
+      - "Ring's conic-gradient stops match computed Completed/In Progress/Not Started proportions"
+      - "Overall % = round(completed / total * 100)"
+      - "Legend counts match the ring visually"
+
+  - id: "section-4"
+    name: "Employee Segmentation (data-driven, incl. On-Track threshold)"
+    scope: "Pie chart + On Track/In Progress/Needs Attention legend, per-employee aggregation"
+    files_affected: ["06.1-Skill-Assignment-Dashboard.html"]
+    dependencies: ["section-2"]
+    object_ids: ["dashboard-segmentation-card", "dashboard-segmentation-heading", "dashboard-segmentation-pie", "dashboard-segmentation-legend-ontrack", "dashboard-segmentation-legend-inprogress"]
+    acceptance_criteria:
+      - "Per-employee classification: Needs Attention (>=1 assignment w/ provenance Needs Attention, priority) > On Track (0 Needs Attention AND completion >= ON_TRACK_THRESHOLD) > In Progress (everything else)"
+      - "Employees with zero assignments excluded from the denominator entirely"
+      - "Pie chart conic-gradient matches computed segment proportions"
+      - "Segmentation heading visually larger than Progress Ring heading (hierarchy)"
+
+  - id: "section-5"
+    name: "Needs Attention Popover (real data, disabled-when-zero)"
+    scope: "Clickable segment (only when count > 0) opening a popover of real flagged employees"
+    files_affected: ["06.1-Skill-Assignment-Dashboard.html"]
+    dependencies: ["section-4"]
+    object_ids: ["dashboard-segmentation-legend-needsattention", "dashboard-segmentation-hint", "dashboard-needs-attention-popover", "dashboard-needs-attention-popover-item"]
+    acceptance_criteria:
+      - "When Needs Attention count is 0: segment renders as plain text, not a <button>, no hint text, no popover markup at all"
+      - "When count > 0: segment is a real <button> with aria-label, opens popover listing each flagged employee + their flagged skill"
+      - "Popover closes on outside click, Escape, or navigating away"
+      - "Each popover row links to 01.1 filtered to that employee (?employee={id})"
+
+  - id: "section-6"
+    name: "Page-Level Loading / Empty / Error States (data-driven)"
+    scope: "Real states, not the prior mock's ?demo_state= URL-only toggle"
+    files_affected: ["06.1-Skill-Assignment-Dashboard.html"]
+    dependencies: ["section-2", "section-3", "section-4", "section-5"]
+    object_ids: []
+    acceptance_criteria:
+      - "Loading state shows briefly on real (simulated-async) page load before data renders"
+      - "Empty state renders when employees.length === 0 or assignments.length === 0 (simulated via ?demo_state=empty for testing, since seed data always has content)"
+      - "Error state renders on a simulated fetch failure (?demo_state=error) with a working Retry"
+      - "?demo_state= remains as a TESTING convenience only (documented as a migration_todo to remove), not the state's actual trigger condition"
+
+  - id: "section-7"
+    name: "Interactions & Polish"
+    scope: "Keyboard operability, aria-labels, active-nav indication, dev-mode overlay"
+    files_affected: ["06.1-Skill-Assignment-Dashboard.html"]
+    dependencies: ["section-1", "section-2", "section-3", "section-4", "section-5", "section-6"]
+    object_ids: []
+    acceptance_criteria:
+      - "Tab reaches the Needs Attention button and popover links in visual order"
+      - "Escape closes the popover and returns focus to the trigger button"
+      - "Dashboard nav link has aria-current='page'"
+      - "Dev-mode Shift+Click still works for Object ID copy"
+
+# ============================================================================
+# JAVASCRIPT REQUIREMENTS
+# ============================================================================
+
+javascript_functions:
+  initialization:
+    - "initPage() - loads employees+assignments, computes all derived data, renders"
+  computation:
+    - "computeAssignmentStatus(watchPercent) -> 'Not Started' | 'In Progress' | 'Completed'"
+    - "computeEmployeeSegment(employeeAssignments, ON_TRACK_THRESHOLD) -> 'onTrack' | 'inProgress' | 'needsAttention'"
+  ui_interactions:
+    - "toggleNeedsAttentionPopover()"
+    - "toggleUserMenu()"
+  feedback:
+    - "setDashboardState('loading' | 'loaded' | 'empty' | 'error')"
+
+# ============================================================================
+# TESTING CHECKLIST
+# ============================================================================
+
+testing_checklist:
+  functionality:
+    - "[ ] Stats/ring/segmentation all computed from data, no hardcoded numbers remain"
+    - "[ ] Needs Attention popover shows exactly the flagged employees (Riley, in the additive demo data)"
+    - "[ ] Needs Attention segment is non-clickable and shows no hint when count is 0 (verify by temporarily zeroing test data)"
+    - "[ ] Existing Scenario 01 data (Casey/Morgan/Jordan/Sam) unmodified — 01.1 still renders identically to before this session"
+  code_quality:
+    - "[ ] All Object IDs present"
+    - "[ ] No console errors"
+    - "[ ] div-tag balance and inline-JS syntax statically verified (node --check) — no live browser tool in this environment"
+  accessibility:
+    - "[ ] Needs Attention button has aria-label with live count"
+    - "[ ] Popover keyboard-operable, Escape closes and returns focus"
+    - "[ ] Pie/ring segments paired with text, never color-only"
+
+# ============================================================================
+# MIGRATION NOTES
+# ============================================================================
+
+migration_todos:
+  - "Replace client-side aggregation (computeEmployeeSegment etc.) with a real backend read-composition endpoint per the addendum's Architecture Handoff Notes"
+  - "ON_TRACK_THRESHOLD (0.8) is a named constant here specifically because PRD Open Question 20 flags it as unconfirmed — surface it as a real config value in production, not a hardcoded literal"
+  - "Remove the ?demo_state= URL param mechanism once real fetch success/error/empty conditions drive the UI"
+
+# ============================================================================
+# SECTION STATUS
+# ============================================================================
+
+section_status:
+  section-1:
+    status: "complete"
+    completed: "2026-09-13"
+    note: "batched implementation, see stories/06.1-batched-implementation.md"
+  section-2:
+    status: "complete"
+    completed: "2026-09-13"
+    note: "batched implementation, see stories/06.1-batched-implementation.md"
+  section-3:
+    status: "complete"
+    completed: "2026-09-13"
+    note: "batched implementation, see stories/06.1-batched-implementation.md"
+  section-4:
+    status: "complete"
+    completed: "2026-09-13"
+    note: "batched implementation, see stories/06.1-batched-implementation.md"
+  section-5:
+    status: "complete"
+    completed: "2026-09-13"
+    note: "batched implementation, see stories/06.1-batched-implementation.md"
+  section-6:
+    status: "complete"
+    completed: "2026-09-13"
+    note: "batched implementation, see stories/06.1-batched-implementation.md"
+  section-7:
+    status: "complete"
+    completed: "2026-09-13"
+    note: "batched implementation, see stories/06.1-batched-implementation.md"
+
+# ============================================================================
+# COMPLETION CRITERIA
+# ============================================================================
+
+definition_of_done:
+  - "All 7 sections implemented"
+  - "All object IDs present and correct"
+  - "Stats/ring/segmentation fully data-driven, zero hardcoded demo numbers"
+  - "Existing Scenario 01 demo data (Casey/Morgan/Jordan/Sam, assign-001..006) byte-for-byte unmodified"
+  - "Loading/Empty/Error states implemented and data-driven"
+  - "No console errors"

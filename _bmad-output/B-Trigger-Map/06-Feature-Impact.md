@@ -22,6 +22,7 @@
 | 5 | "Needs Attention" Filter + Drill-Down Reasoning | 5 | Must Have MVP |
 | 7 | Proxy-Signal Tracking for Docs/Websites (scroll-depth, time-on-page) | 3 | Consider for MVP |
 | 7 | HR "Assessed Live" Flag with Audit Trail (manual override for sub-skills) | 3 | Consider for MVP |
+| 7 | Skill Assignment Dashboard (org-wide stats + Employee Segmentation) `[ADDED 2026-09-13]` | 3 | MVP (already committed via PRD) |
 | 9 | "Your Week in Learning" Recap for Employees | 2 | Defer |
 
 ---
@@ -41,6 +42,7 @@
 
 - Proxy-Signal Tracking for Docs/Websites (3) — extends the trust model beyond video, directly addressing Rita's fear that "the chore just moves elsewhere," but is explicitly flagged in source discovery work as scope-expanding beyond the current MVP
 - HR "Assessed Live" Flag with Audit Trail (3) — gives Rita a manual override with accountability for non-video sub-skills, but is a secondary safety net, not the core mechanic
+- Skill Assignment Dashboard (3) `[ADDED 2026-09-13]` — org-wide stats + an Employee Segmentation pie chart (On Track / In Progress / Needs Attention), added to the PRD (§4.10, FR-31–33) as a new HR Admin landing page. Scored Medium/Primary (not High) for Rita: it genuinely serves named driving forces (Want #3, "a fast, confident readiness call"; Want #2, "stop chasing people," by surfacing who needs attention before she's even asked) but it's a complementary org-wide temperature-check lens layered on top of the already-scored Provenance-Labeled Dashboard and Needs-Attention mechanic, not a replacement for either — UJ-1's actual staffing-call resolution still runs through the row grid and drill-down, unchanged. Zero relevance to Casey (HR Admin-only surface), hence Low/0 on the secondary axis. Unlike Employee Roster/Nav/Theming below, this is NOT filed under Enabling Features — it has a real, non-infrastructure connection to Rita's psychology, so it earns a score rather than being waved through as plumbing. **Already committed to MVP scope via the PRD** before this scoring pass ran — this entry exists for traceability/consistency with the rest of this document, not to gate a build decision that's already made.
 
 **Defer (Nice-to-Have or Low Strategic Value):**
 
@@ -69,6 +71,8 @@
 **Why Proxy-Signal Tracking and the Audit-Trail Flag are "Consider," not "Must Have":** Both directly address a real, named risk (the trust gap moving to non-video content, flagged explicitly in the design thinking session as unresolved even post-launch). They score lower here purely because they weren't part of the committed MVP scope in the Product Brief — this is a scope decision already made upstream, not a psychology-driven deprioritization. Flagging them here keeps the gap visible rather than silently dropped.
 
 **Connection to Business Goals:** The six Must-Have features map directly onto the Business Goals document's three-tier structure — Auto-Capture and Assignment Flow serve the PRIMARY GOAL (prove the evidence pipeline); the Dashboard, Needs-Attention filter, and Content Discovery serve EARN HR'S TRUST; the Resume Card is the direct deliverable of ELIMINATE THE SELF-REPORT CHORE.
+
+**`[FLAGGED 2026-09-13]` Pre-existing, unreconciled drift: the "Needs Attention Filter" scored above (rank 5) was never actually built.** This document (created 2026-07-08) scores a dedicated "Needs Attention" Filter + Drill-Down Reasoning as Must Have MVP, and 05-Key-Insights.md still lists "surface a 'Needs Attention' filter as a primary, prominent action" as a Design Implication. `prd.md` §6.2 (Out of Scope for MVP) explicitly reverses this: *"Dedicated 'Needs Attention' filter control — considered ... and explicitly not added; FR-9's per-row drill-down plus FR-10's visual flagging is the MVP interaction model instead."* That PRD decision predates this trigger-mapping session and was never carried back into these Phase 2 docs — discovered only now, while assessing where the new Skill Assignment Dashboard fits. The new dashboard's Employee Segmentation pie chart (Needs Attention as one of its three buckets, §4.10/FR-32) is the closest thing that has actually shipped to what this document originally scored — but it's an org-wide, per-Employee summary on a landing page, not a row-level filter control on the grid itself, so it only partially closes this gap, not fully. Not fixed here (out of this session's requested scope, extend-for-the-new-dashboard) — flagging it so it isn't mistaken for settled.
 
 **Development Phases Aligned with the Flywheel:**
 - **Phase 1 (Launch, 13 July 2026):** All six Must-Have features — nothing in this tier is separable from the 13 July deadline without breaking the core hypothesis test

@@ -117,6 +117,7 @@ flowchart LR
 - **Consider:** Proxy-signal tracking for docs/websites, HR "Assessed Live" audit-trail flag
 - **Defer:** Weekly learning recap for employees
 - **Enabling (outside the scoring model), `[ADDED 2026-09-11]`:** Employee Roster Management, HR Admin Navigation Shell, Application Theming — see [06-Feature-Impact.md](06-Feature-Impact.md)'s Enabling Features section and [05-Key-Insights.md](05-Key-Insights.md)'s note on the roster-management chore-relocation risk
+- **Scored, MVP already committed, `[ADDED 2026-09-13]`:** Skill Assignment Dashboard (org-wide stats + Employee Segmentation pie chart) — scores Medium/Primary (3), a genuine but complementary connection to Rita's Want #3, not filed as Enabling since it isn't pure infrastructure. See [06-Feature-Impact.md](06-Feature-Impact.md)'s scoring note and its flagged drift with the never-built "Needs Attention Filter" line item above.
 
 ---
 

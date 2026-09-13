@@ -12,13 +12,13 @@
 
 | Scenario | Page | Task |
 |----------|------|------|
-| 05-ritas-roster-management | 05.1-05.3 | Phase 5 [P] Prototyping — all 8 sections built in one batched pass (per user's pacing choice) into `05.1-Employees-Tab.html`. Static verification only (no live browser/Puppeteer tool available in this environment): JS syntax-checked via `node --check`, all `getElementById` targets cross-referenced against defined IDs (none missing), HTML tag balance checked. Awaiting user's live-browser review before Step 5 (Finalization). |
+| _(none)_ | | Scenario 06 (06.1) confirmed working by user 2026-09-13, live in a real browser (login.html HR_HOME fix included) — Phase 5 complete. `05-ritas-roster-management`'s "awaiting live-browser review" note above was stale (left here since 2026-09-11 without being cleared) — 05.1-05.3 remain mocked-but-unbuilt per the Backlog below, not actively in progress. |
 
 ## Backlog
 
 - [ ] Fix `password-reveal-modal`'s title to be conditional ("Employee created" vs. "Password regenerated") — flagged during 05.3's spec sync, not fixed in the mock
 - [ ] Explore responsive (tablet/mobile) states for 05.1 Employees Tab — flagged during 05.1's Page Transition, not yet started
-- [ ] Update 01.1 and 04.1's Header/nav component specs to FR-29's left-pane shell, once FR-29 is built (flagged in 05.1's Out of Scope, not yet scheduled)
+- [ ] Update 01.1's and 04.1's nav specs to the left-pane shell (currently pre-FR-29 top-header), AND update 01.1/04.1/05.1 to the current 4-link nav (Dashboard/Skill Assignments/Skills/Employees) — 05.1 already has the left-pane shell but only 3 links; 06.1 (2026-09-13) is the only page spec'd/mocked with the current 4-link version. Compounds each time a page is added without this catch-up — flagged in 05.1's Out of Scope (2026-09-11) and again in 06.1's (2026-09-13), not yet scheduled.
 - [ ] Build it — start agentic development for Scenario 05 (all 3 pages specified + mocked, none yet wired into a real/tested prototype)
 
 ## Design Loop Status
@@ -40,6 +40,12 @@
 | 05-ritas-roster-management | 05.1 | Employees Tab (Roster) | built | 2026-09-11 |
 | 05-ritas-roster-management | 05.2 | Create Employee Panel | built | 2026-09-11 |
 | 05-ritas-roster-management | 05.3 | Password Reveal Panel | built | 2026-09-11 |
+| 06-ritas-pulse-check | 06.1 | Skill Assignment Dashboard | discussed | 2026-09-13 |
+| 06-ritas-pulse-check | 06.1 | Skill Assignment Dashboard | wireframed | 2026-09-13 |
+| 06-ritas-pulse-check | 06.1 | Skill Assignment Dashboard | specified | 2026-09-13 |
+| 06-ritas-pulse-check | 06.1 | Skill Assignment Dashboard | mocked (HTML, in place of PNG export, per user request — matches 04.1/05.1 precedent) | 2026-09-13 |
+| 06-ritas-pulse-check | 06.1 | Skill Assignment Dashboard | building | 2026-09-13 |
+| 06-ritas-pulse-check | 06.1 | Skill Assignment Dashboard | built | 2026-09-13 |
 
 ---
 
@@ -267,6 +273,25 @@
 
 ---
 
+### 2026-09-13 — Phase 2: Trigger Map Extended for Skill Assignment Dashboard
+
+**Agent:** Saga (Trigger Mapping) with Claude Code
+
+**Context:** `prd.md` gained a new capability the prior day (2026-09-12, via `bmad-prd`) — the Skill Assignment Dashboard (§4.10, FR-31–33), a new HR Admin landing page with org-wide stats and an Employee Segmentation pie chart (On Track / In Progress / Needs Attention). Following the same precedent set by the 2026-09-11 extension (Employee Roster/Nav/Theming), the existing Trigger Map was extended for just this delta rather than rebuilt from scratch — confirmed with the user first, since a from-scratch redo was the other option on the table.
+
+**Analysis, and a key difference from the 2026-09-11 precedent:** Unlike Employee Roster Management/Nav/Theming (filed as "Enabling Features," outside the psychological scoring model), this new dashboard has a genuine, non-infrastructure connection to Rita's named driving forces — it directly complements Want #3 ("a fast, confident readiness call") and Want #2 ("stop chasing people") by surfacing an org-wide temperature check before she even opens the row grid. It was scored on the existing 8-point rubric (Medium/Primary = 3, Low/Secondary = 0, total 3) rather than filed as Enabling — reasoned as a complementary lens on top of the already-scored Provenance-Labeled Dashboard / Needs-Attention mechanic, not a replacement for either.
+
+**Genuine drift discovered, not introduced by this session:** while placing the new feature, found that `06-Feature-Impact.md` (created 2026-07-08) still scores a dedicated "Needs Attention" Filter Control as Must-Have MVP, and `05-Key-Insights.md` still lists it as a Design Implication — but `prd.md` §6.2 explicitly decided against building a dedicated filter control (per-row drill-down instead), a decision that was never carried back into these Phase 2 docs. Flagged inline in both files rather than silently fixed, since reconciling it isn't part of this session's requested scope. The new dashboard's Needs-Attention pie segment is the closest thing that's actually shipped to that original scored item, but it's an org-wide per-Employee summary, not a row-level filter — only a partial, not full, resolution of the gap.
+
+**Artifacts updated:**
+- `B-Trigger-Map/06-Feature-Impact.md` — new scored table row + Decisions entry for Skill Assignment Dashboard; new Strategic Rationale note flagging the unreconciled Needs-Attention-Filter drift
+- `B-Trigger-Map/05-Key-Insights.md` — new "Skill Assignment Dashboard (Landing Page) Must" design-implications subsection
+- `B-Trigger-Map/00-trigger-map.md` — Feature Priorities summary gained a new line for the scored addition
+
+**Next:** Carry the "Needs Attention pie segment must lead straight to specific employees, not just an inert count" requirement forward into UX design for FR-32/FR-33 when Phase 4 work reaches this page. Decide, at some point (not blocking), whether the Needs-Attention-Filter drift needs a deliberate reconciliation pass of its own.
+
+---
+
 ### 2026-09-11 — Phase 4: Scenario 05 Fully Designed (05.1–05.3)
 
 **Agent:** Freya (UX Design) with Claude Code
@@ -281,6 +306,47 @@
 
 ---
 
+### 2026-09-13 — Phase 3: Scenario 06 Outlined (Rita's Pulse Check)
+
+**Agent:** Saga (Scenario Outline) with Claude Code
+
+**Scenarios:** 1 new scenario (06) covering 1 new page, extending the existing 5-scenario/10-page set to 6 scenarios/11 pages total
+
+**Quality:** ✅ Excellent (7/7 Complete, 7/7 Quality, 7/7 Mistakes Avoided, 4/4 Best Practices)
+
+**Artifacts Created:**
+- `C-UX-Scenarios/06-ritas-pulse-check/06-ritas-pulse-check.md` — Scenario 06 outline (Rita's Pulse Check)
+- `C-UX-Scenarios/06-ritas-pulse-check/06.1-skill-assignment-dashboard/06.1-skill-assignment-dashboard.md` — Step 06.1 page metadata (entry context, mental state, on-page interactions)
+
+**Artifacts Updated:**
+- `C-UX-Scenarios/00-ux-scenarios.md` — added Scenario 06's summary row, blurb, and page-coverage-matrix row; also caught and fixed a pre-existing gap where Scenario 05 (created 2026-09-11) had never been added to this index at all — backfilled its row, blurb, coverage-matrix rows, and navigation links in the same pass
+
+**Summary:** Scenario 06 covers the Skill Assignment Dashboard (PRD §4.10, FR-31–33) — the new HR Admin landing page added via the prior day's `bmad-prd` update. Ran in Suggest mode (all 8 questions drafted from Trigger Map/persona context, user-approved) per the same precedent set by Scenarios 04/05. Key decision made during scoping (step 2/3): this is a single-page, single-step scenario — the drill-down exits (full grid via `Skill Assignments` nav, per-employee Skill Progress) deliberately stay owned by Scenario 01/page 01.1, not duplicated here, to avoid page-assignment overlap. Flagged, not silently resolved: the page's Employee Segmentation "Needs Attention" pie segment is the closest thing that's actually shipped to the "Needs Attention Filter" line item `06-Feature-Impact.md` scored as Must-Have MVP back in Phase 2 — but PRD §6.2 explicitly decided against building a dedicated filter control, so this only partially closes that long-standing, previously-undiscovered drift.
+
+**Next:** Phase 4 — UX Design for page 06.1 (wireframe/spec the landing page's layout, stats row, progress ring, and pie chart), or continue with Scenario 05's still-open Backlog items above.
+
+---
+
+### 2026-09-13 — Phase 4: Page 06.1 Fully Designed (Discuss → Wireframe → Spec → Mock)
+
+**Agent:** Freya (Discuss mode) with Claude Code
+
+**Scope:** Skill Assignment Dashboard (06.1) — the only page in Scenario 06, handed off directly from Phase 3 completion
+
+**D1/D2 outcome:** Primary action is "quickly identify which employees need attention," not passively displaying stats — this reshaped the whole page's visual hierarchy. Page kept (not simplified away): all 3 top-line stats and the Assignment Progress ring stay, but are demoted to secondary/supporting weight; the Employee Segmentation pie chart — specifically its Needs Attention segment — is the primary visual focus and the only genuinely actionable element. Resolved a decision PRD FR-32 had explicitly left open (`[NOTE FOR PM]` exact interaction not specified): clicking Needs Attention opens a lightweight on-page popover naming just those employees, which is what's actually clickable through to the per-employee drill-down — On Track/In Progress stay informational-only, a deliberate asymmetry.
+
+**Wireframed:** `Sketches/06.1-skill-assignment-dashboard-wireframe.excalidraw` (+ approved PNG) — reuses 05.1's established sidebar/top-bar dimensions exactly, extended to the current 4-link nav (Dashboard/Skill Assignments/Skills/Employees) for the first time in this project's Phase 4 artifacts. Segmentation card drawn visibly larger (680px) than the Progress Ring card (450px), confirming the hierarchy decision visually, not just narratively.
+
+**Specified:** Full page specification written to `06.1-skill-assignment-dashboard.md` (Page Basics through Design Constraints, matching 01.1/05.1's established house format rather than the generic WDS template, since this project's `design_system_mode: none` and single-language English make several of the generic template's sections inapplicable). No form validation applies — page is entirely read-only.
+
+**Mocked (per user request, same day):** `E-Development/01-Ritas-Trust-Call-Prototype/06.1-Skill-Assignment-Dashboard.html` — single-file HTML mock (CSS `conic-gradient` for the ring/pie, no chart library, consistent with this project's lightweight-mock precedent for 04.1/05.1), placed in the same shared prototype folder as 01.1/04.1/05.1 (reuses `shared/auth.js` login gate, `components/dev-mode.*`, the `talentpilot` Tailwind palette). Implements the functional Needs Attention popover (click to open, click a name or outside/Escape to close) and a `?demo_state=loading|empty|error` toggle matching 01.1's existing debug pattern. Static verification only (no live-browser tool in this environment): div-tag balance checked (32/32), inline `<script>` blocks syntax-checked via `node --check`.
+
+**Known, explicitly-flagged gap carried forward (not fixed here):** 01.1, 04.1, and 05.1 all still show an older nav version (01.1/04.1 predate FR-29 entirely; 05.1 has the 3-link version) — this page is the first with the current 4-link nav, widening the gap those three pages' specs had already flagged as a follow-up.
+
+**Next:** Nav-shell catch-up pass for 01.1/04.1/05.1 (Backlog candidate, not yet scheduled), or start agentic development (`wds-5-agentic-development`) to promote this mock to a fully-wired, tested prototype like Scenario 01.
+
+---
+
 ## Key Decisions
 
 | Date | Decision | Phase | Contributors |
@@ -288,6 +354,8 @@
 | 2026-07-08 | Removed Needs Attention Filter as separate page; integrated into Assignment Dashboard via direct drill-down on stale rows | Phase 3: Scenarios | Claude Code + TalentPilot |
 | 2026-07-08 | Deferred Employee Profile View (not required for POC scope); all persona-specific data flows demonstrated through 6-page scenario outlines | Phase 3: Scenarios | Claude Code + TalentPilot |
 | 2026-07-08 | Confirmed "Needs Attention" as implicit label state on Assignment Dashboard rows rather than a separate filter UI | Phase 3: Scenarios | Claude Code + TalentPilot |
+| 2026-09-13 | Scenario 06 (Skill Assignment Dashboard) kept as a single page/single step; both drill-down exits (full grid, per-employee view) assigned to existing Scenario 01/page 01.1 instead of new pages, to avoid page-assignment overlap | Phase 3: Scenarios | Saga (Claude Code) + TalentPilot |
+| 2026-09-13 | Continued (not restarted) Phase 3 for the new dashboard; also backfilled Scenario 05 into `00-ux-scenarios.md`'s index, which had been missing since 2026-09-11 | Phase 3: Scenarios | Saga (Claude Code) + TalentPilot |
 
 ---
 

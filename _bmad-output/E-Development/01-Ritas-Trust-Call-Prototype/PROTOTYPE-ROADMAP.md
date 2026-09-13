@@ -4,7 +4,9 @@
 **Pages**: 01.1 through 01.2
 **Device Compatibility**: Desktop-Only (1280px+)
 **Design Fidelity**: Generic Gray Model (wireframe, Tailwind defaults)
-**Last Updated**: 2026-07-08
+**Last Updated**: 2026-09-13
+
+`[UPDATED 2026-09-13]` This folder is no longer Scenario 01-only — it's the shared HR-Admin-shell prototype home. Pages 04.1 (Scenario 04, added 2026-09-08), 05.1–05.3 (Scenario 05, added 2026-09-11), and 06.1 (Scenario 06, added 2026-09-13) all live here too, reusing `shared/auth.js`, `components/dev-mode.*`, and the `talentpilot` Tailwind palette — this was never reflected in this roadmap file until now. 04.1/05.1–05.3 are lighter-weight visual mocks (inline demo data); 06.1 is being upgraded to a fully-wired prototype (this session) using this folder's `data/demo-data.js` + `shared/prototype-api.js`, matching 01.1's original rigor.
 
 ---
 
@@ -90,6 +92,9 @@ This prototype is a **throwaway static mockup** (Tailwind CDN + vanilla JS + ses
 | Page | Status | Sections | Last Updated | Notes |
 |------|--------|----------|--------------|-------|
 | 01.1 Skills Dashboard (incl. 01.2 modal) | ⏸️ Not Started | 0/? | - | Planned — single logical view, see Logical View Map |
+| 04.1 Skills Tab | 🚧 Mocked | N/A | 2026-09-08 | Visual mock only, inline data — not run through this section-by-section process |
+| 05.1–05.3 Employees Tab / Create / Password Reveal | 🚧 Mocked | N/A | 2026-09-11 | Visual mock only, inline data — not run through this section-by-section process |
+| 06.1 Skill Assignment Dashboard | 🚧 In Progress | TBD | 2026-09-13 | Being upgraded from visual mock to fully-wired prototype (this session) |
 
 **Status Legend:** ✅ Complete · 🚧 In Progress · ⏸️ Not Started · 🔴 Blocked
 
