@@ -52,3 +52,47 @@ export interface DrillDownResponse {
   underlying_status: "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED" | null;
   underlying_status_percentage: number | null;
 }
+
+/**
+ * Response for GET /api/dashboard/stats (Story 9.1, FR-31/FR-32) -- org-wide
+ * stats and Assignment Progress breakdown for the Skill Assignment Dashboard
+ * landing page (Story 9.3). `total_completed` and `completed_count` are
+ * always numerically identical -- intentional, not a duplication (see the
+ * backend schema's own docstring, backend/app/dashboard/schemas.py).
+ */
+export interface DashboardStatsResponse {
+  total_employees: number;
+  total_skills_assigned: number;
+  total_completed: number;
+  completed_count: number;
+  in_progress_count: number;
+  not_started_count: number;
+  overall_percent: number;
+}
+
+/**
+ * One flagged Assignment backing the Needs Attention segment (Story 9.2,
+ * FR-32/UX-DR45). One row per flagged Assignment, not per Employee.
+ */
+export interface NeedsAttentionEntry {
+  employee_id: string; // UUID
+  employee_name: string;
+  assignment_id: string; // UUID
+  skill_id: string; // UUID
+  skill_name: string;
+}
+
+/**
+ * Response for GET /api/dashboard/segmentation (Story 9.2, FR-32/AR-27/AR-28).
+ * `needs_attention_count` is the number of distinct flagged Employees
+ * (matches the pie chart's segment count) -- it is NOT the length of
+ * `needs_attention`, which is one row per flagged Assignment and can exceed
+ * `needs_attention_count` when an Employee has more than one flagged
+ * Assignment. Do not conflate the two.
+ */
+export interface EmployeeSegmentationResponse {
+  on_track_count: number;
+  in_progress_count: number;
+  needs_attention_count: number;
+  needs_attention: NeedsAttentionEntry[];
+}

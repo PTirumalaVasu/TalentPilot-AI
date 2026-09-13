@@ -6,6 +6,7 @@ import { Login } from '@/pages/Login';
 import { ContentDiscovery } from '@/pages/employee/ContentDiscovery';
 import { AssignmentWatch } from '@/pages/employee/AssignmentWatch';
 import { Dashboard } from '@/pages/hr/Dashboard';
+import { SkillAssignmentDashboard } from '@/pages/hr/SkillAssignmentDashboard';
 import { SkillsPage } from '@/pages/hr/SkillsPage';
 import { EmployeesPage } from '@/pages/hr/EmployeesPage';
 import { VideoPlayerDemo } from '@/pages/dev/VideoPlayerDemo';
@@ -25,6 +26,14 @@ export function App() {
               element={
                 <RequireAuth>
                   <Dashboard />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/dashboard"
+              element={
+                <RequireAuth>
+                  <SkillAssignmentDashboard />
                 </RequireAuth>
               }
             />

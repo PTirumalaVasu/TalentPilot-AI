@@ -1,6 +1,11 @@
 import { apiClient } from '@/lib/api/client';
 import type { AssignmentStatus } from '@/lib/api/assignmentsApi';
-import { DashboardResponse, DrillDownResponse } from "../../types/dashboard";
+import {
+  DashboardResponse,
+  DrillDownResponse,
+  DashboardStatsResponse,
+  EmployeeSegmentationResponse,
+} from "../../types/dashboard";
 
 export interface DashboardAssignmentRow {
   id: string;
@@ -23,6 +28,25 @@ async function getDashboard(page: number = 1, pageSize: number = 50): Promise<Da
   const response = await apiClient.get<DashboardResponse>("/api/dashboard", {
     params: { page, page_size: pageSize },
   });
+  return response.data;
+}
+
+/**
+ * Org-wide stats + Assignment Progress breakdown for the Skill Assignment
+ * Dashboard landing page (Story 9.3, consuming Story 9.1's endpoint).
+ */
+async function getDashboardStats(): Promise<DashboardStatsResponse> {
+  const response = await apiClient.get<DashboardStatsResponse>('/api/dashboard/stats');
+  return response.data;
+}
+
+/**
+ * Employee Segmentation (On Track / In Progress / Needs Attention) for the
+ * Skill Assignment Dashboard's pie chart (Story 9.3, consuming Story 9.2's
+ * endpoint).
+ */
+async function getEmployeeSegmentation(): Promise<EmployeeSegmentationResponse> {
+  const response = await apiClient.get<EmployeeSegmentationResponse>('/api/dashboard/segmentation');
   return response.data;
 }
 
@@ -61,6 +85,8 @@ async function deleteAssignment(assignmentId: string): Promise<void> {
 export const dashboardApi = {
   getDashboardAssignments,
   getDashboard,
+  getDashboardStats,
+  getEmployeeSegmentation,
   getDrillDown,
   setOverride,
   deleteAssignment,
