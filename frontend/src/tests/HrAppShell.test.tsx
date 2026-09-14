@@ -50,13 +50,33 @@ describe('HrAppShell (Story 7.7)', () => {
     vi.mocked(logout).mockClear();
   });
 
-  it('renders all three nav destinations and the page content', () => {
+  it('renders all four nav destinations, in order, and the page content', () => {
     renderShell();
 
-    expect(screen.getByTestId('app-nav-link-dashboard')).toHaveAttribute('href', '/hr/dashboard');
+    const links = screen.getByTestId('app-nav-sidebar').querySelectorAll('nav a');
+    expect(Array.from(links).map((l) => l.textContent)).toEqual([
+      'Dashboard',
+      'Skill Assignments',
+      'Skills',
+      'Employees',
+    ]);
+
+    expect(screen.getByTestId('app-nav-link-dashboard')).toHaveAttribute('href', '/dashboard');
+    expect(screen.getByTestId('app-nav-link-skill-assignments')).toHaveAttribute('href', '/hr/dashboard');
     expect(screen.getByTestId('app-nav-link-skills')).toHaveAttribute('href', '/skills');
     expect(screen.getByTestId('app-nav-link-employees')).toHaveAttribute('href', '/employees');
     expect(screen.getByText('Page content')).toBeInTheDocument();
+  });
+
+  it('marks Dashboard active with the same treatment when on the landing page route', () => {
+    renderShell('/dashboard');
+
+    const dashboardLink = screen.getByTestId('app-nav-link-dashboard');
+    expect(dashboardLink).toHaveAttribute('aria-current', 'page');
+    expect(dashboardLink.className).toMatch(/font-medium/);
+
+    const skillAssignmentsLink = screen.getByTestId('app-nav-link-skill-assignments');
+    expect(skillAssignmentsLink).not.toHaveAttribute('aria-current');
   });
 
   it('marks the current page active with aria-current and a non-color-only style', () => {
@@ -65,6 +85,17 @@ describe('HrAppShell (Story 7.7)', () => {
     const employeesLink = screen.getByTestId('app-nav-link-employees');
     expect(employeesLink).toHaveAttribute('aria-current', 'page');
     expect(employeesLink.className).toMatch(/font-medium/);
+
+    const dashboardLink = screen.getByTestId('app-nav-link-dashboard');
+    expect(dashboardLink).not.toHaveAttribute('aria-current');
+  });
+
+  it('marks Skill Assignments active with the same treatment when on the full grid route', () => {
+    renderShell('/hr/dashboard');
+
+    const skillAssignmentsLink = screen.getByTestId('app-nav-link-skill-assignments');
+    expect(skillAssignmentsLink).toHaveAttribute('aria-current', 'page');
+    expect(skillAssignmentsLink.className).toMatch(/font-medium/);
 
     const dashboardLink = screen.getByTestId('app-nav-link-dashboard');
     expect(dashboardLink).not.toHaveAttribute('aria-current');

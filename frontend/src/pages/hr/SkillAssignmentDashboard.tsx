@@ -4,9 +4,10 @@
  * pure display, never re-deriving Status/Provenance/segmentation itself.
  *
  * Route: `/dashboard` (not `/hr/dashboard`, which stays the existing full
- * grid page, untouched by this story). The left-nav "Dashboard" link still
- * points at `/hr/dashboard` until Story 9.5 repoints it -- a deliberate
- * scope boundary, not a gap (see this story's Dev Notes).
+ * grid page, untouched by this story). The left-nav "Dashboard" link was
+ * repointed to `/dashboard` by Story 9.5 -- until then it pointed at
+ * `/hr/dashboard`, a deliberate scope boundary documented in this story's
+ * Dev Notes, not a gap.
  *
  * The Needs Attention segment (Story 9.4, FR-33/UX-DR45/UX-DR46) is the only
  * interactive element on this page: count > 0 renders a real button that

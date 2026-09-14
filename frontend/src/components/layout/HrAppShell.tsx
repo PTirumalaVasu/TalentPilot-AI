@@ -1,11 +1,21 @@
-/** Shared HR Admin left-pane navigation shell (Story 7.7, FR-29).
+/** Shared HR Admin left-pane navigation shell (Story 7.7, FR-29; nav entries
+ * updated by Story 9.5, FR-29 amendment/UX-DR47/UX-DR48).
  *
  * Replaces the top-header nav previously duplicated across
  * Dashboard.tsx/SkillsPage.tsx/EmployeesPage.tsx: a persistent left sidebar
- * (Dashboard/Skills/Employees) collapsing to a hamburger-triggered overlay
- * below the 768px breakpoint (UX-DR40), plus a slim top bar carrying only
- * the theme toggle (Story 8.1) and user menu -- unchanged in position/behavior
- * (AC2). */
+ * (Dashboard/Skill Assignments/Skills/Employees) collapsing to a
+ * hamburger-triggered overlay below the 768px breakpoint (UX-DR40), plus a
+ * slim top bar carrying only the theme toggle (Story 8.1) and user menu --
+ * unchanged in position/behavior (AC2).
+ *
+ * "Dashboard" opens the Skill Assignment Dashboard landing page (`/dashboard`,
+ * Story 9.3); "Skill Assignments" opens the existing full, unfiltered
+ * Readiness Dashboard grid (`/hr/dashboard`) -- two distinct, separately
+ * reachable *nav* destinations, not one page's nav entry linking to the
+ * other (Story 9.5). The landing page itself still deep-links into the grid
+ * at the content level (Empty-state CTA, Needs Attention popover, Story 9.4)
+ * -- this claim is about the nav, not about content-level links between the
+ * two pages. */
 import { useState, type ReactNode } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth/AuthContext';
@@ -13,7 +23,8 @@ import { logout } from '@/lib/api/authApi';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 
 const NAV_LINKS = [
-  { to: '/hr/dashboard', label: 'Dashboard', testId: 'app-nav-link-dashboard' },
+  { to: '/dashboard', label: 'Dashboard', testId: 'app-nav-link-dashboard' },
+  { to: '/hr/dashboard', label: 'Skill Assignments', testId: 'app-nav-link-skill-assignments' },
   { to: '/skills', label: 'Skills', testId: 'app-nav-link-skills' },
   { to: '/employees', label: 'Employees', testId: 'app-nav-link-employees' },
 ];

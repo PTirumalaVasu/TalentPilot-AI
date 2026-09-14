@@ -40,7 +40,7 @@ export function Login() {
     try {
       const { role, user_id } = await login(values.email, values.password);
       signIn(role, user_id);
-      navigate(role === 'HR_ADMIN' ? '/hr/dashboard' : '/employee/content', { replace: true });
+      navigate(role === 'HR_ADMIN' ? '/dashboard' : '/employee/content', { replace: true });
     } catch (err) {
       if (axios.isAxiosError<ApiErrorBody>(err) && err.response?.status === 401) {
         setFormError(err.response.data.message ?? GENERIC_ERROR);

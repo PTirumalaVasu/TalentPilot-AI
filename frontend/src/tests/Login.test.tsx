@@ -80,7 +80,7 @@ describe('Login', () => {
     expect(login).not.toHaveBeenCalled();
   });
 
-  it('redirects an HR_ADMIN to the HR dashboard on successful login', async () => {
+  it('redirects an HR_ADMIN to the Skill Assignment Dashboard on successful login', async () => {
     vi.mocked(login).mockResolvedValueOnce({ role: 'HR_ADMIN', user_id: 'rita' });
     const user = userEvent.setup();
     renderLogin();
@@ -88,7 +88,7 @@ describe('Login', () => {
     await fillAndSubmit(user, 'rita@sails.example.com', 'demo123');
 
     await waitFor(() =>
-      expect(navigateMock).toHaveBeenCalledWith('/hr/dashboard', { replace: true })
+      expect(navigateMock).toHaveBeenCalledWith('/dashboard', { replace: true })
     );
   });
 
