@@ -121,10 +121,10 @@ describe('SkillAssignmentDashboard', () => {
     );
   });
 
-  it('renders the Needs Attention row as plain, non-interactive text regardless of count (Story 9.4 scope, not this story)', async () => {
+  it('renders Needs Attention as plain, non-interactive text when the count is exactly zero (AC2, UX-DR46)', async () => {
     vi.mocked(dashboardApi.getDashboardStats).mockResolvedValue(makeStats());
     vi.mocked(dashboardApi.getEmployeeSegmentation).mockResolvedValue(
-      makeSegmentation({ needs_attention_count: 3 })
+      makeSegmentation({ needs_attention_count: 0, needs_attention: [] })
     );
 
     renderPage();
@@ -135,7 +135,136 @@ describe('SkillAssignmentDashboard', () => {
     expect(row.querySelector('button')).toBeNull();
     expect(row).not.toHaveAttribute('role', 'button');
     expect(screen.queryByText('Click to see who')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('dashboard-segmentation-hint')).not.toBeInTheDocument();
     expect(screen.queryByTestId('dashboard-needs-attention-popover')).not.toBeInTheDocument();
+  });
+
+  it('on-click, On Track / In Progress segments remain inert regardless of count (AC3, deliberate asymmetry)', async () => {
+    const user = userEvent.setup();
+    vi.mocked(dashboardApi.getDashboardStats).mockResolvedValue(makeStats());
+    vi.mocked(dashboardApi.getEmployeeSegmentation).mockResolvedValue(makeSegmentation());
+
+    renderPage();
+    await screen.findByTestId('dashboard-state-loaded');
+
+    await user.click(screen.getByTestId('dashboard-segmentation-legend-ontrack'));
+    await user.click(screen.getByTestId('dashboard-segmentation-legend-inprogress'));
+
+    expect(screen.getByTestId('dashboard-segmentation-legend-ontrack').tagName).not.toBe('BUTTON');
+    expect(screen.getByTestId('dashboard-segmentation-legend-inprogress').tagName).not.toBe('BUTTON');
+    expect(screen.queryByTestId('dashboard-needs-attention-popover')).not.toBeInTheDocument();
+  });
+
+  describe('Needs Attention popover (count > 0, AC1/AC4, Story 9.4)', () => {
+    function makeTwoFlaggedAssignmentsForSameEmployee(): EmployeeSegmentationResponse {
+      return makeSegmentation({
+        needs_attention_count: 1,
+        needs_attention: [
+          {
+            employee_id: 'emp-1',
+            employee_name: 'Casey Employee',
+            assignment_id: 'assign-1',
+            skill_id: 'skill-1',
+            skill_name: 'Data Visualization',
+          },
+          {
+            employee_id: 'emp-1',
+            employee_name: 'Casey Employee',
+            assignment_id: 'assign-2',
+            skill_id: 'skill-2',
+            skill_name: 'SQL Fundamentals',
+          },
+        ],
+      });
+    }
+
+    it('renders a real button with the exact aria-label and hint text, popover closed by default', async () => {
+      vi.mocked(dashboardApi.getDashboardStats).mockResolvedValue(makeStats());
+      vi.mocked(dashboardApi.getEmployeeSegmentation).mockResolvedValue(makeSegmentation());
+
+      renderPage();
+      await screen.findByTestId('dashboard-state-loaded');
+
+      const button = screen.getByTestId('dashboard-segmentation-legend-needsattention');
+      expect(button.tagName).toBe('BUTTON');
+      expect(button).toHaveAttribute('aria-haspopup', 'true');
+      expect(button).toHaveAttribute('aria-expanded', 'false');
+      expect(button).toHaveAttribute('aria-label', 'Needs Attention, 1 employees, click to see who');
+      expect(screen.getByTestId('dashboard-segmentation-hint')).toHaveTextContent('Click to see who');
+      expect(screen.queryByTestId('dashboard-needs-attention-popover')).not.toBeInTheDocument();
+    });
+
+    it('opens on click, listing one row per flagged Assignment -- not deduplicated per Employee', async () => {
+      const user = userEvent.setup();
+      vi.mocked(dashboardApi.getDashboardStats).mockResolvedValue(makeStats());
+      vi.mocked(dashboardApi.getEmployeeSegmentation).mockResolvedValue(
+        makeTwoFlaggedAssignmentsForSameEmployee()
+      );
+
+      renderPage();
+      await screen.findByTestId('dashboard-state-loaded');
+
+      await user.click(screen.getByTestId('dashboard-segmentation-legend-needsattention'));
+
+      expect(screen.getByTestId('dashboard-needs-attention-popover')).toBeInTheDocument();
+      const items = screen.getAllByTestId('dashboard-needs-attention-popover-item');
+      expect(items).toHaveLength(2);
+      expect(items[0]).toHaveTextContent('Casey Employee — Data Visualization');
+      expect(items[0]).toHaveAttribute('href', '/hr/dashboard?assignmentId=assign-1');
+      expect(items[1]).toHaveTextContent('Casey Employee — SQL Fundamentals');
+      expect(items[1]).toHaveAttribute('href', '/hr/dashboard?assignmentId=assign-2');
+    });
+
+    it('Escape closes the popover and returns focus to the trigger button (AC4)', async () => {
+      const user = userEvent.setup();
+      vi.mocked(dashboardApi.getDashboardStats).mockResolvedValue(makeStats());
+      vi.mocked(dashboardApi.getEmployeeSegmentation).mockResolvedValue(makeSegmentation());
+
+      renderPage();
+      await screen.findByTestId('dashboard-state-loaded');
+
+      const button = screen.getByTestId('dashboard-segmentation-legend-needsattention');
+      await user.click(button);
+      expect(screen.getByTestId('dashboard-needs-attention-popover')).toBeInTheDocument();
+
+      await user.keyboard('{Escape}');
+
+      expect(screen.queryByTestId('dashboard-needs-attention-popover')).not.toBeInTheDocument();
+      expect(button).toHaveFocus();
+    });
+
+    it('clicking outside the popover closes it (AC4)', async () => {
+      const user = userEvent.setup();
+      vi.mocked(dashboardApi.getDashboardStats).mockResolvedValue(makeStats());
+      vi.mocked(dashboardApi.getEmployeeSegmentation).mockResolvedValue(makeSegmentation());
+
+      renderPage();
+      await screen.findByTestId('dashboard-state-loaded');
+
+      await user.click(screen.getByTestId('dashboard-segmentation-legend-needsattention'));
+      expect(screen.getByTestId('dashboard-needs-attention-popover')).toBeInTheDocument();
+
+      await user.click(document.body);
+
+      expect(screen.queryByTestId('dashboard-needs-attention-popover')).not.toBeInTheDocument();
+    });
+
+    it('clicking a popover employee link closes the popover and links into the drill-down (AC1, AC4)', async () => {
+      const user = userEvent.setup();
+      vi.mocked(dashboardApi.getDashboardStats).mockResolvedValue(makeStats());
+      vi.mocked(dashboardApi.getEmployeeSegmentation).mockResolvedValue(makeSegmentation());
+
+      renderPage();
+      await screen.findByTestId('dashboard-state-loaded');
+
+      await user.click(screen.getByTestId('dashboard-segmentation-legend-needsattention'));
+      const item = screen.getByTestId('dashboard-needs-attention-popover-item');
+      expect(item).toHaveAttribute('href', '/hr/dashboard?assignmentId=assign-1');
+
+      await user.click(item);
+
+      expect(screen.queryByTestId('dashboard-needs-attention-popover')).not.toBeInTheDocument();
+    });
   });
 
   it('applies a visibly larger heading token to the Segmentation card than the Progress Ring card (AC2, UX-DR44)', async () => {

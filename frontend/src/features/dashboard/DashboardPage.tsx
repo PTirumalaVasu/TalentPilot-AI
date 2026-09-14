@@ -84,6 +84,15 @@ function groupAssignmentsByEmployee(assignments: AssignmentRow[]): Map<string, A
 
 interface DashboardPageProps {
   onNewAssignment: () => void;
+  /** Story 9.4: opens the Provenance Drill-Down modal for this assignment on
+   * mount -- reached via the Skill Assignment Dashboard's Needs Attention
+   * popover link (`/hr/dashboard?assignmentId=...`). Independent of the
+   * grid/pagination state, since `ProvenanceDrillDownModal` fetches by
+   * `assignmentId` directly. */
+  initialAssignmentId?: string | null;
+  /** Called once the initial-assignment modal (opened via
+   * `initialAssignmentId`) is closed, so the caller can clear the URL param. */
+  onInitialAssignmentConsumed?: () => void;
 }
 
 export interface DashboardPageHandle {
@@ -94,7 +103,10 @@ export interface DashboardPageHandle {
 }
 
 export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>(
-  function DashboardPageComponent({ onNewAssignment }, ref) {
+  function DashboardPageComponent(
+    { onNewAssignment, initialAssignmentId, onInitialAssignmentConsumed },
+    ref
+  ) {
     const [state, setState] = useState<DashboardState>({
       assignments: [],
       loading: true,
@@ -135,6 +147,7 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
 
     function handleCloseDrillDown() {
       setSelectedAssignmentId(null);
+      onInitialAssignmentConsumed?.();
     }
 
     function handleDeleteClick(row: AssignmentRow) {
@@ -190,6 +203,16 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
       refreshGrid: () => fetchDashboard(),
       announceToast: (message: string) => setToastMessage(message),
     }));
+
+    // Story 9.4: opens the deep-linked assignment's drill-down exactly once
+    // on mount, regardless of later prop changes -- a stale/removed query
+    // param must never reopen the modal after the admin closes it.
+    useEffect(() => {
+      if (initialAssignmentId) {
+        setSelectedAssignmentId(initialAssignmentId);
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     useEffect(() => {
       const timer = setTimeout(() => {
@@ -362,12 +385,31 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
     // Dashboard.tsx's AssignmentModal onAssigned handler.
     const toastElement = <Toast message={toastMessage} onDismiss={() => setToastMessage(null)} />;
 
+    // Story 9.4: the Provenance Drill-Down modal fetches by `assignmentId`
+    // directly (independent of the grid's own load/pagination state), so a
+    // deep-linked open (`initialAssignmentId`) must render regardless of
+    // which of Loading/Error/Empty/Loaded this component is currently in --
+    // rendered alongside liveRegion/toastElement in every branch below,
+    // not just the final loaded-grid return.
+    const drillDownModal = (
+      <ProvenanceDrillDownModal
+        assignmentId={selectedAssignmentId}
+        open={selectedAssignmentId !== null}
+        onClose={handleCloseDrillDown}
+        onOverrideChanged={(message) => {
+          setToastMessage(message);
+          fetchDashboard();
+        }}
+      />
+    );
+
     // Loading state
     if (state.loading && state.assignments.length === 0) {
       return (
         <div>
           {liveRegion}
           {toastElement}
+          {drillDownModal}
           <div className="py-3 flex items-center justify-between">
             <button
               onClick={onNewAssignment}
@@ -392,6 +434,7 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
         <div>
           {liveRegion}
           {toastElement}
+          {drillDownModal}
           <div className="py-3 flex items-center justify-between">
             <button
               onClick={onNewAssignment}
@@ -416,6 +459,7 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
         <div>
           {liveRegion}
           {toastElement}
+          {drillDownModal}
           <div className="py-3 flex items-center justify-between">
             <button
               onClick={onNewAssignment}
@@ -439,6 +483,7 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
       <div>
         {liveRegion}
         {toastElement}
+        {drillDownModal}
         {/* Toolbar */}
         <div className="py-3 flex items-center justify-between">
           <button
@@ -566,16 +611,6 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
             </div>
           ))}
         </div>
-
-        <ProvenanceDrillDownModal
-          assignmentId={selectedAssignmentId}
-          open={selectedAssignmentId !== null}
-          onClose={handleCloseDrillDown}
-          onOverrideChanged={(message) => {
-            setToastMessage(message);
-            fetchDashboard();
-          }}
-        />
 
         <DeleteAssignmentModal
           assignmentId={deletingAssignmentId}

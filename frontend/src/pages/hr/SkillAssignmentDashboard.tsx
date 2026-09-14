@@ -8,13 +8,20 @@
  * points at `/hr/dashboard` until Story 9.5 repoints it -- a deliberate
  * scope boundary, not a gap (see this story's Dev Notes).
  *
- * The Needs Attention legend row is intentionally display-only here (no
- * click, no popover) -- that interactive layer is Story 9.4's job. */
-import { useCallback, useEffect, useRef, useState } from 'react';
+ * The Needs Attention segment (Story 9.4, FR-33/UX-DR45/UX-DR46) is the only
+ * interactive element on this page: count > 0 renders a real button that
+ * opens a popover listing every flagged Assignment (see `NeedsAttentionControl`
+ * below), each linking into the existing per-assignment Provenance
+ * Drill-Down modal at `/hr/dashboard?assignmentId=...`. */
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { HrAppShell } from '@/components/layout/HrAppShell';
 import { dashboardApi } from '@/lib/api/dashboardApi';
-import type { DashboardStatsResponse, EmployeeSegmentationResponse } from '@/types/dashboard';
+import type {
+  DashboardStatsResponse,
+  EmployeeSegmentationResponse,
+  NeedsAttentionEntry,
+} from '@/types/dashboard';
 
 function extractErrorMessage(err: unknown, fallback: string): string {
   if (err && typeof err === 'object' && 'response' in err) {
@@ -84,6 +91,111 @@ function LegendRow({
       <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: dotColor }} />
       <span>{text}</span>
     </p>
+  );
+}
+
+/** Needs Attention segment/legend row (Story 9.4, AC1-AC4, UX-DR45/UX-DR46).
+ * `count === 0` renders the exact same plain, non-interactive `LegendRow`
+ * Story 9.3 shipped -- no button, no aria-label, no popover markup at all
+ * (a hard AC, not merely a disabled-looking button). `count > 0` renders a
+ * real button that opens a popover listing one row per flagged Assignment
+ * in `entries` (not deduplicated per Employee -- `needs_attention_count`
+ * and `entries.length` can differ, see `types/dashboard.ts`'s own doc
+ * comment on `EmployeeSegmentationResponse`). */
+function NeedsAttentionControl({
+  count,
+  entries,
+}: {
+  count: number;
+  entries: NeedsAttentionEntry[];
+}) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const popoverId = useId();
+
+  // Escape-to-close (+ refocus the trigger) and click-outside-to-close.
+  // Non-modal popover, so no Tab focus trap (unlike components/ui/dialog.tsx) --
+  // Tab simply flows through the popover's own links in natural DOM order.
+  useEffect(() => {
+    if (!open) return;
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setOpen(false);
+        triggerRef.current?.focus();
+      }
+    }
+    function handlePointerDown(event: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('mousedown', handlePointerDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('mousedown', handlePointerDown);
+    };
+  }, [open]);
+
+  if (count === 0) {
+    return (
+      <LegendRow
+        testId="dashboard-segmentation-legend-needsattention"
+        dotColor={CHART_COLORS.needsAttention}
+        text={`Needs Attention — ${count}`}
+      />
+    );
+  }
+
+  return (
+    <div ref={containerRef} className="relative flex items-center gap-2">
+      <button
+        ref={triggerRef}
+        type="button"
+        data-testid="dashboard-segmentation-legend-needsattention"
+        aria-haspopup="true"
+        aria-expanded={open}
+        aria-controls={open ? popoverId : undefined}
+        aria-label={`Needs Attention, ${count} employees, click to see who`}
+        onClick={() => setOpen((prev) => !prev)}
+        className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"
+      >
+        <span
+          className="inline-block h-2.5 w-2.5 rounded-full"
+          style={{ backgroundColor: CHART_COLORS.needsAttention }}
+        />
+        <span>{`Needs Attention — ${count}`}</span>
+      </button>
+      <span
+        data-testid="dashboard-segmentation-hint"
+        className="text-xs text-gray-400 dark:text-gray-500"
+      >
+        Click to see who
+      </span>
+
+      {open && (
+        <div
+          id={popoverId}
+          data-testid="dashboard-needs-attention-popover"
+          className="absolute left-0 top-full z-10 mt-2 max-h-80 w-72 overflow-y-auto rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-900"
+        >
+          {entries.map((entry) => (
+            <Link
+              key={entry.assignment_id}
+              to={`/hr/dashboard?assignmentId=${encodeURIComponent(entry.assignment_id)}`}
+              data-testid="dashboard-needs-attention-popover-item"
+              onClick={() => setOpen(false)}
+              className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800"
+            >
+              {entry.employee_name} — {entry.skill_name}
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -279,12 +391,9 @@ export function SkillAssignmentDashboard() {
                       dotColor={CHART_COLORS.segmentationInProgress}
                       text={`In Progress — ${segmentation.in_progress_count}`}
                     />
-                    {/* Display-only in this story (Story 9.4 adds the click/popover
-                        interaction) -- always a plain legend row, never a button. */}
-                    <LegendRow
-                      testId="dashboard-segmentation-legend-needsattention"
-                      dotColor={CHART_COLORS.needsAttention}
-                      text={`Needs Attention — ${segmentation.needs_attention_count}`}
+                    <NeedsAttentionControl
+                      count={segmentation.needs_attention_count}
+                      entries={segmentation.needs_attention}
                     />
                   </div>
                 </div>

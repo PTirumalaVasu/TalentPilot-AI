@@ -428,6 +428,124 @@ describe("DashboardPage", () => {
     );
   });
 
+  describe("Story 9.4: initialAssignmentId deep-link", () => {
+    function mockDrillDown() {
+      return {
+        assignment_id: "deep-link-id",
+        employee_name: "Jamie Flagged",
+        skill_name: "Data Visualization",
+        status: "NOT_STARTED" as const,
+        status_percentage: null,
+        provenance: "Needs Attention" as const,
+        last_updated: new Date().toISOString(),
+        override_set_by_name: null,
+        override_reason: null,
+        override_set_at: null,
+        underlying_provenance: null,
+        underlying_status: null,
+        underlying_status_percentage: null,
+      };
+    }
+
+    it("opens the Provenance Drill-Down modal on mount when initialAssignmentId is set, without a grid row click", async () => {
+      vi.mocked(dashboardApi.dashboardApi.getDashboard).mockResolvedValue({
+        assignments: [],
+        total_count: 0,
+        page: 1,
+        page_size: 50,
+      });
+      vi.mocked(dashboardApi.dashboardApi.getDrillDown).mockResolvedValue(mockDrillDown());
+
+      render(<DashboardPage onNewAssignment={() => {}} initialAssignmentId="deep-link-id" />);
+
+      expect(await screen.findByRole("dialog")).toBeInTheDocument();
+      expect(dashboardApi.dashboardApi.getDrillDown).toHaveBeenCalledWith("deep-link-id");
+    });
+
+    it("calls onInitialAssignmentConsumed when the deep-linked modal is closed via Escape", async () => {
+      vi.mocked(dashboardApi.dashboardApi.getDashboard).mockResolvedValue({
+        assignments: [],
+        total_count: 0,
+        page: 1,
+        page_size: 50,
+      });
+      vi.mocked(dashboardApi.dashboardApi.getDrillDown).mockResolvedValue(mockDrillDown());
+      const onInitialAssignmentConsumed = vi.fn();
+
+      render(
+        <DashboardPage
+          onNewAssignment={() => {}}
+          initialAssignmentId="deep-link-id"
+          onInitialAssignmentConsumed={onInitialAssignmentConsumed}
+        />
+      );
+
+      await screen.findByRole("dialog");
+      fireEvent.keyDown(document, { key: "Escape" });
+
+      await waitFor(() => {
+        expect(onInitialAssignmentConsumed).toHaveBeenCalledTimes(1);
+      });
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+
+    it("preserves the deep-linked modal's fetched state across the Loading -> Loaded transition (no remount/double-fetch)", async () => {
+      // Regression test for a real bug caught in code review: `drillDownModal`
+      // was rendered at a different child index in the Loaded branch than in
+      // Loading/Error/Empty, so React's positional reconciliation unmounted
+      // and remounted ProvenanceDrillDownModal on the Loading -> Loaded
+      // transition -- discarding its already-fetched drill-down data and
+      // re-firing getDrillDown. Fixed by rendering `drillDownModal` at the
+      // same position (right after toastElement) in every branch.
+      let resolveDashboard!: (value: DashboardResponse) => void;
+      vi.mocked(dashboardApi.dashboardApi.getDashboard).mockReturnValue(
+        new Promise((resolve) => {
+          resolveDashboard = resolve;
+        })
+      );
+      vi.mocked(dashboardApi.dashboardApi.getDrillDown).mockResolvedValue(mockDrillDown());
+
+      render(<DashboardPage onNewAssignment={() => {}} initialAssignmentId="deep-link-id" />);
+
+      // Modal opens immediately during Loading, before the grid's own fetch resolves.
+      expect(await screen.findByRole("dialog")).toBeInTheDocument();
+      await waitFor(() => {
+        expect(dashboardApi.dashboardApi.getDrillDown).toHaveBeenCalledTimes(1);
+      });
+
+      // Resolve the grid's fetch with real, non-empty rows -- this drives the
+      // Loading -> Loaded transition the position-parity bug broke.
+      act(() => {
+        resolveDashboard({
+          assignments: [
+            {
+              assignment_id: "row-1",
+              employee_id: "emp-1",
+              employee_name: "Casey the Continuer",
+              employee_group: null,
+              skill_id: "skill-1",
+              skill_name: "Data Visualization",
+              status: "Not Started",
+              status_percentage: null,
+              provenance: "Not Started",
+              last_updated: new Date().toISOString(),
+              assignment_created_at: new Date().toISOString(),
+            },
+          ],
+          total_count: 1,
+          page: 1,
+          page_size: 50,
+        });
+      });
+
+      await screen.findByText(/Total: 1 assignment/);
+
+      // Dialog instance survives the transition; getDrillDown was not re-invoked.
+      expect(screen.getByRole("dialog")).toBeInTheDocument();
+      expect(dashboardApi.dashboardApi.getDrillDown).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe("Story 5.7: delete assignment", () => {
     function mockRow(overrides: {
       status?: "Not Started" | "In Progress" | "Completed";
