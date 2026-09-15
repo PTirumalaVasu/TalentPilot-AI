@@ -9,8 +9,18 @@ const STORAGE_KEY = 'talentpilot_prototype_data';
 
 const PrototypeAPI = {
   async _load() {
-    let raw = sessionStorage.getItem(STORAGE_KEY);
-    if (!raw) {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    const cached = raw ? JSON.parse(raw) : null;
+
+    // [ADDED 2026-09-15] Reseed whenever data/demo-data.js's own _version is
+    // newer than what's cached — otherwise an already-open tab from before a
+    // demo-data.js edit keeps serving the stale shape indefinitely, since
+    // sessionStorage previously only ever seeded when completely empty. This
+    // is why Story 10.11's new experienceYears fields didn't show up without
+    // a manual cache clear the first time.
+    const isStale = !cached || (window.DEMO_DATA && cached._version !== window.DEMO_DATA._version);
+
+    if (isStale) {
       // Seeded from window.DEMO_DATA (data/demo-data.js), not fetch() —
       // fetch() of a local file is blocked by browsers under file://,
       // which breaks the "just double-click, no server" prototype promise.
@@ -18,9 +28,11 @@ const PrototypeAPI = {
         throw new Error('window.DEMO_DATA not found — is data/demo-data.js included before this script?');
       }
       sessionStorage.setItem(STORAGE_KEY, JSON.stringify(window.DEMO_DATA));
-      raw = JSON.stringify(window.DEMO_DATA);
     }
-    return JSON.parse(raw);
+    // Always return a fresh deep clone from storage, not a live reference to
+    // window.DEMO_DATA — preserves the original behavior that downstream
+    // mutations (e.g. deleteAssignment) never leak back into the source data.
+    return JSON.parse(sessionStorage.getItem(STORAGE_KEY));
   },
 
   async _save(data) {

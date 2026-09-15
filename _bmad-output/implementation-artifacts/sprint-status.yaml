@@ -311,6 +311,51 @@ development_status:
   10-8-seed-admin-api-keys-from-youtube-api-key: backlog
   10-9-new-skill-button-gated-on-credential-configuration: backlog
   10-10-seed-data-minimization-and-test-rewrite: backlog
+  # Story 10.11 added 2026-09-15, same day, later in the session, via direct
+  # user request during wds-4-ux-design mockup work -- not part of the
+  # original 10-story Sprint Change Proposal scope. Deliberately reverses
+  # already-shipped Epic 9 work (Stories 9.2/9.3/9.4, all done) -- confirmed
+  # via AskUserQuestion as a real, accepted product decision, not a mockup
+  # exploration. See prd.md FR-32's superseded note and epics.md Story 10.11.
+  10-11-skill-assignment-dashboard-shows-experience-distribution-instead-of-employee-segmentation: backlog
+  # Stories 10.12/10.13 added 2026-09-15, same day, later in the session,
+  # via direct user requests during wds-4-ux-design mockup work -- not part
+  # of the original Sprint Change Proposal's 10-story scope. Both amend
+  # already-shipped work (Story 9.5's nav shell; Story 10.5/FR-37's search
+  # scope) rather than being purely additive. See prd.md FR-29/FR-37's
+  # updated notes and epics.md Stories 10.12/10.13.
+  10-12-left-nav-drops-dashboard-entry-logo-and-default-landing-reach-it: backlog
+  10-13-skills-tab-gains-table-card-view-toggle: backlog
+  # Story 10.14 added 2026-09-15, same day, later still in the session, via
+  # direct user requests during wds-4-ux-design mockup work. Adds FR-41 (new
+  # Days in Talent Pool dashboard ring) and converts Experience Distribution's
+  # dashboard presentation to match (ring, not a button grid -- Employees-page
+  # copy unaffected). See prd.md FR-41 and epics.md Story 10.14.
+  10-14-dashboard-gains-days-in-talent-pool-ring-experience-distribution-converts-to-ring: backlog
+  # Story 10.15 added 2026-09-15, same day, later still in the session, via
+  # direct user requests during wds-4-ux-design mockup work. Documents the
+  # left-pane nav's collapse/expand-to-icon-only-width toggle -- built earlier
+  # the same session but never captured in epics.md/prd.md until this pass; a
+  # genuine documentation gap found while chasing an unrelated bug report
+  # ("page is flickering" when navigating while collapsed), not introduced by
+  # this pass. Adds FR-42. See prd.md FR-42 and epics.md Story 10.15.
+  10-15-left-nav-collapses-to-icon-only-width-no-flash-on-navigation: backlog
+  # Story 10.16 added 2026-09-15, same day, later still in the session, via
+  # direct user request during wds-4-ux-design mockup work. New "Company
+  # Settings" account-menu entry (below Sign Out) opens a modal to set a
+  # client-only Company Name label. Adds FR-43. A real cross-file bug was
+  # caught before shipping: 3 of the 4 mockups have no generic
+  # openModal/closeModal helper, so the new modal's open/close logic had to
+  # be made self-contained rather than assumed-shared. The label's
+  # location/styling went through several direct corrections the same
+  # session before settling (sidebar-beside-toggle -> independent sidebar
+  # sibling -> moved into the top header before the theme toggle -> header
+  # restructured justify-end -> justify-between so it anchors left ->
+  # sized/recolored up to a bold talentpilot-branded text-3xl -> fixed-width
+  # truncation cap removed so it auto-sizes to the name). Story key renamed
+  # from the original "...-beside-the-nav-collapse-toggle" to match the
+  # final shipped location. See prd.md FR-43 and epics.md Story 10.16.
+  10-16-hr-admin-sets-a-company-name-label-shown-in-the-top-header: backlog
   epic-10-retrospective: optional
 
 action_items:

@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <script src="shared/auth.js"></script>
     <script>TalentPilotAuth.requireRole('HR');</script>
+    <script src="shared/theme.js"></script>
+    <script src="shared/nav.js"></script>
+    <script src="shared/company.js"></script>
     <meta name="viewport" content="width=1280, initial-scale=1.0">
     <title>04.1 Skills Tab - TalentPilot-AI</title>
 
@@ -13,6 +16,7 @@
     <!-- Tailwind Config (Design Tokens) -->
     <script>
         tailwind.config = {
+            darkMode: 'class', // [ADDED 2026-09-15] enables .dark class toggle, see shared/theme.js
             theme: {
                 extend: {
                     colors: {
@@ -40,7 +44,7 @@
     <!-- Dev Mode Styles (feedback/testing tool) -->
     <link rel="stylesheet" href="components/dev-mode.css">
 </head>
-<body class="min-h-screen bg-gray-50 font-sans">
+<body class="min-h-screen bg-gray-50 dark:bg-gray-900 font-sans">
     <!-- ========================================================================
          DEV MODE TOGGLE (Shift+Click any element to copy its Object ID)
          ======================================================================== -->
@@ -53,30 +57,99 @@
     </button>
     <div id="dev-mode-tooltip" class="dev-mode-tooltip" style="display: none;"></div>
 
-    <!-- ========================================================================
-         HEADER (shared with 01.1)
-         ======================================================================== -->
-    <header class="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between">
-        <div class="flex items-center gap-8">
-            <a href="#" id="skills-tab-logo" data-object-id="skills-tab-logo"
-               class="flex items-center gap-2 font-bold text-lg text-gray-900">
-                TalentPilot-AI
-            </a>
-            <nav id="skills-tab-nav-primary" data-object-id="skills-tab-nav-primary" class="flex gap-6 text-sm">
-                <a href="01.1-Skills-Dashboard.html" data-nav="dashboard" class="text-gray-600 hover:text-gray-900 pb-3 -mb-3 transition-colors">Dashboard</a>
-                <a href="#" data-nav="skills" class="text-talentpilot-600 font-medium border-b-2 border-talentpilot-600 pb-3 -mb-3">Skills</a>
-            </nav>
-        </div>
-        <div id="skills-tab-user-menu" data-object-id="skills-tab-user-menu" class="relative">
-            <button type="button" onclick="toggleUserMenu()" class="flex items-center gap-2 text-sm text-gray-700">
-                <span class="w-8 h-8 rounded-full bg-talentpilot-100 flex items-center justify-center text-talentpilot-700 font-medium">R</span>
-                Rita
-            </button>
-            <div class="hidden absolute right-0 mt-2 w-40 bg-white border border-gray-200 rounded-lg shadow-lg z-10" data-dropdown>
-                <a href="#" onclick="handleSignOut()" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg">Sign Out</a>
+    <!-- ====================================================================
+         COMPANY SETTINGS MODAL — added 2026-09-15, direct request. Client-only
+         (localStorage), no backend — see shared/company.js.
+         ==================================================================== -->
+    <div id="company-settings-modal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-40 p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6 space-y-4">
+            <h2 class="text-lg font-bold text-gray-900 dark:text-gray-100">Company Settings</h2>
+            <div>
+                <label for="company-settings-input" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Company name</label>
+                <input id="company-settings-input" type="text" maxlength="60" placeholder="e.g. Sails Software"
+                       class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 text-sm">
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Shown in the top header, just before the dark/light mode toggle. Saved to this browser only.</p>
+            </div>
+            <div class="flex items-center justify-end gap-2 pt-2 border-t border-gray-100 dark:border-gray-700">
+                <button onclick="closeCompanySettingsModal()" class="text-sm font-medium text-gray-600 dark:text-gray-400 hover:underline">Cancel</button>
+                <button onclick="saveCompanyNameFromModal()" class="bg-talentpilot-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-talentpilot-700 transition-colors">Save</button>
             </div>
         </div>
-    </header>
+    </div>
+
+
+    <!-- ========================================================================
+         LEFT NAV PANE (shared shell, FR-29 — 4-link version, matches 06.1;
+         [FIXED 2026-09-15] replaces this page's old separate 2-link
+         top-header nav.
+         ======================================================================== -->
+    <div class="flex min-h-screen">
+        <aside id="app-nav-sidebar" data-object-id="app-nav-sidebar"
+               class="w-56 shrink-0 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col relative transition-all duration-200">
+            <button id="app-nav-collapse-toggle" data-object-id="app-nav-collapse-toggle"
+                            onclick="TalentPilotNav.toggle()" aria-label="Collapse navigation" title="Collapse navigation"
+                            class="absolute -right-3 top-6 w-6 h-6 rounded-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-xs text-gray-600 dark:text-gray-300 flex items-center justify-center shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 z-10">«</button>
+            <a href="06.1-Skill-Assignment-Dashboard.html" id="app-nav-logo" data-object-id="app-nav-logo"
+               class="flex items-center gap-2 font-bold text-lg text-gray-900 dark:text-gray-100 px-5 py-5 border-b border-gray-100 dark:border-gray-700">
+                <span class="app-nav-label">TalentPilot-AI</span>
+                <span class="app-nav-icon hidden inline-flex w-8 h-8 rounded-full bg-talentpilot-100 dark:bg-talentpilot-800 text-talentpilot-700 dark:text-talentpilot-200 items-center justify-center text-xs font-bold">TP</span>
+            </a>
+            <nav class="flex-1 px-3 py-4 space-y-1 text-sm">
+                <a href="01.1-Skills-Dashboard.html" id="app-nav-link-skill-assignments" data-object-id="app-nav-link-skill-assignments"
+                   class="block px-3 py-2 rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-50 hover:text-gray-900 transition-colors flex items-center gap-2 app-nav-link-row">
+                   <span class="app-nav-label">Skill Assignments</span>
+                   <span class="app-nav-icon hidden inline-flex w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 items-center justify-center text-[10px] font-bold shrink-0" title="Skill Assignments">SA</span>
+                </a>
+                <a href="#" id="app-nav-link-skills" data-object-id="app-nav-link-skills"
+                   aria-current="page"
+                   class="block px-3 py-2 rounded-lg bg-talentpilot-50 dark:bg-talentpilot-900/40 text-talentpilot-700 font-medium flex items-center gap-2 app-nav-link-row">
+                   <span class="app-nav-label">Skills</span>
+                   <span class="app-nav-icon hidden inline-flex w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 items-center justify-center text-[10px] font-bold shrink-0" title="Skills">SK</span>
+                </a>
+                <a href="05.1-Employees-Tab.html" id="app-nav-link-employees" data-object-id="app-nav-link-employees"
+                   class="block px-3 py-2 rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-50 hover:text-gray-900 transition-colors flex items-center gap-2 app-nav-link-row">
+                   <span class="app-nav-label">Employees</span>
+                   <span class="app-nav-icon hidden inline-flex w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 items-center justify-center text-[10px] font-bold shrink-0" title="Employees">EM</span>
+                </a>
+            </nav>
+            <!-- [ADDED 2026-09-15, direct request — fixes a page-load flicker]
+                 shared/nav.js is included in <head>, before this sidebar element exists,
+                 so its own init() can only run on `DOMContentLoaded` — by which
+                 time the browser has already painted one frame in the default
+                 expanded state, then visibly snapped/animated to collapsed on
+                 every full-page navigation while collapsed was the saved
+                 state. Calling init() here, inline, the moment this element's
+                 subtree finishes parsing (script tags execute in document
+                 order, and TalentPilotNav is already defined by the <head>
+                 include by this point) applies the correct state before first
+                 paint instead, eliminating the flash. The DOMContentLoaded
+                 call in nav.js itself is left in place as a harmless,
+                 idempotent fallback. -->
+            <script>window.TalentPilotNav && window.TalentPilotNav.init(); window.TalentPilotCompany && window.TalentPilotCompany.init();</script>
+        </aside>
+
+        <div class="flex-1 min-w-0">
+            <!-- ================================================================
+                 TOP BAR (slim, shared) — user menu only, nav links live in sidebar
+                 ================================================================ -->
+            <header class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-3 flex items-center justify-between">
+                <span class="app-nav-company-name text-3xl font-bold text-talentpilot-700 dark:text-talentpilot-300 whitespace-nowrap"></span>
+                <div class="flex items-center">
+                    <button id="app-theme-toggle" data-object-id="app-theme-toggle" onclick="TalentPilotTheme.toggle()"
+                            aria-label="Switch to Dark mode" title="Switch Light/Dark mode"
+                            class="mr-3 w-9 h-9 rounded-full border border-gray-300 dark:border-gray-600 flex items-center justify-center text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">🌙</button>
+                    <div id="app-topbar-user-menu" data-object-id="app-topbar-user-menu" class="relative">
+                        <button type="button" onclick="toggleUserMenu()" class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                            <span class="w-8 h-8 rounded-full bg-talentpilot-100 dark:bg-talentpilot-800 flex items-center justify-center text-talentpilot-700 font-medium">S</span>
+                            Sails Admin
+                        </button>
+                        <div class="hidden absolute right-0 mt-2 w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-10" data-dropdown>
+                            <a href="#" onclick="handleSignOut()" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 rounded-lg">Sign Out</a>
+                            <button type="button" onclick="openCompanySettingsModal()" class="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg">Company Settings</button>
+                        </div>
+                    </div>
+                    </div>
+            </header>
 
     <!-- ========================================================================
          TOOLBAR
@@ -84,19 +157,37 @@
     <div class="px-6 py-3 flex items-center justify-between">
         <div>
             <h1 id="skills-tab-heading-title" data-object-id="skills-tab-heading-title"
-                class="text-2xl font-black text-gray-900">Skills</h1>
+                class="text-2xl font-black text-gray-900 dark:text-gray-100">Skills</h1>
             <span id="skills-tab-summary-count" data-object-id="skills-tab-summary-count"
-                  class="text-sm text-gray-500">10 skills · 6 with approved content</span>
+                  class="text-sm text-gray-500 dark:text-gray-400">10 skills · 6 with approved content</span>
         </div>
         <div class="flex items-center gap-2">
-            <button id="skills-tab-btn-new-skill" data-object-id="skills-tab-btn-new-skill"
-                    onclick="openNewSkillModal()"
-                    class="bg-talentpilot-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-talentpilot-700 transition-colors">
-                + New Skill
-            </button>
+            <input id="skills-tab-search-input" data-object-id="skills-tab-search-input"
+                   type="text" placeholder="Search skills…" oninput="handleSkillsSearchInput()"
+                   class="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm w-48">
+            <div id="skills-tab-view-toggle" data-object-id="skills-tab-view-toggle"
+                 class="flex border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden">
+                <button id="skills-view-toggle-table" onclick="setSkillsView('table')"
+                        class="px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-50" aria-label="Table view">▦</button>
+                <button id="skills-view-toggle-card" onclick="setSkillsView('card')"
+                        class="px-3 py-2 text-sm bg-talentpilot-600 text-white" aria-label="Card view">▤</button>
+            </div>
+            <span id="skills-tab-btn-new-skill-wrap" class="relative inline-block" tabindex="0"
+                  onmouseenter="showNewSkillTooltip()" onmouseleave="hideNewSkillTooltip()">
+                <button id="skills-tab-btn-new-skill" data-object-id="skills-tab-btn-new-skill"
+                        onclick="openNewSkillModal()"
+                        class="bg-talentpilot-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-talentpilot-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-talentpilot-600">
+                    + New Skill
+                </button>
+                <!-- FR-40: shown only while the button is disabled (no configured content-source credential) -->
+                <div id="skills-tab-new-skill-tooltip" data-object-id="skills-tab-new-skill-tooltip"
+                     class="hidden absolute z-20 top-full mt-1 right-0 w-56 bg-gray-900 text-white text-xs rounded-lg px-3 py-2 shadow-lg">
+                    Add an API key before creating a new skill.
+                </div>
+            </span>
             <button id="skills-tab-btn-manage-keys" data-object-id="skills-tab-btn-manage-keys"
                     onclick="openApiKeysModal()"
-                    class="bg-white border border-gray-300 text-gray-700 text-sm font-semibold px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors">
+                    class="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm font-semibold px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors">
                 Manage API Keys
             </button>
         </div>
@@ -106,42 +197,64 @@
          PAGE-LEVEL TOAST (approve confirmation, shown after the modal closes)
          ======================================================================== -->
     <div id="skills-tab-toast" data-object-id="skills-tab-toast"
-         class="hidden fixed top-4 right-4 z-50 bg-green-50 border border-green-200 text-green-700 text-sm font-medium rounded-lg px-4 py-2 shadow-sm"
+         class="hidden fixed top-4 right-4 z-50 bg-green-50 dark:bg-green-950 border border-green-200 text-green-700 text-sm font-medium rounded-lg px-4 py-2 shadow-sm"
          role="status" aria-live="polite"></div>
 
     <!-- ========================================================================
          MAIN CONTENT — Skills Card Grid
          ======================================================================== -->
     <main class="px-6 pb-12">
+        <!-- Table view -->
+        <div id="skills-table-wrap" data-object-id="skills-table-wrap" class="hidden">
+            <table id="skills-table" data-object-id="skills-table" class="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden text-sm">
+                <thead class="bg-gray-100 dark:bg-gray-900 text-gray-600 dark:text-gray-300 text-xs font-semibold uppercase tracking-wide">
+                    <tr class="border-b-2 border-gray-300 dark:border-gray-600">
+                        <th class="text-left px-4 py-3">Skill</th>
+                        <th class="text-left px-4 py-3">Status</th>
+                        <th class="text-left px-4 py-3">Approved Content</th>
+                        <th class="text-left px-4 py-3">Days to Complete</th>
+                        <th class="text-left px-4 py-3">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="skills-table-body"></tbody>
+            </table>
+        </div>
+
+        <!-- Card view (default) -->
         <div id="skills-tab-grid-skills" data-object-id="skills-tab-grid-skills"
              class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"></div>
 
+        <div id="skills-tab-pagination" data-object-id="skills-tab-pagination"
+             class="flex justify-center items-center gap-3 text-sm text-gray-600 dark:text-gray-400 mt-4"></div>
+
         <p id="skills-tab-version-info" data-object-id="skills-tab-version-info"
-           class="text-center text-xs text-gray-400 mt-8">App v0.1.0</p>
+           class="text-center text-xs text-gray-400 dark:text-gray-500 mt-8">App v0.1.0</p>
     </main>
+        </div>
+    </div>
 
     <!-- ========================================================================
          WATCH MODAL — content preview (opened from any content link)
          ======================================================================== -->
     <div id="watch-modal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-        <div class="bg-white rounded-lg shadow-xl max-w-3xl w-full overflow-hidden">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-3xl w-full overflow-hidden">
 
-            <div class="flex items-center justify-between px-5 py-3 border-b border-gray-100">
+            <div class="flex items-center justify-between px-5 py-3 border-b border-gray-100 dark:border-gray-700">
                 <div class="min-w-0">
                     <h2 id="watch-modal-title" data-object-id="watch-modal-title"
-                        class="text-sm font-semibold text-gray-900 truncate"></h2>
-                    <p id="watch-modal-meta" data-object-id="watch-modal-meta" class="text-xs text-gray-500"></p>
+                        class="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate"></h2>
+                    <p id="watch-modal-meta" data-object-id="watch-modal-meta" class="text-xs text-gray-500 dark:text-gray-400"></p>
                 </div>
                 <button id="watch-modal-btn-close" data-object-id="watch-modal-btn-close"
                         onclick="closeWatchModal()" aria-label="Close"
-                        class="shrink-0 text-gray-400 hover:text-gray-600 text-xl leading-none ml-4">&times;</button>
+                        class="shrink-0 text-gray-400 dark:text-gray-500 hover:text-gray-600 text-xl leading-none ml-4">&times;</button>
             </div>
 
             <div id="watch-modal-body" class="bg-black aspect-video flex items-center justify-center"></div>
 
-            <div class="px-5 py-3 flex items-center justify-between bg-gray-50 text-xs text-gray-500">
+            <div class="px-5 py-3 flex items-center justify-between bg-gray-50 dark:bg-gray-900 text-xs text-gray-500 dark:text-gray-400">
                 <a id="watch-modal-open-external" href="#" target="_blank" rel="noopener" class="text-talentpilot-600 hover:underline font-medium">Open in new tab ↗</a>
-                <button onclick="closeWatchModal()" class="text-gray-600 hover:underline">Close</button>
+                <button onclick="closeWatchModal()" class="text-gray-600 dark:text-gray-400 hover:underline">Close</button>
             </div>
         </div>
     </div>
@@ -150,31 +263,31 @@
          NEW / EDIT SKILL MODAL (FR-20 / FR-21) — shared, distinguished by mode
          ======================================================================== -->
     <div id="new-skill-modal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-40 p-4">
-        <div class="bg-white rounded-lg shadow-xl max-w-md w-full p-6 space-y-4">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6 space-y-4">
 
             <div class="flex items-center justify-between">
                 <h2 id="new-skill-header-title" data-object-id="new-skill-header-title"
-                    class="text-lg font-bold text-gray-900">New Skill</h2>
+                    class="text-lg font-bold text-gray-900 dark:text-gray-100">New Skill</h2>
                 <button id="new-skill-btn-close" data-object-id="new-skill-btn-close"
                         onclick="closeNewSkillModal()" aria-label="Close"
-                        class="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
+                        class="text-gray-400 dark:text-gray-500 hover:text-gray-600 text-xl leading-none">&times;</button>
             </div>
 
             <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1">Skill name</label>
+                <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Skill name</label>
                 <input id="new-skill-name-input" data-object-id="new-skill-name-input"
                        type="text" placeholder="e.g. Docker Fundamentals"
-                       class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                       class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm">
             </div>
             <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1">Description (optional)</label>
+                <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Description (optional)</label>
                 <textarea id="new-skill-description-input" data-object-id="new-skill-description-input"
                           rows="2" placeholder="Description (optional)"
-                          class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"></textarea>
+                          class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm"></textarea>
             </div>
 
             <div id="new-skill-duplicate-notice" data-object-id="new-skill-duplicate-notice"
-                 class="hidden text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-3"></div>
+                 class="hidden text-sm text-amber-800 bg-amber-50 dark:bg-amber-950 border border-amber-200 rounded-lg p-3"></div>
 
             <button id="new-skill-btn-create" data-object-id="new-skill-btn-create"
                     onclick="submitSkillModal()"
@@ -188,14 +301,14 @@
          DELETE SKILL CONFIRMATION (FR-22)
          ======================================================================== -->
     <div id="delete-skill-modal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-40 p-4">
-        <div class="bg-white rounded-lg shadow-xl max-w-md w-full p-6 space-y-4">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6 space-y-4">
             <h2 id="delete-skill-heading" data-object-id="delete-skill-heading"
-                class="text-lg font-bold text-gray-900">Delete this skill?</h2>
-            <p id="delete-skill-summary" data-object-id="delete-skill-summary" class="text-sm text-gray-700"></p>
-            <div class="flex items-center justify-end gap-2 pt-2 border-t border-gray-100">
+                class="text-lg font-bold text-gray-900 dark:text-gray-100">Delete this skill?</h2>
+            <p id="delete-skill-summary" data-object-id="delete-skill-summary" class="text-sm text-gray-700 dark:text-gray-300"></p>
+            <div class="flex items-center justify-end gap-2 pt-2 border-t border-gray-100 dark:border-gray-700">
                 <button id="delete-skill-btn-cancel" data-object-id="delete-skill-btn-cancel"
                         onclick="closeDeleteSkillModal()"
-                        class="text-sm font-medium text-gray-600 hover:underline">
+                        class="text-sm font-medium text-gray-600 dark:text-gray-400 hover:underline">
                     Cancel
                 </button>
                 <button id="delete-skill-btn-confirm" data-object-id="delete-skill-btn-confirm"
@@ -211,31 +324,31 @@
          CONTENT LOOKUP MODAL (FR-17 / FR-17a / FR-18 / FR-19)
          ======================================================================== -->
     <div id="content-lookup-modal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-40 p-4">
-        <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6 max-h-[85vh] overflow-y-auto">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full p-6 max-h-[85vh] overflow-y-auto">
 
             <div class="flex items-center justify-between mb-1">
                 <h2 id="content-lookup-header-title" data-object-id="content-lookup-header-title"
-                    class="text-lg font-bold text-gray-900">Find content for <span id="content-lookup-skill-name"></span></h2>
+                    class="text-lg font-bold text-gray-900 dark:text-gray-100">Find content for <span id="content-lookup-skill-name"></span></h2>
                 <button id="content-lookup-btn-close" data-object-id="content-lookup-btn-close"
                         onclick="closeContentLookup()" aria-label="Close"
-                        class="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
+                        class="text-gray-400 dark:text-gray-500 hover:text-gray-600 text-xl leading-none">&times;</button>
             </div>
-            <p class="text-xs text-gray-400 mb-4">Search Results — unreviewed candidates, not yet approved</p>
+            <p class="text-xs text-gray-400 dark:text-gray-500 mb-4">Search Results — unreviewed candidates, not yet approved</p>
 
             <!-- Edit mode: Skill name/description (FR-21), shown only when opened via the card's Edit action -->
-            <div id="content-lookup-edit-fields" class="hidden mb-4 space-y-2 border-b border-gray-100 pb-4">
+            <div id="content-lookup-edit-fields" class="hidden mb-4 space-y-2 border-b border-gray-100 dark:border-gray-700 pb-4">
                 <div>
-                    <label class="block text-xs font-medium text-gray-600 mb-1">Skill name</label>
+                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Skill name</label>
                     <input id="content-lookup-edit-name-input" data-object-id="content-lookup-edit-name-input"
-                           type="text" class="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm">
+                           type="text" class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm">
                 </div>
                 <div>
-                    <label class="block text-xs font-medium text-gray-600 mb-1">Description (optional)</label>
+                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Description (optional)</label>
                     <textarea id="content-lookup-edit-description-input" data-object-id="content-lookup-edit-description-input"
-                              rows="2" class="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm"></textarea>
+                              rows="2" class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm"></textarea>
                 </div>
                 <div id="content-lookup-edit-duplicate-notice" data-object-id="content-lookup-edit-duplicate-notice"
-                     class="hidden text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-2"></div>
+                     class="hidden text-sm text-amber-800 bg-amber-50 dark:bg-amber-950 border border-amber-200 rounded-lg p-2"></div>
                 <button id="content-lookup-btn-save-name" data-object-id="content-lookup-btn-save-name"
                         onclick="saveSkillNameFromLookup()"
                         class="text-sm font-semibold text-talentpilot-600 hover:underline">Save name</button>
@@ -243,17 +356,17 @@
 
             <!-- Currently Approved: what Employees see right now, if anything (both Edit and Find Content show this) -->
             <div id="content-lookup-current-approved" data-object-id="content-lookup-current-approved" class="hidden mb-4">
-                <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Currently Approved</h3>
+                <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Currently Approved</h3>
                 <div id="content-lookup-current-approved-card"></div>
             </div>
 
             <!-- Tabs -->
             <div id="content-lookup-source-tabs" data-object-id="content-lookup-source-tabs"
-                 class="flex gap-1 border-b border-gray-200 mb-4">
+                 class="flex gap-1 border-b border-gray-200 dark:border-gray-700 mb-4">
                 <button onclick="switchLookupTab('search')" id="content-lookup-tab-search"
                         class="px-3 py-2 text-sm font-medium border-b-2 border-talentpilot-600 text-talentpilot-600">Search</button>
                 <button onclick="switchLookupTab('manual')" id="content-lookup-tab-manual"
-                        class="px-3 py-2 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700">Paste a link</button>
+                        class="px-3 py-2 text-sm font-medium border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700">Paste a link</button>
             </div>
 
             <!-- Search sub-view -->
@@ -265,7 +378,7 @@
                     </label>
                     <div class="flex-1 flex gap-2">
                         <input id="content-lookup-search-input" type="text" placeholder="Search term (defaults to skill name)"
-                               class="flex-1 border border-gray-300 rounded-lg px-3 py-1.5 text-sm">
+                               class="flex-1 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm">
                         <button id="content-lookup-search-btn" data-object-id="content-lookup-search-btn"
                                 onclick="renderResults()"
                                 class="bg-talentpilot-600 text-white text-sm font-semibold px-4 py-1.5 rounded-lg hover:bg-talentpilot-700 transition-colors">
@@ -275,12 +388,12 @@
                 </div>
 
                 <div id="content-lookup-results-youtube" data-object-id="content-lookup-results-youtube" class="mb-5">
-                    <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">YouTube</h3>
+                    <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">YouTube</h3>
                     <div id="content-lookup-results-youtube-list" class="space-y-2"></div>
                 </div>
 
                 <div id="content-lookup-results-udemy" data-object-id="content-lookup-results-udemy">
-                    <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Udemy</h3>
+                    <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Udemy</h3>
                     <div id="content-lookup-results-udemy-list" class="space-y-2"></div>
                 </div>
             </div>
@@ -288,22 +401,22 @@
             <!-- Manual entry sub-view -->
             <div id="content-lookup-manual-view" class="hidden space-y-3">
                 <div>
-                    <label class="block text-xs font-medium text-gray-600 mb-1">Content link</label>
+                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Content link</label>
                     <input id="content-lookup-manual-url-input" data-object-id="content-lookup-manual-url-input"
                            type="text" placeholder="Paste a content link…"
-                           class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                           class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm">
                 </div>
                 <div>
-                    <label class="block text-xs font-medium text-gray-600 mb-1">Title</label>
+                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Title</label>
                     <input id="content-lookup-manual-title-input" data-object-id="content-lookup-manual-title-input"
                            type="text" placeholder="Title"
-                           class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                           class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm">
                 </div>
                 <div>
-                    <label class="block text-xs font-medium text-gray-600 mb-1">Duration (optional)</label>
+                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Duration (optional)</label>
                     <input id="content-lookup-manual-duration-input" data-object-id="content-lookup-manual-duration-input"
                            type="text" placeholder="e.g. 2h 30m"
-                           class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                           class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm">
                 </div>
                 <button id="content-lookup-manual-btn-review" data-object-id="content-lookup-manual-btn-review"
                         onclick="reviewManualLink()"
@@ -319,42 +432,42 @@
          API KEYS MODAL (FR-16)
          ======================================================================== -->
     <div id="api-keys-modal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-40 p-4">
-        <div class="bg-white rounded-lg shadow-xl max-w-md w-full p-6 space-y-5">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6 space-y-5">
 
             <div class="flex items-center justify-between">
                 <h2 id="api-keys-modal-header-title" data-object-id="api-keys-modal-header-title"
-                    class="text-lg font-bold text-gray-900">Manage API Keys</h2>
+                    class="text-lg font-bold text-gray-900 dark:text-gray-100">Manage API Keys</h2>
                 <button id="api-keys-modal-btn-close" data-object-id="api-keys-modal-btn-close"
                         onclick="closeApiKeysModal()" aria-label="Close"
-                        class="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
+                        class="text-gray-400 dark:text-gray-500 hover:text-gray-600 text-xl leading-none">&times;</button>
             </div>
 
             <div id="api-keys-modal-youtube-row" data-object-id="api-keys-modal-youtube-row" class="space-y-1.5">
                 <div class="flex items-center justify-between">
-                    <label class="text-sm font-medium text-gray-700">YouTube (your personal key)</label>
+                    <label class="text-sm font-medium text-gray-700 dark:text-gray-300">YouTube (your personal key)</label>
                     <span id="api-keys-modal-youtube-status" data-object-id="api-keys-modal-youtube-status"
-                          class="text-xs font-medium text-green-700 bg-green-50 px-2 py-0.5 rounded-full">✓ Connected</span>
+                          class="text-xs font-medium text-green-700 bg-green-50 dark:bg-green-950 px-2 py-0.5 rounded-full">✓ Connected</span>
                 </div>
                 <div class="flex gap-2">
-                    <input type="password" placeholder="•••••••••••••••••••••" class="w-56 border border-gray-300 rounded-lg px-3 py-1.5 text-sm">
-                    <button id="api-keys-modal-btn-save-youtube" class="text-sm font-medium text-talentpilot-600 hover:underline px-2">Save</button>
-                    <button id="api-keys-modal-btn-remove-youtube" class="text-sm font-medium text-red-600 hover:underline px-2">Remove</button>
+                    <input id="api-keys-modal-youtube-input" type="password" placeholder="•••••••••••••••••••••" class="w-56 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm">
+                    <button id="api-keys-modal-btn-save-youtube" onclick="setCredential('youtube', true)" class="text-sm font-medium text-talentpilot-600 hover:underline px-2">Save</button>
+                    <button id="api-keys-modal-btn-remove-youtube" onclick="setCredential('youtube', false)" class="text-sm font-medium text-red-600 hover:underline px-2">Remove</button>
                 </div>
             </div>
 
-            <div id="api-keys-modal-udemy-row" data-object-id="api-keys-modal-udemy-row" class="space-y-1.5 pt-4 border-t border-gray-100">
+            <div id="api-keys-modal-udemy-row" data-object-id="api-keys-modal-udemy-row" class="space-y-1.5 pt-4 border-t border-gray-100 dark:border-gray-700">
                 <div class="flex items-center justify-between">
-                    <label class="text-sm font-medium text-gray-700">Udemy (organization-wide)</label>
+                    <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Udemy (organization-wide)</label>
                     <span id="api-keys-modal-udemy-status" data-object-id="api-keys-modal-udemy-status"
-                          class="text-xs font-medium text-green-700 bg-green-50 px-2 py-0.5 rounded-full">✓ Connected by Rita, Sep 8</span>
+                          class="text-xs font-medium text-green-700 bg-green-50 dark:bg-green-950 px-2 py-0.5 rounded-full">✓ Connected by Sails Admin, Sep 8</span>
                 </div>
-                <input type="text" placeholder="Client ID" class="w-56 border border-gray-300 rounded-lg px-3 py-1.5 text-sm">
+                <input id="api-keys-modal-udemy-client-id" type="text" placeholder="Client ID" class="w-56 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm">
                 <div class="flex gap-2">
-                    <input type="password" placeholder="Client secret" class="w-56 border border-gray-300 rounded-lg px-3 py-1.5 text-sm">
-                    <button id="api-keys-modal-btn-save-udemy" class="text-sm font-medium text-talentpilot-600 hover:underline px-2">Save</button>
-                    <button id="api-keys-modal-btn-remove-udemy" class="text-sm font-medium text-red-600 hover:underline px-2">Remove</button>
+                    <input id="api-keys-modal-udemy-secret" type="password" placeholder="Client secret" class="w-56 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm">
+                    <button id="api-keys-modal-btn-save-udemy" onclick="setCredential('udemy', true)" class="text-sm font-medium text-talentpilot-600 hover:underline px-2">Save</button>
+                    <button id="api-keys-modal-btn-remove-udemy" onclick="setCredential('udemy', false)" class="text-sm font-medium text-red-600 hover:underline px-2">Remove</button>
                 </div>
-                <p class="text-xs text-gray-400">This credential is shared across all HR Admins, not personal to your account.</p>
+                <p class="text-xs text-gray-400 dark:text-gray-500">This credential is shared across all HR Admins, not personal to your account.</p>
             </div>
 
         </div>
@@ -416,13 +529,92 @@
 
         let currentSkill = null;
 
+        // FR-37: search + pagination (15/page), mirroring the Employee roster's
+        // existing FR-25 pattern (05.1-Employees-Tab.html).
+        const SKILLS_PAGE_SIZE = 15;
+        let skillsCurrentPage = 1;
+        let skillsSearchQuery = '';
+        let skillsSearchDebounce = null;
+
+        // [ADDED 2026-09-15] Table/Card view toggle, similar to the Employee
+        // roster page (05.1-Employees-Tab.html) — same shared search/
+        // pagination state across both views, only the layout differs.
+        let currentSkillsView = 'card';
+        function setSkillsView(view) {
+            currentSkillsView = view;
+            document.getElementById('skills-table-wrap').classList.toggle('hidden', view !== 'table');
+            document.getElementById('skills-tab-grid-skills').classList.toggle('hidden', view !== 'card');
+            document.getElementById('skills-view-toggle-table').className = 'px-3 py-2 text-sm ' + (view === 'table' ? 'bg-talentpilot-600 text-white' : 'bg-white text-gray-500 dark:text-gray-400 hover:bg-gray-50');
+            document.getElementById('skills-view-toggle-card').className = 'px-3 py-2 text-sm ' + (view === 'card' ? 'bg-talentpilot-600 text-white' : 'bg-white text-gray-500 dark:text-gray-400 hover:bg-gray-50');
+        }
+
+        function handleSkillsSearchInput() {
+            clearTimeout(skillsSearchDebounce);
+            skillsSearchDebounce = setTimeout(() => {
+                skillsSearchQuery = document.getElementById('skills-tab-search-input').value.trim().toLowerCase();
+                skillsCurrentPage = 1; // new search term resets pagination to page 1
+                renderSkillsList();
+            }, 150);
+        }
+
+        function goSkillsPage(p) { skillsCurrentPage = p; renderSkillsList(); }
+
         function renderSkillsList() {
             const withContent = SKILLS.filter(s => s.content.length > 0).length;
             document.getElementById('skills-tab-summary-count').textContent =
                 `${SKILLS.length} skills · ${withContent} with approved content`;
 
+            const filtered = skillsSearchQuery
+                ? SKILLS.filter(s => s.name.toLowerCase().includes(skillsSearchQuery))
+                : SKILLS;
+            const totalPages = Math.max(1, Math.ceil(filtered.length / SKILLS_PAGE_SIZE));
+            if (skillsCurrentPage > totalPages) skillsCurrentPage = totalPages;
+            const start = (skillsCurrentPage - 1) * SKILLS_PAGE_SIZE;
+            const pageItems = filtered.slice(start, start + SKILLS_PAGE_SIZE);
+
             const grid = document.getElementById('skills-tab-grid-skills');
-            grid.innerHTML = SKILLS.map(s => {
+            const tableBody = document.getElementById('skills-table-body');
+            if (pageItems.length === 0) {
+                grid.innerHTML = `<p class="col-span-full text-center text-gray-400 dark:text-gray-500 py-10">No skills match your search.</p>`;
+                tableBody.innerHTML = `<tr><td colspan="5" class="px-4 py-10 text-center text-gray-400 dark:text-gray-500">No skills match your search.</td></tr>`;
+                document.getElementById('skills-tab-pagination').innerHTML = '';
+                return;
+            }
+
+            // Table view — same fields as the card, laid out as rows
+            tableBody.innerHTML = pageItems.map(s => {
+                const approved = s.content.length > 0 ? s.content[s.content.length - 1] : null;
+                const nameEsc = s.name.replace(/'/g, "\\'");
+                const statusBadge = approved
+                    ? `<span class="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-50 dark:bg-green-950 px-2 py-0.5 rounded-full">✓ Approved</span>`
+                    : `<span class="inline-flex items-center gap-1 text-xs font-medium text-amber-700 bg-amber-50 dark:bg-amber-950 px-2 py-0.5 rounded-full">⚠ None yet</span>`;
+                const contentCell = approved
+                    ? `<button data-object-id="skills-tab-skill-card-link"
+                               data-title="${escAttr(approved.title)}" data-source="${escAttr(approved.source)}"
+                               data-url="${escAttr(approved.url)}" data-duration="${approved.durationHrs || ''}"
+                               onclick="openWatchModal(this)"
+                               class="text-left text-talentpilot-600 hover:underline">${approved.title}</button>
+                       <span class="text-gray-400 dark:text-gray-500 text-xs"> (${approved.source})</span>`
+                    : `<span class="text-gray-400 dark:text-gray-500">No approved content yet</span>`;
+                const daysCell = approved ? daysEstimate(approved.durationHrs, true) : '—';
+                const actionsCell = s.assigned
+                    ? `<span class="inline-flex items-center gap-1 text-xs text-gray-400 dark:text-gray-500" title="Locked — assigned to an Employee">🔒 Locked</span>`
+                    : `<div class="flex items-center gap-0.5">
+                           <button aria-label="Edit" title="Edit" onclick="openContentLookup('${nameEsc}', null, true)" class="inline-flex items-center justify-center w-8 h-8 rounded-full text-gray-500 dark:text-gray-400 hover:bg-talentpilot-50 dark:hover:bg-talentpilot-900/30 hover:text-talentpilot-600 transition-colors">✎</button>
+                           <button aria-label="Delete" title="Delete" onclick="openDeleteSkillModal('${nameEsc}')" class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors">🗑</button>
+                       </div>`;
+                return `
+                    <tr class="border-t border-gray-100 dark:border-gray-700">
+                        <td class="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">${s.name}</td>
+                        <td class="px-4 py-3">${statusBadge}</td>
+                        <td class="px-4 py-3 text-sm">${contentCell}</td>
+                        <td class="px-4 py-3 text-gray-500 dark:text-gray-400 text-xs">${daysCell}</td>
+                        <td class="px-4 py-3">${actionsCell}</td>
+                    </tr>`;
+            }).join('');
+
+            // Card view (default)
+            grid.innerHTML = pageItems.map(s => {
                 // Only the current (most recently approved) link is ever shown here —
                 // mirrors the Employee-facing "exactly one recommendation per Skill"
                 // rule (PRD FR-4), even though more than one item may have been
@@ -430,43 +622,55 @@
                 const approved = s.content.length > 0 ? s.content[s.content.length - 1] : null;
                 const nameEsc = s.name.replace(/'/g, "\\'");
                 return `
-                <div class="skills-tab-skill-card bg-white rounded-lg shadow-sm p-4 flex flex-col" data-object-id="skills-tab-skill-card">
+                <div class="skills-tab-skill-card bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 flex flex-col" data-object-id="skills-tab-skill-card">
                     <div class="flex items-start justify-between gap-2 mb-1">
-                        <h2 class="text-sm font-semibold text-gray-900 leading-snug">${s.name}</h2>
+                        <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100 leading-snug">${s.name}</h2>
                         ${approved
-                            ? `<span class="shrink-0 inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-50 px-2 py-0.5 rounded-full">✓ Approved</span>`
-                            : `<span class="shrink-0 inline-flex items-center gap-1 text-xs font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full">⚠ None yet</span>`}
+                            ? `<span class="shrink-0 inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-50 dark:bg-green-950 px-2 py-0.5 rounded-full">✓ Approved</span>`
+                            : `<span class="shrink-0 inline-flex items-center gap-1 text-xs font-medium text-amber-700 bg-amber-50 dark:bg-amber-950 px-2 py-0.5 rounded-full">⚠ None yet</span>`}
                     </div>
 
                     <div class="flex items-center gap-3 mb-2">
                         ${s.assigned ? `
-                        <span class="inline-flex items-center gap-1 text-xs text-gray-400" title="Locked — assigned to an Employee">
+                        <span class="inline-flex items-center gap-1 text-xs text-gray-400 dark:text-gray-500" title="Locked — assigned to an Employee">
                             🔒 Locked — assigned to an Employee
                         </span>
                         ` : `
-                        <button data-object-id="skills-tab-btn-edit-skill" aria-label="Edit" onclick="openContentLookup('${nameEsc}', null, true)"
-                                class="text-xs text-gray-500 hover:text-talentpilot-600">✎ Edit</button>
-                        <button data-object-id="skills-tab-btn-delete-skill" aria-label="Delete" onclick="openDeleteSkillModal('${nameEsc}')"
-                                class="text-xs text-gray-500 hover:text-red-600">🗑 Delete</button>
+                        <button data-object-id="skills-tab-btn-edit-skill" aria-label="Edit" title="Edit" onclick="openContentLookup('${nameEsc}', null, true)"
+                                class="inline-flex items-center justify-center w-8 h-8 rounded-full text-gray-500 dark:text-gray-400 hover:bg-talentpilot-50 dark:hover:bg-talentpilot-900/30 hover:text-talentpilot-600 transition-colors">✎</button>
+                        <button data-object-id="skills-tab-btn-delete-skill" aria-label="Delete" title="Delete" onclick="openDeleteSkillModal('${nameEsc}')"
+                                class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors">🗑</button>
                         `}
                     </div>
 
                     ${approved ? `
                     <div id="skills-tab-skill-card-link-row" data-object-id="skills-tab-skill-card-link-row" class="flex items-center gap-2 text-xs mb-3 flex-1">
-                        <span class="shrink-0 uppercase font-semibold text-gray-400 w-14">${approved.source}</span>
+                        <span class="shrink-0 uppercase font-semibold text-gray-400 dark:text-gray-500 w-14">${approved.source}</span>
                         <button data-object-id="skills-tab-skill-card-link"
                                 data-title="${escAttr(approved.title)}" data-source="${escAttr(approved.source)}"
                                 data-url="${escAttr(approved.url)}" data-duration="${approved.durationHrs || ''}"
                                 onclick="openWatchModal(this)"
                                 class="flex-1 min-w-0 truncate text-left text-talentpilot-600 hover:underline">${approved.title}</button>
-                        <span class="shrink-0 text-gray-400">${daysEstimate(approved.durationHrs, true)}</span>
+                        <span class="shrink-0 text-gray-400 dark:text-gray-500">${daysEstimate(approved.durationHrs, true)}</span>
                     </div>
                     ` : `
-                    <p class="text-xs text-gray-400 mb-3 flex-1">No approved content yet for this skill.</p>
+                    <p class="text-xs text-gray-400 dark:text-gray-500 mb-3 flex-1">No approved content yet for this skill.</p>
                     `}
                 </div>
             `;
             }).join('');
+
+            const pag = document.getElementById('skills-tab-pagination');
+            if (totalPages > 1) {
+                let html = `<button onclick="goSkillsPage(${skillsCurrentPage - 1})" ${skillsCurrentPage === 1 ? 'disabled class="opacity-30"' : ''}>‹</button>`;
+                for (let p = 1; p <= totalPages; p++) {
+                    html += `<button onclick="goSkillsPage(${p})" class="${p === skillsCurrentPage ? 'font-bold text-talentpilot-600' : ''}">${p}</button>`;
+                }
+                html += `<button onclick="goSkillsPage(${skillsCurrentPage + 1})" ${skillsCurrentPage === totalPages ? 'disabled class="opacity-30"' : ''}>›</button>`;
+                pag.innerHTML = html;
+            } else {
+                pag.innerHTML = '';
+            }
         }
 
         function daysEstimate(hrs, compact) {
@@ -485,14 +689,14 @@
 
         function resultCard(item, source) {
             return `
-                <div class="content-lookup-result-card border border-gray-200 rounded-lg p-3 flex items-center gap-3"
+                <div class="content-lookup-result-card border border-gray-200 dark:border-gray-700 rounded-lg p-3 flex items-center gap-3"
                      data-object-id="content-lookup-result-card"
                      data-title="${escAttr(item.title)}" data-source="${escAttr(source)}"
                      data-url="${escAttr(item.url)}" data-duration="${item.durationHrs || ''}">
-                    <div class="w-16 h-10 bg-gray-100 rounded flex items-center justify-center text-lg shrink-0">${item.thumb}</div>
+                    <div class="w-16 h-10 bg-gray-100 dark:bg-gray-700 rounded flex items-center justify-center text-lg shrink-0">${item.thumb}</div>
                     <div class="flex-1 min-w-0">
-                        <p class="text-sm font-medium text-gray-900 truncate">${item.title}</p>
-                        <p class="text-xs text-gray-500">
+                        <p class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">${item.title}</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">
                             <span class="uppercase font-semibold">${source}</span>
                             · ${item.durationHrs} hr${item.durationHrs === 1 ? '' : 's'}
                             · <span data-object-id="content-lookup-result-days-estimate">${daysEstimate(item.durationHrs)}</span>
@@ -555,7 +759,7 @@
                     <div class="text-center text-gray-300 p-8">
                         <div class="text-4xl mb-2">▶</div>
                         <p class="text-sm">Preview not available for ${escAttr(source)} in this prototype.</p>
-                        <p class="text-xs text-gray-500 mt-1">Use "Open in new tab" below to watch.</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Use "Open in new tab" below to watch.</p>
                     </div>
                 `;
             }
@@ -593,14 +797,14 @@
             const durationText = document.getElementById('content-lookup-manual-duration-input').value;
             const hrs = durationText ? parseFloat(durationText) || null : null;
             document.getElementById('content-lookup-manual-result').innerHTML = `
-                <div class="content-lookup-result-card border border-gray-200 rounded-lg p-3 flex items-center gap-3 mt-2"
+                <div class="content-lookup-result-card border border-gray-200 dark:border-gray-700 rounded-lg p-3 flex items-center gap-3 mt-2"
                      data-object-id="content-lookup-result-card"
                      data-title="${escAttr(title)}" data-source="Manual"
                      data-url="${escAttr(url)}" data-duration="${hrs || ''}">
-                    <div class="w-16 h-10 bg-gray-100 rounded flex items-center justify-center text-lg shrink-0">🔗</div>
+                    <div class="w-16 h-10 bg-gray-100 dark:bg-gray-700 rounded flex items-center justify-center text-lg shrink-0">🔗</div>
                     <div class="flex-1 min-w-0">
-                        <p class="text-sm font-medium text-gray-900 truncate">${title}</p>
-                        <p class="text-xs text-gray-500 truncate">${url}${hrs ? ' · ' + daysEstimate(hrs) : ''}</p>
+                        <p class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">${title}</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 truncate">${url}${hrs ? ' · ' + daysEstimate(hrs) : ''}</p>
                     </div>
                     <button data-object-id="content-lookup-btn-view" onclick="openWatchModal(this)"
                             class="shrink-0 text-xs font-semibold text-talentpilot-600 hover:underline">View</button>
@@ -617,10 +821,10 @@
             document.getElementById('content-lookup-manual-view').classList.toggle('hidden', tab !== 'manual');
             document.getElementById('content-lookup-tab-search').className = tab === 'search'
                 ? 'px-3 py-2 text-sm font-medium border-b-2 border-talentpilot-600 text-talentpilot-600'
-                : 'px-3 py-2 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700';
+                : 'px-3 py-2 text-sm font-medium border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700';
             document.getElementById('content-lookup-tab-manual').className = tab === 'manual'
                 ? 'px-3 py-2 text-sm font-medium border-b-2 border-talentpilot-600 text-talentpilot-600'
-                : 'px-3 py-2 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700';
+                : 'px-3 py-2 text-sm font-medium border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700';
         }
 
         function openContentLookup(skillName, searchTerm, isEdit) {
@@ -662,13 +866,13 @@
 
             section.classList.remove('hidden');
             card.innerHTML = `
-                <div class="border border-green-200 bg-green-50 rounded-lg p-3 flex items-center gap-3"
+                <div class="border border-green-200 bg-green-50 dark:bg-green-950 rounded-lg p-3 flex items-center gap-3"
                      data-title="${escAttr(approved.title)}" data-source="${escAttr(approved.source)}"
                      data-url="${escAttr(approved.url)}" data-duration="${approved.durationHrs || ''}">
-                    <div class="w-16 h-10 bg-white rounded flex items-center justify-center text-lg shrink-0">✓</div>
+                    <div class="w-16 h-10 bg-white dark:bg-gray-800 rounded flex items-center justify-center text-lg shrink-0">✓</div>
                     <div class="flex-1 min-w-0">
-                        <p class="text-sm font-medium text-gray-900 truncate">${approved.title}</p>
-                        <p class="text-xs text-gray-500">
+                        <p class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">${approved.title}</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">
                             <span class="uppercase font-semibold">${approved.source}</span>
                             ${approved.durationHrs ? ` · ${approved.durationHrs} hr${approved.durationHrs === 1 ? '' : 's'} · ${daysEstimate(approved.durationHrs)}` : ''}
                         </p>
@@ -679,7 +883,7 @@
                     <button data-object-id="content-lookup-btn-reject" onclick="rejectCurrentApproved()"
                             class="shrink-0 text-xs font-semibold text-red-600 hover:underline">Reject</button>
                 </div>
-                <p class="text-xs text-gray-400 mt-1">Approving a new link below will also replace this.</p>
+                <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">Approving a new link below will also replace this.</p>
             `;
         }
 
@@ -731,6 +935,44 @@
             document.getElementById('api-keys-modal').classList.add('hidden');
         }
 
+        // -- Content-source credentials (FR-16) & New Skill gate (FR-40) --------
+        // youtube starts `true` — mirrors Story 10.8's seed-time admin_api_keys
+        // row, populated from settings.YOUTUBE_API_KEY so live lookup (and this
+        // gate) both work out of the box for the seeded HR Admin. Toggle either
+        // source's Remove/Save button below to see the gate react — the button
+        // is enabled once at least one source is configured (FR-16's existing
+        // partial-availability model), not an all-sources-required gate.
+        let credentials = { youtube: true, udemy: true };
+
+        function setCredential(source, configured) {
+            credentials[source] = configured;
+            const statusEl = document.getElementById(`api-keys-modal-${source}-status`);
+            if (configured) {
+                statusEl.textContent = source === 'youtube' ? '✓ Connected' : '✓ Connected by Sails Admin, just now';
+                statusEl.className = 'text-xs font-medium text-green-700 bg-green-50 dark:bg-green-950 px-2 py-0.5 rounded-full';
+            } else {
+                statusEl.textContent = 'Not connected';
+                statusEl.className = 'text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full';
+            }
+            updateNewSkillButtonState();
+        }
+
+        function updateNewSkillButtonState() {
+            const anyConfigured = credentials.youtube || credentials.udemy;
+            const btn = document.getElementById('skills-tab-btn-new-skill');
+            btn.disabled = !anyConfigured;
+            btn.setAttribute('aria-disabled', String(!anyConfigured));
+        }
+
+        function showNewSkillTooltip() {
+            if (!credentials.youtube && !credentials.udemy) {
+                document.getElementById('skills-tab-new-skill-tooltip').classList.remove('hidden');
+            }
+        }
+        function hideNewSkillTooltip() {
+            document.getElementById('skills-tab-new-skill-tooltip').classList.add('hidden');
+        }
+
         // -- New Skill (FR-20) ---------------------------------------------------
         // Create-only. Editing (FR-21) now happens inline in the Content Lookup
         // Panel (see openContentLookup's isEdit param + saveSkillNameFromLookup)
@@ -742,6 +984,7 @@
         }
 
         function openNewSkillModal() {
+            if (!credentials.youtube && !credentials.udemy) return; // FR-40: defensive guard, mirrors the disabled attribute
             document.getElementById('new-skill-name-input').value = '';
             document.getElementById('new-skill-description-input').value = '';
             document.getElementById('new-skill-duplicate-notice').classList.add('hidden');
@@ -815,8 +1058,22 @@
             TalentPilotAuth.logout();
         }
 
+        function openCompanySettingsModal() {
+            if (window.TalentPilotCompany) TalentPilotCompany.init(); // re-sync input with the stored value
+            document.getElementById('company-settings-modal').classList.remove('hidden');
+        }
+        function closeCompanySettingsModal() {
+            document.getElementById('company-settings-modal').classList.add('hidden');
+        }
+        function saveCompanyNameFromModal() {
+            const val = document.getElementById('company-settings-input').value;
+            if (window.TalentPilotCompany) TalentPilotCompany.save(val);
+            closeCompanySettingsModal();
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
             console.log('📄 04.1 Skills Tab loaded');
+            updateNewSkillButtonState();
             renderSkillsList();
             if (typeof window.initDevMode === 'function') window.initDevMode();
         });

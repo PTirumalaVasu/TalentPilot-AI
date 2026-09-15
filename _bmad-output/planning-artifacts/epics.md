@@ -26,7 +26,7 @@ inputDocuments:
 projectName: 'TalentPilot-AI'
 extractedAt: '2026-07-09'
 extendedAt: '2026-09-15'
-extensionNote: 'Epic 6 (Admin-Assisted Content Sourcing, FR-16-23) added 2026-09-08 via bmad-create-epics-and-stories, extending scope on top of the original FR-1-14 extraction -- Epics 1-5 unchanged. FR-15 backfilled into the Requirements Inventory (was already realized by Stories 3.7/5.7, added earlier via bmad-correct-course without an inventory entry). Epic 7 (Employee Roster Management, HR Admin Navigation Shell, Application Theming; FR-24-30) added 2026-09-11 via bmad-create-epics-and-stories, extending scope again on top of Epic 6 -- Epics 1-6 unchanged. Source PRD update, Trigger Map extension, UX scenario (05-ritas-roster-management), and a working HTML prototype were all completed the same session before this epic was authored. Epic 9 (Skill Assignment Dashboard, FR-31-33 + FR-29 amendment) added 2026-09-13 via bmad-create-epics-and-stories, extending scope again on top of Epic 8 -- Epics 1-8 unchanged. Source PRD update (Sec4.10), Trigger Map extension (Scenario scored 3/8, not filed as Enabling), new Scenario 06 (Ritas Pulse Check), Phase 4 UX design, and a fully-wired HTML prototype (06.1-Skill-Assignment-Dashboard.html) were all completed in a prior session before this epic was authored. Epic 10 (Post-MVP Admin & Roster Refinements, FR-34-40) added 2026-09-15 via bmad-create-epics-and-stories, extending scope again on top of Epic 9 -- Epics 1-9 unchanged. Unlike Epics 6/7/9, source was not a PRD-first pass -- it originated as 11 user-reported post-launch change requests against the already feature-complete app, triaged via bmad-correct-course into a Sprint Change Proposal (planning-artifacts/sprint-change-proposal-2026-09-15.md, approved same day), which then drove the matching PRD update (Sec4.11, FR-34-40) and this epics.md extension together, in that order. No UX design contract exists for Epic 10 (consistent with Epics 7/9s own precedent of shipping FR consequence-level UI detail directly in story files without a separate UX spec). One scope correction mid-session: FR-34/Story 10.1 originally drafted as a full persona rename (Rita -> Sails Admin) across the PRD; corrected per user clarification to leave the PRDs narrative persona name (Rita, UJ-1/UJ-3/Sec2.1) untouched and scope the actual change to the seeded HR Admin accounts login email/display name only (admin@sails.example.com / "Sails Admin") -- see prd.md Sec3 Glossary for the resulting persona-vs-account-identity split.'
+extensionNote: 'Epic 6 (Admin-Assisted Content Sourcing, FR-16-23) added 2026-09-08 via bmad-create-epics-and-stories, extending scope on top of the original FR-1-14 extraction -- Epics 1-5 unchanged. FR-15 backfilled into the Requirements Inventory (was already realized by Stories 3.7/5.7, added earlier via bmad-correct-course without an inventory entry). Epic 7 (Employee Roster Management, HR Admin Navigation Shell, Application Theming; FR-24-30) added 2026-09-11 via bmad-create-epics-and-stories, extending scope again on top of Epic 6 -- Epics 1-6 unchanged. Source PRD update, Trigger Map extension, UX scenario (05-ritas-roster-management), and a working HTML prototype were all completed the same session before this epic was authored. Epic 9 (Skill Assignment Dashboard, FR-31-33 + FR-29 amendment) added 2026-09-13 via bmad-create-epics-and-stories, extending scope again on top of Epic 8 -- Epics 1-8 unchanged. Source PRD update (Sec4.10), Trigger Map extension (Scenario scored 3/8, not filed as Enabling), new Scenario 06 (Ritas Pulse Check), Phase 4 UX design, and a fully-wired HTML prototype (06.1-Skill-Assignment-Dashboard.html) were all completed in a prior session before this epic was authored. Epic 10 (Post-MVP Admin & Roster Refinements, FR-34-40) added 2026-09-15 via bmad-create-epics-and-stories, extending scope again on top of Epic 9 -- Epics 1-9 unchanged. Unlike Epics 6/7/9, source was not a PRD-first pass -- it originated as 11 user-reported post-launch change requests against the already feature-complete app, triaged via bmad-correct-course into a Sprint Change Proposal (planning-artifacts/sprint-change-proposal-2026-09-15.md, approved same day), which then drove the matching PRD update (Sec4.11, FR-34-40) and this epics.md extension together, in that order. No UX design contract exists for Epic 10 (consistent with Epics 7/9s own precedent of shipping FR consequence-level UI detail directly in story files without a separate UX spec). One scope correction mid-session: FR-34/Story 10.1 originally drafted as a full persona rename (Rita -> Sails Admin) across the PRD; corrected per user clarification to leave the PRDs narrative persona name (Rita, UJ-1/UJ-3/Sec2.1) untouched and scope the actual change to the seeded HR Admin accounts login email/display name only (admin@sails.example.com / "Sails Admin") -- see prd.md Sec3 Glossary for the resulting persona-vs-account-identity split. Story 10.11 added 2026-09-15, same day, later in the same session, via wds-4-ux-design mockup work -- not part of the original Sprint Change Proposal or the 10-story scope bmad-create-epics-and-stories originally authored. User asked directly for the Skill Assignment Dashboard to show Experience Distribution instead of Employee Segmentation; confirmed via AskUserQuestion that this means fully removing Employee Segmentation (not just re-prioritizing it) and that it is a real product decision (not mockup-only), reversing already-shipped/done Epic 9 work (Stories 9.2/9.3/9.4). prd.md FR-32 marked SUPERSEDED (its Assignment Progress ring half stays current, its Employee Segmentation half is retired), FR-33 UPDATED (path (b) retired), FR-36 UPDATED (now also rendered on the dashboard). FR Coverage Map updated to reflect Done/Superseded/Retired status per sub-requirement, not a blanket status. Trigger Map (06-Feature-Impact.md) flagged for re-review since the dashboard's original 3-point score was earned specifically by the now-retired Employee Segmentation/Needs-Attention connection to Rita Want #2/#3. Stories 10.12 (nav drops Dashboard entry), 10.13 (Skills view toggle), and 10.14 (dashboard Days in Talent Pool ring) added the same day via further direct requests during the same mockup-work session, each amending or extending existing FRs (FR-29/FR-37/FR-41) rather than introducing new epics. Story 10.15 (FR-42, left nav collapse-to-icon-only-width) added same session, but documented retroactively during a later pass -- the collapse/expand feature itself had already been built into all 4 mockups (shared/nav.js) before this epics.md entry existed, a real gap found and closed while responding to a related bug report (page-load flicker when navigating with the nav collapsed, fixed via an inline early-init script in each pages sidebar markup, described in Story 10.15s AC). Story 10.16 (FR-43, configurable Company Name label) added same day, directly authored alongside its own implementation this time (not retroactively) -- new shared/company.js, a Company Settings entry in the account menu below Sign Out, and a client-only localStorage-persisted label. A real cross-file bug was caught and fixed before shipping: three of the four mockups have no generic openModal/closeModal helper (only 05.1 does), so the new modals only actually work because their open/close functions were made self-contained rather than assumed-shared. The labels location/styling itself went through several direct corrections in the same session before settling: first placed beside the nav collapse toggle (reusing .app-nav-label, tied to the sidebars collapse state), then split into an independent sibling so it stopped shifting the toggles own position, then relocated entirely out of the sidebar into the top header (just before the theme toggle, no longer collapse-tied at all), then the header itself restructured from justify-end to justify-between so the label anchors left while the theme-toggle/user-menu cluster anchors right, then sized up in three steps (text-lg -> text-xl -> text-2xl -> text-3xl) and recolored to the talentpilot brand color, then finally had its max-w-[16rem] truncate cap removed so it auto-sizes to whatever name is actually set instead of ellipsis-clipping a long one. Story 10.16s AC and title were rewritten to describe this final shipped shape, not the first draft -- see the design log for the full blow-by-blow. Epic 10s Epic Goal/story count updated from 14 to 16 stories across these two additions; FR Coverage Map gained FR-42 and FR-43 rows.'
 ---
 
 # TalentPilot-AI - Epic Breakdown
@@ -304,18 +304,21 @@ This document provides the complete epic and story breakdown for TalentPilot-AI,
 | FR-26 | `employees/` | Epic 7 | TBD | Pending |
 | FR-27 | `employees/` | Epic 7 | TBD | Pending |
 | FR-28 | `employees/` (or `auth/`, TBD per AR-24) | Epic 7 | TBD | Pending |
-| FR-29 | frontend (app shell) | Epic 7 (shipped 3-link) + Epic 9 (4-link amendment) | TBD | Pending — amendment |
+| FR-29 | frontend (app shell) | Epic 7 (shipped 3-link) + Epic 9 (4-link amendment, done) + Epic 10 (3-link amendment, E10.S12) | E7.S7, E9.S5, E10.S12 | Done (3-link, Story 7.7) → Done (4-link, Story 9.5) → Pending (3-link v2, Story 10.12) |
 | FR-30 | frontend (app shell) | Epic 8 | TBD | Pending |
-| FR-31 | `dashboard/` (read-composition) | Epic 9 | TBD | Pending |
-| FR-32 | `dashboard/` (read-composition) | Epic 9 | TBD | Pending |
-| FR-33 | frontend (app shell) + `dashboard/` | Epic 9 | TBD | Pending |
+| FR-31 | `dashboard/` (read-composition) | Epic 9 | E9.S1 | Done |
+| FR-32 | `dashboard/` (read-composition) | Epic 9 (stats/ring half) + Epic 10 (segmentation half **superseded**, E10.S11) | E9.S1/S2/S3, E10.S11 | Done (ring); Superseded (segmentation, `[UPDATED 2026-09-15]`) |
+| FR-33 | frontend (app shell) + `dashboard/` | Epic 9 (path a, done) + Epic 10 (path b **retired**, E10.S11) | E9.S5, E10.S11 | Done (path a); Retired (path b, `[UPDATED 2026-09-15]`) |
 | FR-34 | `employees/` + frontend | Epic 10 | E10.S2 | Pending |
 | FR-35 | frontend | Epic 10 | E10.S2 | Pending |
-| FR-36 | `employees/` + frontend | Epic 10 | E10.S4 | Pending |
-| FR-37 | `skills/` + frontend | Epic 10 | E10.S5 | Pending |
+| FR-36 | `employees/` + `dashboard/` + frontend | Epic 10 | E10.S4, E10.S11 (dashboard placement, `[ADDED 2026-09-15]`) | Pending |
+| FR-37 | `skills/` + frontend | Epic 10 | E10.S5, E10.S13 (view toggle, `[ADDED 2026-09-15]`) | Pending |
 | FR-38 | `dashboard/`, `assignments/` + frontend | Epic 10 | E10.S6 | Pending |
 | FR-39 | `content/`, `assignments/` + frontend | Epic 10 | E10.S7 | Pending |
 | FR-40 | `content/` + frontend | Epic 10 | E10.S9 | Pending |
+| FR-41 | `dashboard/` (read-composition) + frontend | Epic 10 | E10.S14 (`[ADDED 2026-09-15]`) | Pending |
+| FR-42 | frontend (app shell) | Epic 10 | E10.S15 (`[ADDED 2026-09-15]`) | Pending |
+| FR-43 | frontend (app shell) | Epic 10 | E10.S16 (`[ADDED 2026-09-15]`) | Pending |
 
 ---
 
@@ -347,7 +350,7 @@ Based on the Architecture Spine's module dependency order (AD-8) and the build-t
 - **Epic 7:** Employee Roster Management (FR-24 through FR-29; AR-24, AR-25) `[ADDED 2026-09-11]`
 - **Epic 8:** Application Theming (FR-30) `[ADDED 2026-09-11]`
 - **Epic 9:** Skill Assignment Dashboard (FR-29 amendment, FR-31 through FR-33; AR-26, AR-27, AR-28) `[ADDED 2026-09-13]`
-- **Epic 10:** Post-MVP Admin & Roster Refinements (FR-34 through FR-40) `[ADDED 2026-09-15 via bmad-correct-course]`
+- **Epic 10:** Post-MVP Admin & Roster Refinements (FR-34 through FR-43, plus Story 10.11 superseding FR-32/33's Employee Segmentation half, Story 10.12 amending FR-29's nav, Story 10.13 extending FR-37's view toggle, Story 10.14 adding FR-41's dashboard ring, Story 10.15 adding FR-42's collapsible nav, Story 10.16 adding FR-43's Company Name label) `[ADDED 2026-09-15 via bmad-correct-course; Stories 10.11-10.16 added same day via direct requests during mockup work]`
 
 ---
 
@@ -2920,13 +2923,13 @@ So that relocating "Dashboard" to the new landing page doesn't cost me access to
 
 ## EPIC 10: Post-MVP Admin & Roster Refinements
 
-**Epic Goal:** Deliver 10 post-launch refinements to the Employee roster, Skills/Skill-Assignments admin surfaces, and content-sourcing credential handling, gathered from real usage of the already feature-complete app (FR-34 through FR-40). Additive only — no existing epic (1–9) is reopened, no AD is violated.
+**Epic Goal:** Deliver 16 post-launch refinements to the Employee roster, Skills/Skill-Assignments admin surfaces, content-sourcing credential handling, the HR Admin nav shell, and the Skill Assignment Dashboard, gathered from real usage of the already feature-complete app (FR-34 through FR-43, plus Story 10.11's `[ADDED 2026-09-15]` supersession of FR-32/33's Employee Segmentation half, Story 10.12's amendment of FR-29's nav, and Story 10.13's extension of FR-37's view toggle). Mostly additive — no existing epic (1–9) is reopened — **except Story 10.11 (a deliberate, accepted reversal of already-shipped Epic 9 work, Stories 9.2/9.3/9.4) and Story 10.12 (a deliberate amendment of Story 9.5's own nav-shell AC).** No AD is violated.
 
-**Owned by:** `employees/`, `skills/`, `content/`, `dashboard/`, `assignments/`, `core/seeds.py` (no new module)
+**Owned by:** `employees/`, `skills/`, `content/`, `dashboard/`, `assignments/`, `core/seeds.py`, frontend `HrAppShell.tsx` (no new backend module)
 
-**Source:** `_bmad-output/planning-artifacts/sprint-change-proposal-2026-09-15.md` (approved), driving PRD §4.11 (FR-34–FR-40) and `ARCHITECTURE-SPINE.md`'s AD-10 addendum.
+**Source:** `_bmad-output/planning-artifacts/sprint-change-proposal-2026-09-15.md` (approved, 10 stories), driving PRD §4.11 (FR-34–FR-40) and `ARCHITECTURE-SPINE.md`'s AD-10 addendum. Stories 10.11 through 10.16 were all added the same day, later in the session, mid-mockup-work, via direct user requests — none routed through a fresh Sprint Change Proposal given their narrow, self-contained scope. See PRD FR-32/FR-29/FR-37/FR-42/FR-43's respective updated/superseded/new-FR notes for the full record of each.
 
-**Build order** (dependency-driven, not numeric — see the Sprint Change Proposal §3): **10.1 + 10.10 first** (seeded-identity/seed-data foundation, so later stories' fixtures target the final seed shape), then **10.2 → 10.3** (Employee grid — widest schema touch-point), then **10.4–10.9 in any order**.
+**Build order** (dependency-driven, not numeric — see the Sprint Change Proposal §3): **10.1 + 10.10 first** (seeded-identity/seed-data foundation, so later stories' fixtures target the final seed shape), then **10.2 → 10.3** (Employee grid — widest schema touch-point), then **10.4** (Experience Distribution component/endpoint — build before 10.11, which reuses it), then **10.5, 10.13** (Skills tab — search/pagination before its view toggle, since the toggle reuses the same filtered/paginated data), then **10.6–10.9 in any order**, then **10.11** (depends on 10.4), then **10.12** (nav-shell entry change, independent of the others), then **10.15** (nav-shell collapse behavior — sequenced after 10.12 since both touch the same `HrAppShell.tsx` nav markup, 10.12's entry-count change first so 10.15 builds the collapse/expand behavior against the final 3-link shape rather than the 4-link one it started from in the mockup), then **10.16 last** (Company Name label — depends on 10.15's collapse toggle markup existing first, since the label mounts beside it).
 
 ---
 
@@ -2957,7 +2960,7 @@ So that the shipped system's real account identity doesn't read as a demo/protot
 ### Story 10.2: Employee Roster Gains First/Last Name and Expanded Grid Columns
 
 As an **HR Admin**,
-I want the roster to capture First and Last Name separately and show Location, Technologies, and Days in Talent Pool,
+I want the roster to capture First and Last Name separately and show Project, Location, Technologies, and Days in Talent Pool instead of Department,
 So that I can scan the roster with the fields I actually need instead of a single combined name (FR-34).
 
 **Acceptance Criteria:**
@@ -2972,13 +2975,17 @@ So that I can scan the roster with the fields I actually need instead of a singl
 
 **Given** `EmployeesPage.tsx`'s grid (Story 7.3's existing Table view)
 **When** this story ships
-**Then** it adds three columns — **Location**, **Technologies**, **Days in Talent Pool** — sourced from the existing `location`/`technologies` fields (FR-24) and a newly-computed `days_in_talent_pool = (now() − employees.created_at).days`, computed on read in `employees/service.py`, not stored
+**Then** it adds four columns — **Project**, **Location**, **Technologies**, **Days in Talent Pool** — sourced from the existing `project`/`location`/`technologies` fields (FR-24, `project` previously captured at creation but not yet surfaced in the grid) and a newly-computed `days_in_talent_pool = (now() − employees.created_at).days`, computed on read in `employees/service.py`, not stored. `[UPDATED 2026-09-15, mid-mockup revision]` **Department is removed as a grid column** in the same change — it remains a stored field and an active toolbar filter option (FR-25's existing department filter dropdown is unaffected), just no longer displayed as its own column.
 
 **Given** a roster row's Days in Talent Pool exceeds 90
 **When** the grid renders that row
 **Then** it displays a red visual flag paired with text/icon (never color-only, NFR-A2) — the fixed 90-day threshold is a single named constant, not inlined (FR-35)
 
-**And** existing FR-25 search/filter/pagination behavior is unaffected by the new columns — Location and Technologies join the existing filterable-field set on the same "blank excludes from filter, never makes the row unfindable" rule FR-25 already establishes
+**And** existing FR-25 search/filter/pagination behavior is unaffected by the new columns — Project, Location, and Technologies join the existing filterable-field set on the same "blank excludes from filter, never makes the row unfindable" rule FR-25 already establishes; the Department filter itself is untouched even though its column is removed from the grid
+
+**Given** the acting HR Admin's own Employee record in the roster (Story 10.1's seeded identity; real backend precedent: `core/seeds.py::seed_employees` creates it alongside the Account row)
+**When** the roster is viewed with no search/filter active, vs. with any search term, Department/Position filter, or Experience-bucket filter (FR-36/Story 10.4) active
+**Then** the row appears in the default, unfiltered view like any other record, but drops out of the result set the moment any filter criterion is active `[ADDED 2026-09-15]` — Days in Talent Pool (FR-35) renders blank ("—"), never a guessed or flagged value, since the metric isn't meaningful for the org's own admin; Edit and Regenerate Password stay available on this row, but Archive/Delete is replaced with a "(you)" label, mirroring the real backend's self-delete guard (`delete_or_archive_employee_service`: "You cannot delete or archive your own account") — the password-reset path stays open even though removal doesn't
 
 ---
 
@@ -2999,6 +3006,10 @@ So that I'm never surprised by which behavior happens (items #4/#5 of the Sprint
 **Then** neither's existing logic changes — `has_assignment_history` → archive, zero history → hard delete (FR-27) is already correct; this story is icon/label presentation only
 
 **And** this story requires no new endpoint, schema, or migration — confirmed via code review during story creation that `has_assignment_history` is already present on every roster response row
+
+**Given** the row-action icon-button set on the Employees, Skills, and Skill Assignments pages (Edit, Regenerate Password, View, Delete, Archive)
+**When** they render
+**Then** two visual tiers apply consistently across all three pages (locked during mockup-building, 2026-09-15, per direct request — "employee page delete button is not sync with the other pages and also show some difference between the Archive and Delete buttons"): routine/non-destructive actions (Edit, Regenerate Password, View) render as a neutral-gray `w-8 h-8` circular icon-button that only tints on hover; the two row-removing actions (Archive, Delete) render with a permanently-visible tinted pill instead of a hover-only cue — amber for Archive, red for Delete — so the two are distinguishable from each other and from the safe actions without requiring a hover `[ADDED 2026-09-15]`
 
 ---
 
@@ -3158,9 +3169,189 @@ So that the shipped system starts from a minimal, intentional state rather than 
 
 ---
 
+### Story 10.11: Skill Assignment Dashboard Shows Experience Distribution Instead of Employee Segmentation
+
+`[ADDED 2026-09-15, mid-mockup revision — reverses already-shipped Epic 9 work]`
+
+As an **HR Admin**,
+I want the Skill Assignment Dashboard's landing page to show the Experience Distribution panel where the Employee Segmentation pie chart used to be,
+So that the dashboard's primary segmentation view is about roster experience mix, not readiness status (supersedes FR-32's Employee Segmentation half, FR-33 path (b); extends FR-36).
+
+**Acceptance Criteria:**
+
+**Given** `SkillAssignmentDashboard.tsx`'s existing Employee Segmentation pie chart and its `NeedsAttentionControl` popover (Story 9.3/9.4, both `done`)
+**When** this story ships
+**Then** both are removed from this page and replaced with the Experience Distribution panel (FR-36, Story 10.4's component/endpoint reused here, not reimplemented) — rendered with the same visual prominence the segmentation chart previously had (the larger, primary card position per the original 06.1 D1/D2 hierarchy decision), since Experience Distribution now occupies that page's primary-segmentation-element role
+
+**Given** `dashboard/service.py`'s existing Employee Segmentation endpoint (Story 9.2, `GET /api/dashboard/segmentation`) and its `ON_TRACK_THRESHOLD` constant
+**When** this story ships
+**Then** the endpoint is **retired, not deleted** — left in the codebase unreferenced by any frontend route, with a code comment pointing at this story and PRD FR-32's superseded note, so a future reader doesn't mistake dead code for an oversight (exact retirement mechanism — leave the route mounted vs. unmount it — decided in this story's Dev Notes; either way, no frontend page calls it after this story ships)
+
+**Given** the Story 10.4 Experience Distribution endpoint/component was originally scoped only for the Employees page
+**When** this story reuses it on the dashboard
+**Then** it is confirmed to work correctly in an org-wide (not Employees-page-scoped) context with no data differences — both call sites read the same active-roster `experience_years` data, so this should require no new backend logic beyond mounting the existing component/endpoint on this page too
+
+**Given** FR-33's retired path (b) — a direct single-Employee jump from a segmentation pie-chart click
+**When** this story ships
+**Then** no replacement direct-jump exists; the Experience Distribution panel's click-through goes to a paginated *list* of Employees in that bucket (FR-36's existing interaction), not a single-Employee Provenance drill-down — the only remaining route to any individual Employee's Assignment detail from this page is via the `Skill Assignments` nav entry (FR-33 path (a))
+
+**Given** the bucket click-through list's placement on this page specifically (vs. the Employees page's own copy of the same panel)
+**When** a bucket is selected
+**Then** the list renders as its own full-width section **below both cards** (Assignment Progress ring + Experience Distribution), not nested inside the Experience Distribution card — the two cards sit side-by-side at a fixed width (`lg:grid-cols-[1fr_1.5fr]`), so a growing list nested in one card would cramp; matched Employees render as bordered name/role/experience row-cards (same presentation style as the Employee roster page), paginated at 15/page, not a bare name list `[ADDED 2026-09-15, mid-mockup refinement]`
+
+**And** this is a real, accepted product regression, not silently smoothed over: the dashboard's org-wide "who needs attention" at-a-glance capability (the thing Trigger Map's `06-Feature-Impact.md` specifically scored 2026-09-13 as connecting to Rita's Want #2/#3) no longer exists on this page after this story — confirmed via `AskUserQuestion` as the user's explicit, deliberate choice, not an oversight this story is expected to soften or partially preserve
+
+---
+
+### Story 10.12: Left Nav Drops the Dashboard Entry; Logo and Default Landing Reach It Instead
+
+`[ADDED 2026-09-15, mid-mockup revision]`
+
+As an **HR Admin**,
+I want the left-pane nav to show only Skill Assignments, Skills, and Employees — not a separate Dashboard entry,
+So that I'm not offered two nav-pane links that do the same job as the logo and my post-login landing page (amends FR-29).
+
+**Acceptance Criteria:**
+
+**Given** `HrAppShell.tsx`'s existing 4-link `NAV_LINKS` array (Dashboard, Skill Assignments, Skills, Employees — Story 9.5)
+**When** this story ships
+**Then** it becomes a 3-link array (Skill Assignments, Skills, Employees) — `Dashboard` is removed as its own entry, not relabeled or hidden conditionally
+
+**Given** the `TalentPilot-AI` logo at the top of the nav pane, and the post-login redirect for `HR_ADMIN` (`Login.tsx`, already targets `/dashboard` per Story 9.5)
+**When** this story ships
+**Then** the logo becomes a functional link to `/dashboard` on every HR Admin page (previously non-interactive or self-referential depending on the page); the existing post-login redirect is confirmed unchanged — both were already-existing affordances repurposed as the Dashboard's access points, not new capability being added
+
+**Given** the full Readiness Dashboard grid page (`/hr/dashboard`, reached via the `Skill Assignments` nav entry)
+**When** this story ships
+**Then** none of its 3 remaining nav entries render as "active" while viewing the Dashboard itself (`/dashboard`) — there is no nav-pane item representing that route anymore, so no highlight is expected there; this is a UI-consistency detail worth an explicit assertion, not an oversight
+
+**And** this reverses part of Story 9.5's own AC (which specifically added `Dashboard` as a 4th entry) — Story 9.5 itself stays `done` as the historical record of what was built then; this story is the one that changes it again, per the same "new story amends, never edits history" convention already used for Story 10.11 (FR-32/33)
+
+---
+
+### Story 10.13: Skills Tab Gains a Table/Card View Toggle
+
+`[ADDED 2026-09-15, mid-mockup revision, extends Story 10.5/FR-37]`
+
+As an **HR Admin**,
+I want to switch the Skills tab between a Table and a Card layout,
+So that I can scan skills the way I prefer, the same choice I already have on the Employee roster (FR-37 amendment).
+
+**Acceptance Criteria:**
+
+**Given** the Skills tab's existing card-grid-only layout (Story 6.10, extended by Story 10.5 with search/pagination)
+**When** this story ships
+**Then** it gains a Table/Card view toggle control, matching `EmployeesPage.tsx`'s existing FR-25 toggle exactly in interaction pattern (not a new bespoke component) — both views read from the same filtered/paginated Skill list, sharing search term, current page, and any other filter state
+
+**Given** the Skills tab's established precedent (card-first design, per Story 6.10's original UX decision)
+**When** this story picks a default view
+**Then** Card is the default (unlike the Employee roster, which defaults to Table per FR-25/UX-DR34's own 11-field rationale) — this is a deliberate difference from the Employee roster's default, not an inconsistency to reconcile
+
+**Given** the Table view's column set
+**When** it renders
+**Then** columns are: Skill name, Status (Approved/None yet badge), Approved Content (title + source, or "No approved content yet"), Days to Complete, and Actions (Edit/Delete icons for unassigned Skills, or a Locked indicator for assigned ones) — the same fields the existing card already surfaces, laid out as table rows instead of card bodies
+
+**And** switching views does not change the underlying search term, filter, or current page — only the layout, same convention already established for FR-25's Employee roster toggle
+
+---
+
+### Story 10.14: Dashboard Gains a Days in Talent Pool Ring; Experience Distribution Converts to Ring Format
+
+`[ADDED 2026-09-15, direct request, extends Story 10.11/FR-36, adds FR-41]`
+
+As an **HR Admin**,
+I want the Skill Assignment Dashboard to show three consistent ring/legend cards — Assignment Progress, Experience Distribution, and Days in Talent Pool — instead of two,
+So that I can read org-wide tenure alongside readiness progress and experience mix, in one consistent visual language.
+
+**Acceptance Criteria:**
+
+**Given** the dashboard's existing 2-card layout (Assignment Progress ring + Experience Distribution as a bucket-button grid, Story 10.11)
+**When** this story ships
+**Then** the layout becomes 3 cards in a row (responsive to 1 column on narrow viewports); Experience Distribution's presentation converts from a button grid to the same ring + clickable legend format as Assignment Progress — **only on this page**; its Employees-page copy (FR-36, Story 10.4) is unaffected and keeps its existing button-grid layout there, since the two surfaces don't have to share presentation, only data/bucket definitions
+
+**Given** the new Days in Talent Pool card (FR-41)
+**When** it renders
+**Then** it shows a 7-segment ring (buckets: ≤15, 16–30, 31–45, 46–60, 61–75, 76–90, 90+ days — the requested "15, 30, 45, 60, 75, more than 90" boundaries left a 76–90 gap, closed with an explicit 7th bucket, not silently absorbed) computed from `employees.created_at`, with a clickable legend below matching the other two cards' pattern exactly
+
+**Given** a bucket is clicked in either the Experience Distribution or Days in Talent Pool legend
+**When** the click is handled
+**Then** a single shared, full-width results section below all three cards shows the paginated (15/page) matching-Employee list, headed by which card + bucket it came from (e.g., "Days in Talent Pool: 76–90 days (2)") — selecting a bucket in one card clears any active selection in the other, since only one result set displays at a time; this reuses Story 10.11's existing list-placement/pagination infrastructure, generalized to serve either card rather than duplicated
+
+**And** all three cards use the same non-color-only accessibility rule (§8) — ring segments and legend rows are always paired with a text label and count, never color alone; neither Experience Distribution nor Days in Talent Pool is styled to imply urgency (no red/amber tinting) despite Days in Talent Pool sharing its underlying metric with FR-35's per-row red-flag treatment on the roster grid — the dashboard ring is a neutral headcount view, the roster flag is a targeted alert, and the two must not be visually conflated
+
+**Given** each card's internal layout
+**When** it renders
+**Then** the ring and its legend/counts sit side-by-side (ring left, legend right), not stacked vertically — `[ADDED 2026-09-15, direct request]` reduces each card's height noticeably versus a stacked layout, which matters once 3 cards (up from 2) and 7-row legends (up from 3) are on the page at once
+
+---
+
+### Story 10.15: Left Nav Collapses to Icon-Only Width, No Flash on Navigation
+
+`[ADDED 2026-09-15, direct request, adds FR-42 — documented retroactively; the feature itself was built mid-session before this story existed in epics.md, matching this document's established "extend, don't rebuild" convention for catching up planning docs to already-decided mockup work]`
+
+As an **HR Admin**,
+I want to collapse the left-pane nav to a narrower icon-only strip and have that choice stick as I move between pages, without seeing the pane flash between states,
+So that I can reclaim horizontal space on the grid-heavy pages without the collapse feeling broken or janky.
+
+**Acceptance Criteria:**
+
+**Given** the left-pane nav (FR-29) and a toggle control on its edge
+**When** the toggle is clicked
+**Then** the pane switches between its normal labeled-link width and a narrower icon-only width (2-letter badges + a logo badge replacing full text); the choice persists per browser (`localStorage`, same model as FR-30's theme choice), independent of UX-DR40's separate sub-768px responsive hamburger overlay — the two mechanisms don't interact
+
+**Given** the collapsed state is the saved preference
+**When** the HR Admin clicks any nav link (a full page load in this mockup, not client-side routing)
+**Then** the destination page renders already in the collapsed state on first paint — no visible flash of the expanded state before it snaps/animates to collapsed
+
+**Given** how this was actually first implemented (bug found and fixed same day, direct request — "when minimize the left pane and select any menu in minimized mode page is flickering")
+**When** the collapse/expand script is included in `<head>` (needed there so it runs before any other page script, same as the theme toggle)
+**Then** it must not rely solely on the `DOMContentLoaded` event to apply the saved state, since that event fires only after the entire page finishes parsing — on a real HR Admin's likely-slower connection or a heavier future page, that gap is exactly where the flash becomes visible; the state must be applied as soon as the nav pane's own markup exists in the DOM, not after everything else on the page also finishes loading
+
+---
+
+### Story 10.16: HR Admin Sets a Company Name Label Shown in the Top Header
+
+`[ADDED 2026-09-15, direct request, adds FR-43. Location/styling went through several direct corrections the same day before settling — see the AC below and Dev Notes for the sequence; the story is written to the final shipped shape, not the first draft.]`
+
+As an **HR Admin**,
+I want to set a short Company Name that shows prominently in the top header,
+So that the shell reads as belonging to my organization, not just as the "TalentPilot-AI" product name in the sidebar logo (FR-43).
+
+**Acceptance Criteria:**
+
+**Given** the account menu (opened from the user avatar in the top bar)
+**When** it renders
+**Then** it gains a "Company Settings" entry directly below Sign Out (per the literal request — not above it, where a settings entry might otherwise conventionally sit)
+
+**Given** the "Company Settings" entry is clicked
+**When** the resulting modal opens
+**Then** it shows a single text input (pre-filled with the currently-saved name, if any) and Save/Cancel actions — matching the visual style of the roster's existing Delete/Archive confirmation modals, not a bare browser `prompt()`
+
+**Given** a name is saved
+**When** the save completes
+**Then** it persists per-browser only (`localStorage`, no backend/database write, same model as FR-30's theme and FR-42's collapse state) and immediately re-renders on the page where it was set — no page reload required
+
+**Given** the top `<header>` bar (theme toggle + user-menu, previously right-aligned as one `justify-end` cluster)
+**When** the Company Name label is present
+**Then** the header becomes `justify-between`: the label renders as a large, bold, brand-colored (`talentpilot`) span anchored to the header's left edge, with the theme toggle and user-menu regrouped into their own cluster on the right — not squeezed in beside the theme toggle inside the original right-aligned group (an earlier iteration during this story's own build, corrected same-session per direct feedback)
+
+**Given** the nav pane's collapse/expand state (FR-42)
+**When** the pane is toggled
+**Then** the Company Name label is unaffected either way — it lives in the header, not the sidebar, and does not carry `.app-nav-label` or any other collapse-tied visibility class
+
+**Given** the name the HR Admin actually typed, of any length up to the input's 60-character limit
+**When** the label renders
+**Then** it is shown in full, sized to fit its own content (`whitespace-nowrap`, no fixed `max-width` or `truncate`) — an early version capped the label at a fixed width and ellipsis-truncated longer names, corrected same-session per direct feedback ("increase/auto the span width based on the company name")
+
+**Given** a real gap found and fixed during this story's own initial mockup implementation, not shipped
+**When** the modal's Cancel/Save actions were first wired up
+**Then** they must not depend on a generic `openModal()`/`closeModal()`-style helper unless that helper is confirmed to exist on every page reusing this shell — three of the four existing mockups have no such generic helper at all (each modal there is opened/closed by its own dedicated function), so this story's open/close functions are self-contained
+
+---
+
 ## Next Steps
 
-**Epics 1 through 10 are all defined** (75 original requirements + 22 added 2026-09-08 for Epic 6 + 20 added 2026-09-11 for Epics 7-8 + 11 added 2026-09-13 for Epic 9 + 7 added 2026-09-15 for Epic 10 = 135 total). Epics 1-9 are fully implemented (see `_bmad-output/implementation-artifacts/sprint-status.yaml` — all `done`, including all 9 retrospectives, epic-9-retrospective still `optional`). Epic 10 is newly authored (2026-09-15, via `bmad-correct-course` → `bmad-create-epics-and-stories`) and awaiting `bmad-create-story`/`bmad-dev-story` to begin implementation:
+**Epics 1 through 10 are all defined** (75 original requirements + 22 added 2026-09-08 for Epic 6 + 20 added 2026-09-11 for Epics 7-8 + 11 added 2026-09-13 for Epic 9 + 9 added 2026-09-15 for Epic 10 = 137 total). Epics 1-9 are fully implemented (see `_bmad-output/implementation-artifacts/sprint-status.yaml` — all `done`, including all 9 retrospectives, epic-9-retrospective still `optional`). Epic 10 is newly authored (2026-09-15, via `bmad-correct-course` → `bmad-create-epics-and-stories`) and awaiting `bmad-create-story`/`bmad-dev-story` to begin implementation:
 
 1. **Epic 1:** Authentication & Session Gate — done
 2. **Epic 2:** Content Catalog & Semantic Matching — done
@@ -3171,7 +3362,7 @@ So that the shipped system starts from a minimal, intentional state rather than 
 7. **Epic 7:** Employee Roster Management — done
 8. **Epic 8:** Application Theming — done
 9. **Epic 9:** Skill Assignment Dashboard — done (all 5 stories + retrospective complete as of 2026-09-14)
-10. **Epic 10:** Post-MVP Admin & Roster Refinements — backlog (10 stories: seeded-identity rename, roster grid columns + 90-day flag, delete/archive icon clarity, experience distribution panel, Skills search/pagination, Skill Assignments search/pagination, new-skill content-sourcing reliability, seeded credential, credential-gated Skill creation, seed-data minimization)
+10. **Epic 10:** Post-MVP Admin & Roster Refinements — backlog (14 stories: seeded-identity rename, roster grid columns + 90-day flag, delete/archive icon clarity, experience distribution panel, Skills search/pagination, Skill Assignments search/pagination, new-skill content-sourcing reliability, seeded credential, credential-gated Skill creation, seed-data minimization, Story 10.11 — Experience Distribution replaces Employee Segmentation on the dashboard (retires Epic 9 Stories 9.2/9.3/9.4's dashboard-segmentation work), Story 10.12 — left nav drops the Dashboard entry (amends Story 9.5), Story 10.13 — Skills tab gains a Table/Card view toggle (extends Story 10.5/FR-37), Story 10.14 — dashboard gains a Days in Talent Pool ring, Experience Distribution converts to ring format there)
 
 Recommended build order for Epic 10 (per `sprint-change-proposal-2026-09-15.md` §3): **Story 10.1 and 10.10 first** (in either order — both touch the seeded HR Admin identity/seed shape, and every later story's test fixtures should target the *final* seed state, not the old one). **Then Story 10.2, then 10.3** (Employee grid schema change first, since 10.3's icon logic reads roster data 10.2 doesn't otherwise touch, though the two are independent enough to reorder if preferred). **Then 10.5, 10.6** (search/pagination — fully independent of everything else, may run in parallel). **Then 10.7** (content-sourcing investigation/fix — independent). **Then 10.8, then 10.9** (seed the credential before verifying the button-gate story against both the seeded and no-key cases). **Story 10.4** (Experience Distribution) has no hard dependency on the others and may be built any time after 10.2 lands (shares the Employee schema touch-point).
 

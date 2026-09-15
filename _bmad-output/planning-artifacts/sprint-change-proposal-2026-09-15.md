@@ -8,6 +8,10 @@ author: John (PM) via bmad-correct-course
 
 # Sprint Change Proposal — 2026-09-15
 
+> **Addendum, same day, during mockup work (`wds-4-ux-design`):** Story 10.2's scope was corrected mid-mockup — the Employee grid drops the existing **Department** column (kept as a field/filter, just not displayed) and adds **Project** as a fourth new column, alongside the three already approved here (Location, Technologies, Days in Talent Pool). `prd.md` FR-34 and `epics.md` Story 10.2 have both been updated to match; this document's text below is left as originally approved, not retroactively rewritten.
+>
+> **Second addendum, same day, later in the session:** a new **Story 10.11** was added — the Skill Assignment Dashboard's Employee Segmentation pie chart (On Track/In Progress/Needs Attention) is fully retired and replaced by the Experience Distribution panel (FR-36) in the same primary position. This is **not** a scope refinement like the one above — it's a deliberate reversal of already-shipped, `done` Epic 9 work (Stories 9.2/9.3/9.4), confirmed via `AskUserQuestion` as a real product decision, not a mockup-only exploration. It was never part of this proposal's original 11-item trigger or its 10-story plan. See `prd.md` FR-32's superseded note and `epics.md` Story 10.11 for the full record; this document's original scope (§2's Story-Level Mapping table, listing only 10 stories) is left unchanged below.
+
 ## 1. Issue Summary
 
 The project reached feature-complete on 2026-09-14 (all 9 epics, 30 FRs, done — see `sprint-status.yaml`). TalentPilot has since surfaced 11 post-launch change requests spanning the Employees roster, Skills/Skill-Assignments admin surfaces, content-sourcing credential handling, and seed data. None of these were discovered mid-story — they're new asks against a shipped system, evaluated here as a batch rather than 11 separate correct-course passes.

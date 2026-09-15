@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <script src="shared/auth.js"></script>
     <script>TalentPilotAuth.requireRole('HR');</script>
+    <script src="shared/theme.js"></script>
+    <script src="shared/nav.js"></script>
+    <script src="shared/company.js"></script>
     <meta name="viewport" content="width=1440, initial-scale=1.0">
     <title>05.1 Employees Tab - TalentPilot-AI</title>
 
@@ -13,6 +16,7 @@
     <!-- Tailwind Config (Design Tokens) -->
     <script>
         tailwind.config = {
+            darkMode: 'class', // [ADDED 2026-09-15] enables .dark class toggle, see shared/theme.js
             theme: {
                 extend: {
                     colors: {
@@ -40,7 +44,7 @@
     <!-- Dev Mode Styles (feedback/testing tool) -->
     <link rel="stylesheet" href="components/dev-mode.css">
 </head>
-<body class="min-h-screen bg-gray-50 font-sans">
+<body class="min-h-screen bg-gray-50 dark:bg-gray-900 font-sans">
     <!-- ========================================================================
          DEV MODE TOGGLE (Shift+Click any element to copy its Object ID)
          ======================================================================== -->
@@ -53,40 +57,96 @@
     </button>
     <div id="dev-mode-tooltip" class="dev-mode-tooltip" style="display: none;"></div>
 
+    <!-- ====================================================================
+         COMPANY SETTINGS MODAL — added 2026-09-15, direct request. Client-only
+         (localStorage), no backend — see shared/company.js.
+         ==================================================================== -->
+    <div id="company-settings-modal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-40 p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6 space-y-4">
+            <h2 class="text-lg font-bold text-gray-900 dark:text-gray-100">Company Settings</h2>
+            <div>
+                <label for="company-settings-input" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Company name</label>
+                <input id="company-settings-input" type="text" maxlength="60" placeholder="e.g. Sails Software"
+                       class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 text-sm">
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Shown in the top header, just before the dark/light mode toggle. Saved to this browser only.</p>
+            </div>
+            <div class="flex items-center justify-end gap-2 pt-2 border-t border-gray-100 dark:border-gray-700">
+                <button onclick="closeCompanySettingsModal()" class="text-sm font-medium text-gray-600 dark:text-gray-400 hover:underline">Cancel</button>
+                <button onclick="saveCompanyNameFromModal()" class="bg-talentpilot-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-talentpilot-700 transition-colors">Save</button>
+            </div>
+        </div>
+    </div>
+
+
     <div class="flex min-h-screen">
         <!-- ====================================================================
              LEFT NAV PANE (NEW shared shell, FR-29 — introduced on this page)
              ==================================================================== -->
         <aside id="app-nav-sidebar" data-object-id="app-nav-sidebar"
-               class="w-56 shrink-0 bg-white border-r border-gray-200 flex flex-col">
-            <a href="01.1-Skills-Dashboard.html" id="app-nav-logo" data-object-id="app-nav-logo"
-               class="flex items-center gap-2 font-bold text-lg text-gray-900 px-5 py-5 border-b border-gray-100">
-                TalentPilot-AI
+               class="w-56 shrink-0 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col relative transition-all duration-200">
+            <button id="app-nav-collapse-toggle" data-object-id="app-nav-collapse-toggle"
+                            onclick="TalentPilotNav.toggle()" aria-label="Collapse navigation" title="Collapse navigation"
+                            class="absolute -right-3 top-6 w-6 h-6 rounded-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-xs text-gray-600 dark:text-gray-300 flex items-center justify-center shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 z-10">«</button>
+            <a href="06.1-Skill-Assignment-Dashboard.html" id="app-nav-logo" data-object-id="app-nav-logo"
+               class="flex items-center gap-2 font-bold text-lg text-gray-900 dark:text-gray-100 px-5 py-5 border-b border-gray-100 dark:border-gray-700">
+                <span class="app-nav-label">TalentPilot-AI</span>
+                <span class="app-nav-icon hidden inline-flex w-8 h-8 rounded-full bg-talentpilot-100 dark:bg-talentpilot-800 text-talentpilot-700 dark:text-talentpilot-200 items-center justify-center text-xs font-bold">TP</span>
             </a>
             <nav class="flex-1 px-3 py-4 space-y-1 text-sm">
-                <a href="01.1-Skills-Dashboard.html" id="app-nav-link-dashboard" data-object-id="app-nav-link-dashboard"
-                   class="block px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors">Dashboard</a>
+                <a href="01.1-Skills-Dashboard.html" id="app-nav-link-skill-assignments" data-object-id="app-nav-link-skill-assignments"
+                   class="block px-3 py-2 rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-50 hover:text-gray-900 transition-colors flex items-center gap-2 app-nav-link-row">
+                   <span class="app-nav-label">Skill Assignments</span>
+                   <span class="app-nav-icon hidden inline-flex w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 items-center justify-center text-[10px] font-bold shrink-0" title="Skill Assignments">SA</span>
+                </a>
                 <a href="04.1-Skills-Tab.html" id="app-nav-link-skills" data-object-id="app-nav-link-skills"
-                   class="block px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors">Skills</a>
+                   class="block px-3 py-2 rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-50 hover:text-gray-900 transition-colors flex items-center gap-2 app-nav-link-row">
+                   <span class="app-nav-label">Skills</span>
+                   <span class="app-nav-icon hidden inline-flex w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 items-center justify-center text-[10px] font-bold shrink-0" title="Skills">SK</span>
+                </a>
                 <a href="#" id="app-nav-link-employees" data-object-id="app-nav-link-employees"
-                   class="block px-3 py-2 rounded-lg bg-talentpilot-50 text-talentpilot-700 font-medium">Employees</a>
+                   aria-current="page"
+                   class="block px-3 py-2 rounded-lg bg-talentpilot-50 dark:bg-talentpilot-900/40 text-talentpilot-700 font-medium flex items-center gap-2 app-nav-link-row">
+                   <span class="app-nav-label">Employees</span>
+                   <span class="app-nav-icon hidden inline-flex w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 items-center justify-center text-[10px] font-bold shrink-0" title="Employees">EM</span>
+                </a>
             </nav>
+            <!-- [ADDED 2026-09-15, direct request — fixes a page-load flicker]
+                 shared/nav.js is included in <head>, before this sidebar element exists,
+                 so its own init() can only run on `DOMContentLoaded` — by which
+                 time the browser has already painted one frame in the default
+                 expanded state, then visibly snapped/animated to collapsed on
+                 every full-page navigation while collapsed was the saved
+                 state. Calling init() here, inline, the moment this element's
+                 subtree finishes parsing (script tags execute in document
+                 order, and TalentPilotNav is already defined by the <head>
+                 include by this point) applies the correct state before first
+                 paint instead, eliminating the flash. The DOMContentLoaded
+                 call in nav.js itself is left in place as a harmless,
+                 idempotent fallback. -->
+            <script>window.TalentPilotNav && window.TalentPilotNav.init(); window.TalentPilotCompany && window.TalentPilotCompany.init();</script>
         </aside>
 
         <div class="flex-1 min-w-0">
             <!-- ================================================================
                  TOP BAR (slim, shared) — user menu only, nav links moved to sidebar
                  ================================================================ -->
-            <header class="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-end">
-                <div id="app-topbar-user-menu" data-object-id="app-topbar-user-menu" class="relative">
-                    <button type="button" onclick="toggleUserMenu()" class="flex items-center gap-2 text-sm text-gray-700">
-                        <span class="w-8 h-8 rounded-full bg-talentpilot-100 flex items-center justify-center text-talentpilot-700 font-medium">R</span>
-                        Rita
-                    </button>
-                    <div class="hidden absolute right-0 mt-2 w-40 bg-white border border-gray-200 rounded-lg shadow-lg z-10" data-dropdown>
-                        <a href="#" onclick="handleSignOut()" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg">Sign Out</a>
+            <header class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-3 flex items-center justify-between">
+                <span class="app-nav-company-name text-3xl font-bold text-talentpilot-700 dark:text-talentpilot-300 whitespace-nowrap"></span>
+                <div class="flex items-center">
+                    <button id="app-theme-toggle" data-object-id="app-theme-toggle" onclick="TalentPilotTheme.toggle()"
+                            aria-label="Switch to Dark mode" title="Switch Light/Dark mode"
+                            class="mr-3 w-9 h-9 rounded-full border border-gray-300 dark:border-gray-600 flex items-center justify-center text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">🌙</button>
+                    <div id="app-topbar-user-menu" data-object-id="app-topbar-user-menu" class="relative">
+                        <button type="button" onclick="toggleUserMenu()" class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                            <span class="w-8 h-8 rounded-full bg-talentpilot-100 dark:bg-talentpilot-800 flex items-center justify-center text-talentpilot-700 font-medium">S</span>
+                            Sails Admin
+                        </button>
+                        <div class="hidden absolute right-0 mt-2 w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-10" data-dropdown>
+                            <a href="#" onclick="handleSignOut()" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 rounded-lg">Sign Out</a>
+                            <button type="button" onclick="openCompanySettingsModal()" class="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg">Company Settings</button>
+                        </div>
                     </div>
-                </div>
+                    </div>
             </header>
 
             <!-- ================================================================
@@ -95,33 +155,33 @@
             <div class="px-6 py-3 flex flex-wrap items-center justify-between gap-3">
                 <div>
                     <h1 id="employees-tab-heading-title" data-object-id="employees-tab-heading-title"
-                        class="text-2xl font-black text-gray-900">Employees</h1>
+                        class="text-2xl font-black text-gray-900 dark:text-gray-100">Employees</h1>
                     <span id="employees-tab-summary-count" data-object-id="employees-tab-summary-count"
-                          class="text-sm text-gray-500"></span>
+                          class="text-sm text-gray-500 dark:text-gray-400"></span>
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
                     <input id="employees-tab-search-input" data-object-id="employees-tab-search-input"
                            type="text" placeholder="Search by name…" oninput="renderEmployees()"
-                           class="border border-gray-300 rounded-lg px-3 py-2 text-sm w-48">
+                           class="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm w-48">
                     <select id="employees-tab-filter-department" data-object-id="employees-tab-filter-department"
-                            onchange="renderEmployees()" class="border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                            onchange="renderEmployees()" class="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm">
                         <option value="">All Departments</option>
                     </select>
                     <select id="employees-tab-filter-position" data-object-id="employees-tab-filter-position"
-                            onchange="renderEmployees()" class="border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                            onchange="renderEmployees()" class="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm">
                         <option value="">All Positions</option>
                     </select>
                     <label id="employees-tab-toggle-archived" data-object-id="employees-tab-toggle-archived"
-                           class="flex items-center gap-1.5 text-sm text-gray-600 px-1">
+                           class="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-400 px-1">
                         <input type="checkbox" id="show-archived-checkbox" onchange="renderEmployees()" class="rounded">
                         Show archived
                     </label>
                     <div id="employees-tab-view-toggle" data-object-id="employees-tab-view-toggle"
-                         class="flex border border-gray-300 rounded-lg overflow-hidden">
+                         class="flex border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden">
                         <button id="view-toggle-table" onclick="setView('table')"
-                                class="px-3 py-2 text-sm bg-talentpilot-600 text-white" aria-label="Table view">▦</button>
+                                class="px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-50" aria-label="Table view">▦</button>
                         <button id="view-toggle-card" onclick="setView('card')"
-                                class="px-3 py-2 text-sm bg-white text-gray-500 hover:bg-gray-50" aria-label="Card view">▤</button>
+                                class="px-3 py-2 text-sm bg-talentpilot-600 text-white" aria-label="Card view">▤</button>
                     </div>
                     <button id="employees-tab-btn-new-employee" data-object-id="employees-tab-btn-new-employee"
                             onclick="openCreateEmployeeModal()"
@@ -132,22 +192,52 @@
             </div>
 
             <!-- Page-level toast -->
-            <div id="employees-tab-toast" class="hidden fixed top-4 right-4 z-50 bg-green-50 border border-green-200 text-green-700 text-sm font-medium rounded-lg px-4 py-2 shadow-sm"
+            <div id="employees-tab-toast" class="hidden fixed top-4 right-4 z-50 bg-green-50 dark:bg-green-950 border border-green-200 text-green-700 text-sm font-medium rounded-lg px-4 py-2 shadow-sm"
                  role="status" aria-live="polite"></div>
+
+            <!-- [ADDED 2026-09-15, direct request] Explains the Archive/Delete
+                 icon distinction (Story 10.3) up front, rather than only
+                 inside each row's confirm modal after the fact. -->
+            <div id="employees-tab-action-icon-legend" data-object-id="employees-tab-action-icon-legend"
+                 class="px-6 text-xs text-gray-500 dark:text-gray-400 flex flex-wrap items-center gap-4 mb-2">
+                <span class="flex items-center gap-1">🗄 <strong class="font-medium text-gray-600 dark:text-gray-300">Archive</strong> — has assignment history; record is kept, drops off the active roster</span>
+                <span class="flex items-center gap-1">✕ <strong class="font-medium text-gray-600 dark:text-gray-300">Delete</strong> — no assignment history yet; permanently removed</span>
+            </div>
+
+            <!-- ================================================================
+                 EXPERIENCE DISTRIBUTION PANEL (FR-36) — distinct from the
+                 Skill Assignment Dashboard's Employee Segmentation chart
+                 (On Track / In Progress / Needs Attention); this is a headcount
+                 breakdown by years of experience, active roster only.
+                 ================================================================ -->
+            <!-- [UPDATED 2026-09-15, direct request] Quick-filter chip row
+                 instead of large box cards — a compact filter-bar affordance,
+                 not a standalone stat panel. -->
+            <div class="px-6 pb-2 flex flex-wrap items-center gap-2">
+                <span class="text-xs font-medium text-gray-500 dark:text-gray-400 shrink-0">Experience:</span>
+                <div id="experience-distribution-buckets" data-object-id="experience-distribution-buckets"
+                     class="flex flex-wrap items-center gap-1.5"></div>
+                <button id="experience-distribution-clear" onclick="clearExperienceBucket()"
+                        class="hidden text-xs font-medium text-talentpilot-600 hover:underline">Clear filter</button>
+            </div>
 
             <!-- ================================================================
                  MAIN CONTENT — Table view (default) / Card view (toggle)
                  ================================================================ -->
             <main class="px-6 pb-12">
                 <!-- Table view -->
-                <div id="employees-table-wrap">
-                    <table id="employees-table" data-object-id="employees-table" class="w-full bg-white border border-gray-200 rounded-lg overflow-hidden text-sm">
-                        <thead class="bg-gray-50 text-gray-500 text-xs uppercase tracking-wide">
-                            <tr>
+                <div id="employees-table-wrap" class="hidden">
+                    <table id="employees-table" data-object-id="employees-table" class="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden text-sm">
+                        <thead class="bg-gray-100 dark:bg-gray-900 text-gray-600 dark:text-gray-300 text-xs font-semibold uppercase tracking-wide">
+                            <tr class="border-b-2 border-gray-300 dark:border-gray-600">
                                 <th class="text-left px-4 py-3">ID</th>
                                 <th class="text-left px-4 py-3">Name</th>
                                 <th class="text-left px-4 py-3">Position</th>
-                                <th class="text-left px-4 py-3">Department</th>
+                                <th class="text-left px-4 py-3">Project</th>
+                                <th class="text-left px-4 py-3">Location</th>
+                                <th class="text-left px-4 py-3">Technologies</th>
+                                <th class="text-left px-4 py-3">Experience</th>
+                                <th class="text-left px-4 py-3">Days in Talent Pool</th>
                                 <th class="text-left px-4 py-3">Email</th>
                                 <th class="text-left px-4 py-3">Status</th>
                                 <th class="text-left px-4 py-3">Actions</th>
@@ -157,15 +247,15 @@
                     </table>
                 </div>
 
-                <!-- Card view -->
+                <!-- Card view (default) -->
                 <div id="employees-grid" data-object-id="employees-grid"
-                     class="hidden grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"></div>
+                     class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"></div>
 
                 <div id="employees-pagination" data-object-id="employees-table-pagination"
-                     class="flex justify-center items-center gap-3 text-sm text-gray-600 mt-4"></div>
+                     class="flex justify-center items-center gap-3 text-sm text-gray-600 dark:text-gray-400 mt-4"></div>
 
                 <p id="employees-tab-version-info" data-object-id="employees-tab-version-info"
-                   class="text-center text-xs text-gray-400 mt-8">App v0.1.0</p>
+                   class="text-center text-xs text-gray-400 dark:text-gray-500 mt-8">App v0.1.0</p>
             </main>
         </div>
     </div>
@@ -174,59 +264,68 @@
          CREATE EMPLOYEE MODAL (FR-24)
          ============================================================================ -->
     <div id="create-employee-modal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-40 p-4">
-        <div class="bg-white rounded-lg shadow-xl max-w-lg w-full p-6 space-y-3 max-h-[85vh] overflow-y-auto">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-lg w-full p-6 space-y-3 max-h-[85vh] overflow-y-auto">
             <div class="flex items-center justify-between">
-                <h2 class="text-lg font-bold text-gray-900">New Employee</h2>
+                <h2 class="text-lg font-bold text-gray-900 dark:text-gray-100">New Employee</h2>
                 <button onclick="closeModal('create-employee-modal')" aria-label="Close"
-                        class="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
+                        class="text-gray-400 dark:text-gray-500 hover:text-gray-600 text-xl leading-none">&times;</button>
             </div>
             <div class="grid grid-cols-2 gap-3">
                 <div class="col-span-1">
-                    <label class="block text-xs font-medium text-gray-600 mb-1">Employee ID/Code *</label>
-                    <input id="create-emp-id" type="text" placeholder="EMP-1006" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Employee ID/Code *</label>
+                    <input id="create-emp-id" type="text" placeholder="EMP-1006" class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm">
+                </div>
+                <div class="col-span-1"></div>
+                <div class="col-span-1">
+                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">First Name *</label>
+                    <input id="create-emp-first-name" type="text" class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm">
                 </div>
                 <div class="col-span-1">
-                    <label class="block text-xs font-medium text-gray-600 mb-1">Name *</label>
-                    <input id="create-emp-name" type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Last Name *</label>
+                    <input id="create-emp-last-name" type="text" class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm">
                 </div>
                 <div class="col-span-2">
-                    <label class="block text-xs font-medium text-gray-600 mb-1">Email *</label>
-                    <input id="create-emp-email" type="email" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Email *</label>
+                    <input id="create-emp-email" type="email" class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm">
                 </div>
                 <div class="col-span-1">
-                    <label class="block text-xs font-medium text-gray-600 mb-1">Position/Job Title</label>
-                    <input id="create-emp-position" type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Position/Job Title</label>
+                    <input id="create-emp-position" type="text" class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm">
                 </div>
                 <div class="col-span-1">
-                    <label class="block text-xs font-medium text-gray-600 mb-1">Department</label>
-                    <input id="create-emp-department" type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Department</label>
+                    <input id="create-emp-department" type="text" class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm">
                 </div>
                 <div class="col-span-1">
-                    <label class="block text-xs font-medium text-gray-600 mb-1">Phone</label>
-                    <input id="create-emp-phone" type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Phone</label>
+                    <input id="create-emp-phone" type="text" class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm">
                 </div>
                 <div class="col-span-1">
-                    <label class="block text-xs font-medium text-gray-600 mb-1">Location</label>
-                    <input id="create-emp-location" type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Location</label>
+                    <input id="create-emp-location" type="text" class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm">
                 </div>
                 <div class="col-span-1">
-                    <label class="block text-xs font-medium text-gray-600 mb-1">Manager Name</label>
-                    <input id="create-emp-manager" type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Manager Name</label>
+                    <input id="create-emp-manager" type="text" class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm">
                 </div>
                 <div class="col-span-1">
-                    <label class="block text-xs font-medium text-gray-600 mb-1">Project</label>
-                    <input id="create-emp-project" type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Project</label>
+                    <input id="create-emp-project" type="text" class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm">
                 </div>
                 <div class="col-span-2">
-                    <label class="block text-xs font-medium text-gray-600 mb-1">Technologies</label>
-                    <input id="create-emp-technologies" type="text" placeholder="e.g. React, Python" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Technologies</label>
+                    <input id="create-emp-technologies" type="text" placeholder="e.g. React, Python" class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm">
                 </div>
-                <div class="col-span-2">
-                    <label class="block text-xs font-medium text-gray-600 mb-1">Experience</label>
-                    <input id="create-emp-experience" type="text" placeholder="e.g. 3 years" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                <div class="col-span-1">
+                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Experience (free text)</label>
+                    <input id="create-emp-experience" type="text" placeholder="e.g. 3+ years, mid-level" class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm">
+                </div>
+                <div class="col-span-1">
+                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Experience (years) — FR-36</label>
+                    <input id="create-emp-experience-years" type="number" min="0" placeholder="e.g. 3" class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm">
                 </div>
             </div>
-            <div id="create-emp-duplicate-notice" class="hidden text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-3"></div>
+            <div id="create-emp-duplicate-notice" class="hidden text-sm text-amber-800 bg-amber-50 dark:bg-amber-950 border border-amber-200 rounded-lg p-3"></div>
             <button onclick="submitCreateEmployee()"
                     class="w-full bg-talentpilot-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-talentpilot-700 transition-colors">
                 Create Employee
@@ -238,14 +337,14 @@
          PASSWORD REVEAL MODAL (FR-24 create / FR-28 regenerate) — one-time reveal
          ============================================================================ -->
     <div id="password-reveal-modal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-40 p-4">
-        <div class="bg-white rounded-lg shadow-xl max-w-md w-full p-6 space-y-4">
-            <h2 class="text-lg font-bold text-gray-900">Employee created</h2>
-            <p class="text-sm text-gray-600">Share this password with <span id="reveal-emp-name" class="font-medium"></span> — it won't be shown again.</p>
-            <div class="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
-                <code id="reveal-password-value" class="flex-1 text-sm font-mono text-gray-900"></code>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6 space-y-4">
+            <h2 class="text-lg font-bold text-gray-900 dark:text-gray-100">Employee created</h2>
+            <p class="text-sm text-gray-600 dark:text-gray-400">Share this password with <span id="reveal-emp-name" class="font-medium"></span> — it won't be shown again.</p>
+            <div class="flex items-center gap-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2">
+                <code id="reveal-password-value" class="flex-1 text-sm font-mono text-gray-900 dark:text-gray-100"></code>
                 <button onclick="copyPassword()" class="text-xs font-semibold text-talentpilot-600 hover:underline">Copy</button>
             </div>
-            <p class="text-xs text-gray-400">Lost this before sharing it? Use "Regenerate Password" from the employee's row — a lost password is a quick fix, not a dead end.</p>
+            <p class="text-xs text-gray-400 dark:text-gray-500">Lost this before sharing it? Use "Regenerate Password" from the employee's row — a lost password is a quick fix, not a dead end.</p>
             <button onclick="closeModal('password-reveal-modal')"
                     class="w-full bg-talentpilot-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-talentpilot-700 transition-colors">
                 Done
@@ -257,23 +356,29 @@
          EDIT EMPLOYEE MODAL (FR-26)
          ============================================================================ -->
     <div id="edit-employee-modal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-40 p-4">
-        <div class="bg-white rounded-lg shadow-xl max-w-lg w-full p-6 space-y-3">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-lg w-full p-6 space-y-3">
             <div class="flex items-center justify-between">
-                <h2 class="text-lg font-bold text-gray-900">Edit <span id="edit-emp-name-label"></span></h2>
+                <h2 class="text-lg font-bold text-gray-900 dark:text-gray-100">Edit <span id="edit-emp-name-label"></span></h2>
                 <button onclick="closeModal('edit-employee-modal')" aria-label="Close"
-                        class="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
+                        class="text-gray-400 dark:text-gray-500 hover:text-gray-600 text-xl leading-none">&times;</button>
             </div>
             <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1">Employee ID/Code (immutable)</label>
-                <input id="edit-emp-id" type="text" disabled class="w-full border border-gray-200 bg-gray-50 rounded-lg px-3 py-2 text-sm text-gray-500">
+                <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Employee ID/Code (immutable)</label>
+                <input id="edit-emp-id" type="text" disabled class="w-full border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 rounded-lg px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">First Name</label>
+                    <input id="edit-emp-first-name" type="text" class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Last Name</label>
+                    <input id="edit-emp-last-name" type="text" class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm">
+                </div>
             </div>
             <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1">Name</label>
-                <input id="edit-emp-name" type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
-            </div>
-            <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1">Position/Job Title</label>
-                <input id="edit-emp-position" type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Position/Job Title</label>
+                <input id="edit-emp-position" type="text" class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm">
             </div>
             <button onclick="saveEditEmployee()"
                     class="w-full bg-talentpilot-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-talentpilot-700 transition-colors">
@@ -286,11 +391,11 @@
          REGENERATE PASSWORD CONFIRMATION (FR-28)
          ============================================================================ -->
     <div id="regen-password-modal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-40 p-4">
-        <div class="bg-white rounded-lg shadow-xl max-w-md w-full p-6 space-y-4">
-            <h2 class="text-lg font-bold text-gray-900">Regenerate password for <span id="regen-emp-name"></span>?</h2>
-            <p class="text-sm text-gray-700">Their current password will stop working immediately. You'll get a new one to share with them.</p>
-            <div class="flex items-center justify-end gap-2 pt-2 border-t border-gray-100">
-                <button onclick="closeModal('regen-password-modal')" class="text-sm font-medium text-gray-600 hover:underline">Cancel</button>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6 space-y-4">
+            <h2 class="text-lg font-bold text-gray-900 dark:text-gray-100">Regenerate password for <span id="regen-emp-name"></span>?</h2>
+            <p class="text-sm text-gray-700 dark:text-gray-300">Their current password will stop working immediately. You'll get a new one to share with them.</p>
+            <div class="flex items-center justify-end gap-2 pt-2 border-t border-gray-100 dark:border-gray-700">
+                <button onclick="closeModal('regen-password-modal')" class="text-sm font-medium text-gray-600 dark:text-gray-400 hover:underline">Cancel</button>
                 <button onclick="confirmRegeneratePassword()"
                         class="bg-talentpilot-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-talentpilot-700 transition-colors">
                     Regenerate Password
@@ -303,11 +408,11 @@
          DELETE / ARCHIVE CONFIRMATION (FR-27)
          ============================================================================ -->
     <div id="delete-employee-modal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-40 p-4">
-        <div class="bg-white rounded-lg shadow-xl max-w-md w-full p-6 space-y-4">
-            <h2 id="delete-emp-heading" class="text-lg font-bold text-gray-900"></h2>
-            <p id="delete-emp-summary" class="text-sm text-gray-700"></p>
-            <div class="flex items-center justify-end gap-2 pt-2 border-t border-gray-100">
-                <button onclick="closeModal('delete-employee-modal')" class="text-sm font-medium text-gray-600 hover:underline">Cancel</button>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6 space-y-4">
+            <h2 id="delete-emp-heading" class="text-lg font-bold text-gray-900 dark:text-gray-100"></h2>
+            <p id="delete-emp-summary" class="text-sm text-gray-700 dark:text-gray-300"></p>
+            <div class="flex items-center justify-end gap-2 pt-2 border-t border-gray-100 dark:border-gray-700">
+                <button onclick="closeModal('delete-employee-modal')" class="text-sm font-medium text-gray-600 dark:text-gray-400 hover:underline">Cancel</button>
                 <button id="delete-emp-confirm-btn" onclick="confirmDeleteEmployee()"
                         class="bg-red-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-red-700 transition-colors"></button>
             </div>
@@ -319,18 +424,49 @@
         // Mock data (inline, no shared/prototype-api.js dependency —
         // lighter-weight visual mock, matching 04.1's precedent)
         // ------------------------------------------------------------------
+        // daysAgo() builds a createdAt ISO date N days before "now" — used so the
+        // mock roster demonstrates both sides of FR-35's 90-day Talent Pool flag
+        // without hand-computing dates.
+        function daysAgo(n) {
+            const d = new Date();
+            d.setDate(d.getDate() - n);
+            return d.toISOString();
+        }
+
+        // [FIXED 2026-09-15] "Admin user not showing" — the seeded HR Admin
+        // (Story 10.1's "Sails Admin") is itself an `employees` table row in
+        // the real backend (core/seeds.py::seed_employees), not just an
+        // `accounts` row — so it belongs in this roster too, matching what
+        // delete_or_archive_employee_service's real self-delete guard
+        // ("You cannot delete or archive your own account") implies: the
+        // acting admin IS a roster entry, just not a deletable/archivable one.
         let employees = [
-            { id: 'EMP-1001', name: 'Casey Nguyen', position: 'Software Engineer', department: 'Engineering', email: 'casey.n@sails.example.com', status: 'Active', hasAssignments: true },
-            { id: 'EMP-1002', name: 'Morgan Lee', position: 'Data Analyst', department: 'Analytics', email: 'morgan.l@sails.example.com', status: 'Active', hasAssignments: true },
-            { id: 'EMP-1003', name: 'Jordan Patel', position: 'QA Engineer', department: 'Engineering', email: 'jordan.p@sails.example.com', status: 'Active', hasAssignments: true },
-            { id: 'EMP-1004', name: 'Sam Rivera', position: 'Product Designer', department: 'Design', email: 'sam.r@sails.example.com', status: 'Active', hasAssignments: false },
-            { id: 'EMP-1005', name: 'Alex Kim', position: 'Support Specialist', department: 'Customer Success', email: 'alex.k@sails.example.com', status: 'Archived', hasAssignments: true },
+            { id: 'EMP-1000', firstName: 'Sails', lastName: 'Admin', position: 'HR/L&D Admin', department: 'People Ops', project: null, email: 'admin@sails.example.com', location: 'Austin, TX', technologies: null, experienceYears: null, status: 'Active', hasAssignments: false, isSelf: true, createdAt: daysAgo(200) },
+            { id: 'EMP-1001', firstName: 'Casey', lastName: 'Nguyen', position: 'Software Engineer', department: 'Engineering', project: 'Q3 Skills Initiative', email: 'casey.n@sails.example.com', location: 'Austin, TX', technologies: 'React, Node.js', experienceYears: 3, status: 'Active', hasAssignments: true, createdAt: daysAgo(42) },
+            { id: 'EMP-1002', firstName: 'Morgan', lastName: 'Lee', position: 'Data Analyst', department: 'Analytics', project: 'Reporting Revamp', email: 'morgan.l@sails.example.com', location: 'Remote', technologies: 'Python, SQL', experienceYears: 6, status: 'Active', hasAssignments: true, createdAt: daysAgo(128) },
+            { id: 'EMP-1003', firstName: 'Jordan', lastName: 'Patel', position: 'QA Engineer', department: 'Engineering', project: 'Q3 Skills Initiative', email: 'jordan.p@sails.example.com', location: 'Austin, TX', technologies: 'Selenium, Java', experienceYears: 9, status: 'Active', hasAssignments: true, createdAt: daysAgo(97) },
+            { id: 'EMP-1004', firstName: 'Sam', lastName: 'Rivera', position: 'Product Designer', department: 'Design', project: null, email: 'sam.r@sails.example.com', location: 'Denver, CO', technologies: 'Figma', experienceYears: 4, status: 'Active', hasAssignments: false, createdAt: daysAgo(15) },
+            { id: 'EMP-1005', firstName: 'Alex', lastName: 'Kim', position: 'Support Specialist', department: 'Customer Success', project: 'Support Tooling', email: 'alex.k@sails.example.com', location: 'Remote', technologies: 'Zendesk', experienceYears: 21, status: 'Archived', hasAssignments: true, createdAt: daysAgo(310) },
         ];
+
+        // FR-36: 7 contiguous, exhaustive experience-year buckets (locked 2026-09-15)
+        const EXPERIENCE_BUCKETS = [
+            { label: '0–4 yrs', min: 0, max: 4 },
+            { label: '5–7 yrs', min: 5, max: 7 },
+            { label: '8–9 yrs', min: 8, max: 9 },
+            { label: '10–11 yrs', min: 10, max: 11 },
+            { label: '12–14 yrs', min: 12, max: 14 },
+            { label: '15–19 yrs', min: 15, max: 19 },
+            { label: '20+ yrs', min: 20, max: Infinity },
+        ];
+        // FR-35: fixed, non-configurable staleness-style threshold for Days in Talent Pool
+        const TALENT_POOL_FLAG_DAYS = 90;
 
         const PAGE_SIZE = 15;
         let currentPage = 1;
-        let currentView = 'table';
+        let currentView = 'card'; // [UPDATED 2026-09-15, direct request] default view is Grid/Card on every page now, not just Skills
         let activeEmployeeId = null;
+        let activeExperienceBucket = null; // FR-36: set when a bucket is clicked; null = no filter
 
         function updateFilterOptions() {
             const depts = [...new Set(employees.map(e => e.department))].sort();
@@ -341,34 +477,84 @@
             posSel.innerHTML = '<option value="">All Positions</option>' + positions.map(p => `<option value="${p}">${p}</option>`).join('');
         }
 
+        // FR-34: roster display name is "{Last Name}, {First Name}" everywhere
+        function displayName(e) { return `${e.lastName}, ${e.firstName}`; }
+
+        // FR-34 consequence: Days in Talent Pool = whole days since the record's
+        // createdAt — computed on read, not a separately-entered hire date.
+        function daysInTalentPool(e) {
+            return Math.floor((Date.now() - new Date(e.createdAt).getTime()) / 86400000);
+        }
+
         function getFiltered() {
             const q = document.getElementById('employees-tab-search-input').value.toLowerCase();
             const dept = document.getElementById('employees-tab-filter-department').value;
             const pos = document.getElementById('employees-tab-filter-position').value;
             const showArchived = document.getElementById('show-archived-checkbox').checked;
+            // [ADDED 2026-09-15] The acting HR Admin's own row (isSelf) shows
+            // in the default, unfiltered roster view, but drops out as soon as
+            // any search/filter/bucket criteria is active — it's not a normal
+            // filterable "employee" record in that sense, so it shouldn't
+            // clutter a targeted search/filter result.
+            const anyFilterActive = !!q || !!dept || !!pos || !!activeExperienceBucket;
             return employees.filter(e =>
-                (!q || e.name.toLowerCase().includes(q)) &&
+                (!anyFilterActive || !e.isSelf) &&
+                (!q || displayName(e).toLowerCase().includes(q)) &&
                 (!dept || e.department === dept) &&
                 (!pos || e.position === pos) &&
-                (showArchived || e.status !== 'Archived')
+                (showArchived || e.status !== 'Archived') &&
+                (!activeExperienceBucket || (e.experienceYears >= activeExperienceBucket.min && e.experienceYears <= activeExperienceBucket.max))
             );
         }
 
         function statusBadge(status) {
-            const cls = status === 'Active' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-gray-100 text-gray-500 border-gray-200';
+            const cls = status === 'Active' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-gray-100 text-gray-500 dark:text-gray-400 border-gray-200';
             return `<span class="text-xs font-medium border rounded-full px-2 py-0.5 ${cls}">${status}</span>`;
         }
 
+        // Story 10.3: the icon/label shows which action will actually happen
+        // (Archive vs. Delete) BEFORE the click, based on hasAssignments — the
+        // same field the confirmation modal already branches on (FR-27). No
+        // change to the underlying archive-vs-hard-delete decision itself.
+        // [UPDATED 2026-09-15, direct request] Unified action-icon button
+        // style — shared across Employees/Skills/Skill Assignments pages
+        // (see the matching w-8 h-8 buttons in 04.1 and 01.1). Two visual
+        // tiers, not one: routine actions (Edit, Regenerate Password, View)
+        // stay neutral gray and only tint on hover; the row-removing actions
+        // (Archive, Delete) carry a permanent, always-visible tinted pill —
+        // amber for Archive, red for Delete — so the two are distinguishable
+        // from each other and from the safe actions at a glance, without
+        // requiring a hover to reveal which is which.
         function actionIcons(emp) {
-            return `
-                <button onclick="openEditEmployeeModal('${emp.id}')" aria-label="Edit ${emp.name}" class="text-gray-500 hover:text-talentpilot-600 mr-2" title="Edit">✎</button>
-                <button onclick="openRegenPasswordModal('${emp.id}')" aria-label="Regenerate password for ${emp.name}" class="text-gray-500 hover:text-talentpilot-600 mr-2" title="Regenerate Password">⚿</button>
-                <button onclick="openDeleteEmployeeModal('${emp.id}')" aria-label="Delete or archive ${emp.name}" class="text-gray-500 hover:text-red-600" title="Delete/Archive">✕</button>
-            `;
+            const name = displayName(emp);
+            const neutralBtn = (icon, label, onclick, hoverColor) => `
+                <button onclick="${onclick}" aria-label="${label} ${name}" title="${label}"
+                        class="inline-flex items-center justify-center w-8 h-8 rounded-full text-gray-500 dark:text-gray-400 hover:bg-${hoverColor}-50 dark:hover:bg-${hoverColor}-900/30 hover:text-${hoverColor}-600 transition-colors">${icon}</button>`;
+            const tintedBtn = (icon, label, onclick, color) => `
+                <button onclick="${onclick}" aria-label="${label} ${name}" title="${label}"
+                        class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-${color}-50 dark:bg-${color}-900/20 text-${color}-600 dark:text-${color}-400 hover:bg-${color}-100 dark:hover:bg-${color}-900/40 transition-colors">${icon}</button>`;
+            const editBtn = neutralBtn('✎', 'Edit', `openEditEmployeeModal('${emp.id}')`, 'talentpilot');
+            const regenBtn = neutralBtn('⚿', 'Regenerate password for', `openRegenPasswordModal('${emp.id}')`, 'talentpilot');
+
+            // Mirrors the real backend's self-delete guard
+            // ("You cannot delete or archive your own account") — the acting
+            // admin's own row never shows a removable action, rather than
+            // showing one that would always fail. Edit and Regenerate
+            // Password stay available — only the destructive action is
+            // blocked, per direct clarification (a self-service password
+            // reset option should remain).
+            if (emp.isSelf) {
+                return `<div class="flex items-center gap-0.5">${editBtn}${regenBtn}<span class="text-xs text-gray-400 dark:text-gray-500 italic ml-1" title="You cannot delete or archive your own account">(you)</span></div>`;
+            }
+            const removeBtn = emp.hasAssignments
+                ? tintedBtn('🗄', 'Archive', `openDeleteEmployeeModal('${emp.id}')`, 'amber')
+                : tintedBtn('✕', 'Delete', `openDeleteEmployeeModal('${emp.id}')`, 'red');
+            return `<div class="flex items-center gap-0.5">${editBtn}${regenBtn}${removeBtn}</div>`;
         }
 
         function renderEmployees() {
             updateFilterOptions();
+            renderExperienceDistribution();
             const filtered = getFiltered();
             const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
             if (currentPage > totalPages) currentPage = totalPages;
@@ -380,32 +566,60 @@
 
             // Table view
             const tbody = document.getElementById('employees-table-body');
-            tbody.innerHTML = pageItems.map(e => `
-                <tr class="border-t border-gray-100">
-                    <td class="px-4 py-3 text-gray-500">${e.id}</td>
-                    <td class="px-4 py-3 font-medium text-gray-900">${e.name}</td>
-                    <td class="px-4 py-3 text-gray-600">${e.position}</td>
-                    <td class="px-4 py-3 text-gray-600">${e.department}</td>
-                    <td class="px-4 py-3 text-gray-400 text-xs">${e.email}</td>
+            tbody.innerHTML = pageItems.map(e => {
+                const days = daysInTalentPool(e);
+                const flagged = !e.isSelf && days > TALENT_POOL_FLAG_DAYS;
+                // FR-35: red flag paired with text, never color-only (NFR-A2).
+                // [ADDED 2026-09-15] Not meaningful for the acting HR Admin's
+                // own row — they aren't a tracked Talent Pool member the way
+                // regular Employees are — so it's blank, not a guessed value.
+                const daysCell = e.isSelf
+                    ? `<span class="text-gray-400 dark:text-gray-500">—</span>`
+                    : flagged
+                    ? `<span class="inline-flex items-center gap-1 text-red-600 font-semibold" title="Over ${TALENT_POOL_FLAG_DAYS} days in the Talent Pool">⚠ ${days}d</span>`
+                    : `<span class="text-gray-600 dark:text-gray-400">${days}d</span>`;
+                return `
+                <tr class="border-t border-gray-100 dark:border-gray-700 ${flagged ? 'bg-red-50/40' : ''}">
+                    <td class="px-4 py-3 text-gray-500 dark:text-gray-400">${e.id}</td>
+                    <td class="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">${displayName(e)}</td>
+                    <td class="px-4 py-3 text-gray-600 dark:text-gray-400">${e.position}</td>
+                    <td class="px-4 py-3 text-gray-600 dark:text-gray-400">${e.project || '—'}</td>
+                    <td class="px-4 py-3 text-gray-600 dark:text-gray-400">${e.location || '—'}</td>
+                    <td class="px-4 py-3 text-gray-600 dark:text-gray-400">${e.technologies || '—'}</td>
+                    <td class="px-4 py-3 text-gray-600 dark:text-gray-400">${e.experienceYears != null ? e.experienceYears + ' yrs' : '—'}</td>
+                    <td class="px-4 py-3">${daysCell}</td>
+                    <td class="px-4 py-3 text-gray-400 dark:text-gray-500 text-xs">${e.email}</td>
                     <td class="px-4 py-3">${statusBadge(e.status)}</td>
                     <td class="px-4 py-3">${actionIcons(e)}</td>
                 </tr>
-            `).join('') || `<tr><td colspan="7" class="px-4 py-10 text-center text-gray-400">No employees match your search.</td></tr>`;
+            `;
+            }).join('') || `<tr><td colspan="11" class="px-4 py-10 text-center text-gray-400 dark:text-gray-500">No employees match your search.</td></tr>`;
 
             // Card view
-            document.getElementById('employees-grid').innerHTML = pageItems.map(e => `
-                <div class="bg-white border border-gray-200 rounded-lg p-4">
+            document.getElementById('employees-grid').innerHTML = pageItems.map(e => {
+                const days = daysInTalentPool(e);
+                const flagged = !e.isSelf && days > TALENT_POOL_FLAG_DAYS;
+                const daysLine = e.isSelf
+                    ? ''
+                    : flagged
+                    ? `<span class="inline-flex items-center gap-1 text-red-600 font-semibold" title="Over ${TALENT_POOL_FLAG_DAYS} days in the Talent Pool">⚠ ${days} days in Talent Pool</span>`
+                    : `<span class="text-gray-500 dark:text-gray-400">${days} days in Talent Pool</span>`;
+                return `
+                <div class="bg-white dark:bg-gray-800 border ${flagged ? 'border-red-200' : 'border-gray-200'} rounded-lg p-4">
                     <div class="flex items-start justify-between">
                         <div>
-                            <p class="font-semibold text-gray-900">${e.name}</p>
-                            <p class="text-xs text-gray-500">${e.position} · ${e.department}</p>
+                            <p class="font-semibold text-gray-900 dark:text-gray-100">${displayName(e)}</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">${e.position} · ${e.project || 'No project'}</p>
                         </div>
                         ${statusBadge(e.status)}
                     </div>
-                    <p class="text-xs text-gray-400 mt-2">${e.email}</p>
-                    <div class="mt-3 pt-3 border-t border-gray-100">${actionIcons(e)}</div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">${e.location || '—'} · ${e.technologies || '—'} · ${e.experienceYears != null ? e.experienceYears + ' yrs exp.' : '—'}</p>
+                    ${daysLine ? `<p class="text-xs mt-1">${daysLine}</p>` : ''}
+                    <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">${e.email}</p>
+                    <div class="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">${actionIcons(e)}</div>
                 </div>
-            `).join('') || `<p class="col-span-full text-center text-gray-400 py-10">No employees match your search.</p>`;
+            `;
+            }).join('') || `<p class="col-span-full text-center text-gray-400 dark:text-gray-500 py-10">No employees match your search.</p>`;
 
             // Pagination
             const pag = document.getElementById('employees-pagination');
@@ -423,12 +637,51 @@
 
         function goPage(p) { currentPage = p; renderEmployees(); }
 
+        // FR-36: computed from the active (non-archived) roster regardless of
+        // the current search/filter/pagination state — an Employee with no
+        // experienceYears value is excluded from every bucket, never guessed.
+        // [UPDATED 2026-09-15, direct request] Compact quick-filter chips
+        // instead of large box cards — "{label} ({count})" pills in a filter
+        // bar, matching the compactness of a typical quick-filter row rather
+        // than a standalone stat panel.
+        function renderExperienceDistribution() {
+            const active = employees.filter(e => e.status !== 'Archived' && e.experienceYears != null);
+            const wrap = document.getElementById('experience-distribution-buckets');
+            wrap.innerHTML = EXPERIENCE_BUCKETS.map(b => {
+                const count = active.filter(e => e.experienceYears >= b.min && e.experienceYears <= b.max).length;
+                const isActive = activeExperienceBucket === b;
+                return `
+                    <button onclick="selectExperienceBucket('${b.label}')"
+                            aria-pressed="${isActive}"
+                            class="text-xs font-medium px-2.5 py-1 rounded-full border transition-colors ${isActive ? 'border-talentpilot-600 bg-talentpilot-600 text-white' : 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'}">
+                        ${b.label} (${count})
+                    </button>
+                `;
+            }).join('');
+            document.getElementById('experience-distribution-clear').classList.toggle('hidden', !activeExperienceBucket);
+        }
+
+        // Clicking a bucket filters the table/card list below to that bucket's
+        // Employees, paginated at the existing 15/page (PAGE_SIZE) — same list,
+        // not a separate view, per FR-36's "click-through to a paginated list".
+        function selectExperienceBucket(label) {
+            const bucket = EXPERIENCE_BUCKETS.find(b => b.label === label);
+            activeExperienceBucket = (activeExperienceBucket === bucket) ? null : bucket;
+            currentPage = 1;
+            renderEmployees();
+        }
+        function clearExperienceBucket() {
+            activeExperienceBucket = null;
+            currentPage = 1;
+            renderEmployees();
+        }
+
         function setView(view) {
             currentView = view;
             document.getElementById('employees-table-wrap').classList.toggle('hidden', view !== 'table');
             document.getElementById('employees-grid').classList.toggle('hidden', view !== 'card');
-            document.getElementById('view-toggle-table').className = 'px-3 py-2 text-sm ' + (view === 'table' ? 'bg-talentpilot-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50');
-            document.getElementById('view-toggle-card').className = 'px-3 py-2 text-sm ' + (view === 'card' ? 'bg-talentpilot-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50');
+            document.getElementById('view-toggle-table').className = 'px-3 py-2 text-sm ' + (view === 'table' ? 'bg-talentpilot-600 text-white' : 'bg-white text-gray-500 dark:text-gray-400 hover:bg-gray-50');
+            document.getElementById('view-toggle-card').className = 'px-3 py-2 text-sm ' + (view === 'card' ? 'bg-talentpilot-600 text-white' : 'bg-white text-gray-500 dark:text-gray-400 hover:bg-gray-50');
         }
 
         function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
@@ -436,6 +689,19 @@
 
         function toggleUserMenu() { document.querySelector('#app-topbar-user-menu [data-dropdown]').classList.toggle('hidden'); }
         function handleSignOut() { window.location.href = 'login.html'; }
+
+        function openCompanySettingsModal() {
+            if (window.TalentPilotCompany) TalentPilotCompany.init(); // re-sync input with the stored value
+            document.getElementById('company-settings-modal').classList.remove('hidden');
+        }
+        function closeCompanySettingsModal() {
+            document.getElementById('company-settings-modal').classList.add('hidden');
+        }
+        function saveCompanyNameFromModal() {
+            const val = document.getElementById('company-settings-input').value;
+            if (window.TalentPilotCompany) TalentPilotCompany.save(val);
+            closeCompanySettingsModal();
+        }
 
         function showToast(msg) {
             const t = document.getElementById('employees-tab-toast');
@@ -452,11 +718,12 @@
         }
         function submitCreateEmployee() {
             const id = document.getElementById('create-emp-id').value.trim();
-            const name = document.getElementById('create-emp-name').value.trim();
+            const firstName = document.getElementById('create-emp-first-name').value.trim();
+            const lastName = document.getElementById('create-emp-last-name').value.trim();
             const email = document.getElementById('create-emp-email').value.trim();
             const notice = document.getElementById('create-emp-duplicate-notice');
-            if (!id || !name || !email) {
-                notice.textContent = 'Employee ID/Code, Name, and Email are required.';
+            if (!id || !firstName || !lastName || !email) {
+                notice.textContent = 'Employee ID/Code, First Name, Last Name, and Email are required.';
                 notice.classList.remove('hidden');
                 return;
             }
@@ -466,14 +733,19 @@
                 return;
             }
             notice.classList.add('hidden');
+            const experienceYearsRaw = document.getElementById('create-emp-experience-years').value;
             employees.push({
-                id, name, email,
+                id, firstName, lastName, email,
                 position: document.getElementById('create-emp-position').value || '—',
                 department: document.getElementById('create-emp-department').value || '—',
-                status: 'Active', hasAssignments: false,
+                project: document.getElementById('create-emp-project').value || null,
+                location: document.getElementById('create-emp-location').value || null,
+                technologies: document.getElementById('create-emp-technologies').value || null,
+                experienceYears: experienceYearsRaw === '' ? null : Number(experienceYearsRaw),
+                status: 'Active', hasAssignments: false, createdAt: new Date().toISOString(),
             });
             closeModal('create-employee-modal');
-            document.getElementById('reveal-emp-name').textContent = name;
+            document.getElementById('reveal-emp-name').textContent = `${firstName} ${lastName}`;
             document.getElementById('reveal-password-value').textContent = generatePassword();
             openModal('password-reveal-modal');
             renderEmployees();
@@ -487,60 +759,64 @@
         function openEditEmployeeModal(id) {
             const emp = employees.find(e => e.id === id);
             activeEmployeeId = id;
-            document.getElementById('edit-emp-name-label').textContent = emp.name;
+            document.getElementById('edit-emp-name-label').textContent = displayName(emp);
             document.getElementById('edit-emp-id').value = emp.id;
-            document.getElementById('edit-emp-name').value = emp.name;
+            document.getElementById('edit-emp-first-name').value = emp.firstName;
+            document.getElementById('edit-emp-last-name').value = emp.lastName;
             document.getElementById('edit-emp-position').value = emp.position;
             openModal('edit-employee-modal');
         }
         function saveEditEmployee() {
             const emp = employees.find(e => e.id === activeEmployeeId);
-            emp.name = document.getElementById('edit-emp-name').value;
+            emp.firstName = document.getElementById('edit-emp-first-name').value;
+            emp.lastName = document.getElementById('edit-emp-last-name').value;
             emp.position = document.getElementById('edit-emp-position').value;
             closeModal('edit-employee-modal');
-            showToast(`✓ '${emp.name}' updated.`);
+            showToast(`✓ '${displayName(emp)}' updated.`);
             renderEmployees();
         }
 
         // Regenerate Password (FR-28)
         function openRegenPasswordModal(id) {
             activeEmployeeId = id;
-            document.getElementById('regen-emp-name').textContent = employees.find(e => e.id === id).name;
+            document.getElementById('regen-emp-name').textContent = displayName(employees.find(e => e.id === id));
             openModal('regen-password-modal');
         }
         function confirmRegeneratePassword() {
             const emp = employees.find(e => e.id === activeEmployeeId);
             closeModal('regen-password-modal');
-            document.getElementById('reveal-emp-name').textContent = emp.name;
+            document.getElementById('reveal-emp-name').textContent = displayName(emp);
             document.getElementById('reveal-password-value').textContent = generatePassword();
             openModal('password-reveal-modal');
         }
 
-        // Delete / Archive (FR-27)
+        // Delete / Archive (FR-27; icon-level clarity per Story 10.3)
         function openDeleteEmployeeModal(id) {
             const emp = employees.find(e => e.id === id);
             activeEmployeeId = id;
             const heading = document.getElementById('delete-emp-heading');
             const summary = document.getElementById('delete-emp-summary');
             const btn = document.getElementById('delete-emp-confirm-btn');
-            heading.textContent = `Remove ${emp.name}?`;
+            const name = displayName(emp);
+            heading.textContent = `Remove ${name}?`;
             if (emp.hasAssignments) {
-                summary.textContent = `'${emp.name}' has assignment history — they'll be archived, not deleted. Their records are kept, but they'll drop off the active roster and every assignment picker.`;
+                summary.textContent = `'${name}' has assignment history — they'll be archived, not deleted. Their records are kept, but they'll drop off the active roster and every assignment picker.`;
                 btn.textContent = 'Archive Employee';
             } else {
-                summary.textContent = `'${emp.name}' has no assignments yet — this will permanently remove them.`;
+                summary.textContent = `'${name}' has no assignments yet — this will permanently remove them.`;
                 btn.textContent = 'Remove Employee';
             }
             openModal('delete-employee-modal');
         }
         function confirmDeleteEmployee() {
             const emp = employees.find(e => e.id === activeEmployeeId);
+            const name = displayName(emp);
             if (emp.hasAssignments) {
                 emp.status = 'Archived';
-                showToast(`✓ '${emp.name}' archived.`);
+                showToast(`✓ '${name}' archived.`);
             } else {
                 employees = employees.filter(e => e.id !== activeEmployeeId);
-                showToast(`✓ '${emp.name}' removed.`);
+                showToast(`✓ '${name}' removed.`);
             }
             closeModal('delete-employee-modal');
             renderEmployees();

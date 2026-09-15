@@ -406,6 +406,7 @@ HR Admin sees a list of all Employee records with their profile fields, serving 
 - The roster is searchable/filterable by at least Name, Department, and Position/Job Title — the same "find who you need fast, don't just browse" principle already applied to Content Discovery (§4.2/FR-4), applied here to roster size instead of content volume. `[NOTE FOR PM, ADDED 2026-09-11]` Department filtering depends on the addendum's still-open schema decision (whether Department reuses the existing `group` column or is a distinct new column) — this consequence holds structurally regardless of which is chosen, but isn't buildable until that call is made.
 - A blank/optional field (Department, Position/Job Title, etc. — FR-24) is excluded from a filter on that field rather than silently matching everything or nothing; an Employee with an unfilled field never becomes permanently unfindable — they remain reachable via Name search regardless of which optional fields are blank.
 - A soft-deleted/archived Employee (FR-27) does not appear in the default roster view or in any Employee picker elsewhere in the product (e.g. the Skill Assignment Flow), but remains visible via an explicit "show archived" toggle for audit purposes — mirrors FR-15's Assignment soft-delete visibility pattern.
+- `[ADDED 2026-09-15]` The acting HR Admin's own Employee record (`core/seeds.py::seed_employees` creates one alongside the Account row — see Story 10.1) appears in the default, unfiltered roster view like any other record, but is **excluded from search/filter results** the moment any search term, Department/Position filter, or Experience-bucket filter (FR-36) is active — it isn't a normal filterable target in that sense. Its Delete/Archive action is unavailable (shows "(you)" in place of the icon, Story 10.3) — this is the same real self-delete guard the backend already enforces (`delete_or_archive_employee_service`: "You cannot delete or archive your own account"), surfaced in the UI rather than only failing server-side.
 
 #### FR-26: HR Admin edits an Employee record
 
@@ -448,16 +449,18 @@ If an Employee has never had an Assignment created for them, HR Admin can hard-d
 
 **Functional Requirements:**
 
-#### FR-29: HR Admin's primary navigation is presented in a left-side pane
+#### FR-29: HR Admin's primary navigation is presented in a left-side pane `[UPDATED 2026-09-15]`
 
-The HR Admin shell presents Dashboard, Skill Assignments, Skills, and Employees as a vertical navigation list in a left-side pane, persistent across all HR Admin pages, instead of the current top-header horizontal links. `[UPDATED 2026-09-12]` Four entries, not three — see description above.
+`[UPDATED 2026-09-15, Epic 10 mid-mockup revision]` The left-side pane now presents **three** entries — Skill Assignments, Skills, Employees — not four. `Dashboard` is **removed as its own nav-pane entry**: the Dashboard (§4.10) is reached instead via (a) the default landing page immediately after HR Admin login, and (b) clicking the `TalentPilot-AI` logo at the top of the pane from any page, both already-existing affordances repurposed as the Dashboard's access points rather than a redundant fourth link doing the same job. This directly reverses the 2026-09-12 "four entries, not three" decision below — kept for history, not current.
+
+**Original FR-29 (2026-09-11–2026-09-15, kept for history — superseded by the paragraph above):** ~~The HR Admin shell presents Dashboard, Skill Assignments, Skills, and Employees as a vertical navigation list in a left-side pane, persistent across all HR Admin pages, instead of the current top-header horizontal links. Four entries, not three.~~
 
 **Consequences (testable):**
-- The left pane is present and shows the same four entries on every HR Admin page (Dashboard, Skill Assignments, Skills, Employees) — never a page-specific subset.
-- The current page is visually indicated in the pane (matches the existing top-nav's active-link treatment, relocated rather than redesigned).
-- All four destinations remain reachable in one click from any HR Admin page, same as today's top nav — this is a layout change, not a reduction in what's reachable.
-- The existing user-menu (avatar + Sign Out, currently top-right of the header) keeps its current position and behavior — only the Dashboard/Skills/Skill Assignments/Employees navigation links relocate, not the whole header.
-- `[ADDED 2026-09-12]` `Dashboard` and `Skill Assignments` are two distinct, separately-reachable nav destinations, not one page with an internal link to the other (superseding FR-33's originally-drafted `[+ View All Assignments]` in-page control, now handled via nav instead — see §4.10/FR-33).
+- The left pane shows the same three entries (Skill Assignments, Skills, Employees) on every HR Admin page — never a page-specific subset, and never highlighted as "active" on the Dashboard itself, since the Dashboard has no nav-pane entry of its own to highlight.
+- The logo (`TalentPilot-AI`, top of the pane) is a functional link to the Dashboard on every HR Admin page — including the Dashboard page itself, where it's simply a same-page no-op.
+- Skill Assignments/Skills/Employees each remain reachable in one click from any HR Admin page, same as before — this consequence, from the original FR-29, is unaffected by the Dashboard entry's removal.
+- The existing user-menu (avatar + Sign Out, top-right of the header) is unaffected — only the nav-pane's link list and the logo's behavior change.
+- `[NOTE FOR PM]` This is a deliberate simplification, not a regression: the Dashboard was already reachable via post-login default-landing before this change (§4.10's description) — removing its redundant nav-pane entry doesn't remove a reachability path, it removes a duplicate one. `Dashboard` and `Skill Assignments` remain two distinct destinations (the 2026-09-12 decision that superseded FR-33's original in-page control still holds) — only *how* `Dashboard` is reached changed, not that it's a separate page from the full grid.
 - `[ADDED 2026-09-11, post-review]` The relocation preserves every entry point currently reachable from the top header — including the Skills tab's API-key/credential settings surface (§4.6/FR-16) — with no functionality silently dropped during the header-to-left-pane refactor. `[NOTE FOR PM]` Whether `SkillsPage.tsx` currently duplicates `Dashboard.tsx`'s top-nav (and therefore needs the identical treatment for this consequence to hold everywhere) is unconfirmed — verify before build.
 
 **Notes:** `[NOTE FOR PM]` No UX scenario or prototype covers this layout; downstream UX work needs to spec the pane's width, responsive/collapsed behavior on narrow viewports, and icon treatment (if any) before build. `[ADDED 2026-09-11]` Keyboard/ARIA behavior for the pane is expected to fall under the existing blanket WCAG 2.1 AA commitment (§8) rather than needing a separate accessibility statement here.
@@ -487,7 +490,7 @@ Either role (HR Admin or Employee) can switch the application's visual theme bet
 
 `[ADDED 2026-09-12 via bmad-prd update — new capability, not in original PRD scope]`
 
-**Description:** The HR Admin's `Dashboard` nav entry (§4.8/FR-29) now opens on a new org-wide aggregate view — the Skill Assignment Dashboard — instead of opening directly on the full Readiness Dashboard row grid (§4.4). This is additive, not a replacement: `[UPDATED 2026-09-12, post-clarification]` the full grid (FR-8/9/10) still exists in full and gains its own permanent left-nav entry, **Skill Assignments** (§4.8/FR-29), reachable in one click same as `Dashboard` — not a link nested inside the new landing page — preserving UJ-1 exactly as already validated. The new landing page answers "how's the org doing overall, and who needs my attention" at a glance, before Rita drops into row-level detail via the `Skill Assignments` nav entry. `[DECISION, 2026-09-12]` Confirmed with the user: this is a new, separate view sitting alongside the existing per-Assignment grid (not a redesign of it); it is HR Admin-only, consistent with this product's existing role scoping (FR-14); and it introduces no new tracked data — every number on it is derived from Assignment/Skill/Watch-Progress data FR-1 through FR-12 already define. Realizes an extension of UJ-1 (a faster, org-wide first read before Rita's existing staffing-call flow).
+**Description:** The HR Admin's `Dashboard` nav entry (§4.8/FR-29) now opens on a new org-wide aggregate view — the Skill Assignment Dashboard — instead of opening directly on the full Readiness Dashboard row grid (§4.4). This is additive, not a replacement: `[UPDATED 2026-09-12, post-clarification]` the full grid (FR-8/9/10) still exists in full and gains its own permanent left-nav entry, **Skill Assignments** (§4.8/FR-29), reachable in one click same as `Dashboard` — not a link nested inside the new landing page — preserving UJ-1 exactly as already validated. `[UPDATED 2026-09-15, Story 10.11]` The landing page now answers "how's the org doing overall, and what does the roster's experience mix look like" — the earlier "and who needs my attention" half of this description is no longer accurate; see FR-32's superseded note. `[DECISION, 2026-09-12]` Confirmed with the user: this is a new, separate view sitting alongside the existing per-Assignment grid (not a redesign of it); it is HR Admin-only, consistent with this product's existing role scoping (FR-14); and it introduces no new tracked data — every number on it is derived from Assignment/Skill/Watch-Progress/Employee data FR-1 through FR-12 and FR-24/36 already define. Realizes an extension of UJ-1 (a faster, org-wide first read before Rita's existing staffing-call flow) — though as of 2026-09-15, the "who needs my attention" half of that first read moved entirely into the full grid (FR-9/10), no longer previewed on this landing page.
 
 **Functional Requirements:**
 
@@ -500,33 +503,32 @@ The Skill Assignment Dashboard shows, above the fold: Total Employees (active/no
 - `[ASSUMPTION, 2026-09-12]` "Total Skills/Videos Assigned" counts every active Assignment regardless of whether it has attached Content (§4.1/FR-2 already allows assigning without Content) — it is an Assignment count, not a strictly video-content count. Revisit if HR wants this scoped only to Assignments with video Content attached.
 - These counts refresh whenever the landing page loads; no specific real-time-update NFR is claimed here (unlike FR-11's 30-second row-update guarantee) — `[NOTE FOR PM]` revisit if HR needs this page to auto-refresh while left open, the way individual dashboard rows already do.
 
-#### FR-32: HR Admin views an Assignment Progress breakdown and Employee Segmentation pie chart
+#### FR-32: HR Admin views an Assignment Progress breakdown and Employee Experience Distribution `[SUPERSEDED 2026-09-15]`
 
-Below the stats (FR-31), the landing page shows two more views: (a) an Assignment Progress breakdown — Completed / In Progress / Not Started counts (per-Assignment Status, §4.4/FR-8) plus an Overall Progress % shown as a completion ring; and (b) a pie chart segmenting every active Employee with at least one active Assignment into exactly three buckets: **On Track**, **In Progress**, **Needs Attention**.
+`[SUPERSEDED 2026-09-15 via bmad-correct-course — see Epic 10 Story 10.11]` **The Employee Segmentation pie chart (On Track / In Progress / Needs Attention) described in this FR's original text below is retired from the Skill Assignment Dashboard landing page**, replaced by the Experience Distribution panel already defined at §4.11/FR-36. This is a deliberate reversal of already-shipped, tested work (Epic 9, Stories 9.2/9.3/9.4, all `done`) — not a bug fix. **Real, accepted trade-off, stated plainly:** this removes the dashboard's org-wide "who needs attention, at a glance" capability entirely — the pie chart's Needs Attention segment (and Story 9.4's click-through popover naming flagged Employees) was the *only* actionable element this landing page had, and the thing that most directly served Rita's Want #2/#3 in the Trigger Map (see `B-Trigger-Map/06-Feature-Impact.md`'s 2026-09-15 note). Going forward, the sole way to find a `Needs Attention` Assignment is the existing per-row flag inside the full Readiness Dashboard grid (§4.4/FR-9/FR-10, via the `Skill Assignments` nav entry) — there is no more org-wide summary of it. FR-31's stats and the Assignment Progress ring (first paragraph of the original FR-32 text, below) are **unaffected** — only the pie chart/segmentation half is replaced.
 
-**Consequences (testable):**
+**Original FR-32 (2026-09-12–2026-09-15, kept for history — the Assignment Progress ring half is still current; the Employee Segmentation half is not):** Below the stats (FR-31), the landing page shows two more views: (a) an Assignment Progress breakdown — Completed / In Progress / Not Started counts (per-Assignment Status, §4.4/FR-8) plus an Overall Progress % shown as a completion ring; and (b) ~~a pie chart segmenting every active Employee with at least one active Assignment into exactly three buckets: **On Track**, **In Progress**, **Needs Attention**~~ — **(b) is superseded; see above.**
+
+**Consequences (testable) — (a) only, still current:**
 - Overall Progress % = `Total Completed (FR-31) / Total Skills/Videos Assigned (FR-31) × 100`, rounded to the nearest whole percent.
-- Employee Segmentation, computed per Employee across all their active Assignments, in this priority order — `[ASSUMPTION, 2026-09-12, needs validation — see Open Question 20]`:
-  1. **Needs Attention** — the Employee has at least one Assignment whose Provenance Label is currently `Needs Attention` (§4.4/FR-10's existing 7-day staleness rule). Takes priority over the other two buckets regardless of overall completion.
-  2. **On Track** — no `Needs Attention` Assignments, and the Employee's own completion rate (their Completed Assignments ÷ their total active Assignments) is at or above **80%** `[ASSUMPTION — exact threshold not yet confirmed by the user, see Open Question 20]`.
-  3. **In Progress** — everything else: no `Needs Attention` flags, but completion rate below the On-Track threshold. `[NOTE FOR PM]` This bucket is a catch-all by construction — it also holds Employees who haven't started anything yet (0% complete, all Assignments `Not Started`), since the pie chart's spec names only these three buckets, with no separate "Not Started" segment. Confirm this reads correctly to HR before build, or consider a 4th segment.
-- An Employee with zero active Assignments is excluded from the pie chart entirely (nothing to segment) — does not silently count toward any of the three buckets.
-- Same non-color-only accessibility rule as every other Status/Provenance surface in this PRD (§8): each pie segment and the progress ring are labeled with text/count, not color alone.
-- Clicking a pie segment shows the list of Employees in that bucket (each one a click-through into their own Skill Progress drill-down, FR-33) — `[NOTE FOR PM]` exact interaction (inline expand vs. a filtered list view) is a UX-design decision, not specified here.
+- Same non-color-only accessibility rule as every other Status/Provenance surface in this PRD (§8): the progress ring is labeled with text/count, not color alone.
+
+**Consequences (testable) — (b), retired, kept for historical record only:**
+- ~~Employee Segmentation, computed per Employee across all their active Assignments, in this priority order: 1. Needs Attention (any Assignment flagged `Needs Attention`, takes priority); 2. On Track (completion rate ≥ 80%, `ON_TRACK_THRESHOLD`); 3. In Progress (catch-all, including not-yet-started Employees). An Employee with zero active Assignments was excluded entirely. Clicking a segment opened a popover naming the flagged Employees (Story 9.4).~~ No longer built as of Story 10.11 — `dashboard/service.py`'s segmentation endpoint and `SkillAssignmentDashboard.tsx`'s `NeedsAttentionControl` component are retired (not deleted — see Story 10.11's Dev Notes for the disposal decision), not maintained going forward.
 
 **Out of Scope:**
-- Any drill-down "why" explanation beyond what FR-9's existing per-Assignment drill-down already provides — Employee Segmentation is a landing-page summary, not a new audit surface.
+- Any drill-down "why" explanation beyond what FR-9's existing per-Assignment drill-down already provides.
+- Reviving Employee Segmentation anywhere else in the product — if a future need for an org-wide "who needs attention" summary resurfaces, it should be scoped as new work against the current architecture, not assumed to be this retired mechanic restored as-is.
 
-#### FR-33: HR Admin reaches the full grid via its own nav entry, or a single Employee's Skill Progress via drill-down from the landing page
+#### FR-33: HR Admin reaches the full grid via its own nav entry `[UPDATED 2026-09-15]`
 
-`[UPDATED 2026-09-12, post-clarification]` The full Readiness Dashboard row grid is reachable two ways: (a) directly, via the left-pane's own **Skill Assignments** nav entry (§4.8/FR-29) — not an in-page link on the landing page — or (b) scoped to a single Employee, by clicking that Employee from a Skill Assignment Dashboard pie-chart segment (FR-32).
+`[UPDATED 2026-09-15]` Path (b) below — scoped single-Employee drill-down via a Skill Assignment Dashboard pie-chart segment — is **retired along with FR-32's Employee Segmentation pie chart** (Story 10.11). The Experience Distribution panel that replaces it (§4.11/FR-36) has its own, different interaction — clicking a bucket shows a paginated *list* of Employees in that bucket (FR-36), not a direct single-Employee Provenance drill-down. Only path (a) remains from this FR's original scope.
 
 **Consequences (testable):**
-- Path (a) renders exactly the existing FR-8/9/10/11/12 experience, unfiltered, as its own persistent nav destination — this consequence exists specifically so UJ-1's already-validated "scan 15-20 rows" flow keeps working unchanged, just relocated to its own nav entry instead of being the `Dashboard` entry's direct target.
-- Path (b) renders the same FR-8/9/10 row/badge/drill-down model, pre-filtered to the selected Employee's Assignments only — not a different visual model, just a different scope, and reached from the landing page rather than the nav.
-- Both paths remain gated by the existing HR-Admin-only role scoping (§4.5/FR-14) — no new access-control surface is introduced.
+- Path (a) renders exactly the existing FR-8/9/10/11/12 experience, unfiltered, as its own persistent nav destination (`Skill Assignments`) — this consequence exists specifically so UJ-1's already-validated "scan 15-20 rows" flow keeps working unchanged, just relocated to its own nav entry instead of being the `Dashboard` entry's direct target. This is now the **only** way to reach the full grid or any individual Employee's Assignment detail from the landing page — there is no more direct single-Employee jump from the landing page itself.
+- Gated by the existing HR-Admin-only role scoping (§4.5/FR-14) — unchanged.
 
-**Notes:** `[NOTE FOR PM]` No UX scenario or prototype covers this landing page's layout, chart treatment, or the pie-segment click-through interaction — downstream UX work needs to design all of §4.10 from scratch, consistent with this PRD's existing pattern for other request-driven additions (FR-12, FR-20, FR-24).
+**Notes:** `[NOTE FOR PM]` No UX scenario covers this retirement's layout impact on 06.1 — downstream UX work (already done same-session, see `06.1-skill-assignment-dashboard.md`) updates the page spec to match.
 
 ### 4.11 Post-MVP Admin & Roster Refinements
 
@@ -538,13 +540,13 @@ Below the stats (FR-31), the landing page shows two more views: (a) an Assignmen
 
 #### FR-34: HR Admin roster gains First/Last Name and expanded grid columns
 
-The Employee record (§4.7/FR-24) captures First Name and Last Name as separate fields instead of one combined Name field. The roster grid (FR-25) adds three columns: **Location**, **Technologies**, and **Days in Talent Pool**. The roster's displayed name format is **"{Last Name}, {First Name}"**.
+The Employee record (§4.7/FR-24) captures First Name and Last Name as separate fields instead of one combined Name field. The roster grid (FR-25) adds four columns: **Project**, **Location**, **Technologies**, and **Days in Talent Pool** — and **drops the existing Department column** from the grid. The roster's displayed name format is **"{Last Name}, {First Name}"**.
 
 **Consequences (testable):**
 - Both First Name and Last Name are required at creation (FR-24), same requiredness tier as the current combined Name field.
 - **Days in Talent Pool** = whole days elapsed since the Employee record's `created_at` timestamp — computed on read, not a separately-entered hire date (no such field exists in FR-24's schema; adding one is out of scope for this FR).
 - Existing records created before this change need a `first_name`/`last_name` backfill migration strategy — decided during Story 10.2's implementation, not specified here.
-- Location and Technologies columns display the existing FR-24 `location`/`technologies` field values already captured at creation; a blank value renders per FR-25's existing "excluded from filter, not unfindable" rule.
+- `[UPDATED 2026-09-15, mid-mockup revision]` Project, Location, and Technologies columns display the existing FR-24 fields already captured at creation; a blank value renders per FR-25's existing "excluded from filter, not unfindable" rule. **Department is removed as a grid column** (it remains a stored field and an active filter option in the toolbar — FR-25's existing department filter is unaffected — it's just no longer displayed as its own column).
 
 #### FR-35: Roster rows flag Employees over 90 days in the Talent Pool
 
@@ -557,22 +559,26 @@ A roster row whose Days in Talent Pool (FR-34) exceeds **90** renders with a red
 
 #### FR-36: HR Admin views an Employee Experience Distribution panel
 
-Distinct from §4.10/FR-32's Employee Segmentation (readiness-based: On Track/In Progress/Needs Attention) — this is a separate, separately-named panel bucketing the active roster by years of experience.
+`[originally]` Distinct from §4.10/FR-32's Employee Segmentation (readiness-based: On Track/In Progress/Needs Attention) — a separate, separately-named panel bucketing the active roster by years of experience, on the Employees page (§4.7). `[UPDATED 2026-09-15, Story 10.11]` **This panel now also appears on the Skill Assignment Dashboard landing page (§4.10), replacing FR-32's retired Employee Segmentation chart there** — it is the same panel/data (not a second implementation), shown in two places: its original location on the Employees page, and now as the primary segmentation-style element on the dashboard.
 
 **Consequences (testable):**
 - `experience` (§4.7/FR-24, currently free text) gains a companion numeric `experience_years` field used for bucketing; the existing free-text field is unaffected (exact schema approach — replace vs. add-alongside — decided during Story 10.4's implementation).
 - Buckets are **0–4, 5–7, 8–9, 10–11, 12–14, 15–19, 20+** years — contiguous and exhaustive, confirmed 2026-09-15.
-- Clicking a bucket's count shows the list of Employees in that bucket, paginated at **15 per page**, matching FR-25's existing roster pagination convention.
-- Same non-color-only accessibility rule as FR-32's pie chart (§8) applies to any chart rendering of this panel.
-- An Employee with no `experience_years` value is excluded from every bucket, not force-fit into one — same "blank isn't a guess" principle as FR-32's zero-Assignment exclusion.
+- Clicking a bucket's count shows the list of Employees in that bucket, paginated at **15 per page**, matching FR-25's existing roster pagination convention. On the dashboard placement specifically, this click-through is the page's only interactive/actionable element, same role the retired Employee Segmentation pie chart used to occupy — `[NOTE FOR PM]` unlike that chart, this interaction does not single out employees needing attention; it's a pure headcount breakdown, not a readiness signal.
+- `[UPDATED 2026-09-15]` The two placements deliberately use different presentations, not a shared component forced into one shape: on the **Employees page**, buckets render as a compact row of quick-filter chips ("{label} ({count})" pills) that filter the roster table/card list already on that page — a filter-bar affordance, not a standalone stat panel. On the **dashboard** (§4.10/FR-41), buckets render as a ring + clickable legend, matching the Assignment Progress and Days in Talent Pool cards' visual language there. Same underlying bucket data and definitions either way — only the widget shape differs per surface.
+- `[ADDED 2026-09-15]` On the dashboard placement, the bucket click-through list renders as its own **full-width section below both cards** (Assignment Progress ring + Experience Distribution), not nested inside the Experience Distribution card itself — since the two cards sit side-by-side at a fixed width, a list nested inside one of them would cramp as the bucket's membership grows. Each matched Employee renders as a bordered row (name + role/experience), matching the Employee roster page's own presentation style, not a bare name list.
+- Same non-color-only accessibility rule as every other chart in this PRD (§8) applies to any chart rendering of this panel.
+- An Employee with no `experience_years` value is excluded from every bucket, not force-fit into one — same "blank isn't a guess" principle already established elsewhere (e.g. the retired FR-32's zero-Assignment exclusion).
 
-#### FR-37: Skills tab gains search and pagination
+#### FR-37: Skills tab gains search, pagination, and a Table/Card view toggle
 
-The Skills tab (§4.6) gains a search control and pagination at **15 per page**, matching the Employee roster's existing FR-25 pattern.
+The Skills tab (§4.6) gains a search control and pagination at **15 per page**, matching the Employee roster's existing FR-25 pattern. `[UPDATED 2026-09-15]` It also gains a **Table/Card view toggle**, matching FR-25's own Table/Card toggle for the Employee roster — both views share the same search term, filter state, and current page; only the layout differs.
 
 **Consequences (testable):**
 - Search matches at least Skill name (mirrors FR-25's Name-search baseline for Employees).
 - Pagination resets to page 1 on a new search term, same convention as FR-25.
+- `[ADDED 2026-09-15]` The Card view (existing card-grid layout) is the default, matching this tab's established precedent (unlike the Employee roster, which defaults to Table — FR-25). Table view adds columns for Skill name, Approval status, Approved Content (title + source), Days to Complete, and Actions (Edit/Delete, or a Locked indicator) — the same fields the card already surfaces, laid out as rows instead.
+- Switching views does not change the underlying search term, filter, or current page — only the layout, same convention as FR-25's existing toggle behavior.
 
 #### FR-38: Skill Assignments grid gains search and pagination
 
@@ -599,6 +605,37 @@ If no content-source credential (§4.6/FR-16) is configured for the acting HR Ad
 - Reads the existing FR-16 "configured" boolean per source — enabled once at least one source (YouTube or Udemy) is configured, consistent with FR-16's existing partial-availability model.
 - Once a credential is seeded or added (see §9's seed-data note), the button is enabled with no other action needed.
 
+#### FR-41: HR Admin views a Days in Talent Pool distribution on the Skill Assignment Dashboard
+
+`[ADDED 2026-09-15, direct request, Story 10.14]` The Skill Assignment Dashboard landing page (§4.10) gains a third ring/legend card — **Days in Talent Pool** — alongside the existing Assignment Progress ring and Experience Distribution (FR-36). All three cards render in the same ring/legend visual format (Experience Distribution's presentation changed from a bucket-button grid to a ring to match, on this page specifically — its Employees-page copy, FR-36, is unaffected and keeps the button-grid layout there).
+
+**Consequences (testable):**
+- Buckets: **≤15, 16–30, 31–45, 46–60, 61–75, 76–90, 90+** days — 7 contiguous, exhaustive buckets. The originally-requested boundaries (15, 30, 45, 60, 75, more than 90) left a 76–90 gap; closed with an explicit 7th bucket rather than silently folded into a neighbor, same resolution approach as FR-36's own 15–19 gap.
+- Computed from `employees.created_at` (same basis as FR-34's Days in Talent Pool grid column) across the active roster.
+- Clicking a bucket in the legend shows a paginated (15/page) list of matching Employees in the same shared full-width results section below all three cards that FR-36's Experience Distribution click-through already uses — selecting a bucket in one card clears any selection in the other, since only one result set is shown at a time.
+- Same non-color-only accessibility rule as every other chart in this PRD (§8).
+- Purely a headcount/tenure breakdown, not a readiness signal — same "must not imply urgency via styling" principle already established for Experience Distribution (FR-36), despite sharing FR-35's underlying Days-in-Talent-Pool metric with the roster grid's red-flag treatment there.
+
+#### FR-42: Left-pane nav collapses to icon-only width, state persists per browser
+
+`[ADDED 2026-09-15, direct request, Story 10.15 — documented retroactively]` The left-pane nav (FR-29) can be toggled between its normal labeled-link width and a narrower icon-only width via a small toggle control on the pane's edge. This is a distinct mechanism from UX-DR40's sub-768px responsive hamburger overlay (§7 UX Design Requirements) — FR-42 is a desktop-width, user-chosen collapse/expand, not a breakpoint-driven layout change, and the two do not interact.
+
+**Consequences (testable):**
+- Each nav link's full label and the "TalentPilot-AI" logo text are replaced by a small icon/2-letter badge while collapsed; both label and badge stay in the DOM and are shown/hidden via a CSS class, not re-rendered.
+- The chosen state persists per browser (not per Employee/session — a client-only display preference, same persistence model as FR-30's theme choice) so it survives navigating between pages.
+- Collapsing/expanding never hides a nav destination — every link remains one click away in both states, matching the accessibility principle already established for UX-DR40's mobile overlay.
+- The correct state must be applied before the page's first meaningful paint on every navigation, not just on first load — flagged explicitly because the initial mockup implementation got this wrong (see Story 10.15 AC below) and produced a visible flash of the wrong state on every click while collapsed.
+
+#### FR-43: HR Admin sets a display-only Company Name shown in the top header
+
+`[ADDED 2026-09-15, direct request, Story 10.16; location/styling corrected same day through several direct follow-ups — see Story 10.16's Dev Notes for the full sequence]` A "Company Settings" entry in the account menu (directly below Sign Out) lets the HR Admin set a short, freeform Company Name, rendered as a bold, brand-colored label in the top header bar, left-aligned opposite the theme toggle/user-menu cluster — distinct from the "TalentPilot-AI" product name in the sidebar logo.
+
+**Consequences (testable):**
+- Client-only setting, no backend/database change — persisted the same way as FR-30's theme choice and FR-42's collapse state (per-browser, survives navigating between pages, does not sync across devices or Employees).
+- Purely cosmetic/labeling — sets no other behavior, permission, or org record; blank by default until an HR Admin sets it.
+- Lives in the header, not the left-pane nav — visible regardless of whether the nav pane (FR-42) is collapsed or expanded; the two states don't interact.
+- The label sizes itself to whatever name is actually set — no fixed maximum width or truncation, up to the modal input's 60-character limit — so a long organization name renders in full rather than being ellipsis-clipped.
+
 ## 5. Non-Goals (Explicit)
 
 - **Not an LMS or LXP.** No course catalog browsing, no learning paths, no certifications. It is an assignment-and-tracking dashboard, deliberately narrow.
@@ -624,7 +661,7 @@ If no content-source credential (§4.6/FR-16) is configured for the acting HR Ad
 - HR Admin Navigation Shell — primary navigation relocated to a left-side pane, four entries (Dashboard, Skill Assignments, Skills, Employees) (FR-29)
 - Application Theming — Light/Dark mode, app-wide (FR-30)
 - Skill Assignment Dashboard — HR Admin landing page: org-wide stats, Assignment Progress ring, Employee Segmentation pie chart, drill-down into the full grid or a single Employee (FR-31, FR-32, FR-33)
-- Post-MVP Admin & Roster Refinements — First/Last Name + expanded roster columns, 90-day Talent Pool flag, Experience Distribution panel, Skills/Skill-Assignments search & pagination, new-Skill content-sourcing reliability, credential-gated Skill creation (FR-34–FR-40)
+- Post-MVP Admin & Roster Refinements — First/Last Name + expanded roster columns, 90-day Talent Pool flag, Experience Distribution panel, Skills/Skill-Assignments search & pagination, new-Skill content-sourcing reliability, credential-gated Skill creation, dashboard Days in Talent Pool ring, collapsible left-pane nav, configurable Company Name label (FR-34–FR-43)
 
 ### 6.2 Out of Scope for MVP
 

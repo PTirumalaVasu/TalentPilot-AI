@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <script src="shared/auth.js"></script>
     <script>TalentPilotAuth.requireRole('HR');</script>
+    <script src="shared/theme.js"></script>
+    <script src="shared/nav.js"></script>
+    <script src="shared/company.js"></script>
     <meta name="viewport" content="width=1440, initial-scale=1.0">
     <title>06.1 Skill Assignment Dashboard - TalentPilot-AI</title>
 
@@ -13,6 +16,7 @@
     <!-- Tailwind Config (Design Tokens) -->
     <script>
         tailwind.config = {
+            darkMode: 'class', // [ADDED 2026-09-15] enables .dark class toggle, see shared/theme.js
             theme: {
                 extend: {
                     colors: {
@@ -40,7 +44,7 @@
     <!-- Dev Mode Styles (feedback/testing tool) -->
     <link rel="stylesheet" href="components/dev-mode.css">
 </head>
-<body class="min-h-screen bg-gray-50 font-sans">
+<body class="min-h-screen bg-gray-50 dark:bg-gray-900 font-sans">
     <!-- ========================================================================
          DEV MODE TOGGLE (Shift+Click any element to copy its Object ID)
          ======================================================================== -->
@@ -53,45 +57,105 @@
     </button>
     <div id="dev-mode-tooltip" class="dev-mode-tooltip" style="display: none;"></div>
 
+    <!-- ====================================================================
+         COMPANY SETTINGS MODAL — added 2026-09-15, direct request. Client-only
+         (localStorage), no backend — see shared/company.js.
+         ==================================================================== -->
+    <div id="company-settings-modal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-40 p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6 space-y-4">
+            <h2 class="text-lg font-bold text-gray-900 dark:text-gray-100">Company Settings</h2>
+            <div>
+                <label for="company-settings-input" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Company name</label>
+                <input id="company-settings-input" type="text" maxlength="60" placeholder="e.g. Sails Software"
+                       class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 text-sm">
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Shown in the top header, just before the dark/light mode toggle. Saved to this browser only.</p>
+            </div>
+            <div class="flex items-center justify-end gap-2 pt-2 border-t border-gray-100 dark:border-gray-700">
+                <button onclick="closeCompanySettingsModal()" class="text-sm font-medium text-gray-600 dark:text-gray-400 hover:underline">Cancel</button>
+                <button onclick="saveCompanyNameFromModal()" class="bg-talentpilot-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-talentpilot-700 transition-colors">Save</button>
+            </div>
+        </div>
+    </div>
+
+
     <div class="flex min-h-screen">
         <!-- ====================================================================
-             LEFT NAV PANE (shared shell, FR-29 — extended here to 4 links.
-             First page spec'd/built with the current 4-link nav — 01.1/04.1/05.1
-             still show older versions, tracked in the design log Backlog.)
+             LEFT NAV PANE (shared shell, FR-29 — 4 links).
+             [2026-09-15] 01.1/04.1/05.1 now match this shell exactly (were
+             previously stale — 01.1/04.1 had a separate 2-link top-header nav
+             with no route back to this page; 05.1 had an older 3-link version
+             missing "Skill Assignments"). Fixed same session, design log
+             Backlog item closed.
              ==================================================================== -->
         <aside id="app-nav-sidebar" data-object-id="app-nav-sidebar"
-               class="w-56 shrink-0 bg-white border-r border-gray-200 flex flex-col">
+               class="w-56 shrink-0 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col relative transition-all duration-200">
+            <button id="app-nav-collapse-toggle" data-object-id="app-nav-collapse-toggle"
+                            onclick="TalentPilotNav.toggle()" aria-label="Collapse navigation" title="Collapse navigation"
+                            class="absolute -right-3 top-6 w-6 h-6 rounded-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-xs text-gray-600 dark:text-gray-300 flex items-center justify-center shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 z-10">«</button>
             <a href="06.1-Skill-Assignment-Dashboard.html" id="app-nav-logo" data-object-id="app-nav-logo"
-               class="flex items-center gap-2 font-bold text-lg text-gray-900 px-5 py-5 border-b border-gray-100">
-                TalentPilot-AI
+               class="flex items-center gap-2 font-bold text-lg text-gray-900 dark:text-gray-100 px-5 py-5 border-b border-gray-100 dark:border-gray-700">
+                <span class="app-nav-label">TalentPilot-AI</span>
+                <span class="app-nav-icon hidden inline-flex w-8 h-8 rounded-full bg-talentpilot-100 dark:bg-talentpilot-800 text-talentpilot-700 dark:text-talentpilot-200 items-center justify-center text-xs font-bold">TP</span>
             </a>
             <nav class="flex-1 px-3 py-4 space-y-1 text-sm">
-                <a href="#" id="app-nav-link-dashboard" data-object-id="app-nav-link-dashboard"
-                   aria-current="page"
-                   class="block px-3 py-2 rounded-lg bg-talentpilot-50 text-talentpilot-700 font-medium">Dashboard</a>
+                <!-- [REMOVED 2026-09-15] No "Dashboard" nav entry — the logo
+                     above and the default post-login landing both already
+                     reach this page; a nav-pane entry here would be
+                     redundant. No item is highlighted active on this page
+                     specifically, since it has no nav entry of its own. -->
                 <a href="01.1-Skills-Dashboard.html" id="app-nav-link-skill-assignments" data-object-id="app-nav-link-skill-assignments"
-                   class="block px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors">Skill Assignments</a>
+                   class="block px-3 py-2 rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-50 hover:text-gray-900 transition-colors flex items-center gap-2 app-nav-link-row">
+                   <span class="app-nav-label">Skill Assignments</span>
+                   <span class="app-nav-icon hidden inline-flex w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 items-center justify-center text-[10px] font-bold shrink-0" title="Skill Assignments">SA</span>
+                </a>
                 <a href="04.1-Skills-Tab.html" id="app-nav-link-skills" data-object-id="app-nav-link-skills"
-                   class="block px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors">Skills</a>
+                   class="block px-3 py-2 rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-50 hover:text-gray-900 transition-colors flex items-center gap-2 app-nav-link-row">
+                   <span class="app-nav-label">Skills</span>
+                   <span class="app-nav-icon hidden inline-flex w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 items-center justify-center text-[10px] font-bold shrink-0" title="Skills">SK</span>
+                </a>
                 <a href="05.1-Employees-Tab.html" id="app-nav-link-employees" data-object-id="app-nav-link-employees"
-                   class="block px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors">Employees</a>
+                   class="block px-3 py-2 rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-50 hover:text-gray-900 transition-colors flex items-center gap-2 app-nav-link-row">
+                   <span class="app-nav-label">Employees</span>
+                   <span class="app-nav-icon hidden inline-flex w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 items-center justify-center text-[10px] font-bold shrink-0" title="Employees">EM</span>
+                </a>
             </nav>
+            <!-- [ADDED 2026-09-15, direct request — fixes a page-load flicker]
+                 shared/nav.js is included in <head>, before this sidebar element exists,
+                 so its own init() can only run on `DOMContentLoaded` — by which
+                 time the browser has already painted one frame in the default
+                 expanded state, then visibly snapped/animated to collapsed on
+                 every full-page navigation while collapsed was the saved
+                 state. Calling init() here, inline, the moment this element's
+                 subtree finishes parsing (script tags execute in document
+                 order, and TalentPilotNav is already defined by the <head>
+                 include by this point) applies the correct state before first
+                 paint instead, eliminating the flash. The DOMContentLoaded
+                 call in nav.js itself is left in place as a harmless,
+                 idempotent fallback. -->
+            <script>window.TalentPilotNav && window.TalentPilotNav.init(); window.TalentPilotCompany && window.TalentPilotCompany.init();</script>
         </aside>
 
         <div class="flex-1 min-w-0">
             <!-- ================================================================
                  TOP BAR (slim, shared) — user menu only, nav links live in sidebar
                  ================================================================ -->
-            <header class="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-end">
-                <div id="app-topbar-user-menu" data-object-id="app-topbar-user-menu" class="relative">
-                    <button type="button" onclick="toggleUserMenu()" class="flex items-center gap-2 text-sm text-gray-700">
-                        <span class="w-8 h-8 rounded-full bg-talentpilot-100 flex items-center justify-center text-talentpilot-700 font-medium">R</span>
-                        Rita
-                    </button>
-                    <div class="hidden absolute right-0 mt-2 w-40 bg-white border border-gray-200 rounded-lg shadow-lg z-10" data-dropdown>
-                        <a href="#" onclick="handleSignOut()" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg">Sign Out</a>
+            <header class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-3 flex items-center justify-between">
+                <span class="app-nav-company-name text-3xl font-bold text-talentpilot-700 dark:text-talentpilot-300 whitespace-nowrap"></span>
+                <div class="flex items-center">
+                    <button id="app-theme-toggle" data-object-id="app-theme-toggle" onclick="TalentPilotTheme.toggle()"
+                            aria-label="Switch to Dark mode" title="Switch Light/Dark mode"
+                            class="mr-3 w-9 h-9 rounded-full border border-gray-300 dark:border-gray-600 flex items-center justify-center text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">🌙</button>
+                    <div id="app-topbar-user-menu" data-object-id="app-topbar-user-menu" class="relative">
+                        <button type="button" onclick="toggleUserMenu()" class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                            <span class="w-8 h-8 rounded-full bg-talentpilot-100 dark:bg-talentpilot-800 flex items-center justify-center text-talentpilot-700 font-medium">S</span>
+                            Sails Admin
+                        </button>
+                        <div class="hidden absolute right-0 mt-2 w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-10" data-dropdown>
+                            <a href="#" onclick="handleSignOut()" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 rounded-lg">Sign Out</a>
+                            <button type="button" onclick="openCompanySettingsModal()" class="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg">Company Settings</button>
+                        </div>
                     </div>
-                </div>
+                    </div>
             </header>
 
             <!-- ================================================================
@@ -99,9 +163,9 @@
                  ================================================================ -->
             <div class="px-6 pt-6">
                 <h1 id="dashboard-heading-title" data-object-id="dashboard-heading-title"
-                    class="text-3xl font-black text-gray-900">Dashboard</h1>
+                    class="text-3xl font-black text-gray-900 dark:text-gray-100">Dashboard</h1>
                 <p id="dashboard-heading-subtitle" data-object-id="dashboard-heading-subtitle"
-                   class="text-sm text-gray-500 mt-1">Org-wide skill assignment overview</p>
+                   class="text-sm text-gray-500 dark:text-gray-400 mt-1">Org-wide skill assignment overview</p>
             </div>
 
             <main id="dashboard-main" class="px-6 pb-12">
@@ -114,82 +178,138 @@
                     <!-- Top-line stats row (secondary) -->
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
                         <div id="dashboard-stat-employees" data-object-id="dashboard-stat-employees"
-                             class="bg-white border border-gray-200 rounded-lg px-5 py-4">
-                            <p class="text-sm text-gray-500">Total Employees</p>
-                            <p class="stat-value text-3xl font-bold text-gray-900 mt-1">—</p>
+                             class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-5 py-4">
+                            <p class="text-sm text-gray-500 dark:text-gray-400">Total Employees</p>
+                            <p class="stat-value text-3xl font-bold text-gray-900 dark:text-gray-100 mt-1">—</p>
                         </div>
                         <div id="dashboard-stat-skills-assigned" data-object-id="dashboard-stat-skills-assigned"
-                             class="bg-white border border-gray-200 rounded-lg px-5 py-4">
-                            <p class="text-sm text-gray-500">Total Skills Assigned</p>
-                            <p class="stat-value text-3xl font-bold text-gray-900 mt-1">—</p>
+                             class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-5 py-4">
+                            <p class="text-sm text-gray-500 dark:text-gray-400">Total Skills Assigned</p>
+                            <p class="stat-value text-3xl font-bold text-gray-900 dark:text-gray-100 mt-1">—</p>
                         </div>
                         <div id="dashboard-stat-completed" data-object-id="dashboard-stat-completed"
-                             class="bg-white border border-gray-200 rounded-lg px-5 py-4">
-                            <p class="text-sm text-gray-500">Total Completed</p>
-                            <p class="stat-value text-3xl font-bold text-gray-900 mt-1">—</p>
+                             class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-5 py-4">
+                            <p class="text-sm text-gray-500 dark:text-gray-400">Total Completed</p>
+                            <p class="stat-value text-3xl font-bold text-gray-900 dark:text-gray-100 mt-1">—</p>
                         </div>
                     </div>
 
-                    <!-- Progress ring (secondary) + Segmentation pie chart (PRIMARY, larger) -->
-                    <div class="grid grid-cols-1 lg:grid-cols-[1fr_1.5fr] gap-4 mt-4">
+                    <!-- Three ring cards, side by side [UPDATED 2026-09-15, direct
+                         request]: Assignment Progress, Experience Distribution,
+                         Days in Talent Pool — all in the same ring/legend
+                         format for visual consistency. Experience Distribution
+                         was previously a bucket-button grid; converted to match
+                         here. -->
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4">
 
-                        <!-- Assignment Progress Ring (secondary) -->
+                        <!-- Assignment Progress Ring -->
                         <div id="dashboard-progress-card" data-object-id="dashboard-progress-card"
-                             class="bg-white border border-gray-200 rounded-lg p-6 flex flex-col items-center">
+                             class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
                             <h2 id="dashboard-progress-heading" data-object-id="dashboard-progress-heading"
-                                class="text-lg font-bold text-gray-900 self-start mb-4">Assignment Progress</h2>
-                            <div id="dashboard-progress-ring" data-object-id="dashboard-progress-ring"
-                                 class="relative w-40 h-40 rounded-full">
-                                <div class="absolute inset-3 bg-white rounded-full flex items-center justify-center">
-                                    <span class="ring-percent-label text-2xl font-bold text-gray-900">—</span>
-                                </div>
-                            </div>
-                            <div class="mt-5 w-full space-y-1.5 text-sm">
-                                <p id="dashboard-progress-legend-completed" data-object-id="dashboard-progress-legend-completed"
-                                   class="flex items-center gap-2 text-gray-700">
-                                    <span class="w-2.5 h-2.5 rounded-full bg-talentpilot-700 inline-block"></span>
-                                    <span class="legend-text">Completed — —</span>
-                                </p>
-                                <p id="dashboard-progress-legend-inprogress" data-object-id="dashboard-progress-legend-inprogress"
-                                   class="flex items-center gap-2 text-gray-700">
-                                    <span class="w-2.5 h-2.5 rounded-full bg-blue-300 inline-block"></span>
-                                    <span class="legend-text">In Progress — —</span>
-                                </p>
-                                <p id="dashboard-progress-legend-notstarted" data-object-id="dashboard-progress-legend-notstarted"
-                                   class="flex items-center gap-2 text-gray-700">
-                                    <span class="w-2.5 h-2.5 rounded-full bg-gray-300 inline-block"></span>
-                                    <span class="legend-text">Not Started — —</span>
-                                </p>
-                            </div>
-                        </div>
-
-                        <!-- Employee Segmentation (PRIMARY — the page's actual job) -->
-                        <div id="dashboard-segmentation-card" data-object-id="dashboard-segmentation-card"
-                             class="bg-white border-2 border-gray-200 rounded-lg p-6">
-                            <h2 id="dashboard-segmentation-heading" data-object-id="dashboard-segmentation-heading"
-                                class="text-xl font-bold text-gray-900 mb-4">Employee Segmentation</h2>
-                            <div class="flex flex-col sm:flex-row items-center gap-8">
-                                <div id="dashboard-segmentation-pie" data-object-id="dashboard-segmentation-pie"
-                                     class="w-52 h-52 rounded-full shrink-0">
-                                </div>
-                                <div class="space-y-3 text-sm w-full">
-                                    <p id="dashboard-segmentation-legend-ontrack" data-object-id="dashboard-segmentation-legend-ontrack"
-                                       class="flex items-center gap-2 text-gray-700">
-                                        <span class="w-3 h-3 rounded-full bg-green-600 inline-block"></span>
-                                        <span class="legend-text">On Track — —</span>
-                                    </p>
-                                    <p id="dashboard-segmentation-legend-inprogress" data-object-id="dashboard-segmentation-legend-inprogress"
-                                       class="flex items-center gap-2 text-gray-700">
-                                        <span class="w-3 h-3 rounded-full bg-amber-500 inline-block"></span>
-                                        <span class="legend-text">In Progress — —</span>
-                                    </p>
-                                    <div class="relative" id="needs-attention-wrap">
-                                        <!-- Rendered entirely by JS: a <button> when count > 0, plain <span> when count is 0.
-                                             See renderSegmentation() — this is not just visually disabled, it's a different element. -->
+                                class="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">Assignment Progress</h2>
+                            <!-- [UPDATED 2026-09-15, direct request] Ring + counts
+                                 side-by-side, not stacked. -->
+                            <div class="flex items-center gap-5">
+                                <div id="dashboard-progress-ring" data-object-id="dashboard-progress-ring"
+                                     class="relative w-32 h-32 rounded-full shrink-0">
+                                    <div class="absolute inset-3 bg-white dark:bg-gray-800 rounded-full flex items-center justify-center">
+                                        <span class="ring-percent-label text-xl font-bold text-gray-900 dark:text-gray-100">—</span>
                                     </div>
                                 </div>
+                                <div class="flex-1 space-y-1.5 text-sm min-w-0">
+                                    <p id="dashboard-progress-legend-completed" data-object-id="dashboard-progress-legend-completed"
+                                       class="flex items-center gap-2 text-gray-700 dark:text-gray-300">
+                                        <span class="w-2.5 h-2.5 rounded-full bg-talentpilot-700 inline-block shrink-0"></span>
+                                        <span class="legend-text">Completed — —</span>
+                                    </p>
+                                    <p id="dashboard-progress-legend-inprogress" data-object-id="dashboard-progress-legend-inprogress"
+                                       class="flex items-center gap-2 text-gray-700 dark:text-gray-300">
+                                        <span class="w-2.5 h-2.5 rounded-full bg-blue-300 inline-block shrink-0"></span>
+                                        <span class="legend-text">In Progress — —</span>
+                                    </p>
+                                    <p id="dashboard-progress-legend-notstarted" data-object-id="dashboard-progress-legend-notstarted"
+                                       class="flex items-center gap-2 text-gray-700 dark:text-gray-300">
+                                        <span class="w-2.5 h-2.5 rounded-full bg-gray-300 inline-block shrink-0"></span>
+                                        <span class="legend-text">Not Started — —</span>
+                                    </p>
+                                </div>
                             </div>
                         </div>
+
+                        <!-- ================================================
+                             EXPERIENCE DISTRIBUTION — [REPLACED 2026-09-15,
+                             Story 10.11] this card used to be Employee
+                             Segmentation (On Track/In Progress/Needs
+                             Attention). That pie chart and its Needs
+                             Attention click-through are retired from this
+                             page entirely (see prd.md FR-32's superseded
+                             note) — this is a pure headcount-by-experience
+                             breakdown, not a readiness signal, and must not
+                             be styled to imply urgency. Underlying bucket
+                             data is the same as the Employees page's own
+                             Experience Distribution panel — reused, not a
+                             second implementation; presentation (ring, not a
+                             button grid) is dashboard-specific, matching the
+                             other two cards here.
+                             ================================================ -->
+                        <div id="dashboard-experience-distribution-card" data-object-id="dashboard-experience-distribution-card"
+                             class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
+                            <h2 id="dashboard-experience-distribution-heading" data-object-id="dashboard-experience-distribution-heading"
+                                class="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">Experience Distribution</h2>
+                            <div class="flex items-center gap-5">
+                                <div id="dashboard-experience-distribution-ring" data-object-id="dashboard-experience-distribution-ring"
+                                     class="relative w-32 h-32 rounded-full shrink-0">
+                                    <div class="absolute inset-3 bg-white dark:bg-gray-800 rounded-full flex items-center justify-center">
+                                        <span class="ring-total-label text-xl font-bold text-gray-900 dark:text-gray-100">—</span>
+                                    </div>
+                                </div>
+                                <div id="dashboard-experience-distribution-legend" data-object-id="dashboard-experience-distribution-legend"
+                                     class="flex-1 space-y-1 text-sm min-w-0"></div>
+                            </div>
+                        </div>
+
+                        <!-- ================================================
+                             DAYS IN TALENT POOL — [ADDED 2026-09-15, direct
+                             request] Org-wide tenure distribution, same
+                             ring/legend format as the other two cards.
+                             Buckets: <=15/16-30/31-45/46-60/61-75/76-90/90+
+                             days — the requested "15, 30, 45, 60, 75, more
+                             than 90" boundaries left a 76-90 gap, closed with
+                             an explicit 7th bucket rather than silently
+                             absorbed into a neighbor (same resolution
+                             approach as the Experience buckets' own 15-19 gap
+                             earlier this session).
+                             ================================================ -->
+                        <div id="dashboard-talent-pool-card" data-object-id="dashboard-talent-pool-card"
+                             class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
+                            <h2 id="dashboard-talent-pool-heading" data-object-id="dashboard-talent-pool-heading"
+                                class="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">Days in Talent Pool</h2>
+                            <div class="flex items-center gap-5">
+                                <div id="dashboard-talent-pool-ring" data-object-id="dashboard-talent-pool-ring"
+                                     class="relative w-32 h-32 rounded-full shrink-0">
+                                    <div class="absolute inset-3 bg-white dark:bg-gray-800 rounded-full flex items-center justify-center">
+                                        <span class="ring-total-label text-xl font-bold text-gray-900 dark:text-gray-100">—</span>
+                                    </div>
+                                </div>
+                                <div id="dashboard-talent-pool-legend" data-object-id="dashboard-talent-pool-legend"
+                                     class="flex-1 space-y-1 text-sm min-w-0"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- [MOVED 2026-09-15] Bucket click-through list now renders
+                         full-width below BOTH cards (Assignment Progress +
+                         Experience Distribution), not nested inside the
+                         Experience Distribution card — per direct request. -->
+                    <div id="dashboard-experience-distribution-list-wrap" data-object-id="dashboard-experience-distribution-list-wrap"
+                         class="hidden bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6 mt-4">
+                        <div class="flex items-center justify-between mb-3">
+                            <h3 id="dashboard-experience-distribution-list-heading" class="text-sm font-semibold text-gray-700 dark:text-gray-300"></h3>
+                            <button onclick="clearExperienceBucketSelection()" class="text-xs font-medium text-talentpilot-600 hover:underline">Clear</button>
+                        </div>
+                        <ul id="dashboard-experience-distribution-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 text-sm text-gray-700 dark:text-gray-300"></ul>
+                        <div id="dashboard-experience-distribution-list-pagination" data-object-id="dashboard-experience-distribution-list-pagination"
+                             class="flex items-center justify-center gap-3 text-sm text-gray-600 dark:text-gray-400 mt-4"></div>
                     </div>
                 </div>
 
@@ -211,8 +331,8 @@
                 <!-- ============================================================
                      EMPTY STATE (renders when there is truly nothing to show)
                      ============================================================ -->
-                <div id="dashboard-state-empty" class="hidden mt-6 bg-white border border-gray-200 rounded-lg p-12 text-center">
-                    <p class="text-gray-600">Nothing to show yet — assign a Skill to get started.</p>
+                <div id="dashboard-state-empty" class="hidden mt-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-12 text-center">
+                    <p class="text-gray-600 dark:text-gray-400">Nothing to show yet — assign a Skill to get started.</p>
                     <a href="03.1-Skill-Assignment-Flow.html" class="inline-block mt-4 bg-talentpilot-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-talentpilot-700 transition-colors">
                         + New Assignment
                     </a>
@@ -221,15 +341,15 @@
                 <!-- ============================================================
                      ERROR STATE
                      ============================================================ -->
-                <div id="dashboard-state-error" class="hidden mt-6 bg-white border border-gray-200 rounded-lg p-12 text-center">
-                    <p class="text-gray-600">Couldn't load dashboard data.</p>
+                <div id="dashboard-state-error" class="hidden mt-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-12 text-center">
+                    <p class="text-gray-600 dark:text-gray-400">Couldn't load dashboard data.</p>
                     <button onclick="loadAndRenderDashboard()" class="inline-block mt-4 bg-talentpilot-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-talentpilot-700 transition-colors">
                         Retry
                     </button>
                 </div>
 
                 <p id="dashboard-version-info" data-object-id="dashboard-version-info"
-                   class="text-center text-xs text-gray-400 mt-8">App v0.1.0</p>
+                   class="text-center text-xs text-gray-400 dark:text-gray-500 mt-8">App v0.1.0</p>
             </main>
         </div>
     </div>
@@ -241,33 +361,18 @@
     <script src="components/dev-mode.js"></script>
     <script>
         // ====================================================================
-        // Constants
-        // ====================================================================
-        // PRD Open Question 20: this threshold is a PM-drafted default, not yet
-        // user-confirmed. Named constant per the spec's own guidance, so it's
-        // one place to change, not scattered inline.
-        const ON_TRACK_THRESHOLD = 0.8;
-
-        // ====================================================================
         // Computation helpers
         // ====================================================================
+        // [RETIRED 2026-09-15, Story 10.11] ON_TRACK_THRESHOLD and
+        // computeEmployeeSegment() backed the old Employee Segmentation pie
+        // chart (On Track/In Progress/Needs Attention) — removed along with
+        // it. See prd.md FR-32's superseded note. Not kept here since this is
+        // a throwaway mockup, not the real backend (which retires rather than
+        // deletes its equivalent, per Story 10.11's AC).
         function computeAssignmentStatus(watchPercent) {
             if (watchPercent >= 100) return 'Completed';
             if (watchPercent > 0) return 'In Progress';
             return 'Not Started';
-        }
-
-        // Per-employee segmentation, per PRD FR-32:
-        // Needs Attention (>=1 assignment w/ provenance "Needs Attention", takes
-        // priority) > On Track (no Needs Attention AND completion >= threshold)
-        // > In Progress (everything else). Employees with zero assignments are
-        // excluded by the caller before this is invoked.
-        function computeEmployeeSegment(employeeAssignments, threshold) {
-            const hasNeedsAttention = employeeAssignments.some((a) => a.provenance === 'Needs Attention');
-            if (hasNeedsAttention) return 'needsAttention';
-            const completedCount = employeeAssignments.filter((a) => computeAssignmentStatus(a.watchPercent) === 'Completed').length;
-            const completionRate = completedCount / employeeAssignments.length;
-            return completionRate >= threshold ? 'onTrack' : 'inProgress';
         }
 
         function conicGradient(stops) {
@@ -325,116 +430,180 @@
             document.querySelector('#dashboard-progress-legend-inprogress .legend-text').textContent = 'In Progress — ' + inProgressCount;
             document.querySelector('#dashboard-progress-legend-notstarted .legend-text').textContent = 'Not Started — ' + notStartedCount;
 
-            // --- Employee Segmentation ---
-            const assignmentsByEmployee = {};
-            withStatus.forEach((a) => {
-                (assignmentsByEmployee[a.employeeId] = assignmentsByEmployee[a.employeeId] || []).push(a);
-            });
-
-            const segments = { onTrack: [], inProgress: [], needsAttention: [] };
-            employees.forEach((emp) => {
-                const empAssignments = assignmentsByEmployee[emp.id];
-                if (!empAssignments || empAssignments.length === 0) return; // excluded entirely, per spec
-                const segment = computeEmployeeSegment(empAssignments, ON_TRACK_THRESHOLD);
-                const flagged = empAssignments.find((a) => a.provenance === 'Needs Attention');
-                segments[segment].push({ employee: emp, flaggedAssignment: flagged });
-            });
-
-            document.getElementById('dashboard-segmentation-pie').style.background = conicGradient([
-                { color: '#16a34a', count: segments.onTrack.length },
-                { color: '#f59e0b', count: segments.inProgress.length },
-                { color: '#dc2626', count: segments.needsAttention.length },
-            ]);
-            document.querySelector('#dashboard-segmentation-legend-ontrack .legend-text').textContent = 'On Track — ' + segments.onTrack.length;
-            document.querySelector('#dashboard-segmentation-legend-inprogress .legend-text').textContent = 'In Progress — ' + segments.inProgress.length;
-
-            renderNeedsAttention(segments.needsAttention);
+            // --- Experience Distribution (FR-36, replaces Employee Segmentation
+            //     as of Story 10.11 — reuses the same bucket set/interaction as
+            //     05.1-Employees-Tab.html's panel, not a second implementation) ---
+            renderExperienceDistribution(employees);
         }
 
-        function renderNeedsAttention(needsAttentionList) {
-            const wrap = document.getElementById('needs-attention-wrap');
-            const count = needsAttentionList.length;
+        // Shared color palette for both ring cards' bucket segments/legends.
+        const BUCKET_COLORS = ['#2563eb', '#7c3aed', '#db2777', '#ea580c', '#65a30d', '#0891b2', '#78716c'];
 
-            if (count === 0) {
-                // Genuinely non-interactive: a <span>, not a <button> — not just
-                // visually muted. No hint text, no popover markup at all.
-                wrap.innerHTML = `
-                    <span id="dashboard-segmentation-legend-needsattention" data-object-id="dashboard-segmentation-legend-needsattention"
-                          class="flex items-center gap-2 text-gray-500">
-                        <span class="w-3 h-3 rounded-full bg-gray-300 inline-block"></span>
-                        Needs Attention — 0
-                    </span>`;
+        // 7 contiguous, exhaustive buckets — locked 2026-09-15, same constant
+        // shape as 05.1-Employees-Tab.html's EXPERIENCE_BUCKETS.
+        const EXPERIENCE_BUCKETS = [
+            { label: '0–4 yrs', min: 0, max: 4 },
+            { label: '5–7 yrs', min: 5, max: 7 },
+            { label: '8–9 yrs', min: 8, max: 9 },
+            { label: '10–11 yrs', min: 10, max: 11 },
+            { label: '12–14 yrs', min: 12, max: 14 },
+            { label: '15–19 yrs', min: 15, max: 19 },
+            { label: '20+ yrs', min: 20, max: Infinity },
+        ];
+        // [ADDED 2026-09-15, direct request] Requested boundaries (15, 30, 45,
+        // 60, 75, more than 90) left a 76-90 gap uncovered — closed with an
+        // explicit 7th bucket, same resolution approach as the Experience
+        // buckets' own 15-19 gap earlier this session, not silently absorbed
+        // into a neighboring bucket.
+        const TALENT_POOL_BUCKETS = [
+            { label: '≤15 days', min: 0, max: 15 },
+            { label: '16–30 days', min: 16, max: 30 },
+            { label: '31–45 days', min: 31, max: 45 },
+            { label: '46–60 days', min: 46, max: 60 },
+            { label: '61–75 days', min: 61, max: 75 },
+            { label: '76–90 days', min: 76, max: 90 },
+            { label: '90+ days', min: 91, max: Infinity },
+        ];
+
+        let lastRenderedEmployees = [];
+        // { kind: 'experience' | 'talentPool', bucket } | null — only one
+        // selection across both cards at a time; selecting a new bucket in
+        // either card clears the other's.
+        let activeBucketSelection = null;
+
+        function talentPoolDays(e) {
+            return e.createdAt != null ? Math.floor((Date.now() - new Date(e.createdAt).getTime()) / 86400000) : null;
+        }
+        function bucketValueForKind(e, kind) {
+            return kind === 'experience' ? e.experienceYears : talentPoolDays(e);
+        }
+        function bucketsForKind(kind) {
+            return kind === 'experience' ? EXPERIENCE_BUCKETS : TALENT_POOL_BUCKETS;
+        }
+
+        function renderBucketRing(kind, ringElId, legendElId) {
+            const buckets = bucketsForKind(kind);
+            const withValue = lastRenderedEmployees.filter((e) => bucketValueForKind(e, kind) != null);
+            const counts = buckets.map((b) => withValue.filter((e) => {
+                const v = bucketValueForKind(e, kind);
+                return v >= b.min && v <= b.max;
+            }).length);
+            const total = counts.reduce((a, c) => a + c, 0);
+
+            document.getElementById(ringElId).style.background = conicGradient(
+                buckets.map((b, i) => ({ color: BUCKET_COLORS[i % BUCKET_COLORS.length], count: counts[i] }))
+            );
+            const label = document.querySelector('#' + ringElId + ' .ring-total-label');
+            if (label) label.textContent = total;
+
+            document.getElementById(legendElId).innerHTML = buckets.map((b, i) => {
+                const isActive = !!(activeBucketSelection && activeBucketSelection.kind === kind && activeBucketSelection.bucket === b);
+                return `
+                    <button onclick="selectDashboardBucket('${kind}', '${b.label}')"
+                            aria-pressed="${isActive}"
+                            class="w-full flex items-center justify-between gap-2 px-1.5 py-0.5 text-xs rounded transition-colors ${isActive ? 'bg-talentpilot-50 dark:bg-talentpilot-900/40' : 'hover:bg-gray-50 dark:hover:bg-gray-700'}">
+                        <span class="flex items-center gap-2 text-gray-700 dark:text-gray-300">
+                            <span class="w-2.5 h-2.5 rounded-full inline-block shrink-0" style="background:${BUCKET_COLORS[i % BUCKET_COLORS.length]}"></span>
+                            ${b.label}
+                        </span>
+                        <span class="font-semibold ${isActive ? 'text-talentpilot-700 dark:text-talentpilot-300' : 'text-gray-900 dark:text-gray-100'}">${counts[i]}</span>
+                    </button>`;
+            }).join('');
+        }
+
+        function renderExperienceDistribution(employees) {
+            lastRenderedEmployees = employees;
+            renderBucketRing('experience', 'dashboard-experience-distribution-ring', 'dashboard-experience-distribution-legend');
+            renderBucketRing('talentPool', 'dashboard-talent-pool-ring', 'dashboard-talent-pool-legend');
+            renderBucketResultsList();
+        }
+
+        function selectDashboardBucket(kind, label) {
+            const bucket = bucketsForKind(kind).find((b) => b.label === label);
+            const isSame = activeBucketSelection && activeBucketSelection.kind === kind && activeBucketSelection.bucket === bucket;
+            activeBucketSelection = isSame ? null : { kind, bucket };
+            bucketListPage = 1; // new selection resets pagination to page 1
+            renderBucketRing('experience', 'dashboard-experience-distribution-ring', 'dashboard-experience-distribution-legend');
+            renderBucketRing('talentPool', 'dashboard-talent-pool-ring', 'dashboard-talent-pool-legend');
+            renderBucketResultsList();
+        }
+        function clearExperienceBucketSelection() {
+            activeBucketSelection = null;
+            bucketListPage = 1;
+            renderBucketRing('experience', 'dashboard-experience-distribution-ring', 'dashboard-experience-distribution-legend');
+            renderBucketRing('talentPool', 'dashboard-talent-pool-ring', 'dashboard-talent-pool-legend');
+            renderBucketResultsList();
+        }
+
+        // Paginated at 15/page (FR-36's existing convention) — shared by
+        // both cards' click-through, matching the Employee roster's own
+        // bordered row-card presentation style, not a bare name list.
+        const BUCKET_LIST_PAGE_SIZE = 15;
+        let bucketListPage = 1;
+
+        function goExperienceListPage(p) { bucketListPage = p; renderBucketResultsList(); }
+
+        function renderBucketResultsList() {
+            const listWrap = document.getElementById('dashboard-experience-distribution-list-wrap');
+            if (!activeBucketSelection) {
+                listWrap.classList.add('hidden');
                 return;
             }
+            const { kind, bucket } = activeBucketSelection;
+            const matches = lastRenderedEmployees.filter((e) => {
+                const v = bucketValueForKind(e, kind);
+                return v != null && v >= bucket.min && v <= bucket.max;
+            });
+            const totalPages = Math.max(1, Math.ceil(matches.length / BUCKET_LIST_PAGE_SIZE));
+            if (bucketListPage > totalPages) bucketListPage = totalPages;
+            const start = (bucketListPage - 1) * BUCKET_LIST_PAGE_SIZE;
+            const pageItems = matches.slice(start, start + BUCKET_LIST_PAGE_SIZE);
+            const kindLabel = kind === 'experience' ? 'Experience Distribution' : 'Days in Talent Pool';
 
-            const rows = needsAttentionList.map((item, i) => {
-                const name = escapeHtml(item.employee.firstName + (item.employee.lastName ? ' ' + item.employee.lastName : ''));
-                const skillName = escapeHtml((item.flaggedAssignment && item.flaggedAssignment.skill && item.flaggedAssignment.skill.name) || 'a skill');
-                return `<a href="01.1-Skills-Dashboard.html?employee=${encodeURIComponent(item.employee.id)}"
-                           id="popover-item-${i}" data-object-id="dashboard-needs-attention-popover-item"
-                           class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                            ${name} — ${skillName}
-                        </a>`;
-            }).join('');
+            document.getElementById('dashboard-experience-distribution-list-heading').textContent =
+                `${kindLabel}: ${bucket.label} (${matches.length})`;
+            document.getElementById('dashboard-experience-distribution-list').innerHTML = pageItems.map((e) => {
+                const v = bucketValueForKind(e, kind);
+                const sub = kind === 'experience' ? `${v} yrs` : `${v} days in pool`;
+                return `
+                <li class="border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2">
+                    <p class="font-medium text-gray-900 dark:text-gray-100">${escapeHtml(e.lastName ? e.lastName + ', ' + e.firstName : e.firstName)}</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">${escapeHtml(e.role || '—')} · ${sub}</p>
+                </li>`;
+            }).join('') || '<li class="text-gray-400 dark:text-gray-500 col-span-full">No employees in this bucket.</li>';
 
-            wrap.innerHTML = `
-                <button type="button" id="dashboard-segmentation-legend-needsattention" data-object-id="dashboard-segmentation-legend-needsattention"
-                        onclick="toggleNeedsAttentionPopover()"
-                        aria-label="Needs Attention, ${count} employee${count === 1 ? '' : 's'}, click to see who"
-                        aria-expanded="false"
-                        class="flex items-center gap-2 text-red-700 font-semibold hover:underline">
-                    <span class="w-3 h-3 rounded-full bg-red-600 inline-block"></span>
-                    Needs Attention — ${count}
-                </button>
-                <p id="dashboard-segmentation-hint" data-object-id="dashboard-segmentation-hint"
-                   class="text-xs text-gray-400 ml-5 mt-0.5">Click to see who</p>
-                <div id="dashboard-needs-attention-popover" data-object-id="dashboard-needs-attention-popover"
-                     class="hidden absolute left-0 top-full mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-10 py-2">
-                    ${rows}
-                </div>`;
-        }
-
-        // ====================================================================
-        // Needs Attention popover — open/close + keyboard behavior
-        // ====================================================================
-        function toggleNeedsAttentionPopover() {
-            const popover = document.getElementById('dashboard-needs-attention-popover');
-            const trigger = document.getElementById('dashboard-segmentation-legend-needsattention');
-            const opening = popover.classList.contains('hidden');
-            popover.classList.toggle('hidden');
-            trigger.setAttribute('aria-expanded', String(opening));
-            if (opening) {
-                const firstLink = popover.querySelector('a');
-                if (firstLink) firstLink.focus();
+            const pag = document.getElementById('dashboard-experience-distribution-list-pagination');
+            if (totalPages > 1) {
+                let html = `<button onclick="goExperienceListPage(${bucketListPage - 1})" ${bucketListPage === 1 ? 'disabled class="opacity-30"' : ''}>‹</button>`;
+                for (let p = 1; p <= totalPages; p++) {
+                    html += `<button onclick="goExperienceListPage(${p})" class="${p === bucketListPage ? 'font-bold text-talentpilot-600' : ''}">${p}</button>`;
+                }
+                html += `<button onclick="goExperienceListPage(${bucketListPage + 1})" ${bucketListPage === totalPages ? 'disabled class="opacity-30"' : ''}>›</button>`;
+                pag.innerHTML = html;
+            } else {
+                pag.innerHTML = '';
             }
+            listWrap.classList.remove('hidden');
         }
-
-        function closeNeedsAttentionPopover(returnFocus) {
-            const popover = document.getElementById('dashboard-needs-attention-popover');
-            const trigger = document.getElementById('dashboard-segmentation-legend-needsattention');
-            if (!popover || popover.classList.contains('hidden')) return;
-            popover.classList.add('hidden');
-            if (trigger) trigger.setAttribute('aria-expanded', 'false');
-            if (returnFocus && trigger) trigger.focus();
-        }
-
-        document.addEventListener('click', function (e) {
-            const popover = document.getElementById('dashboard-needs-attention-popover');
-            const trigger = document.getElementById('dashboard-segmentation-legend-needsattention');
-            if (!popover || popover.classList.contains('hidden')) return;
-            if (!popover.contains(e.target) && e.target !== trigger) {
-                closeNeedsAttentionPopover(false);
-            }
-        });
-        document.addEventListener('keydown', function (e) {
-            if (e.key === 'Escape') closeNeedsAttentionPopover(true);
-        });
 
         // ====================================================================
         // User menu (top bar)
         // ====================================================================
         function toggleUserMenu() { document.querySelector('#app-topbar-user-menu [data-dropdown]').classList.toggle('hidden'); }
         function handleSignOut() { window.location.href = 'login.html'; }
+
+        function openCompanySettingsModal() {
+            if (window.TalentPilotCompany) TalentPilotCompany.init(); // re-sync input with the stored value
+            document.getElementById('company-settings-modal').classList.remove('hidden');
+        }
+        function closeCompanySettingsModal() {
+            document.getElementById('company-settings-modal').classList.add('hidden');
+        }
+        function saveCompanyNameFromModal() {
+            const val = document.getElementById('company-settings-input').value;
+            if (window.TalentPilotCompany) TalentPilotCompany.save(val);
+            closeCompanySettingsModal();
+        }
 
         // ====================================================================
         // Load + render, with real (simulated) Loading/Empty/Error states.
