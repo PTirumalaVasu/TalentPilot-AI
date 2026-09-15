@@ -13,8 +13,10 @@ router = APIRouter()
 
 
 @router.post("/login", response_model=LoginResponse)
-async def login(credentials: LoginRequest, response: Response) -> LoginResponse:
-    user_id, role = authenticate(credentials.email, credentials.password)
+async def login(
+    credentials: LoginRequest, response: Response, db: AsyncSession = Depends(get_db)
+) -> LoginResponse:
+    user_id, role = await authenticate(db, credentials.email, credentials.password)
     token = create_access_token(user_id=user_id, role=role.value)
     set_session_cookie(response, token)
     return LoginResponse(role=role, user_id=user_id)

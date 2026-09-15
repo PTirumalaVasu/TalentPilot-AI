@@ -8,9 +8,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.models import Account
 from app.assignments.models import ContentCatalog
 from app.core.embedding import embed_text
+from app.core.security import hash_password
 from app.core.seed_ids import CASEY_ID, JORDAN_ID, MORGAN_ID, RITA_ID, SAM_ID
 from app.employees.models import Employee
-from app.employees.service import hash_password
 from app.skills.models import Skill
 
 SKILL_DATA_VIZ_ID = uuid.UUID("660e8400-e29b-41d4-a716-446655440001")
@@ -282,9 +282,9 @@ async def create_default_accounts(session: AsyncSession) -> None:
     # Story 7.1: previously a hardcoded placeholder hash with valid bcrypt
     # *shape* only (verified via bcrypt.checkpw to NOT actually validate
     # against "demo123") -- replaced with a real hash computed via
-    # employees.service.hash_password (the same helper Stories 7.2/7.6 will
-    # call for real Employee-created passwords), so Account-backed login
-    # actually works once a future story wires authenticate() to check it.
+    # core.security.hash_password (the same helper Stories 7.2/7.6 use for
+    # real Employee-created passwords), so Account-backed login actually
+    # works now that auth/service.py::authenticate() reads this table.
     demo_password_hash = hash_password("demo123")
     accounts = [
         Account(

@@ -1,46 +1,13 @@
-"""Unit tests for app.employees.service's password hashing helper (Story 7.1)
-and password generation (Story 7.2).
+"""Unit tests for app.employees.service's password generation (Story 7.2).
+
+Password hash/verify helper tests moved to test_security.py (auth-wiring
+story) -- they now live in app.core.security, shared crypto infra used by
+both employees/service.py and auth/service.py, not employees-owned logic.
 
 No DB required -- pure functions, mirroring test_skills_service.py's
 sync-test-for-pure-helper precedent (_build_embedding_text).
 """
-from app.employees.service import _PASSWORD_ALPHABET, generate_password, hash_password, verify_password
-
-
-def test_hash_password_produces_a_bcrypt_hash():
-    hashed = hash_password("demo123")
-    assert hashed.startswith("$2b$")
-    assert hashed != "demo123"
-
-
-def test_verify_password_accepts_the_correct_password():
-    hashed = hash_password("demo123")
-    assert verify_password("demo123", hashed) is True
-
-
-def test_verify_password_rejects_an_incorrect_password():
-    hashed = hash_password("demo123")
-    assert verify_password("wrong-password", hashed) is False
-
-
-def test_hash_password_is_salted_not_deterministic():
-    # Two hashes of the same password must differ (random salt per call) --
-    # this is what makes the previous, hardcoded-identical-across-5-rows
-    # placeholder value a red flag in retrospect, not just an invalid one.
-    first = hash_password("demo123")
-    second = hash_password("demo123")
-    assert first != second
-    assert verify_password("demo123", first) is True
-    assert verify_password("demo123", second) is True
-
-
-def test_verify_password_rejects_the_known_bad_placeholder_hash():
-    # Regression guard for the exact bug found during this story's
-    # authoring: the old seeded placeholder hash has valid bcrypt shape but
-    # does not validate against "demo123". Pinned here so it can never
-    # silently come back.
-    placeholder = "$2b$12$Ej1cKPsyxQqFWK/8PHT0d.c0yoIbR1Z2r.uV5XvDWMmr.B8xN3RBG"
-    assert verify_password("demo123", placeholder) is False
+from app.employees.service import _PASSWORD_ALPHABET, generate_password
 
 
 def test_generate_password_is_12_characters():

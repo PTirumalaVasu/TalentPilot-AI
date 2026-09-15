@@ -33,6 +33,37 @@ export async function listEmployees(): Promise<EmployeeResponse[]> {
   return response.data;
 }
 
+export interface CreateEmployeeRequest {
+  employee_code: string;
+  name: string;
+  email: string;
+  phone: string | null;
+  experience: string | null;
+  technologies: string | null;
+  position: string | null;
+  project: string | null;
+  manager_name: string | null;
+  location: string | null;
+  department: string | null;
+}
+
+export interface EmployeeCreatedResponse extends EmployeeResponse {
+  /** Story 7.2 (FR-24): the generated plaintext password, returned exactly
+   * once -- same one-time-reveal contract as RegeneratePasswordResponse.
+   * generated_password (Story 7.6). Never persisted, never retrievable via
+   * any other endpoint. */
+  generated_password: string;
+}
+
+/** POST /api/admin/employees (Story 7.2, FR-24) -- creates the Employee
+ * plus its paired login Account in one transaction; the server generates
+ * the password. 409 on a collision with an existing employee_code (exact
+ * match) or email (case-insensitive), active or archived. */
+export async function createEmployee(payload: CreateEmployeeRequest): Promise<EmployeeCreatedResponse> {
+  const response = await apiClient.post<EmployeeCreatedResponse>('/api/admin/employees', payload);
+  return response.data;
+}
+
 export interface UpdateEmployeeRequest {
   name: string;
   email: string;

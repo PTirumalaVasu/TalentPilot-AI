@@ -383,7 +383,13 @@ action_items:
   - epic: 7
     action: "Wire auth/service.py::authenticate() to actually validate against the Account table's real bcrypt hashes -- currently it only checks Story 1.4's hardcoded _MOCK_ACCOUNTS plaintext dict, so every credential capability Epic 7 built (Story 7.2's generated password, Story 7.6's regenerated password) produces a password that cannot currently be used to log in. Flagged as a known gap in 3 separate stories' Dev Notes (7.1, 7.4, 7.6) but never tracked as an action item until this retro."
     owner: "Alice (Product Owner) + Amelia (dev)"
-    status: open
+    status: done
+    # Closed 2026-09-14 during a "new employee functionality is not working" bug
+    # investigation (not a formal story) -- authenticate() now reads the real
+    # accounts table via get_account_by_email_ci + bcrypt verify_password,
+    # async, both HR_ADMIN and EMPLOYEE. See project-context.md's 2026-09-14
+    # entry for the full change (also fixed Story 7.2's still-missing
+    # frontend create-employee modal in the same session).
   - epic: 7
     action: "Consolidate the recurring accessibility gap (no aria-required marker; no aria-describedby/role=alert linking a duplicate-value notice to its field) into one shared fix across NewSkillModal.tsx, EditEmployeeModal.tsx, and the Create Employee flow -- deferred 3 times now as 'matches existing precedent' without the precedent itself ever being fixed."
     owner: "Amelia (dev)"
@@ -396,7 +402,8 @@ action_items:
   - epic: 8
     action: "ESCALATED TO TOP PRIORITY (project is now feature-complete, all 8 epics done -- no further epic will naturally force this): wire auth/service.py::authenticate() to validate against the Account table's real bcrypt hashes instead of Story 1.4's hardcoded _MOCK_ACCOUNTS dict. Epic 7's entire generated/regenerated-password feature set (Stories 7.2, 7.6) is inert without this. Open since the epic-7 retro; user explicitly re-confirmed top priority at the epic-8 retro via AskUserQuestion."
     owner: "Alice (Product Owner) + Amelia (dev)"
-    status: open
+    status: done
+    # Closed 2026-09-14 -- see the matching epic-7 action item's note above.
   - epic: 8
     action: "Add a blocking checklist step to the bmad-dev-story and bmad-code-review skills themselves: a story cannot move to 'done' without a matching project-context.md entry (creation/implementation/review). The reminder-only version of this fix (epic-7 action item above) failed within one story -- Story 8.1 shipped with zero project-context.md entry until this retro backfilled it. Per user decision at the epic-8 retro, this needs to be a workflow gate, not another retro-level reminder."
     owner: "Amelia (dev-story / code-review workflow)"

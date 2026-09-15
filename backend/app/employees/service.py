@@ -1,8 +1,10 @@
 """Service layer for the employees module.
 
-Story 7.1 added the bcrypt hash/verify helpers. Story 7.2 (create, FR-24)
-adds password generation and the first real CRUD service method.
-Cross-module callers must go through here (AD-1).
+Story 7.2 (create, FR-24) adds password generation and the first real CRUD
+service method. Password hash/verify helpers live in app.core.security --
+shared crypto infrastructure, not employees-owned business logic, since
+auth/service.py also needs them to validate logins against real Account
+rows. Cross-module callers must go through here (AD-1).
 """
 import asyncio
 import logging
@@ -10,7 +12,6 @@ import secrets
 from datetime import datetime, timezone
 from uuid import UUID
 
-import bcrypt
 from fastapi import status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,6 +20,7 @@ from app.auth import repository as auth_repository
 from app.auth.schemas import CurrentUser
 from app.auth.service import require_hr_admin
 from app.core.errors import AppException
+from app.core.security import hash_password
 from app.employees import repository
 from app.employees.schemas import (
     CreateEmployeeRequest,
@@ -43,17 +45,6 @@ logger = logging.getLogger(__name__)
 # behave the same as what Rita's roster management flow was designed around.
 _PASSWORD_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789"
 _PASSWORD_LENGTH = 12
-
-
-def hash_password(plaintext: str) -> str:
-    """Hash a plaintext password with bcrypt. Returns a UTF-8 string suitable
-    for storing in Account.password_hash."""
-    return bcrypt.hashpw(plaintext.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
-
-
-def verify_password(plaintext: str, hashed: str) -> bool:
-    """Check a plaintext password against a stored bcrypt hash."""
-    return bcrypt.checkpw(plaintext.encode("utf-8"), hashed.encode("utf-8"))
 
 
 def generate_password() -> str:

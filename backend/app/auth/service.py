@@ -1,19 +1,19 @@
 """Service layer for the auth module. Cross-module callers must go through here (AD-1)."""
 
+import asyncio
 import logging
-import secrets
 from uuid import UUID
 
 import jwt
 from fastapi import Depends, HTTPException, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.repository import find_account, get_account_by_id
+from app.auth.repository import get_account_by_email_ci, get_account_by_id
 from app.auth.schemas import CurrentUser, Role
 from app.core.config import settings
 from app.core.db import get_db
 from app.core.errors import AppException
-from app.core.security import decode_access_token
+from app.core.security import decode_access_token, verify_password
 
 logger = logging.getLogger(__name__)
 
@@ -24,12 +24,26 @@ logger = logging.getLogger(__name__)
 _revoked_tokens: set[str] = set()
 
 
-def authenticate(email: str, password: str) -> tuple[str, Role]:
-    account = find_account(email)
-    if account is None or not secrets.compare_digest(account["password"], password):
+async def authenticate(db: AsyncSession, email: str, password: str) -> tuple[str, Role]:
+    """Validates a login against the real `accounts` table (bcrypt hash),
+    replacing the old hardcoded `_MOCK_ACCOUNTS` dict lookup -- the epic-8
+    retro's top-priority gap (sprint-status.yaml): every credential Epic 7
+    generates (Story 7.2's create, Story 7.6's regenerate) is now actually
+    usable to log in. `.strip()` before lookup preserves the old mock
+    lookup's whitespace tolerance; the DB-side match is case-insensitive
+    (get_account_by_email_ci). An archived Account (Story 7.5) is rejected
+    the same way get_current_user rejects an archived session mid-flight."""
+    account = await get_account_by_email_ci(db, email.strip())
+    if account is None or account.archived_at is not None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Email or password incorrect")
 
-    return account["user_id"], Role(account["role"])
+    # bcrypt's checkpw is a blocking call (~100-300ms) -- offloaded off the
+    # event loop, mirroring employees/service.py's asyncio.to_thread(hash_password) precedent.
+    valid = await asyncio.to_thread(verify_password, password, account.password_hash)
+    if not valid:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Email or password incorrect")
+
+    return str(account.id), Role(account.role)
 
 
 def set_session_cookie(response: Response, token: str) -> None:

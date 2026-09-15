@@ -19,20 +19,20 @@ import app.employees.models  # noqa: F401
 class Account(Base):
     """Local auth credential store.
 
-    Story 7.1 (AR-24): resolved as the real EMPLOYEE-role credential store
-    going forward, replacing the plaintext `_MOCK_ACCOUNTS` dict in
-    `auth/repository.py` for Employees created via Employee Roster
-    Management (Epic 7). HR_ADMIN login is explicitly out of this epic's
-    scope and remains on `_MOCK_ACCOUNTS` (see that module's docstring).
+    Story 7.1 (AR-24) introduced this table as the real credential store,
+    replacing the plaintext `_MOCK_ACCOUNTS` dict that previously lived in
+    `auth/repository.py`. `authenticate()` (`auth/service.py`) now reads
+    this table for every login, HR_ADMIN and EMPLOYEE alike -- the epic-8
+    retro's top-priority gap (sprint-status.yaml), closed by wiring
+    `authenticate()` to `get_account_by_email_ci` + bcrypt verification
+    instead of the hardcoded dict.
 
     `id` MUST always equal the corresponding `employees.id` -- this is the
     identity link the rest of the app relies on (`auth/repository.py`'s own
     comment: "user_id values are the same UUIDs as the real seeded Employee
     rows... CurrentUser.user_id [must be] a real Employee UUID"). No
     `Account` row should ever be created with an `id` that isn't an
-    existing `Employee.id`. Note: `authenticate()` does not yet read from
-    this table (still `_MOCK_ACCOUNTS`-only) -- wiring it up is forward
-    guidance for a future story (see Story 7.1's Dev Notes), not done here.
+    existing `Employee.id`.
     """
 
     __tablename__ = "accounts"

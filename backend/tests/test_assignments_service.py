@@ -16,7 +16,7 @@ from app.assignments import service as assignments_service
 from app.assignments.repository import find_existing_assignment, list_assignments_for_employee
 from app.assignments.schemas import AssignmentStatus, CreateAssignmentRequest
 from app.assignments.service import create_assignment_service
-from app.auth.repository import find_account
+from app.auth.repository import get_account_by_email_ci
 from app.auth.schemas import CurrentUser, Role
 from app.core.config import settings
 from app.core.errors import AppException
@@ -75,14 +75,16 @@ async def test_employee_is_rejected_before_any_repository_call():
 async def test_real_mock_login_user_id_works_end_to_end_as_assigned_by():
     """Regression test (code review, 2026-07-10): create_assignment_service does
     `uuid.UUID(current_user.user_id)`, which previously crashed for every real
-    login, because auth/repository.py's mock accounts issued user_id as plain
-    names ("rita", "casey", ...) instead of UUIDs. Fixed by aligning the mock
-    accounts' user_id with the real seeded Employee UUIDs (core/seed_ids.py) —
-    this test goes through find_account (the actual login-flow lookup), not a
-    hand-constructed CurrentUser, to prove the real path works end-to-end."""
+    login, because auth/repository.py's old mock accounts issued user_id as
+    plain names ("rita", "casey", ...) instead of UUIDs. Fixed by aligning
+    account identity with the real seeded Employee UUIDs (core/seed_ids.py) —
+    this test goes through get_account_by_email_ci (the actual login-flow
+    lookup, auth/service.py::authenticate()'s real DB query since the auth
+    wiring), not a hand-constructed CurrentUser, to prove the real path
+    works end-to-end."""
     async with _seeded_session() as session:
-        account = find_account("rita@sails.example.com")
-        hr_user = CurrentUser(role=Role.HR_ADMIN, user_id=account["user_id"])
+        account = await get_account_by_email_ci(session, "rita@sails.example.com")
+        hr_user = CurrentUser(role=Role.HR_ADMIN, user_id=str(account.id))
         request = CreateAssignmentRequest(employee_id=CASEY_ID, skill_id=SKILL_DATA_VIZ_ID)
 
         response = await create_assignment_service(session, current_user=hr_user, request=request)

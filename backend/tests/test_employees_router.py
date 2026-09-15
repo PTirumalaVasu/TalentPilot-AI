@@ -21,8 +21,8 @@ from app.auth.models import Account
 from app.core.config import settings
 from app.core.seeds import SKILL_DATA_VIZ_ID
 from app.employees.models import Employee
+from app.core.security import verify_password
 from app.employees.repository import get_employee_for_update
-from app.employees.service import verify_password
 from app.main import app
 
 pytestmark = pytest.mark.asyncio(loop_scope="module")

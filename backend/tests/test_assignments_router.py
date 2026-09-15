@@ -1,10 +1,10 @@
 """Router-level tests for assignments/router.py (Story 3.4).
 
 Uses the real `app.main.app` via ASGITransport. Unlike test_login.py/
-test_logout.py (which never touch the DB — authenticate() reads the mock
-_MOCK_ACCOUNTS dict, not a real query), this file is the first to exercise
-get_db()'s real per-request session against the shared app.core.db.engine
-repeatedly across multiple test functions. Plain function-scoped
+test_logout.py (each of whose login calls is one self-contained DB read via
+authenticate()'s get_account_by_email_ci query), this file is the first to
+exercise get_db()'s real per-request session against the shared
+app.core.db.engine repeatedly across multiple test functions. Plain function-scoped
 @pytest.mark.asyncio (pytest's default) reproduces the known cross-event-loop
 asyncpg pool corruption ("cannot perform operation: another operation is in
 progress") the moment a second DB-touching test runs — each test function

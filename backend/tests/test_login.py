@@ -1,9 +1,16 @@
+from datetime import datetime, timezone
+
 import pytest
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
+from app.auth.models import Account
 from app.core.config import settings
 from app.core.seed_ids import CASEY_ID, JORDAN_ID, MORGAN_ID, RITA_ID, SAM_ID
 from app.main import app
+
+_engine = create_async_engine(settings.DATABASE_URL)
+_session_factory = async_sessionmaker(_engine, expire_on_commit=False)
 
 
 def _client() -> AsyncClient:
@@ -117,3 +124,30 @@ async def test_login_missing_password_field_returns_422_not_500():
         )
         assert response.status_code == 422
         assert response.json()["code"] == "VALIDATION_ERROR"
+
+
+@pytest.mark.asyncio
+async def test_login_rejects_an_archived_account():
+    """authenticate() now reads the real accounts table (auth-wiring fix) --
+    mirrors get_current_user's existing archived-identity rejection (Story
+    7.5 AC4) at the login boundary too: a correct password for an archived
+    Account must still be refused, not just a still-valid session for one
+    archived after login."""
+    async with _session_factory() as session:
+        account = await session.get(Account, SAM_ID)
+        account.archived_at = datetime.now(timezone.utc)
+        await session.commit()
+
+    try:
+        async with _client() as client:
+            response = await client.post(
+                "/api/auth/login",
+                json={"email": "sam@sails.example.com", "password": "demo123"},
+            )
+            assert response.status_code == 401
+            assert response.json()["message"] == "Email or password incorrect"
+    finally:
+        async with _session_factory() as session:
+            account = await session.get(Account, SAM_ID)
+            account.archived_at = None
+            await session.commit()

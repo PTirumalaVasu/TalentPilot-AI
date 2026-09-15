@@ -18,8 +18,9 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.assignments.models import AdminApiKey, OrgApiCredential
-from app.auth.repository import _MOCK_ACCOUNTS
+from app.auth.models import Account
 from app.core.config import settings
+from app.core.security import hash_password
 from app.employees.models import Employee
 from app.core.secrets import decrypt_secret
 from app.core.seed_ids import RITA_ID
@@ -52,14 +53,12 @@ async def _create_second_hr_admin(email: str, name: str) -> uuid.UUID:
     real authenticated HTTP session (not just two raw UUIDs at the
     repository layer) requires a second real admin to log in as.
 
-    Login in this codebase is NOT DB-backed (Story 1.4: "mock credential
-    store... hardcoded, not DB-backed", `app.auth.repository._MOCK_ACCOUNTS`)
-    -- a DB `accounts` row alone would never let this identity log in. This
-    adds a real `employees` row (needed for the `configured_by` FK and for
-    `get_employee_by_id_service` to resolve the display name) AND a
-    temporary entry in the in-memory `_MOCK_ACCOUNTS` dict (needed for
-    `POST /api/auth/login` to accept it) -- both cleaned up by
-    `_delete_second_hr_admin`."""
+    Login is DB-backed (`auth/service.py::authenticate()` reads the real
+    `accounts` table) -- this adds both a real `employees` row (needed for
+    the `configured_by` FK and for `get_employee_by_id_service` to resolve
+    the display name) AND a real `accounts` row with a bcrypt hash of
+    "demo123" (needed for `POST /api/auth/login` to accept it), both
+    cleaned up by `_delete_second_hr_admin`."""
     employee_id = uuid.uuid4()
     async with _session_factory() as session:
         session.add(Employee(
@@ -69,14 +68,28 @@ async def _create_second_hr_admin(email: str, name: str) -> uuid.UUID:
             email=email,
             role="HR_ADMIN",
         ))
+        # Flush the Employee insert before adding Account -- accounts.id FKs
+        # to employees.id, and with no ORM relationship() linking the two
+        # models (auth/models.py's deliberate plain-Column-FK choice),
+        # SQLAlchemy's unit-of-work has no dependency edge to order these
+        # two inserts correctly within one flush.
+        await session.flush()
+        session.add(Account(
+            id=employee_id,
+            email=email,
+            password_hash=hash_password("demo123"),
+            role="HR_ADMIN",
+        ))
         await session.commit()
-    _MOCK_ACCOUNTS[email] = {"password": "demo123", "role": "HR_ADMIN", "user_id": str(employee_id)}
     return employee_id
 
 
 async def _delete_second_hr_admin(email: str, employee_id: uuid.UUID) -> None:
-    _MOCK_ACCOUNTS.pop(email, None)
     async with _session_factory() as session:
+        # accounts.id FKs to employees.id with no cascade -- delete the
+        # Account row first (mirrors auth/repository.py::delete_account's
+        # established ordering for the same FK).
+        await session.execute(delete(Account).where(Account.id == employee_id))
         await session.execute(delete(Employee).where(Employee.id == employee_id))
         await session.commit()
 

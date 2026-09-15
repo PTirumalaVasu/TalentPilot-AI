@@ -3,20 +3,19 @@
  * client-side over one fetched roster (Scope Note 2) -- mirrors
  * SkillsPage.tsx's fetch-once-then-filter shape (Story 6.10).
  *
- * Row/card action icons (Edit, Regenerate Password, Delete/Archive -- all
- * three now wired, Stories 7.4/7.5/7.6) and "+ New Employee" render per the
- * UX spec (aria-labels required, AC5). "+ New Employee" remains stubbed --
- * its modal belongs to Story 7.2's still-unbuilt frontend half. */
+ * Row/card action icons (Edit, Regenerate Password, Delete/Archive) and
+ * "+ New Employee" (Story 7.2's frontend half, via CreateEmployeeModal) are
+ * all wired, per the UX spec (aria-labels required, AC5). */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { HrAppShell } from '@/components/layout/HrAppShell';
 import { Toast } from '@/components/ui/toast';
-import { listEmployees, type EmployeeResponse } from '@/lib/api/employeesApi';
+import { listEmployees, type EmployeeCreatedResponse, type EmployeeResponse } from '@/lib/api/employeesApi';
+import { CreateEmployeeModal } from '@/features/admin/CreateEmployeeModal';
 import { EditEmployeeModal } from '@/features/admin/EditEmployeeModal';
 import { DeleteArchiveEmployeeModal } from '@/features/admin/DeleteArchiveEmployeeModal';
 import { RegeneratePasswordModal } from '@/features/admin/RegeneratePasswordModal';
 
 const PAGE_SIZE = 15;
-const NOT_AVAILABLE_YET = 'Not available yet — coming in a future story.';
 
 function extractErrorMessage(err: unknown, fallback: string): string {
   if (err && typeof err === 'object' && 'response' in err) {
@@ -101,6 +100,7 @@ export function EmployeesPage() {
   const [view, setView] = useState<'table' | 'card'>('table');
   const [page, setPage] = useState(1);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [creatingEmployee, setCreatingEmployee] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<EmployeeResponse | null>(null);
   const [regeneratingEmployee, setRegeneratingEmployee] = useState<EmployeeResponse | null>(null);
   const [deletingEmployee, setDeletingEmployee] = useState<EmployeeResponse | null>(null);
@@ -122,8 +122,14 @@ export function EmployeesPage() {
     void refetch();
   }, [refetch]);
 
-  function showUnavailableToast() {
-    setToastMessage(NOT_AVAILABLE_YET);
+  // Story 7.2 AC1/AC4: mirrors handleDeleteOrArchiveCompleted's refetch-then-
+  // toast shape -- the new employee must be immediately visible in the
+  // roster (AC4, already true via assignments/repository.py::list_employees'
+  // unscoped query) without a full page reload.
+  function handleEmployeeCreated(employee: EmployeeCreatedResponse) {
+    setCreatingEmployee(false);
+    setToastMessage(`✓ '${employee.name}' created.`);
+    void refetch();
   }
 
   // Story 7.4 AC3: a successful save refetches the roster (no full page
@@ -273,7 +279,7 @@ export function EmployeesPage() {
             </div>
             <button
               type="button"
-              onClick={showUnavailableToast}
+              onClick={() => setCreatingEmployee(true)}
               className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600"
               data-testid="employees-tab-btn-new-employee"
             >
@@ -411,6 +417,12 @@ export function EmployeesPage() {
       </main>
 
       <Toast message={toastMessage} onDismiss={() => setToastMessage(null)} />
+
+      <CreateEmployeeModal
+        open={creatingEmployee}
+        onClose={() => setCreatingEmployee(false)}
+        onCreated={handleEmployeeCreated}
+      />
 
       <EditEmployeeModal
         open={editingEmployee !== null}

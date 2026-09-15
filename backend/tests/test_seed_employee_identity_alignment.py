@@ -1,11 +1,12 @@
-"""Live-DB tests: seeded Employees must align exactly with the auth mock
-credential store, not just overlap loosely (Story 3.3 AC5).
+"""Live-DB tests: seeded Employees must align exactly with their paired
+Account rows, not just overlap loosely (Story 3.3 AC5).
 
 Regression coverage for the bug Story 3.1's code review found and fixed:
-auth/repository.py's mock accounts previously issued user_id as plain names
+the old mock accounts dict previously issued user_id as plain names
 ("rita", "casey", ...), disconnected from core/seeds.py's real Employee.id
-UUIDs. core/seed_ids.py now aligns them, but nothing asserted that alignment
-explicitly until this story.
+UUIDs. core/seed_ids.py now aligns them (and, since the auth-wiring fix,
+Account.id IS the real Employee.id by construction, AR-24) -- this file
+still asserts that alignment explicitly.
 
 Uses a private engine/session-factory, not the shared app.core.db.engine
 singleton — see test_assignments_repository.py's module docstring (Story 3.1)
@@ -20,10 +21,12 @@ from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from app.auth.repository import _MOCK_ACCOUNTS, find_account
+from app.auth import service as auth_service
+from app.auth.repository import get_account_by_email_ci
+from app.auth.schemas import Role
 from app.core.config import settings
 from app.employees.models import Employee
-from app.core.seed_ids import RITA_ID
+from app.core.seed_ids import CASEY_ID, JORDAN_ID, MORGAN_ID, RITA_ID, SAM_ID
 from app.core.seeds import run_seeds, seed_employees
 
 pytestmark = pytest.mark.asyncio(loop_scope="module")
@@ -31,11 +34,15 @@ pytestmark = pytest.mark.asyncio(loop_scope="module")
 _engine = create_async_engine(settings.DATABASE_URL)
 _session_factory = async_sessionmaker(_engine, expire_on_commit=False)
 
-# Derived directly from the real _MOCK_ACCOUNTS dict, not hand-duplicated —
-# a future 6th mock account is automatically covered by every test below
-# rather than silently getting zero coverage from a stale hardcoded list.
+# Mirrors core/seeds.py::seed_employees's hardcoded demo roster -- not
+# derived from a live dict anymore now that accounts are real DB rows, not
+# an importable module-level mapping.
 _DEMO_ACCOUNTS = [
-    (email, uuid.UUID(account["user_id"]), account["role"]) for email, account in _MOCK_ACCOUNTS.items()
+    ("rita@sails.example.com", RITA_ID, "HR_ADMIN"),
+    ("casey@sails.example.com", CASEY_ID, "EMPLOYEE"),
+    ("morgan@sails.example.com", MORGAN_ID, "EMPLOYEE"),
+    ("jordan@sails.example.com", JORDAN_ID, "EMPLOYEE"),
+    ("sam@sails.example.com", SAM_ID, "EMPLOYEE"),
 ]
 _DEMO_EMPLOYEE_IDS = [employee_id for _, employee_id, _ in _DEMO_ACCOUNTS]
 
@@ -51,12 +58,12 @@ async def _seeded_session():
 
 
 @pytest.mark.parametrize(("email", "expected_id", "expected_role"), _DEMO_ACCOUNTS)
-async def test_seeded_employee_id_matches_mock_account_user_id(email, expected_id, expected_role):
-    account = find_account(email)
-    assert account is not None, f"No mock account for {email}"
-    assert uuid.UUID(account["user_id"]) == expected_id
-
+async def test_seeded_employee_id_matches_account_id(email, expected_id, expected_role):
     async with _seeded_session() as session:
+        account = await get_account_by_email_ci(session, email)
+        assert account is not None, f"No account for {email}"
+        assert account.id == expected_id
+
         result = await session.execute(select(Employee).where(Employee.id == expected_id))
         employee = result.scalar_one()
 
@@ -65,27 +72,28 @@ async def test_seeded_employee_id_matches_mock_account_user_id(email, expected_i
 
 
 @pytest.mark.parametrize(("email", "expected_id", "expected_role"), _DEMO_ACCOUNTS)
-async def test_mock_account_role_matches_seeded_employee_role(email, expected_id, expected_role):
-    account = find_account(email)
-    assert account is not None, f"No mock account for {email}"
-
+async def test_account_role_matches_seeded_employee_role(email, expected_id, expected_role):
     async with _seeded_session() as session:
+        account = await get_account_by_email_ci(session, email)
+        assert account is not None, f"No account for {email}"
+
         result = await session.execute(select(Employee).where(Employee.id == expected_id))
         employee = result.scalar_one()
 
-        assert account["role"] == employee.role == expected_role
+        assert account.role == employee.role == expected_role
 
 
-async def test_find_account_normalizes_case_and_whitespace_before_lookup():
-    """find_account()'s email lookup does .strip().lower() (auth/repository.py)
-    — every other test in this file uses already-lowercase/trimmed emails, so
-    this proves the normalization path actually works, not just that it's
-    compatible with already-normalized input."""
-    account = find_account("  Rita@Sails.Example.COM  ")
-    assert account is not None
-    assert uuid.UUID(account["user_id"]) == RITA_ID
-
+async def test_login_normalizes_case_and_whitespace_before_lookup():
+    """authenticate()'s email lookup strips + lowercases before matching
+    (auth/service.py: .strip() + get_account_by_email_ci's case-insensitive
+    query) — every other test in this file uses already-lowercase/trimmed
+    emails, so this proves the normalization path actually works, not just
+    that it's compatible with already-normalized input."""
     async with _seeded_session() as session:
+        user_id, role = await auth_service.authenticate(session, "  Rita@Sails.Example.COM  ", "demo123")
+        assert uuid.UUID(user_id) == RITA_ID
+        assert role == Role.HR_ADMIN
+
         result = await session.execute(select(Employee).where(Employee.id == RITA_ID))
         employee = result.scalar_one()
         assert employee.email == "rita@sails.example.com"

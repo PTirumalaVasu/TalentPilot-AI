@@ -30,6 +30,7 @@ vi.mock('@/lib/api/authApi', () => ({
 
 vi.mock('@/lib/api/employeesApi', () => ({
   listEmployees: vi.fn(),
+  createEmployee: vi.fn(),
   updateEmployee: vi.fn(),
   deleteOrArchiveEmployee: vi.fn(),
   regeneratePassword: vi.fn(),
@@ -37,6 +38,7 @@ vi.mock('@/lib/api/employeesApi', () => ({
 
 import {
   listEmployees,
+  createEmployee,
   updateEmployee,
   deleteOrArchiveEmployee,
   regeneratePassword,
@@ -233,14 +235,52 @@ describe('EmployeesPage', () => {
     expect(screen.getByLabelText('Delete/Archive Casey Employee')).toBeInTheDocument();
   });
 
-  it('+ New Employee shows a "not available yet" toast (Story 7.2\'s frontend half is still stubbed)', async () => {
-    vi.mocked(listEmployees).mockResolvedValue([makeEmployee({ name: 'Casey Employee' })]);
+  it('Story 7.2: + New Employee creates a record, reveals the password once, then refetches and toasts', async () => {
+    const original = makeEmployee({ id: 'emp-1', name: 'Casey Employee' });
+    const created = makeEmployee({ id: 'emp-2', name: 'Jamie Hire', employee_code: 'EMP-1006' });
+    vi.mocked(listEmployees).mockResolvedValueOnce([original]).mockResolvedValueOnce([original, created]);
+    vi.mocked(createEmployee).mockResolvedValue({ ...created, generated_password: 'aB3dEfGhJkLm' });
     const user = userEvent.setup();
     renderPage();
     await screen.findByText('Casey Employee');
 
     await user.click(screen.getByTestId('employees-tab-btn-new-employee'));
-    expect(await screen.findByText(/not available yet/i)).toBeInTheDocument();
+    expect(await screen.findByTestId('create-employee-modal-title')).toHaveTextContent('New Employee');
+
+    await user.type(screen.getByTestId('create-emp-id'), 'EMP-1006');
+    await user.type(screen.getByTestId('create-emp-name'), 'Jamie Hire');
+    await user.type(screen.getByTestId('create-emp-email'), 'jamie@sails.example.com');
+    await user.click(screen.getByTestId('create-employee-btn-submit'));
+
+    expect(await screen.findByTestId('password-reveal-value')).toHaveTextContent('aB3dEfGhJkLm');
+    expect(createEmployee).toHaveBeenCalledWith(
+      expect.objectContaining({ employee_code: 'EMP-1006', name: 'Jamie Hire', email: 'jamie@sails.example.com' })
+    );
+
+    await user.click(screen.getByTestId('password-reveal-btn-done'));
+
+    await vi.waitFor(() => expect(screen.queryByTestId('password-reveal-value')).not.toBeInTheDocument());
+    expect(await screen.findByText("✓ 'Jamie Hire' created.")).toBeInTheDocument();
+    expect(await screen.findByText('Jamie Hire')).toBeInTheDocument();
+    expect(listEmployees).toHaveBeenCalledTimes(2);
+  });
+
+  it('Story 7.2: a duplicate ID/email 409 shows an inline notice, not the generic error banner', async () => {
+    vi.mocked(listEmployees).mockResolvedValue([makeEmployee({ name: 'Casey Employee' })]);
+    vi.mocked(createEmployee).mockRejectedValue({ response: { status: 409 } });
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText('Casey Employee');
+
+    await user.click(screen.getByTestId('employees-tab-btn-new-employee'));
+    await user.type(screen.getByTestId('create-emp-id'), 'EMP-0001');
+    await user.type(screen.getByTestId('create-emp-name'), 'Duplicate Hire');
+    await user.type(screen.getByTestId('create-emp-email'), 'casey@sails.example.com');
+    await user.click(screen.getByTestId('create-employee-btn-submit'));
+
+    expect(await screen.findByTestId('create-emp-duplicate-notice')).toHaveTextContent(
+      'An employee with this ID or email already exists.'
+    );
   });
 
   it('Story 7.6: clicking a row\'s Regenerate Password button opens the real modal pre-filled with that employee', async () => {
