@@ -7,7 +7,7 @@ paradigm: 'Modular monolith — feature-domain modules, each internally layered 
 scope: 'Full MVP: 4 features / 14 FRs — Skill Assignment, AI Content Discovery, Auto Video Progress Capture & Resume, Readiness Dashboard, Auth & Session Gate. Local working copy only; no production deployment.'
 status: final
 created: '2026-07-09'
-updated: '2026-09-08'
+updated: '2026-09-15'
 binds: [FR-1, FR-2, FR-3, FR-4, FR-5, FR-6, FR-7, FR-8, FR-9, FR-10, FR-11, FR-12, FR-13, FR-14, FR-16, FR-17, FR-17a, FR-18, FR-19, FR-20, FR-21, FR-22, FR-23]
 sources:
   - '_bmad-output/planning-artifacts/prds/prd-TalentPilot-AI-2026-07-09/prd.md'
@@ -96,6 +96,7 @@ The durable heart — the calls a future builder cannot read off compliant code.
   - `org_api_credentials` (`source`, `encrypted_key`, `configured_by` [FK `employees.id`, attribution only — "connected by {name}," not an ownership scope], timestamps; unique on `source`) — **org-wide** credentials, one row per source. Udemy only, v1.
   - `[EXTENDED 2026-09-08]` Which table a source uses is a small explicit mapping, not scattered conditionals: `CREDENTIAL_SCOPE = {YOUTUBE: PER_ADMIN, UDEMY: ORG_WIDE}` in `content/` — extensible for a future source without another schema change. `content/service.py::get_source_credential(source, admin_id)` is the one place that reads this mapping and fetches from the correct table.
   - Encrypt/decrypt logic lives in `core/secrets.py` (generic, domain-free — mirrors `core/embedding.py`'s placement), called only from `content/repository.py`, never from a router. Any read endpoint for a credential returns only a boolean "configured" flag per source (FR-16) — the ciphertext and the decrypted value never leave `content/`'s repository layer except to be passed as the `api_key` argument into `youtube_client.search_videos()`/`udemy_client`'s equivalent (AD-7) within the same request.
+  - `[ADDED 2026-09-15]` **Seed-time credential provisioning is a second entry point into this same guarantee, not a new credential shape.** `core/seeds.py` may write one `admin_api_keys` row for the seeded HR Admin, sourced from `settings.YOUTUBE_API_KEY`, through the identical `core/secrets.py` Fernet encryption the admin-submitted-via-UI path already uses — so the seeded row is encrypted at rest exactly like any admin-entered key, with the same never-returned-in-plaintext guarantee. This does **not** change AD-7's batch-vs-live-lookup separation: the batch ingestion job keeps reading `settings.YOUTUBE_API_KEY` directly, exactly as before. The two credential entry points (seed-time copy, admin-submitted-via-UI) simply happen to write the same encrypted-at-rest table through the same encryption function.
 
 ### AD-8 — Module dependency direction
 

@@ -22,10 +22,11 @@ inputDocuments:
   - '_bmad-output/C-UX-Scenarios/04-ritas-content-curation/04.1-skills-content-sourcing/04.1-skills-content-sourcing.md'
   - '_bmad-output/C-UX-Scenarios/05-ritas-roster-management/05-ritas-roster-management.md'
   - '_bmad-output/C-UX-Scenarios/06-ritas-pulse-check/06.1-skill-assignment-dashboard/06.1-skill-assignment-dashboard.md'
+  - '_bmad-output/planning-artifacts/sprint-change-proposal-2026-09-15.md'
 projectName: 'TalentPilot-AI'
 extractedAt: '2026-07-09'
-extendedAt: '2026-09-13'
-extensionNote: 'Epic 6 (Admin-Assisted Content Sourcing, FR-16-23) added 2026-09-08 via bmad-create-epics-and-stories, extending scope on top of the original FR-1-14 extraction -- Epics 1-5 unchanged. FR-15 backfilled into the Requirements Inventory (was already realized by Stories 3.7/5.7, added earlier via bmad-correct-course without an inventory entry). Epic 7 (Employee Roster Management, HR Admin Navigation Shell, Application Theming; FR-24-30) added 2026-09-11 via bmad-create-epics-and-stories, extending scope again on top of Epic 6 -- Epics 1-6 unchanged. Source PRD update, Trigger Map extension, UX scenario (05-ritas-roster-management), and a working HTML prototype were all completed the same session before this epic was authored. Epic 9 (Skill Assignment Dashboard, FR-31-33 + FR-29 amendment) added 2026-09-13 via bmad-create-epics-and-stories, extending scope again on top of Epic 8 -- Epics 1-8 unchanged. Source PRD update (Sec4.10), Trigger Map extension (Scenario scored 3/8, not filed as Enabling), new Scenario 06 (Ritas Pulse Check), Phase 4 UX design, and a fully-wired HTML prototype (06.1-Skill-Assignment-Dashboard.html) were all completed in a prior session before this epic was authored.'
+extendedAt: '2026-09-15'
+extensionNote: 'Epic 6 (Admin-Assisted Content Sourcing, FR-16-23) added 2026-09-08 via bmad-create-epics-and-stories, extending scope on top of the original FR-1-14 extraction -- Epics 1-5 unchanged. FR-15 backfilled into the Requirements Inventory (was already realized by Stories 3.7/5.7, added earlier via bmad-correct-course without an inventory entry). Epic 7 (Employee Roster Management, HR Admin Navigation Shell, Application Theming; FR-24-30) added 2026-09-11 via bmad-create-epics-and-stories, extending scope again on top of Epic 6 -- Epics 1-6 unchanged. Source PRD update, Trigger Map extension, UX scenario (05-ritas-roster-management), and a working HTML prototype were all completed the same session before this epic was authored. Epic 9 (Skill Assignment Dashboard, FR-31-33 + FR-29 amendment) added 2026-09-13 via bmad-create-epics-and-stories, extending scope again on top of Epic 8 -- Epics 1-8 unchanged. Source PRD update (Sec4.10), Trigger Map extension (Scenario scored 3/8, not filed as Enabling), new Scenario 06 (Ritas Pulse Check), Phase 4 UX design, and a fully-wired HTML prototype (06.1-Skill-Assignment-Dashboard.html) were all completed in a prior session before this epic was authored. Epic 10 (Post-MVP Admin & Roster Refinements, FR-34-40) added 2026-09-15 via bmad-create-epics-and-stories, extending scope again on top of Epic 9 -- Epics 1-9 unchanged. Unlike Epics 6/7/9, source was not a PRD-first pass -- it originated as 11 user-reported post-launch change requests against the already feature-complete app, triaged via bmad-correct-course into a Sprint Change Proposal (planning-artifacts/sprint-change-proposal-2026-09-15.md, approved same day), which then drove the matching PRD update (Sec4.11, FR-34-40) and this epics.md extension together, in that order. No UX design contract exists for Epic 10 (consistent with Epics 7/9s own precedent of shipping FR consequence-level UI detail directly in story files without a separate UX spec). One scope correction mid-session: FR-34/Story 10.1 originally drafted as a full persona rename (Rita -> Sails Admin) across the PRD; corrected per user clarification to leave the PRDs narrative persona name (Rita, UJ-1/UJ-3/Sec2.1) untouched and scope the actual change to the seeded HR Admin accounts login email/display name only (admin@sails.example.com / "Sails Admin") -- see prd.md Sec3 Glossary for the resulting persona-vs-account-identity split.'
 ---
 
 # TalentPilot-AI - Epic Breakdown
@@ -44,7 +45,7 @@ This document provides the complete epic and story breakdown for TalentPilot-AI,
 
 ## Requirements Inventory
 
-### Functional Requirements (33 total)
+### Functional Requirements (40 total)
 
 `[UPDATED 2026-09-08]` Original extraction covered FR-1 through FR-14. FR-15 (Assignment soft-delete) was added later via `bmad-correct-course` directly into Epic 3/Epic 5 stories (3.7, 5.7) without a Requirements Inventory entry — backfilled here for completeness. FR-16 through FR-23 (Feature 4.6, Admin-Assisted Content Sourcing) were added via a `bmad-prd` update the same day as this extension; see `prd.md` §4.6 for full FR text.
 
@@ -103,6 +104,15 @@ This document provides the complete epic and story breakdown for TalentPilot-AI,
 - FR-31: HR Admin views org-wide assignment stats on the landing page (Total Employees, Total Skills Assigned, Total Completed)
 - FR-32: HR Admin views an Assignment Progress breakdown (Completed/In Progress/Not Started + Overall %) and an Employee Segmentation pie chart (On Track / In Progress / Needs Attention)
 - FR-33: HR Admin reaches the full Readiness Dashboard grid via its own nav entry ("Skill Assignments"), or a single Employee's Skill Progress via drill-down from the Needs Attention segment
+
+**Feature 4.11: Post-MVP Admin & Roster Refinements** `[ADDED 2026-09-15 via bmad-correct-course]`
+- FR-34: Employee roster gains First/Last Name (display format "{Last Name}, {First Name}") and expanded grid columns — Location, Technologies, Days in Talent Pool
+- FR-35: Roster rows flag Employees over 90 days in the Talent Pool with a red visual flag (paired with text/icon)
+- FR-36: HR Admin views an Employee Experience Distribution panel — 7 buckets (0–4, 5–7, 8–9, 10–11, 12–14, 15–19, 20+ years), click-through to a paginated (15/page) list; distinct from FR-32's readiness-based Employee Segmentation
+- FR-37: Skills tab gains search and pagination (15/page), mirroring FR-25's Employee roster pattern
+- FR-38: Skill Assignments grid gains search and pagination (15/page), same pattern as FR-37
+- FR-39: New-Skill content-sourcing reliability — verifies/fixes FR-20's content-lookup auto-open, adds a distinct "no Content yet" empty state to the assignment flow's content-review step
+- FR-40: "+ New Skill" is disabled with an explanatory tooltip when no content-source credential (FR-16) is configured
 
 ---
 
@@ -299,6 +309,13 @@ This document provides the complete epic and story breakdown for TalentPilot-AI,
 | FR-31 | `dashboard/` (read-composition) | Epic 9 | TBD | Pending |
 | FR-32 | `dashboard/` (read-composition) | Epic 9 | TBD | Pending |
 | FR-33 | frontend (app shell) + `dashboard/` | Epic 9 | TBD | Pending |
+| FR-34 | `employees/` + frontend | Epic 10 | E10.S2 | Pending |
+| FR-35 | frontend | Epic 10 | E10.S2 | Pending |
+| FR-36 | `employees/` + frontend | Epic 10 | E10.S4 | Pending |
+| FR-37 | `skills/` + frontend | Epic 10 | E10.S5 | Pending |
+| FR-38 | `dashboard/`, `assignments/` + frontend | Epic 10 | E10.S6 | Pending |
+| FR-39 | `content/`, `assignments/` + frontend | Epic 10 | E10.S7 | Pending |
+| FR-40 | `content/` + frontend | Epic 10 | E10.S9 | Pending |
 
 ---
 
@@ -315,6 +332,7 @@ Based on the Architecture Spine's module dependency order (AD-8) and the build-t
 7. **Epic 7: Employee Roster Management** `[ADDED 2026-09-11]` — HR Admin Employee CRUD + login provisioning + left-pane nav shell (FR-24 through FR-29); depends on Epic 1 (auth — must reconcile with the existing mock credential store, AR-24) and touches every existing HR Admin page's shell (01.1, 04.1) for the nav relocation
 8. **Epic 8: Application Theming** `[ADDED 2026-09-11]` — Light/Dark mode, app-wide (FR-30); frontend-only, no epic dependencies
 9. **Epic 9: Skill Assignment Dashboard** `[ADDED 2026-09-13]` — HR Admin landing page: org-wide stats, Assignment Progress ring, Employee Segmentation pie chart, nav shell's 4th entry (FR-29 amendment, FR-31 through FR-33); pure read-composition (AR-26), no new table; depends on Epic 1 (auth), Epic 3 (`assignments/`), Epic 4/5 (`progress/` Status/Provenance derivation), and Epic 7 (touches the shipped nav shell for its 4th link)
+10. **Epic 10: Post-MVP Admin & Roster Refinements** `[ADDED 2026-09-15 via bmad-correct-course]` — 10 post-launch refinements to the Employee roster, Skills/Skill-Assignments search, content-sourcing credential handling, and seed data (FR-34 through FR-40); additive on top of an already feature-complete app (Epics 1–9 all done) — no prior epic reopened. Depends on Epic 7 (`employees/`), Epic 6 (`skills/`, `content/`), Epic 5/9 (dashboard/assignments grids). Build order (dependency-driven, per the Sprint Change Proposal): Stories 10.1+10.10 first (seeded-identity/seed-data foundation), then 10.2/10.3 (Employee grid — widest schema touch-point), then 10.4–10.9 in any order.
 
 ---
 
@@ -329,6 +347,7 @@ Based on the Architecture Spine's module dependency order (AD-8) and the build-t
 - **Epic 7:** Employee Roster Management (FR-24 through FR-29; AR-24, AR-25) `[ADDED 2026-09-11]`
 - **Epic 8:** Application Theming (FR-30) `[ADDED 2026-09-11]`
 - **Epic 9:** Skill Assignment Dashboard (FR-29 amendment, FR-31 through FR-33; AR-26, AR-27, AR-28) `[ADDED 2026-09-13]`
+- **Epic 10:** Post-MVP Admin & Roster Refinements (FR-34 through FR-40) `[ADDED 2026-09-15 via bmad-correct-course]`
 
 ---
 
@@ -2899,9 +2918,249 @@ So that relocating "Dashboard" to the new landing page doesn't cost me access to
 
 ---
 
+## EPIC 10: Post-MVP Admin & Roster Refinements
+
+**Epic Goal:** Deliver 10 post-launch refinements to the Employee roster, Skills/Skill-Assignments admin surfaces, and content-sourcing credential handling, gathered from real usage of the already feature-complete app (FR-34 through FR-40). Additive only — no existing epic (1–9) is reopened, no AD is violated.
+
+**Owned by:** `employees/`, `skills/`, `content/`, `dashboard/`, `assignments/`, `core/seeds.py` (no new module)
+
+**Source:** `_bmad-output/planning-artifacts/sprint-change-proposal-2026-09-15.md` (approved), driving PRD §4.11 (FR-34–FR-40) and `ARCHITECTURE-SPINE.md`'s AD-10 addendum.
+
+**Build order** (dependency-driven, not numeric — see the Sprint Change Proposal §3): **10.1 + 10.10 first** (seeded-identity/seed-data foundation, so later stories' fixtures target the final seed shape), then **10.2 → 10.3** (Employee grid — widest schema touch-point), then **10.4–10.9 in any order**.
+
+---
+
+### Story 10.1: Seeded HR Admin's Login Identity Becomes Sails Admin
+
+As the **product owner**,
+I want the seeded HR Admin's login email and displayed name to be organization-generic rather than a personal-sounding name,
+So that the shipped system's real account identity doesn't read as a demo/prototype artifact (item #1 of the Sprint Change Proposal).
+
+**Acceptance Criteria:**
+
+**Given** `core/seeds.py::create_default_accounts` and `seed_employees`
+**When** this story ships
+**Then** the seeded HR Admin's email is `admin@sails.example.com` (was `rita@sails.example.com`) and its `Employee.name`/`Account` display value is "Sails Admin" — the PRD's narrative persona name "Rita" (§2.1, UJ-1, UJ-3) is explicitly **not** touched by this story; only the seeded account's real login/display identity changes
+
+**Given** the ~15 backend test files whose `_login()` helper defaults to `email: str = "rita@sails.example.com"` (e.g. `test_assignments_router.py`, `test_dashboard_router.py`, `test_skills_router.py`, `test_employees_router.py`, `test_login.py`, `test_content_router.py`, `test_admin_api_keys_router.py`, `test_admin_content_router.py`, `test_assignments_create_route.py`, `test_assignment_cancel_no_orphan.py`, `test_assignment_delete.py`, `test_drill_down_endpoint.py`, `test_override_endpoint.py`, `test_provenance_detail.py`, `test_assignments_service.py`)
+**When** this story ships
+**Then** every one is updated to `admin@sails.example.com`, and `test_login.py`'s explicit credential-pair assertions are updated to match — full list enumerated in this story's Dev Notes before implementation starts, not discovered mid-story
+
+**Given** the codebase audit already performed during correct-course (zero hardcoded name/role identity comparisons found; `Role.HR_ADMIN`/`Role.EMPLOYEE` checks in `assignments/repository.py`/`progress/antiflow.py` are AD-6 authorization and are explicitly out of this story's scope)
+**When** this story is implemented
+**Then** no change is made to any role-based authorization check — this story touches only the seeded identity's email/display-name values and their test fixtures
+
+**And** `content/admin_api_keys_router.py`'s `configured_by_name = employee.name if employee else None` (backing AD-10's "connected by {name}" Udemy attribution) needs no code change — it already resolves the display name live from `employee.id` and will correctly show "Sails Admin" once the seed data changes
+
+---
+
+### Story 10.2: Employee Roster Gains First/Last Name and Expanded Grid Columns
+
+As an **HR Admin**,
+I want the roster to capture First and Last Name separately and show Location, Technologies, and Days in Talent Pool,
+So that I can scan the roster with the fields I actually need instead of a single combined name (FR-34).
+
+**Acceptance Criteria:**
+
+**Given** the `employees` table (currently a single `name` column)
+**When** this story's migration runs
+**Then** it adds `first_name`/`last_name` columns and backfills existing rows from the current `name` value (exact split strategy — e.g. last whitespace-separated token as last name — decided and documented in this story's Dev Notes, since no existing column boundary exists to split on)
+
+**Given** `CreateEmployeeModal.tsx`/`EditEmployeeModal.tsx` and their backend schemas (`employees/schemas.py`)
+**When** an HR Admin creates or edits an Employee
+**Then** First Name and Last Name are two required fields (same requiredness tier as the current combined Name field, per FR-24), and the roster's displayed name format is **"{Last Name}, {First Name}"** everywhere the roster currently shows a name (grid, pickers, drill-down, confirmation modals)
+
+**Given** `EmployeesPage.tsx`'s grid (Story 7.3's existing Table view)
+**When** this story ships
+**Then** it adds three columns — **Location**, **Technologies**, **Days in Talent Pool** — sourced from the existing `location`/`technologies` fields (FR-24) and a newly-computed `days_in_talent_pool = (now() − employees.created_at).days`, computed on read in `employees/service.py`, not stored
+
+**Given** a roster row's Days in Talent Pool exceeds 90
+**When** the grid renders that row
+**Then** it displays a red visual flag paired with text/icon (never color-only, NFR-A2) — the fixed 90-day threshold is a single named constant, not inlined (FR-35)
+
+**And** existing FR-25 search/filter/pagination behavior is unaffected by the new columns — Location and Technologies join the existing filterable-field set on the same "blank excludes from filter, never makes the row unfindable" rule FR-25 already establishes
+
+---
+
+### Story 10.3: Delete/Archive Icon Reflects the Real Action Before the Click
+
+As an **HR Admin**,
+I want the roster's Delete/Archive icon to visually show whether an Employee will be archived or truly removed before I click it,
+So that I'm never surprised by which behavior happens (items #4/#5 of the Sprint Change Proposal, extends FR-27).
+
+**Acceptance Criteria:**
+
+**Given** `EmployeesPage.tsx`'s existing single Delete/Archive icon (currently one icon regardless of `has_assignment_history`)
+**When** this story ships
+**Then** the icon and its `aria-label`/`title` differ based on `employee.has_assignment_history` (already returned by the roster API) — an Archive-style icon + "Archive {name}" label when `true`, a Delete-style icon + "Delete {name}" label when `false`, decided the same way `DeleteArchiveEmployeeModal.tsx` already branches its copy
+
+**Given** `delete_or_archive_employee_service` (`employees/service.py`) and `DeleteArchiveEmployeeModal.tsx`
+**When** this story is implemented
+**Then** neither's existing logic changes — `has_assignment_history` → archive, zero history → hard delete (FR-27) is already correct; this story is icon/label presentation only
+
+**And** this story requires no new endpoint, schema, or migration — confirmed via code review during story creation that `has_assignment_history` is already present on every roster response row
+
+---
+
+### Story 10.4: Employee Experience Distribution Panel
+
+As an **HR Admin**,
+I want to see headcount broken down by years of experience with a click-through to the matching Employees,
+So that I can understand the roster's experience mix at a glance, separate from readiness status (FR-36).
+
+**Acceptance Criteria:**
+
+**Given** `employees.experience` (currently free text, e.g. "5+ yrs")
+**When** this story's migration runs
+**Then** it adds a numeric `experience_years` field (nullable) alongside the existing free-text `experience` field, which is unaffected — exact input UX for capturing it (a new numeric input alongside the free-text field vs. replacing it) is a Story 10.4 implementation decision, not specified further here
+
+**Given** the active roster's `experience_years` values
+**When** the Experience Distribution panel loads (new `GET /api/dashboard/experience-distribution` or equivalent read-composition endpoint, owned by `dashboard/` per AR-26's existing "no new table" pattern)
+**Then** it returns counts for exactly 7 contiguous, exhaustive buckets — **0–4, 5–7, 8–9, 10–11, 12–14, 15–19, 20+** years — confirmed 2026-09-15, and excludes any Employee with a null `experience_years` from every bucket rather than guessing
+
+**Given** this panel and FR-32's existing Employee Segmentation pie chart (On Track/In Progress/Needs Attention, Story 9.2/9.3)
+**When** both are visible
+**Then** they render as visually and semantically distinct panels with distinct names/headings — this FR does not modify FR-32's chart in any way
+
+**Given** an HR Admin clicks a bucket's count
+**When** the click is handled
+**Then** it shows the list of Employees in that bucket, paginated at **15 per page**, matching FR-25's existing roster pagination convention
+
+**And** any chart rendering of this panel follows the same non-color-only rule as FR-32's pie chart (§8/NFR-A2)
+
+---
+
+### Story 10.5: Skills Tab Search and Pagination
+
+As an **HR Admin**,
+I want to search and page through the Skills tab,
+So that I can find a specific Skill quickly as the catalog grows, the same way I already can on the Employee roster (FR-37).
+
+**Acceptance Criteria:**
+
+**Given** the Skills tab's card grid (Story 6.10)
+**When** this story ships
+**Then** it gains a search control matching at least Skill name, and pagination at **15 per page** — mirroring `EmployeesPage.tsx`'s existing FR-25 search/pagination implementation (Story 7.3) as the reference pattern, not a new bespoke one
+
+**Given** a new search term is entered
+**When** results update
+**Then** pagination resets to page 1, same convention as FR-25
+
+**And** this story does not change any Skill CRUD/lock behavior (FR-20/21/22, AD-11) — search and pagination are purely additive to how the existing card grid is browsed
+
+---
+
+### Story 10.6: Skill Assignments Grid Search and Pagination
+
+As an **HR Admin**,
+I want to search and page through the Skill Assignments (Readiness Dashboard) grid,
+So that I can find a specific Employee or Skill row quickly as assignments grow (FR-38).
+
+**Acceptance Criteria:**
+
+**Given** the Readiness Dashboard grid (Epic 5, reached via the "Skill Assignments" nav entry per Story 9.5)
+**When** this story ships
+**Then** it gains a search control matching at least Employee name and Skill name, and pagination at **15 per page**, same pattern as Story 10.5
+
+**Given** the existing FR-8–FR-12 row behavior (Status badge, drill-down, live 30-second auto-update, HR Override)
+**When** search/pagination is added
+**Then** none of it changes — this story only affects which rows are visible at once, never what a visible row shows or how it updates
+
+**And** live row updates (FR-11) continue to apply only to rows on the currently-visible page — a row that updates on a page not currently shown is reflected next time that page is viewed, not via a cross-page notification (no such mechanism exists elsewhere in this product)
+
+---
+
+### Story 10.7: New-Skill Content-Sourcing Reliability
+
+As an **HR Admin**,
+I want a newly-created Skill to reliably have a way to get content attached, and a clear message if none exists yet,
+So that I don't mistake "no content ingested yet" for a broken recommendation system (FR-39).
+
+**Acceptance Criteria:**
+
+**Given** `NewSkillModal.tsx` and FR-20's existing "Content Lookup panel opens automatically on Skill creation" consequence
+**When** this story's investigation task runs first
+**Then** it verifies whether the panel actually auto-opens reliably today; if it does not, that is the bug this story fixes — if it does, the story proceeds directly to the empty-state work below without a matching-pipeline change
+
+**Given** the Skill Assignment Flow's content-review step (§4.1/FR-2) for a Skill with zero `content_catalog` rows
+**When** an HR Admin reaches that step
+**Then** they see a distinct empty-state message — "No approved content yet for this skill. [Go to Skills tab to add content]" or equivalent — separate from FR-2's existing generic no-content copy, linking back to the Skills tab's search-and-attach flow (FR-17/17a/18)
+
+**And** `content/service.py::match_content_for_skill` and `assignments/service.py::create_assignment_service`'s call to it are **not modified** by this story — a Skill with no `content_catalog` rows correctly returning no match is FR-3's designed "no match beats a bad match" behavior, confirmed during correct-course investigation, not a defect to fix
+
+---
+
+### Story 10.8: Seed `admin_api_keys` from `YOUTUBE_API_KEY`
+
+As the **product owner**,
+I want the seeded HR Admin to already have a working YouTube credential at first boot,
+So that live content-lookup (FR-17) and the credential gate (Story 10.9) work out of the box without a manual setup step.
+
+**Acceptance Criteria:**
+
+**Given** `settings.YOUTUBE_API_KEY` is set and `core/seeds.py::run_seeds`
+**When** the app seeds for the first time
+**Then** it writes one `admin_api_keys` row for the seeded HR Admin (Story 10.1's `admin@sails.example.com`), `source=YOUTUBE`, encrypted via the existing `core/secrets.py` Fernet function — the same encryption path `content/repository.py`'s admin-submitted-via-UI flow already uses, not a new one (AD-10 addendum, confirmed 2026-09-15)
+
+**Given** the batch ingestion job (`content/service.py::run_ingestion_job`, `app.content.cli ingest`)
+**When** this story ships
+**Then** it is **not modified** — it continues reading `settings.YOUTUBE_API_KEY` directly, exactly as AD-7 already requires; this story adds a second read of the same env var at seed time, it does not redirect the batch job's own credential source
+
+**Given** `settings.YOUTUBE_API_KEY` is unset
+**When** seeding runs
+**Then** the `admin_api_keys` seed step is skipped without error (mirrors the existing optional-env-var handling already established for `UDEMY_ORGANIZATION_SUBDOMAIN`/`UDEMY_ACCOUNT_ID` in `core/config.py`)
+
+**And** the existing `test_content_ad7_regression_guard.py` guard (no `router.py`/`main.py` reference to `run_ingestion_job` or `settings.YOUTUBE_API_KEY`) is re-verified still passing — this story adds a `core/seeds.py` read of the env var, not a router-layer one, so the guard's invariant is unaffected
+
+---
+
+### Story 10.9: "+ New Skill" Gated on a Configured Content-Source Credential
+
+As an **HR Admin**,
+I want the "+ New Skill" action disabled with a clear reason when no content-source credential is configured,
+So that I don't hit a dead-end content-lookup panel immediately after creating a Skill (FR-40).
+
+**Acceptance Criteria:**
+
+**Given** the Skills tab's "+ New Skill" button and the existing FR-16 per-source "configured" boolean (already returned by `content/admin_api_keys_router.py`)
+**When** neither YouTube nor Udemy has a configured credential for the acting organization/admin
+**Then** the button is disabled, and hovering it shows a tooltip such as "Add an API key before creating a new skill" — linking to the same credential-management surface FR-16 already provides
+
+**Given** at least one source (YouTube or Udemy) is configured
+**When** the button's enabled-state is evaluated
+**Then** it is enabled — matching FR-16's existing partial-availability model (one configured source is enough), not an all-sources-required gate
+
+**And** once Story 10.8's seed-time credential exists, this button is enabled out of the box for the seeded HR Admin with no manual setup step required — this story's own acceptance criteria are verified against both the seeded (Story 10.8) and manually-configured (FR-16) paths
+
+---
+
+### Story 10.10: Seed Data Minimized to One HR Admin and One Skill
+
+As the **product owner**,
+I want `core/seeds.py` to seed exactly one HR Admin account and one Skill,
+So that the shipped system starts from a minimal, intentional state rather than a multi-employee demo roster (item #11 of the Sprint Change Proposal, §9 Constraints amendment).
+
+**Acceptance Criteria:**
+
+**Given** `core/seeds.py::seed_employees` (currently seeds Rita + Casey/Morgan/Jordan/Sam) and `seed_skills`/`seed_content` (currently seed a multi-skill catalog + demo content)
+**When** this story ships
+**Then** `seed_employees` seeds exactly one HR Admin account (the same seeded identity Story 10.1 renames — this story works regardless of which order 10.1/10.10 are built in) and no Employee-role records; `seed_skills` seeds exactly one Skill; `seed_content` is reduced or removed to match (no content pre-seeded beyond what the one seeded Skill needs, if anything)
+
+**Given** the ~10 test files keyed to the current multi-employee/multi-skill seed (`test_seed_employee_identity_alignment.py`, `test_seed_skill_data_quality.py`, and any test asserting a specific seeded roster/catalog size or the presence of Casey/Morgan/Jordan/Sam)
+**When** this story ships
+**Then** each is enumerated in this story's Dev Notes before implementation starts and rewritten to assert against the new minimal seed shape — not deleted wholesale and not left silently broken
+
+**Given** an HR Admin using the freshly-seeded system
+**When** they need additional Employees or Skills
+**Then** they create them live via the existing FR-24 (Employee) and FR-20 (Skill) CRUD flows — no functionality is lost, only the pre-seeded starting state changes
+
+**And** this change reinforces, rather than conflicts with, this PRD's original §9 "no data migration, clean launch" constraint — confirmed during correct-course, not a new principle
+
+---
+
 ## Next Steps
 
-**Epics 1 through 9 are all defined** (75 original requirements + 22 added 2026-09-08 for Epic 6 + 20 added 2026-09-11 for Epics 7-8 + 11 added 2026-09-13 for Epic 9 = 128 total). Epics 1-8 are fully implemented (see `_bmad-output/implementation-artifacts/sprint-status.yaml` — all `done`, including all 8 retrospectives). Epic 9 is newly authored (2026-09-13) and awaiting `bmad-create-story`/`bmad-dev-story` to begin implementation:
+**Epics 1 through 10 are all defined** (75 original requirements + 22 added 2026-09-08 for Epic 6 + 20 added 2026-09-11 for Epics 7-8 + 11 added 2026-09-13 for Epic 9 + 7 added 2026-09-15 for Epic 10 = 135 total). Epics 1-9 are fully implemented (see `_bmad-output/implementation-artifacts/sprint-status.yaml` — all `done`, including all 9 retrospectives, epic-9-retrospective still `optional`). Epic 10 is newly authored (2026-09-15, via `bmad-correct-course` → `bmad-create-epics-and-stories`) and awaiting `bmad-create-story`/`bmad-dev-story` to begin implementation:
 
 1. **Epic 1:** Authentication & Session Gate — done
 2. **Epic 2:** Content Catalog & Semantic Matching — done
@@ -2909,10 +3168,11 @@ So that relocating "Dashboard" to the new landing page doesn't cost me access to
 4. **Epic 4:** Video Progress Capture & Resume — done
 5. **Epic 5:** Readiness Dashboard & Override — done
 6. **Epic 6:** Admin-Assisted Content Sourcing — done
-7. **Epic 7:** Employee Roster Management — done `[CORRECTED 2026-09-13 — this section previously read "backlog," stale relative to sprint-status.yaml]`
-8. **Epic 8:** Application Theming — done `[CORRECTED 2026-09-13 — same stale-status fix as Epic 7 above]`
-9. **Epic 9:** Skill Assignment Dashboard — backlog (5 stories: org-wide stats/progress endpoint, employee segmentation endpoint, landing page frontend, needs-attention popover/drill-down, nav shell 4th entry)
+7. **Epic 7:** Employee Roster Management — done
+8. **Epic 8:** Application Theming — done
+9. **Epic 9:** Skill Assignment Dashboard — done (all 5 stories + retrospective complete as of 2026-09-14)
+10. **Epic 10:** Post-MVP Admin & Roster Refinements — backlog (10 stories: seeded-identity rename, roster grid columns + 90-day flag, delete/archive icon clarity, experience distribution panel, Skills search/pagination, Skill Assignments search/pagination, new-skill content-sourcing reliability, seeded credential, credential-gated Skill creation, seed-data minimization)
 
-Recommended build order for Epic 9: Story 9.1 and 9.2 (backend endpoints) first, in either order — both are independent reads with no shared dependency. Story 9.3 (landing page) next, since it consumes both endpoints. Story 9.4 (popover) after 9.3, since it's a UI addition to the same page. Story 9.5 (nav shell) last, since it repoints "Dashboard" to Story 9.3's page, which must exist first.
+Recommended build order for Epic 10 (per `sprint-change-proposal-2026-09-15.md` §3): **Story 10.1 and 10.10 first** (in either order — both touch the seeded HR Admin identity/seed shape, and every later story's test fixtures should target the *final* seed state, not the old one). **Then Story 10.2, then 10.3** (Employee grid schema change first, since 10.3's icon logic reads roster data 10.2 doesn't otherwise touch, though the two are independent enough to reorder if preferred). **Then 10.5, 10.6** (search/pagination — fully independent of everything else, may run in parallel). **Then 10.7** (content-sourcing investigation/fix — independent). **Then 10.8, then 10.9** (seed the credential before verifying the button-gate story against both the seeded and no-key cases). **Story 10.4** (Experience Distribution) has no hard dependency on the others and may be built any time after 10.2 lands (shares the Employee schema touch-point).
 
-**[C] Continue to Step 02 (Epic Design) for detailed story refinement and dependencies mapping:**
+**[C] Continue to Step 04 (Final Validation):**

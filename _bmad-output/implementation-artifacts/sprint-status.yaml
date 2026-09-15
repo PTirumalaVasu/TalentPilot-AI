@@ -289,6 +289,30 @@ development_status:
   9-5-frontend-nav-shell-add-skill-assignments-entry: done
   epic-9-retrospective: optional
 
+  # Epic 10 added 2026-09-15 via bmad-correct-course (Sprint Change Proposal
+  # approved same day -- see planning-artifacts/sprint-change-proposal-2026-09-15.md).
+  # Post-MVP batch of 11 user-requested changes against the already-feature-
+  # complete app (epics 1-9 all done), mapped to 10 stories. No existing epic
+  # reopened; no AD violated (AD-7/AD-10 boundaries explicitly preserved per
+  # user-confirmed scope in the proposal). Build order in the proposal's
+  # section 3 is dependency-driven, not numeric: 10-1+10-10 first (identity/
+  # seed foundation), then 10-2/10-3 (employee grid), then 10-4 through 10-9
+  # in any order. Story files not yet authored -- next step is
+  # bmad-create-epics-and-stories (or per-story bmad-create-story) to give
+  # each of these full ACs/Dev Notes in epics.md before bmad-dev-story starts.
+  epic-10: backlog
+  10-1-persona-rename-and-id-only-identity-references: backlog
+  10-2-employee-grid-columns-first-last-name-and-days-in-talent-pool: backlog
+  10-3-delete-archive-icon-clarity: backlog
+  10-4-employee-experience-distribution-widget: backlog
+  10-5-skills-tab-search-and-pagination: backlog
+  10-6-skill-assignments-grid-search-and-pagination: backlog
+  10-7-new-skill-content-visibility-fix: backlog
+  10-8-seed-admin-api-keys-from-youtube-api-key: backlog
+  10-9-new-skill-button-gated-on-credential-configuration: backlog
+  10-10-seed-data-minimization-and-test-rewrite: backlog
+  epic-10-retrospective: optional
+
 action_items:
   - epic: 1
     action: "UI stories must be visually validated against their matching HTML prototype (where one exists) before being marked done -- not just functionally/test correct. First applies to Story 2.5 (02.1-Content-Discovery.html)."

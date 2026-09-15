@@ -2,7 +2,7 @@
 title: TalentPilot-AI
 status: final
 created: 2026-07-09
-updated: 2026-09-12
+updated: 2026-09-15
 ---
 
 # PRD: TalentPilot-AI
@@ -24,7 +24,7 @@ This is deliberately not a claim that everything on the dashboard becomes trustw
 
 ### 2.1 Jobs To Be Done
 
-- **HR/L&D Admin ("Rita the Referee") — primary.** Needs to know who's ready for a project without manual check-ins or chasing. Opens the tracking sheet daily to add/update must-do skills and check status; periodically has to make a fast, defensible readiness call under time pressure (a project lead asking "who can we staff?" today, not next week). Is resigned to the current process, not tolerant of it — three years of chasing updates has taught her that nagging doesn't fix a chore nobody wants to do. `[ASSUMPTION]` This "resigned, not tolerant" read is TalentPilot's own inference, not confirmed via interview — see §12.
+- **HR/L&D Admin ("Rita the Referee") — primary.** `[NOTE 2026-09-15]` This is the PRD's illustrative persona name — narrative/UJ context only. The actual seeded account's login email and system-displayed name are separate, product-facing identifiers: `admin@sails.example.com`, displayed as "Sails Admin" — see §3 Glossary and `core/seeds.py`. Needs to know who's ready for a project without manual check-ins or chasing. Opens the tracking sheet daily to add/update must-do skills and check status; periodically has to make a fast, defensible readiness call under time pressure (a project lead asking "who can we staff?" today, not next week). Is resigned to the current process, not tolerant of it — three years of chasing updates has taught her that nagging doesn't fix a chore nobody wants to do. `[ASSUMPTION]` This "resigned, not tolerant" read is TalentPilot's own inference, not confirmed via interview — see §12.
 - **Employee ("Casey the Continuer") — secondary.** Needs to find the right learning content fast and resume exactly where they left off, Netflix/Spotify-style. Currently self-reports progress into the same shared sheet Rita uses — an easy-to-deprioritize chore with zero personal payoff.
 
 ### 2.2 Non-Users (v1)
@@ -61,7 +61,7 @@ These three journeys were already designed as UX scenarios and built as working 
 
 ## 3. Glossary
 
-- **HR Admin** — The primary user role (persona: Rita). Assigns skills, makes readiness judgments. Not a people-manager role — assigns and judges org-wide, doesn't manage individual employees directly.
+- **HR Admin** — The primary user role (persona: Rita). Assigns skills, makes readiness judgments. Not a people-manager role — assigns and judges org-wide, doesn't manage individual employees directly. `[UPDATED 2026-09-15]` The seeded HR Admin account's actual login/display identity is `admin@sails.example.com`, shown in-product as "Sails Admin" — a product-facing account identity, distinct from "Rita," which remains this PRD's narrative persona name for UJ-1/UJ-3 and §2.1 only. The account is resolved by its account/employee ID everywhere in the system (auth, attribution, seed data) — the display name is a resolved-at-read-time label, never a lookup key (see §4.7/FR-26's identical "resolved live at read time" principle).
 - **Employee** — The secondary user role (persona: Casey). Receives skill assignments, consumes recommended content, generates watch-progress signal passively. `[UPDATED 2026-09-11, corrected post-review]` HR Admin creates, views, edits, and deletes/archives Employee records from the Employees roster (§4.7, FR-24–28) — the Employee entity's system-of-record profile data (contact info, position, manager, department, etc.) and login provisioning both originate here, replacing the earlier hand-seeded demo list **for EMPLOYEE-role accounts**. HR_ADMIN account provisioning is a separate, still-open concern (Open Question 9) — this roster management does not touch it.
 - **Session** — The authenticated context established after HR Admin or Employee login, carried via a JWT in an HTTP-only/Secure/SameSite cookie (see `addendum.md`, Technical Stack). Required before any Assignment, Content, or Watch Progress data is reachable (FR-13); scoped to exactly one role and, for Employees, exactly one identity (FR-14).
 - **Skill** — A named competency HR can assign to an Employee (e.g., "Data Visualization"). Distinct from a **sub-skill**, a finer-grained status field that remains self-reported (out of MVP auto-capture scope). `[ADDED 2026-09-08]` HR Admin can create, edit, and delete Skills from the Skills tab (§4.6, FR-20/21/22) — but a Skill becomes permanently locked from editing or deletion the first time it's ever assigned to an Employee, protecting the stability of existing Assignment/audit history.
@@ -528,6 +528,77 @@ Below the stats (FR-31), the landing page shows two more views: (a) an Assignmen
 
 **Notes:** `[NOTE FOR PM]` No UX scenario or prototype covers this landing page's layout, chart treatment, or the pie-segment click-through interaction — downstream UX work needs to design all of §4.10 from scratch, consistent with this PRD's existing pattern for other request-driven additions (FR-12, FR-20, FR-24).
 
+### 4.11 Post-MVP Admin & Roster Refinements
+
+`[ADDED 2026-09-15 via bmad-correct-course, Sprint Change Proposal approved same day — see planning-artifacts/sprint-change-proposal-2026-09-15.md]`
+
+**Description:** A batch of 10 refinements to the already-shipped Employee Roster (§4.7), Skills/Skill-Assignments admin surfaces (§4.4, §4.6), and content-sourcing credential handling (§4.6/FR-16), gathered from real post-launch usage rather than a new UJ. All are additive — no existing FR in §4.1–§4.10 is reversed.
+
+**Functional Requirements:**
+
+#### FR-34: HR Admin roster gains First/Last Name and expanded grid columns
+
+The Employee record (§4.7/FR-24) captures First Name and Last Name as separate fields instead of one combined Name field. The roster grid (FR-25) adds three columns: **Location**, **Technologies**, and **Days in Talent Pool**. The roster's displayed name format is **"{Last Name}, {First Name}"**.
+
+**Consequences (testable):**
+- Both First Name and Last Name are required at creation (FR-24), same requiredness tier as the current combined Name field.
+- **Days in Talent Pool** = whole days elapsed since the Employee record's `created_at` timestamp — computed on read, not a separately-entered hire date (no such field exists in FR-24's schema; adding one is out of scope for this FR).
+- Existing records created before this change need a `first_name`/`last_name` backfill migration strategy — decided during Story 10.2's implementation, not specified here.
+- Location and Technologies columns display the existing FR-24 `location`/`technologies` field values already captured at creation; a blank value renders per FR-25's existing "excluded from filter, not unfindable" rule.
+
+#### FR-35: Roster rows flag Employees over 90 days in the Talent Pool
+
+A roster row whose Days in Talent Pool (FR-34) exceeds **90** renders with a red visual flag.
+
+**Consequences (testable):**
+- The red flag is paired with text or an icon, never color alone — same non-color-only rule as every other Status/Provenance surface in this PRD (§8).
+- The threshold is a fixed constant (90 days), not configurable per Employee or per HR Admin in v1 — `[ASSUMPTION]` revisit only if a real pilot use case needs it to vary.
+- This is a display-only flag — it does not block, gate, or otherwise affect any Employee action (delete/archive, assignment, edit).
+
+#### FR-36: HR Admin views an Employee Experience Distribution panel
+
+Distinct from §4.10/FR-32's Employee Segmentation (readiness-based: On Track/In Progress/Needs Attention) — this is a separate, separately-named panel bucketing the active roster by years of experience.
+
+**Consequences (testable):**
+- `experience` (§4.7/FR-24, currently free text) gains a companion numeric `experience_years` field used for bucketing; the existing free-text field is unaffected (exact schema approach — replace vs. add-alongside — decided during Story 10.4's implementation).
+- Buckets are **0–4, 5–7, 8–9, 10–11, 12–14, 15–19, 20+** years — contiguous and exhaustive, confirmed 2026-09-15.
+- Clicking a bucket's count shows the list of Employees in that bucket, paginated at **15 per page**, matching FR-25's existing roster pagination convention.
+- Same non-color-only accessibility rule as FR-32's pie chart (§8) applies to any chart rendering of this panel.
+- An Employee with no `experience_years` value is excluded from every bucket, not force-fit into one — same "blank isn't a guess" principle as FR-32's zero-Assignment exclusion.
+
+#### FR-37: Skills tab gains search and pagination
+
+The Skills tab (§4.6) gains a search control and pagination at **15 per page**, matching the Employee roster's existing FR-25 pattern.
+
+**Consequences (testable):**
+- Search matches at least Skill name (mirrors FR-25's Name-search baseline for Employees).
+- Pagination resets to page 1 on a new search term, same convention as FR-25.
+
+#### FR-38: Skill Assignments grid gains search and pagination
+
+The Readiness Dashboard / Skill Assignments grid (§4.4) gains a search control and pagination at **15 per page**, same pattern as FR-37.
+
+**Consequences (testable):**
+- Search matches at least Employee name and Skill name.
+- Existing FR-8–FR-12 row behavior (Status badge, drill-down, live updates, HR Override) is unaffected — this FR only adds filtering/paging to which rows are visible at once, never changes what a row shows.
+
+#### FR-39: New-Skill content-sourcing reliability
+
+Closes a reported gap: after creating a new Skill (§4.6/FR-20), an HR Admin could not find any recommended video when subsequently assigning that Skill to an Employee.
+
+**Consequences (testable):**
+- FR-20's existing "Content Lookup panel opens automatically on Skill creation" consequence is verified and, if found not firing reliably, fixed.
+- The Skill Assignment Flow's content-review step (§4.1/FR-2) gains a distinct empty-state message for "this Skill has no approved Content yet" specifically (as opposed to FR-2's existing generic no-content copy), pointing the HR Admin back to the Skills tab's search-and-attach flow (FR-17/17a/18).
+- This FR does **not** change `content/`'s semantic-matching query (FR-3) — a Skill with zero `content_catalog` rows correctly surfaces no recommendation, per FR-3's existing "no match beats a bad match" rule; the fix is reliability/clarity, not the matching algorithm.
+
+#### FR-40: "+ New Skill" is gated on a configured content-source credential
+
+If no content-source credential (§4.6/FR-16) is configured for the acting HR Admin's organization, the "+ New Skill" action is disabled with an explanatory tooltip (e.g., "Add an API key before creating a new skill").
+
+**Consequences (testable):**
+- Reads the existing FR-16 "configured" boolean per source — enabled once at least one source (YouTube or Udemy) is configured, consistent with FR-16's existing partial-availability model.
+- Once a credential is seeded or added (see §9's seed-data note), the button is enabled with no other action needed.
+
 ## 5. Non-Goals (Explicit)
 
 - **Not an LMS or LXP.** No course catalog browsing, no learning paths, no certifications. It is an assignment-and-tracking dashboard, deliberately narrow.
@@ -553,6 +624,7 @@ Below the stats (FR-31), the landing page shows two more views: (a) an Assignmen
 - HR Admin Navigation Shell — primary navigation relocated to a left-side pane, four entries (Dashboard, Skill Assignments, Skills, Employees) (FR-29)
 - Application Theming — Light/Dark mode, app-wide (FR-30)
 - Skill Assignment Dashboard — HR Admin landing page: org-wide stats, Assignment Progress ring, Employee Segmentation pie chart, drill-down into the full grid or a single Employee (FR-31, FR-32, FR-33)
+- Post-MVP Admin & Roster Refinements — First/Last Name + expanded roster columns, 90-day Talent Pool flag, Experience Distribution panel, Skills/Skill-Assignments search & pagination, new-Skill content-sourcing reliability, credential-gated Skill creation (FR-34–FR-40)
 
 ### 6.2 Out of Scope for MVP
 
@@ -604,6 +676,7 @@ Below the stats (FR-31), the landing page shows two more views: (a) an Assignmen
 - **Content quality:** No human-approval gate exists for AI-surfaced content in v1 (§5). Externally-sourced video content carries no inherent quality guarantee. Accepted risk, revisit if pilot feedback surfaces real quality problems.
 - **No data migration.** The dashboard launches clean on 2026-07-13. Historical spreadsheet data does not import.
 - **Tone of voice:** HR-facing surfaces (dashboard, drill-down) stay factual and calm — no encouragement copy, no color-only signaling (FR-8). Employee-facing surfaces (content discovery, resume) carry warmth and encouragement. This split is deliberate and locked; full tone framework and copy examples live in the Product Brief (`A-Product-Brief/project-brief.md`), not duplicated here.
+- **Seed data (minimized 2026-09-15):** `core/seeds.py` seeds exactly one HR Admin account and one Skill — no demo Employee roster, no demo multi-skill catalog. All other Employees, Skills, and Content are created live through the product's own CRUD (FR-20, FR-24) rather than pre-seeded. This reinforces, rather than conflicts with, this PRD's original "no data migration, clean launch" constraint above. The seeded HR Admin's `admin_api_keys` row is pre-populated (encrypted) from `settings.YOUTUBE_API_KEY` at seed time, purely so FR-17's live lookup and FR-40's credential gate work out of the box — the batch ingestion job (§4.2) continues reading `settings.YOUTUBE_API_KEY` directly, unchanged (AD-7's batch/live-lookup key separation is preserved, see `ARCHITECTURE-SPINE.md` AD-10 addendum).
 
 ## 10. Why Now
 

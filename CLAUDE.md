@@ -105,3 +105,7 @@ Frontend mirrors backend modules as feature folders: `src/features/{admin,assign
 - `documentation/ImplementationStepsForStory*.md` — per-story implementation logs (one per Story, e.g. Story 9.5).
 - `frontend/docs/ADAPTERS.md` — Player Adapter pattern (AD-9) with YouTube implementation and a worked Vimeo-swap example.
 - Root-level `*_SUMMARY.md`, `*_GUIDE.md`, `FEATURE_COMPLETE.txt`, etc. describe an earlier static-HTML prototype phase (`_bmad-output/E-Development/`), not the current FastAPI/React implementation — treat them as historical, not authoritative.
+
+## Current status (as of 2026-09-15)
+
+Epics 1–9 (FR-1–FR-33) are fully implemented and `done` (`_bmad-output/implementation-artifacts/sprint-status.yaml`). **Epic 10 ("Post-MVP Admin & Roster Refinements," FR-34–FR-40) is planned but not yet implemented** — approved via `_bmad-output/planning-artifacts/sprint-change-proposal-2026-09-15.md` and specified in the PRD (§4.11) and `epics.md`, but no story has started. If you see FR-34–FR-40 referenced in the PRD/architecture docs with no corresponding code, that's expected — check `sprint-status.yaml` for each story's real status (`10-1-...` through `10-10-...`) before assuming something is missing or broken.
