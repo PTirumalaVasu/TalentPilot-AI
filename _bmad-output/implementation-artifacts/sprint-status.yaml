@@ -1,5 +1,5 @@
 # generated: 2026-07-09
-# last_updated: 2026-09-13 (bmad-sprint-planning re-validation -- no drift found, no status changes)
+# last_updated: 2026-09-15 (epic-9-retrospective completed via bmad-retrospective -- epic-9-retrospective optional -> done; 5 new action items added, one -- the frontend HR-role-gate gap -- escalated to top priority per explicit user decision; see implementation-artifacts/epic-9-retro-2026-09-15.md)
 # project: TalentPilot-AI
 # project_key: NOKEY
 # tracking_system: file-system
@@ -287,7 +287,7 @@ development_status:
   9-3-frontend-skill-assignment-dashboard-landing-page: done
   9-4-frontend-needs-attention-popover-and-drill-down: done
   9-5-frontend-nav-shell-add-skill-assignments-entry: done
-  epic-9-retrospective: optional
+  epic-9-retrospective: done
 
   # Epic 10 added 2026-09-15 via bmad-correct-course (Sprint Change Proposal
   # approved same day -- see planning-artifacts/sprint-change-proposal-2026-09-15.md).
@@ -482,3 +482,24 @@ action_items:
     owner: "Amelia (dev-story workflow)"
     status: done
     # Done inline during the epic-8 retro (2026-09-12) -- see project-context.md's Story 8.1 entry.
+  - epic: 9
+    action: "ESCALATED TO TOP PRIORITY (user decision at the epic-9 retro, 2026-09-15): no frontend page checks HR role -- RequireAuth.tsx gates authentication only, so /dashboard, /hr/dashboard, /skills, and /employees rely entirely on the backend's 403 to keep out an Employee session. Surfaced independently in Story 9.3's and Story 9.5's code reviews (the same inaccurate 'already role-gated' claim was made and corrected twice) but never tracked as an action item until now -- mirrors the authenticate()/_MOCK_ACCOUNTS gap's own path (flagged repeatedly, fixed only after explicit retro escalation). Schedule a dedicated fix before Epic 10's first real story where feasible."
+    owner: "Alice (Product Owner) + Amelia (dev)"
+    status: open
+  - epic: 9
+    action: "Fix the recurring stale/unhealthy Docker container trap at its root, not per-story. Hit independently in Stories 9.3, 9.4, and 9.5, each diagnosed and manually rebuilt with no change to how the containers are started/watched between occurrences. A docker-compose.yml healthcheck + restart policy (or equivalent) would turn three manual diagnoses into zero."
+    owner: "Charlie (senior dev)"
+    status: open
+  - epic: 9
+    action: "RE-ESCALATED: turn the 'blocking project-context.md gate' reminder (epic-8 action item above, still open) into an actual workflow check -- this is the second epic in a row the reminder-only version produced a real miss (epic-8: Story 8.1 had zero entries; epic-9: Story 9.1 has none of its own, only referenced via Story 9.2's entry)."
+    owner: "Amelia (dev-story / code-review workflow)"
+    status: open
+  - epic: 9
+    action: "Backfill project-context.md with a direct entry for Story 9.1 (currently only referenced via Story 9.2's entry)."
+    owner: "Amelia (dev-story workflow)"
+    status: done
+    # Done inline during the epic-9 retro (2026-09-15) -- see project-context.md's new Story 9.1 entry.
+  - epic: 9
+    action: "Keep applying Story 9.5's code-review lesson going forward (auth/security/cross-cutting scope expansions get a fresh AskUserQuestion, even mid-story) -- it already worked once (the authenticate() fix used it the same day it was written); confirm it's a habit, not a one-off."
+    owner: "Amelia (dev-story workflow)"
+    status: open
