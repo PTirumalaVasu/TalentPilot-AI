@@ -1,5 +1,8 @@
-"""Canonical seed UUIDs for the 5 demo accounts (Rita, Casey, Morgan, Jordan,
-Sam). Shared between `core/seeds.py` (real Employee/Account rows) and
+"""Canonical seed UUIDs for the 5 demo accounts (Sails Admin, Casey, Morgan,
+Jordan, Sam -- RITA_ID is the seeded HR Admin's identity, renamed from
+"Rita the Recommender" to "Sails Admin" by Story 10.1; the symbol name
+itself is unchanged, see that story's Dev Notes). Shared between
+`core/seeds.py` (real Employee/Account rows) and
 `auth/repository.py`'s mock credential store, so a login's JWT `user_id`
 always matches a real `Employee.id` — code that treats `user_id` as a UUID
 (e.g. `assignments/service.py`) depends on this holding.

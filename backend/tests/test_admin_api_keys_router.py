@@ -36,7 +36,7 @@ def _client() -> AsyncClient:
     return AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
 
 
-async def _login(client: AsyncClient, email: str = "rita@sails.example.com") -> None:
+async def _login(client: AsyncClient, email: str = "admin@sails.example.com") -> None:
     response = await client.post("/api/auth/login", json={"email": email, "password": "demo123"})
     assert response.status_code == 200
     set_cookie_header = response.headers.get("set-cookie", "")
@@ -48,7 +48,7 @@ async def _login(client: AsyncClient, email: str = "rita@sails.example.com") -> 
 
 async def _create_second_hr_admin(email: str, name: str) -> uuid.UUID:
     """Creates a genuine second HR_ADMIN identity (code review, 2026-09-10)
-    -- Rita is the only seeded HR_ADMIN in this demo roster, so proving
+    -- Sails Admin is the only seeded HR_ADMIN in this demo roster, so proving
     AC4's "regardless of which Admin configured it before me" through a
     real authenticated HTTP session (not just two raw UUIDs at the
     repository layer) requires a second real admin to log in as.
@@ -289,7 +289,7 @@ async def test_udemy_save_status_remove_round_trip():
         status_response = await client.get("/api/admin/api-keys")
         udemy = status_response.json()["udemy"]
         assert udemy["configured"] is True
-        assert udemy["configured_by"] == "Rita the Recommender"
+        assert udemy["configured_by"] == "Sails Admin"
         assert udemy["configured_at"] is not None
 
         remove = await client.delete("/api/admin/api-keys/udemy")
@@ -339,12 +339,12 @@ async def test_udemy_save_by_second_admin_replaces_configured_by():
             )
 
             first_status = await client.get("/api/admin/api-keys")
-            assert first_status.json()["udemy"]["configured_by"] == "Rita the Recommender"
+            assert first_status.json()["udemy"]["configured_by"] == "Sails Admin"
 
             # A genuine second HR_ADMIN identity (code review, 2026-09-10) --
-            # the previous version of this test re-logged in as Rita twice,
-            # which would have passed even if configured_by were never
-            # updated at all.
+            # the previous version of this test re-logged in as the seeded
+            # HR Admin twice, which would have passed even if configured_by
+            # were never updated at all.
             await _login(client, email=second_admin_email)
             await client.put(
                 "/api/admin/api-keys/udemy", json={"client_id": "second", "client_secret": "second-secret"}

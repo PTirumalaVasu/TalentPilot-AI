@@ -21,7 +21,7 @@ def _client() -> AsyncClient:
 @pytest.mark.parametrize(
     ("email", "expected_role", "expected_user_id"),
     [
-        ("rita@sails.example.com", "HR_ADMIN", str(RITA_ID)),
+        ("admin@sails.example.com", "HR_ADMIN", str(RITA_ID)),
         ("casey@sails.example.com", "EMPLOYEE", str(CASEY_ID)),
         ("morgan@sails.example.com", "EMPLOYEE", str(MORGAN_ID)),
         ("jordan@sails.example.com", "EMPLOYEE", str(JORDAN_ID)),
@@ -46,7 +46,7 @@ async def test_login_sets_session_cookie():
     async with _client() as client:
         response = await client.post(
             "/api/auth/login",
-            json={"email": "rita@sails.example.com", "password": "demo123"},
+            json={"email": "admin@sails.example.com", "password": "demo123"},
         )
         assert response.status_code == 200
         set_cookie = response.headers.get("set-cookie", "")
@@ -59,7 +59,7 @@ async def test_login_wrong_password_returns_401_generic_message():
     async with _client() as client:
         response = await client.post(
             "/api/auth/login",
-            json={"email": "rita@sails.example.com", "password": "wrong-password"},
+            json={"email": "admin@sails.example.com", "password": "wrong-password"},
         )
         assert response.status_code == 401
         assert response.json()["message"] == "Email or password incorrect"
@@ -81,7 +81,7 @@ async def test_login_wrong_password_and_unknown_email_are_indistinguishable():
     async with _client() as client:
         wrong_password = await client.post(
             "/api/auth/login",
-            json={"email": "rita@sails.example.com", "password": "wrong-password"},
+            json={"email": "admin@sails.example.com", "password": "wrong-password"},
         )
         unknown_email = await client.post(
             "/api/auth/login",
@@ -94,13 +94,13 @@ async def test_login_wrong_password_and_unknown_email_are_indistinguishable():
 
 @pytest.mark.asyncio
 async def test_login_case_insensitive_email_still_succeeds():
-    """Regression test: Rita@Sails.example.com (different case) previously
+    """Regression test: Admin@Sails.example.com (different case) previously
     failed login even with the correct password, since lookup was a raw
     case-sensitive dict key match."""
     async with _client() as client:
         response = await client.post(
             "/api/auth/login",
-            json={"email": "Rita@Sails.example.com", "password": "demo123"},
+            json={"email": "Admin@Sails.example.com", "password": "demo123"},
         )
         assert response.status_code == 200
         assert response.json()["role"] == "HR_ADMIN"
@@ -120,7 +120,7 @@ async def test_login_empty_credentials_returns_401_not_500():
 async def test_login_missing_password_field_returns_422_not_500():
     async with _client() as client:
         response = await client.post(
-            "/api/auth/login", json={"email": "rita@sails.example.com"}
+            "/api/auth/login", json={"email": "admin@sails.example.com"}
         )
         assert response.status_code == 422
         assert response.json()["code"] == "VALIDATION_ERROR"

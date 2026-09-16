@@ -19,11 +19,11 @@ def _client() -> AsyncClient:
 @pytest.mark.asyncio
 async def test_dashboard_service_returns_response(db_session: AsyncSession):
     """Test: Dashboard service returns proper response structure."""
-    # Use Rita (HR_ADMIN from seeded data)
-    rita_id = UUID("550e8400-e29b-41d4-a716-446655440001")
+    # Use the seeded HR Admin (Sails Admin, Story 10.1)
+    hr_admin_id = UUID("550e8400-e29b-41d4-a716-446655440001")
 
     response = await DashboardService.get_dashboard_assignments(
-        db_session, hr_admin_id=rita_id, page=1, page_size=50
+        db_session, hr_admin_id=hr_admin_id, page=1, page_size=50
     )
 
     # Verify response structure

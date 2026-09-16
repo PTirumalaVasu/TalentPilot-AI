@@ -22,12 +22,13 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.auth import service as auth_service
+from app.auth.models import Account
 from app.auth.repository import get_account_by_email_ci
 from app.auth.schemas import Role
 from app.core.config import settings
 from app.employees.models import Employee
 from app.core.seed_ids import CASEY_ID, JORDAN_ID, MORGAN_ID, RITA_ID, SAM_ID
-from app.core.seeds import run_seeds, seed_employees
+from app.core.seeds import create_default_accounts, run_seeds, seed_employees
 
 pytestmark = pytest.mark.asyncio(loop_scope="module")
 
@@ -38,7 +39,7 @@ _session_factory = async_sessionmaker(_engine, expire_on_commit=False)
 # derived from a live dict anymore now that accounts are real DB rows, not
 # an importable module-level mapping.
 _DEMO_ACCOUNTS = [
-    ("rita@sails.example.com", RITA_ID, "HR_ADMIN"),
+    ("admin@sails.example.com", RITA_ID, "HR_ADMIN"),
     ("casey@sails.example.com", CASEY_ID, "EMPLOYEE"),
     ("morgan@sails.example.com", MORGAN_ID, "EMPLOYEE"),
     ("jordan@sails.example.com", JORDAN_ID, "EMPLOYEE"),
@@ -90,13 +91,13 @@ async def test_login_normalizes_case_and_whitespace_before_lookup():
     emails, so this proves the normalization path actually works, not just
     that it's compatible with already-normalized input."""
     async with _seeded_session() as session:
-        user_id, role = await auth_service.authenticate(session, "  Rita@Sails.Example.COM  ", "demo123")
+        user_id, role = await auth_service.authenticate(session, "  Admin@Sails.Example.COM  ", "demo123")
         assert uuid.UUID(user_id) == RITA_ID
         assert role == Role.HR_ADMIN
 
         result = await session.execute(select(Employee).where(Employee.id == RITA_ID))
         employee = result.scalar_one()
-        assert employee.email == "rita@sails.example.com"
+        assert employee.email == "admin@sails.example.com"
 
 
 async def test_exactly_one_hr_admin_and_four_employees_seeded():
@@ -111,6 +112,44 @@ async def test_exactly_one_hr_admin_and_four_employees_seeded():
         assert len(hr_admins) == 1
         assert hr_admins[0].id == RITA_ID
         assert len(regular_employees) == 4
+
+
+async def test_create_default_accounts_is_idempotent_when_row_predates_an_email_rename():
+    """Regression test for Story 10.1's code-review finding: create_default_accounts()'s
+    existence check used to key on Account.email. Story 10.1 changed the target email
+    (rita@sails.example.com -> admin@sails.example.com) without changing the RITA_ID
+    UUID -- on a database seeded before that rename, the pre-existing row's email no
+    longer matches the check, so it fell through to the insert below and crashed with
+    a duplicate-key IntegrityError on accounts_pkey (same id, different email). Fixed
+    by keying the check on Account.id instead (see core/seeds.py::create_default_accounts).
+
+    This simulates that exact "row predates the rename" scenario: mutate the RITA_ID
+    account's email to an arbitrary non-canonical value within this test's own
+    uncommitted transaction, then re-run create_default_accounts() and assert it
+    neither raises nor touches the row -- proving the id-keyed check both survives a
+    stale email (no crash) and doesn't itself silently rewrite existing fields (that
+    backfill is migration 014's job, not the idempotent seed script's, so any other
+    manually-set identity on a given environment is left alone)."""
+    async with _session_factory() as session:
+        await run_seeds(session)  # ensure the row exists to mutate
+
+        stale_email = "pre-rename-drift@example.com"
+        account = await session.get(Account, RITA_ID)
+        account.email = stale_email
+        await session.flush()
+
+        try:
+            await create_default_accounts(session)  # must not raise accounts_pkey IntegrityError
+        finally:
+            await session.rollback()
+
+        async with _session_factory() as verify_session:
+            result = await verify_session.execute(select(Account).where(Account.id == RITA_ID))
+            row = result.scalar_one()
+            # Rolled back to whatever the row was before this test (canonical
+            # seeded email) -- proves the mutation never committed and
+            # create_default_accounts() didn't insert a conflicting duplicate.
+            assert row.email != stale_email
 
 
 async def test_seed_employees_is_idempotent_at_the_function_level():

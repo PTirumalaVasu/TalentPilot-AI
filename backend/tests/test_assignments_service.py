@@ -83,7 +83,7 @@ async def test_real_mock_login_user_id_works_end_to_end_as_assigned_by():
     wiring), not a hand-constructed CurrentUser, to prove the real path
     works end-to-end."""
     async with _seeded_session() as session:
-        account = await get_account_by_email_ci(session, "rita@sails.example.com")
+        account = await get_account_by_email_ci(session, "admin@sails.example.com")
         hr_user = CurrentUser(role=Role.HR_ADMIN, user_id=str(account.id))
         request = CreateAssignmentRequest(employee_id=CASEY_ID, skill_id=SKILL_DATA_VIZ_ID)
 

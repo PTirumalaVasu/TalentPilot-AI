@@ -119,9 +119,9 @@ export function HrAppShell({ children }: { children: ReactNode }) {
                 className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"
               >
                 <span className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 font-medium text-blue-700 dark:bg-blue-900 dark:text-blue-300">
-                  R
+                  S
                 </span>
-                Rita
+                Sails Admin
               </button>
               {userMenuOpen && (
                 <div className="absolute right-0 z-10 mt-2 w-40 rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-900">

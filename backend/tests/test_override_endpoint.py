@@ -29,7 +29,7 @@ def _client() -> AsyncClient:
     return AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
 
 
-async def _login(client: AsyncClient, email: str = "rita@sails.example.com") -> None:
+async def _login(client: AsyncClient, email: str = "admin@sails.example.com") -> None:
     response = await client.post("/api/auth/login", json={"email": email, "password": "demo123"})
     assert response.status_code == 200
     set_cookie_header = response.headers.get("set-cookie", "")

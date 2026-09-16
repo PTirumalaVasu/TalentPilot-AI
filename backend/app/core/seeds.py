@@ -37,8 +37,8 @@ async def seed_employees(session: AsyncSession) -> None:
         Employee(
             id=RITA_ID,
             employee_code="EMP-0001",
-            name="Rita the Recommender",
-            email="rita@sails.example.com",
+            name="Sails Admin",
+            email="admin@sails.example.com",
             role="HR_ADMIN",
         ),
         Employee(
@@ -274,8 +274,12 @@ async def seed_content(session: AsyncSession) -> None:
 
 async def create_default_accounts(session: AsyncSession) -> None:
     """Idempotently create mock local auth credentials for seed employees."""
-    # Check if account already exists
-    existing = await session.execute(select(Account).where(Account.email == "rita@sails.example.com"))
+    # Check if account already exists. Keyed on id (immutable), not email --
+    # an email-keyed check silently breaks idempotency the moment the seeded
+    # email value itself changes (Story 10.1): a pre-existing row under the
+    # old email would no longer match, and the insert below would then hit
+    # accounts_pkey on the unchanged id.
+    existing = await session.execute(select(Account).where(Account.id == RITA_ID))
     if existing.scalar():
         return
 
@@ -289,7 +293,7 @@ async def create_default_accounts(session: AsyncSession) -> None:
     accounts = [
         Account(
             id=RITA_ID,
-            email="rita@sails.example.com",
+            email="admin@sails.example.com",
             password_hash=demo_password_hash,
             role="HR_ADMIN",
         ),

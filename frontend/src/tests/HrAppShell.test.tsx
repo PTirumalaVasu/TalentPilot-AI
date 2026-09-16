@@ -105,7 +105,7 @@ describe('HrAppShell (Story 7.7)', () => {
     const user = userEvent.setup();
     renderShell();
 
-    await user.click(screen.getByRole('button', { name: /rita/i }));
+    await user.click(screen.getByRole('button', { name: /sails admin/i }));
     await user.click(screen.getByRole('button', { name: /sign out/i }));
 
     expect(logout).toHaveBeenCalled();

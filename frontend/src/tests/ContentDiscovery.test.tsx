@@ -162,13 +162,13 @@ describe('ContentDiscovery', () => {
     expect(within(card).getByText('100% watched')).toBeInTheDocument();
   });
 
-  it('does not suppress the nested "Contact Rita" link\'s own keyboard activation on a no-content card', async () => {
+  it('does not suppress the nested "Contact Sails Admin" link\'s own keyboard activation on a no-content card', async () => {
     vi.mocked(listMyAssignments).mockResolvedValue(mixedResponse);
     renderPage();
 
     await waitFor(() => expect(screen.getByText('Python Programming')).toBeInTheDocument());
 
-    const link = screen.getByRole('link', { name: /contact rita/i });
+    const link = screen.getByRole('link', { name: /contact sails admin/i });
     // jsdom doesn't perform the browser's default mailto-navigation on Enter,
     // but it does dispatch a real keydown that bubbles -- this proves the
     // ancestor Card's onKeyDown no longer calls preventDefault() on it

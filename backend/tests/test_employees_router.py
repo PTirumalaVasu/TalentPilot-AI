@@ -35,7 +35,7 @@ def _client() -> AsyncClient:
     return AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
 
 
-async def _login(client: AsyncClient, email: str = "rita@sails.example.com") -> str:
+async def _login(client: AsyncClient, email: str = "admin@sails.example.com") -> str:
     response = await client.post("/api/auth/login", json={"email": email, "password": "demo123"})
     assert response.status_code == 200
     set_cookie_header = response.headers.get("set-cookie", "")
@@ -1207,19 +1207,20 @@ async def test_create_assignment_against_freshly_archived_employee_returns_409()
 
 
 async def test_delete_employee_rejects_self_deletion():
-    # Code review, 2026-09-12: Rita deleting her own row would archive her
-    # (she has real assignment history) and 401 her own very next request
-    # (AC4) with no un-archive path to recover -- rejected outright instead.
+    # Code review, 2026-09-12: the seeded HR Admin deleting her own row would
+    # archive her (she has real assignment history) and 401 her own very
+    # next request (AC4) with no un-archive path to recover -- rejected
+    # outright instead.
     async with _client() as client:
-        rita_token = await _login(client)
+        hr_admin_token = await _login(client)
         import jwt as pyjwt
 
         from app.core.config import settings as app_settings
 
-        payload = pyjwt.decode(rita_token, app_settings.JWT_SECRET, algorithms=["HS256"])
-        rita_id = payload["user_id"]
+        payload = pyjwt.decode(hr_admin_token, app_settings.JWT_SECRET, algorithms=["HS256"])
+        hr_admin_id = payload["user_id"]
 
-        response = await client.delete(f"/api/admin/employees/{rita_id}")
+        response = await client.delete(f"/api/admin/employees/{hr_admin_id}")
 
         assert response.status_code == 409
         assert response.json()["code"] == "CANNOT_DELETE_SELF"

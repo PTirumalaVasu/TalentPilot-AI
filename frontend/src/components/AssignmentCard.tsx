@@ -50,7 +50,7 @@ export function AssignmentCard({ item, onSelect }: AssignmentCardProps) {
       onClick={handleActivate}
       onKeyDown={(e) => {
         // Only handle Enter/Space when the Card itself is the event target,
-        // not a nested interactive element (e.g. the "Contact Rita" link) --
+        // not a nested interactive element (e.g. the "Contact Sails Admin" link) --
         // otherwise this handler's preventDefault() suppresses the nested
         // element's own default keyboard action (AC10: keyboard operability).
         if (e.target !== e.currentTarget) return;
@@ -123,8 +123,8 @@ export function AssignmentCard({ item, onSelect }: AssignmentCardProps) {
       ) : (
         <div className="text-sm text-gray-500 dark:text-gray-400">
           No recommended content yet for this skill.{' '}
-          <a href="mailto:rita@sails.example.com" className="text-talentpilot-600 underline dark:text-blue-400" onClick={(e) => e.stopPropagation()}>
-            Contact Rita
+          <a href="mailto:admin@sails.example.com" className="text-talentpilot-600 underline dark:text-blue-400" onClick={(e) => e.stopPropagation()}>
+            Contact Sails Admin
           </a>
         </div>
       )}

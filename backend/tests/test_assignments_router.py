@@ -35,7 +35,7 @@ def _client() -> AsyncClient:
     return AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
 
 
-async def _login(client: AsyncClient, email: str = "rita@sails.example.com") -> str:
+async def _login(client: AsyncClient, email: str = "admin@sails.example.com") -> str:
     response = await client.post("/api/auth/login", json={"email": email, "password": "demo123"})
     assert response.status_code == 200
     set_cookie_header = response.headers.get("set-cookie", "")
@@ -57,7 +57,7 @@ async def test_list_employees_returns_all_demo_employees_for_authenticated_calle
         assert isinstance(body, list)
         assert len(body) >= 5
         emails = {e["email"] for e in body}
-        assert "rita@sails.example.com" in emails
+        assert "admin@sails.example.com" in emails
         assert "casey@sails.example.com" in emails
         # Response shape: id, name, email, role — no extra/internal fields.
         sample = next(e for e in body if e["email"] == "casey@sails.example.com")
@@ -96,7 +96,7 @@ async def test_list_employees_search_filters_by_name():
 async def test_list_employees_search_filters_by_email():
     async with _client() as client:
         await _login(client)
-        response = await client.get("/api/assignments/employees", params={"search": "rita@sails"})
+        response = await client.get("/api/assignments/employees", params={"search": "admin@sails"})
 
         assert response.status_code == 200
         body = response.json()
