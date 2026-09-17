@@ -33,11 +33,18 @@ async def seed_employees(session: AsyncSession) -> None:
     # created_at (all 5 rows share one insert/flush, so created_at isn't
     # guaranteed distinct). Kept identical here so a fresh-DB seed run and
     # migration 011's backfill of a pre-011 database always agree.
+    # first_name/last_name (Story 10.2) split on the last whitespace-
+    # separated token -- identical strategy to migration
+    # 015_split_employee_name_into_first_last.py's backfill, so a fresh-DB
+    # seed run and that migration's backfill of a pre-015 database always
+    # agree (mirrors migration 011's employee_code precedent).
     employees = [
         Employee(
             id=RITA_ID,
             employee_code="EMP-0001",
             name="Sails Admin",
+            first_name="Sails",
+            last_name="Admin",
             email="admin@sails.example.com",
             role="HR_ADMIN",
         ),
@@ -45,6 +52,8 @@ async def seed_employees(session: AsyncSession) -> None:
             id=CASEY_ID,
             employee_code="EMP-0002",
             name="Casey the Continuer",
+            first_name="Casey the",
+            last_name="Continuer",
             email="casey@sails.example.com",
             role="EMPLOYEE",
         ),
@@ -52,6 +61,8 @@ async def seed_employees(session: AsyncSession) -> None:
             id=MORGAN_ID,
             employee_code="EMP-0003",
             name="Morgan the Motivated",
+            first_name="Morgan the",
+            last_name="Motivated",
             email="morgan@sails.example.com",
             role="EMPLOYEE",
         ),
@@ -59,6 +70,8 @@ async def seed_employees(session: AsyncSession) -> None:
             id=JORDAN_ID,
             employee_code="EMP-0004",
             name="Jordan the Juggernaut",
+            first_name="Jordan the",
+            last_name="Juggernaut",
             email="jordan@sails.example.com",
             role="EMPLOYEE",
         ),
@@ -66,6 +79,8 @@ async def seed_employees(session: AsyncSession) -> None:
             id=SAM_ID,
             employee_code="EMP-0005",
             name="Sam the Stellar",
+            first_name="Sam the",
+            last_name="Stellar",
             email="sam@sails.example.com",
             role="EMPLOYEE",
         ),

@@ -11,7 +11,7 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
 
 
 def _reject_blank(value: str) -> str:
@@ -23,6 +23,17 @@ def _reject_blank(value: str) -> str:
     return stripped
 
 
+# employees.name (the derived f"{first_name} {last_name}" column -- Story
+# 10.2 Dev Notes) is String(255). first_name/last_name are each independently
+# capped at max_length=255, so without this check two near-max-length values
+# combine into a >255-char `name` that fails at INSERT with an unhandled
+# DataError instead of a clean 422 -- the exact failure mode max_length
+# values exist to prevent (see the comment on CreateEmployeeRequest below).
+def _reject_combined_name_too_long(first_name: str, last_name: str) -> None:
+    if len(first_name) + 1 + len(last_name) > 255:
+        raise ValueError("first_name and last_name combined must not exceed 255 characters")
+
+
 class CreateEmployeeRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -31,7 +42,11 @@ class CreateEmployeeRequest(BaseModel):
     # fails at insert time with an unhandled DB error instead of a clean 422
     # (same reasoning as skills/schemas.py::CreateSkillRequest.name).
     employee_code: str = Field(min_length=1, max_length=50)
-    name: str = Field(min_length=1, max_length=255)
+    # Story 10.2 (FR-34): the combined `name` field is removed from the
+    # request body -- First/Last Name are two required fields instead, same
+    # requiredness tier as the old combined field.
+    first_name: str = Field(min_length=1, max_length=255)
+    last_name: str = Field(min_length=1, max_length=255)
     email: EmailStr = Field(max_length=255)
 
     phone: str | None = Field(default=None, max_length=50)
@@ -43,10 +58,15 @@ class CreateEmployeeRequest(BaseModel):
     location: str | None = Field(default=None, max_length=255)
     department: str | None = Field(default=None, max_length=255)
 
-    @field_validator("employee_code", "name")
+    @field_validator("employee_code", "first_name", "last_name")
     @classmethod
     def required_fields_must_not_be_blank(cls, value: str) -> str:
         return _reject_blank(value)
+
+    @model_validator(mode="after")
+    def combined_name_must_not_be_too_long(self) -> "CreateEmployeeRequest":
+        _reject_combined_name_too_long(self.first_name, self.last_name)
+        return self
 
 
 class UpdateEmployeeRequest(BaseModel):
@@ -59,7 +79,8 @@ class UpdateEmployeeRequest(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    name: str = Field(min_length=1, max_length=255)
+    first_name: str = Field(min_length=1, max_length=255)
+    last_name: str = Field(min_length=1, max_length=255)
     email: EmailStr = Field(max_length=255)
 
     phone: str | None = Field(default=None, max_length=50)
@@ -71,10 +92,15 @@ class UpdateEmployeeRequest(BaseModel):
     location: str | None = Field(default=None, max_length=255)
     department: str | None = Field(default=None, max_length=255)
 
-    @field_validator("name")
+    @field_validator("first_name", "last_name")
     @classmethod
     def required_fields_must_not_be_blank(cls, value: str) -> str:
         return _reject_blank(value)
+
+    @model_validator(mode="after")
+    def combined_name_must_not_be_too_long(self) -> "UpdateEmployeeRequest":
+        _reject_combined_name_too_long(self.first_name, self.last_name)
+        return self
 
 
 class EmployeeResponse(BaseModel):
@@ -88,6 +114,8 @@ class EmployeeResponse(BaseModel):
     id: UUID
     employee_code: str
     name: str
+    first_name: str
+    last_name: str
     email: str
     role: str
     phone: str | None
@@ -106,11 +134,17 @@ class EmployeeResponse(BaseModel):
     # confirmation dialog's copy (UX-DR38). Not a real ORM column, so it is
     # never populated by a bare `EmployeeResponse.model_validate(employee)`
     # call -- the service layer must set it explicitly on the returned
-    # object afterward (see employees/service.py's `_with_assignment_history`
+    # object afterward (see employees/service.py's `_build_employee_response`
     # helper). Defaults to False so a fresh EmployeeCreatedResponse (a
     # brand-new employee, always zero Assignments by construction) needs no
     # extra query.
     has_assignment_history: bool = False
+
+    # Story 10.2 (FR-34/FR-35): whole days since `created_at`, computed on
+    # read in employees/service.py -- not a real ORM column, so (like
+    # has_assignment_history above) it is never populated by a bare
+    # `EmployeeResponse.model_validate(employee)` call.
+    days_in_talent_pool: int = 0
 
 
 class DeleteEmployeeResponse(BaseModel):

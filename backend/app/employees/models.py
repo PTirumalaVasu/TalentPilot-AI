@@ -27,7 +27,14 @@ class Employee(Base):
     __tablename__ = "employees"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    # `name` is kept as a real, always-in-sync column (Story 10.2) --
+    # employees/service.py writes it as f"{first_name} {last_name}" on every
+    # create/update. Several other modules (assignments/, dashboard/, auth/,
+    # content/) read Employee.name directly and are out of Story 10.2's
+    # scope, so `name` is deliberately not dropped.
     name = Column(String(255), nullable=False)
+    first_name = Column(String(255), nullable=False)
+    last_name = Column(String(255), nullable=False)
     email = Column(String(255), unique=True, nullable=False, index=True)
     role = Column(Enum("HR_ADMIN", "EMPLOYEE", name="role_enum"), nullable=False)
     group = Column(String(255), nullable=True)

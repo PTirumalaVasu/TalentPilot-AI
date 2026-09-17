@@ -3,7 +3,12 @@ import { apiClient } from '@/lib/api/client';
 export interface EmployeeResponse {
   id: string;
   employee_code: string;
+  /** Auto-derived server-side as `${first_name} ${last_name}` (Story 10.2)
+   * -- kept for other features that display a natural "First Last" name;
+   * the roster grid itself formats first_name/last_name as "Last, First". */
   name: string;
+  first_name: string;
+  last_name: string;
   email: string;
   role: string;
   phone: string | null;
@@ -22,6 +27,9 @@ export interface EmployeeResponse {
    * confirmation dialog's copy (UX-DR38), mirroring
    * skillsApi.ts::SkillResponse's ever_assigned shape. */
   has_assignment_history: boolean;
+  /** Story 10.2 (FR-34/FR-35): whole days since created_at, computed
+   * server-side on every read -- never stored. */
+  days_in_talent_pool: number;
 }
 
 /** GET /api/admin/employees (Story 7.3, FR-25) -- the full roster, active
@@ -35,7 +43,8 @@ export async function listEmployees(): Promise<EmployeeResponse[]> {
 
 export interface CreateEmployeeRequest {
   employee_code: string;
-  name: string;
+  first_name: string;
+  last_name: string;
   email: string;
   phone: string | null;
   experience: string | null;
@@ -65,7 +74,8 @@ export async function createEmployee(payload: CreateEmployeeRequest): Promise<Em
 }
 
 export interface UpdateEmployeeRequest {
-  name: string;
+  first_name: string;
+  last_name: string;
   email: string;
   phone: string | null;
   experience: string | null;

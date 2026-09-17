@@ -14,6 +14,8 @@ function makeEmployee(overrides: Partial<EmployeeResponse> = {}): EmployeeRespon
     id: 'emp-1',
     employee_code: 'EMP-0001',
     name: 'Casey Employee',
+    first_name: 'Casey',
+    last_name: 'Employee',
     email: 'casey@sails.example.com',
     role: 'EMPLOYEE',
     phone: '555-0100',
@@ -28,6 +30,7 @@ function makeEmployee(overrides: Partial<EmployeeResponse> = {}): EmployeeRespon
     updated_at: '2026-07-01T00:00:00Z',
     archived_at: null,
     has_assignment_history: false,
+    days_in_talent_pool: 0,
     ...overrides,
   };
 }
@@ -44,7 +47,8 @@ describe('EditEmployeeModal', () => {
 
     expect(screen.getByTestId('edit-employee-id-readonly')).toBeDisabled();
     expect(screen.getByTestId('edit-employee-id-readonly')).toHaveValue('EMP-0001');
-    expect(screen.getByTestId('edit-employee-name-input')).toHaveValue('Casey Employee');
+    expect(screen.getByTestId('edit-employee-first-name-input')).toHaveValue('Casey');
+    expect(screen.getByTestId('edit-employee-last-name-input')).toHaveValue('Employee');
     expect(screen.getByTestId('edit-employee-email-input')).toHaveValue('casey@sails.example.com');
     expect(screen.getByTestId('edit-employee-phone-input')).toHaveValue('555-0100');
     expect(screen.getByTestId('edit-employee-experience-input')).toHaveValue('3 years');
@@ -57,24 +61,28 @@ describe('EditEmployeeModal', () => {
   });
 
   it('submits edited field values and never includes employee_code in the request payload', async () => {
-    vi.mocked(updateEmployee).mockResolvedValue(makeEmployee({ name: 'New Name' }));
+    const renamed = makeEmployee({ name: 'New Name', first_name: 'New', last_name: 'Name' });
+    vi.mocked(updateEmployee).mockResolvedValue(renamed);
     const onSaved = vi.fn();
     const user = userEvent.setup();
     render(
       <EditEmployeeModal open employee={makeEmployee()} onClose={vi.fn()} onSaved={onSaved} />
     );
 
-    await user.clear(screen.getByTestId('edit-employee-name-input'));
-    await user.type(screen.getByTestId('edit-employee-name-input'), 'New Name');
+    await user.clear(screen.getByTestId('edit-employee-first-name-input'));
+    await user.type(screen.getByTestId('edit-employee-first-name-input'), 'New');
+    await user.clear(screen.getByTestId('edit-employee-last-name-input'));
+    await user.type(screen.getByTestId('edit-employee-last-name-input'), 'Name');
     await user.click(screen.getByTestId('edit-employee-btn-save'));
 
     await vi.waitFor(() => expect(updateEmployee).toHaveBeenCalled());
     const [id, payload] = vi.mocked(updateEmployee).mock.calls[0];
     expect(id).toBe('emp-1');
     expect(payload).not.toHaveProperty('employee_code');
-    expect(payload.name).toBe('New Name');
+    expect(payload.first_name).toBe('New');
+    expect(payload.last_name).toBe('Name');
     expect(payload.email).toBe('casey@sails.example.com');
-    expect(onSaved).toHaveBeenCalledWith(makeEmployee({ name: 'New Name' }));
+    expect(onSaved).toHaveBeenCalledWith(renamed);
   });
 
   it('shows the duplicate-email notice on a 409 and keeps the modal open', async () => {
@@ -113,14 +121,21 @@ describe('EditEmployeeModal', () => {
     rerender(
       <EditEmployeeModal
         open
-        employee={makeEmployee({ id: 'emp-2', name: 'Morgan Mentor', employee_code: 'EMP-0002' })}
+        employee={makeEmployee({
+          id: 'emp-2',
+          name: 'Morgan Mentor',
+          first_name: 'Morgan',
+          last_name: 'Mentor',
+          employee_code: 'EMP-0002',
+        })}
         onClose={vi.fn()}
         onSaved={vi.fn()}
       />
     );
 
     expect(screen.getByTestId('edit-employee-id-readonly')).toHaveValue('EMP-0002');
-    expect(screen.getByTestId('edit-employee-name-input')).toHaveValue('Morgan Mentor');
+    expect(screen.getByTestId('edit-employee-first-name-input')).toHaveValue('Morgan');
+    expect(screen.getByTestId('edit-employee-last-name-input')).toHaveValue('Mentor');
     expect(screen.queryByTestId('edit-employee-duplicate-notice')).not.toBeInTheDocument();
   });
 

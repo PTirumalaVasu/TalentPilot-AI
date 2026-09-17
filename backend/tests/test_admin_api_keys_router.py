@@ -60,11 +60,16 @@ async def _create_second_hr_admin(email: str, name: str) -> uuid.UUID:
     "demo123" (needed for `POST /api/auth/login` to accept it), both
     cleaned up by `_delete_second_hr_admin`."""
     employee_id = uuid.uuid4()
+    # Story 10.2: first_name/last_name are now required columns -- split on
+    # the last whitespace-separated token, same strategy as the migration.
+    first_name, last_name = name.rsplit(" ", 1) if " " in name else (name, "Employee")
     async with _session_factory() as session:
         session.add(Employee(
             id=employee_id,
             employee_code=f"TST-{employee_id.hex[:8]}",
             name=name,
+            first_name=first_name,
+            last_name=last_name,
             email=email,
             role="HR_ADMIN",
         ))

@@ -45,11 +45,31 @@ import {
   type EmployeeResponse,
 } from '@/lib/api/employeesApi';
 
+// Story 10.2: splits a legacy-style "First Last" test literal into
+// first_name/last_name on the last whitespace token, mirroring the
+// production migration/seed split strategy.
+function splitName(fullName: string): [string, string] {
+  const idx = fullName.lastIndexOf(' ');
+  if (idx === -1) return [fullName, 'Employee'];
+  return [fullName.slice(0, idx), fullName.slice(idx + 1)];
+}
+
+// The grid/card Name cell renders "{Last Name}, {First Name}" -- tests
+// assert against this instead of hardcoding the flipped string by hand.
+function displayName(fullName: string): string {
+  const [first, last] = splitName(fullName);
+  return `${last}, ${first}`;
+}
+
 function makeEmployee(overrides: Partial<EmployeeResponse> = {}): EmployeeResponse {
+  const name = overrides.name ?? 'Casey Employee';
+  const [firstName, lastName] = splitName(name);
   return {
     id: 'emp-1',
     employee_code: 'EMP-0001',
-    name: 'Casey Employee',
+    name,
+    first_name: firstName,
+    last_name: lastName,
     email: 'casey@sails.example.com',
     role: 'EMPLOYEE',
     phone: null,
@@ -64,6 +84,7 @@ function makeEmployee(overrides: Partial<EmployeeResponse> = {}): EmployeeRespon
     updated_at: '2026-07-01T00:00:00Z',
     archived_at: null,
     has_assignment_history: false,
+    days_in_talent_pool: 0,
     ...overrides,
   };
 }
@@ -95,8 +116,8 @@ describe('EmployeesPage', () => {
     ]);
     renderPage();
 
-    expect(await screen.findByText('Casey Employee')).toBeInTheDocument();
-    expect(screen.getByText('Morgan Mentor')).toBeInTheDocument();
+    expect(await screen.findByText(displayName('Casey Employee'))).toBeInTheDocument();
+    expect(screen.getByText(displayName('Morgan Mentor'))).toBeInTheDocument();
     expect(screen.getByTestId('employees-tab-summary-count')).toHaveTextContent('2 employees · 2 active');
     expect(screen.getByTestId('employees-table')).toBeInTheDocument();
   });
@@ -126,15 +147,15 @@ describe('EmployeesPage', () => {
     ]);
     const user = userEvent.setup();
     renderPage();
-    await screen.findByText('Casey Employee');
+    await screen.findByText(displayName('Casey Employee'));
 
     await user.type(screen.getByTestId('employees-tab-search-input'), 'Morgan');
-    expect(screen.queryByText('Casey Employee')).not.toBeInTheDocument();
-    expect(screen.getByText('Morgan Mentor')).toBeInTheDocument();
+    expect(screen.queryByText(displayName('Casey Employee'))).not.toBeInTheDocument();
+    expect(screen.getByText(displayName('Morgan Mentor'))).toBeInTheDocument();
 
     await user.clear(screen.getByTestId('employees-tab-search-input'));
-    expect(screen.getByText('Casey Employee')).toBeInTheDocument();
-    expect(screen.getByText('Morgan Mentor')).toBeInTheDocument();
+    expect(screen.getByText(displayName('Casey Employee'))).toBeInTheDocument();
+    expect(screen.getByText(displayName('Morgan Mentor'))).toBeInTheDocument();
   });
 
   it('Department and Position filters compose with search', async () => {
@@ -144,16 +165,16 @@ describe('EmployeesPage', () => {
     ]);
     const user = userEvent.setup();
     renderPage();
-    await screen.findByText('Casey Employee');
+    await screen.findByText(displayName('Casey Employee'));
 
     await user.selectOptions(screen.getByTestId('employees-tab-filter-department'), 'Engineering');
-    expect(screen.getByText('Casey Employee')).toBeInTheDocument();
-    expect(screen.queryByText('Morgan Mentor')).not.toBeInTheDocument();
+    expect(screen.getByText(displayName('Casey Employee'))).toBeInTheDocument();
+    expect(screen.queryByText(displayName('Morgan Mentor'))).not.toBeInTheDocument();
 
     await user.selectOptions(screen.getByTestId('employees-tab-filter-department'), '');
     await user.selectOptions(screen.getByTestId('employees-tab-filter-position'), 'Rep');
-    expect(screen.queryByText('Casey Employee')).not.toBeInTheDocument();
-    expect(screen.getByText('Morgan Mentor')).toBeInTheDocument();
+    expect(screen.queryByText(displayName('Casey Employee'))).not.toBeInTheDocument();
+    expect(screen.getByText(displayName('Morgan Mentor'))).toBeInTheDocument();
   });
 
   it('an employee with a blank optional field stays findable via name search', async () => {
@@ -162,10 +183,10 @@ describe('EmployeesPage', () => {
     ]);
     const user = userEvent.setup();
     renderPage();
-    await screen.findByText('No Department Nancy');
+    await screen.findByText(displayName('No Department Nancy'));
 
     await user.type(screen.getByTestId('employees-tab-search-input'), 'Nancy');
-    expect(screen.getByText('No Department Nancy')).toBeInTheDocument();
+    expect(screen.getByText(displayName('No Department Nancy'))).toBeInTheDocument();
   });
 
   it('Show archived reveals archived employees with an Archived badge; disabling hides them again', async () => {
@@ -175,16 +196,16 @@ describe('EmployeesPage', () => {
     ]);
     const user = userEvent.setup();
     renderPage();
-    await screen.findByText('Active Casey');
+    await screen.findByText(displayName('Active Casey'));
 
-    expect(screen.queryByText('Archived Alex')).not.toBeInTheDocument();
+    expect(screen.queryByText(displayName('Archived Alex'))).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('checkbox', { name: /show archived/i }));
-    expect(screen.getByText('Archived Alex')).toBeInTheDocument();
+    expect(screen.getByText(displayName('Archived Alex'))).toBeInTheDocument();
     expect(screen.getAllByText('Archived')).toHaveLength(1);
 
     await user.click(screen.getByRole('checkbox', { name: /show archived/i }));
-    expect(screen.queryByText('Archived Alex')).not.toBeInTheDocument();
+    expect(screen.queryByText(displayName('Archived Alex'))).not.toBeInTheDocument();
   });
 
   it('Table <-> Card toggle preserves search/filter/page state', async () => {
@@ -194,15 +215,15 @@ describe('EmployeesPage', () => {
     ]);
     const user = userEvent.setup();
     renderPage();
-    await screen.findByText('Casey Employee');
+    await screen.findByText(displayName('Casey Employee'));
 
     await user.type(screen.getByTestId('employees-tab-search-input'), 'Morgan');
     await user.click(screen.getByLabelText('Card view'));
 
     expect(screen.getByTestId('employees-grid')).toBeInTheDocument();
     expect(screen.getByTestId('employees-tab-search-input')).toHaveValue('Morgan');
-    expect(screen.getByText('Morgan Mentor')).toBeInTheDocument();
-    expect(screen.queryByText('Casey Employee')).not.toBeInTheDocument();
+    expect(screen.getByText(displayName('Morgan Mentor'))).toBeInTheDocument();
+    expect(screen.queryByText(displayName('Casey Employee'))).not.toBeInTheDocument();
   });
 
   it('paginates at 15/page and a filter change resets to page 1', async () => {
@@ -212,23 +233,23 @@ describe('EmployeesPage', () => {
     vi.mocked(listEmployees).mockResolvedValue(many);
     const user = userEvent.setup();
     renderPage();
-    await screen.findByText('Employee 0');
+    await screen.findByText(displayName('Employee 0'));
 
     expect(screen.getByTestId('employees-table-pagination')).toBeInTheDocument();
-    expect(screen.queryByText('Employee 15')).not.toBeInTheDocument();
+    expect(screen.queryByText(displayName('Employee 15'))).not.toBeInTheDocument();
 
     await user.click(screen.getByLabelText('Page 2'));
-    expect(await screen.findByText('Employee 15')).toBeInTheDocument();
-    expect(screen.queryByText('Employee 0')).not.toBeInTheDocument();
+    expect(await screen.findByText(displayName('Employee 15'))).toBeInTheDocument();
+    expect(screen.queryByText(displayName('Employee 0'))).not.toBeInTheDocument();
 
     await user.type(screen.getByTestId('employees-tab-search-input'), 'Employee 1');
-    expect(await screen.findByText('Employee 1')).toBeInTheDocument();
+    expect(await screen.findByText(displayName('Employee 1'))).toBeInTheDocument();
   });
 
   it('every row action button carries a descriptive aria-label naming the action and the employee', async () => {
     vi.mocked(listEmployees).mockResolvedValue([makeEmployee({ name: 'Casey Employee' })]);
     renderPage();
-    await screen.findByText('Casey Employee');
+    await screen.findByText(displayName('Casey Employee'));
 
     expect(screen.getByLabelText('Edit Casey Employee')).toBeInTheDocument();
     expect(screen.getByLabelText('Regenerate password for Casey Employee')).toBeInTheDocument();
@@ -242,26 +263,32 @@ describe('EmployeesPage', () => {
     vi.mocked(createEmployee).mockResolvedValue({ ...created, generated_password: 'aB3dEfGhJkLm' });
     const user = userEvent.setup();
     renderPage();
-    await screen.findByText('Casey Employee');
+    await screen.findByText(displayName('Casey Employee'));
 
     await user.click(screen.getByTestId('employees-tab-btn-new-employee'));
     expect(await screen.findByTestId('create-employee-modal-title')).toHaveTextContent('New Employee');
 
     await user.type(screen.getByTestId('create-emp-id'), 'EMP-1006');
-    await user.type(screen.getByTestId('create-emp-name'), 'Jamie Hire');
+    await user.type(screen.getByTestId('create-emp-first-name'), 'Jamie');
+    await user.type(screen.getByTestId('create-emp-last-name'), 'Hire');
     await user.type(screen.getByTestId('create-emp-email'), 'jamie@sails.example.com');
     await user.click(screen.getByTestId('create-employee-btn-submit'));
 
     expect(await screen.findByTestId('password-reveal-value')).toHaveTextContent('aB3dEfGhJkLm');
     expect(createEmployee).toHaveBeenCalledWith(
-      expect.objectContaining({ employee_code: 'EMP-1006', name: 'Jamie Hire', email: 'jamie@sails.example.com' })
+      expect.objectContaining({
+        employee_code: 'EMP-1006',
+        first_name: 'Jamie',
+        last_name: 'Hire',
+        email: 'jamie@sails.example.com',
+      })
     );
 
     await user.click(screen.getByTestId('password-reveal-btn-done'));
 
     await vi.waitFor(() => expect(screen.queryByTestId('password-reveal-value')).not.toBeInTheDocument());
     expect(await screen.findByText("✓ 'Jamie Hire' created.")).toBeInTheDocument();
-    expect(await screen.findByText('Jamie Hire')).toBeInTheDocument();
+    expect(await screen.findByText(displayName('Jamie Hire'))).toBeInTheDocument();
     expect(listEmployees).toHaveBeenCalledTimes(2);
   });
 
@@ -270,11 +297,12 @@ describe('EmployeesPage', () => {
     vi.mocked(createEmployee).mockRejectedValue({ response: { status: 409 } });
     const user = userEvent.setup();
     renderPage();
-    await screen.findByText('Casey Employee');
+    await screen.findByText(displayName('Casey Employee'));
 
     await user.click(screen.getByTestId('employees-tab-btn-new-employee'));
     await user.type(screen.getByTestId('create-emp-id'), 'EMP-0001');
-    await user.type(screen.getByTestId('create-emp-name'), 'Duplicate Hire');
+    await user.type(screen.getByTestId('create-emp-first-name'), 'Duplicate');
+    await user.type(screen.getByTestId('create-emp-last-name'), 'Hire');
     await user.type(screen.getByTestId('create-emp-email'), 'casey@sails.example.com');
     await user.click(screen.getByTestId('create-employee-btn-submit'));
 
@@ -291,7 +319,7 @@ describe('EmployeesPage', () => {
     });
     const user = userEvent.setup();
     renderPage();
-    await screen.findByText('Casey Employee');
+    await screen.findByText(displayName('Casey Employee'));
 
     await user.click(screen.getByLabelText('Regenerate password for Casey Employee'));
 
@@ -312,7 +340,7 @@ describe('EmployeesPage', () => {
     ]);
     const user = userEvent.setup();
     renderPage();
-    await screen.findByText('Casey Employee');
+    await screen.findByText(displayName('Casey Employee'));
 
     await user.click(screen.getByLabelText('Delete/Archive Casey Employee'));
 
@@ -327,7 +355,7 @@ describe('EmployeesPage', () => {
     vi.mocked(deleteOrArchiveEmployee).mockResolvedValue({ action: 'deleted' });
     const user = userEvent.setup();
     renderPage();
-    await screen.findByText('Casey Employee');
+    await screen.findByText(displayName('Casey Employee'));
 
     await user.click(screen.getByLabelText('Delete/Archive Casey Employee'));
     await screen.findByTestId('delete-employee-heading');
@@ -348,7 +376,7 @@ describe('EmployeesPage', () => {
     vi.mocked(deleteOrArchiveEmployee).mockResolvedValue({ action: 'archived' });
     const user = userEvent.setup();
     renderPage();
-    await screen.findByText('Casey Employee');
+    await screen.findByText(displayName('Casey Employee'));
 
     await user.click(screen.getByLabelText('Delete/Archive Casey Employee'));
     await screen.findByTestId('delete-employee-heading');
@@ -362,7 +390,7 @@ describe('EmployeesPage', () => {
     vi.mocked(deleteOrArchiveEmployee).mockRejectedValue(new Error('boom'));
     const user = userEvent.setup();
     renderPage();
-    await screen.findByText('Casey Employee');
+    await screen.findByText(displayName('Casey Employee'));
 
     await user.click(screen.getByLabelText('Delete/Archive Casey Employee'));
     await screen.findByTestId('delete-employee-heading');
@@ -378,33 +406,33 @@ describe('EmployeesPage', () => {
     ]);
     const user = userEvent.setup();
     renderPage();
-    await screen.findByText('Casey Employee');
+    await screen.findByText(displayName('Casey Employee'));
 
     await user.click(screen.getByLabelText('Edit Casey Employee'));
 
     expect(await screen.findByTestId('edit-employee-header-title')).toHaveTextContent('Edit Casey Employee');
     expect(screen.getByTestId('edit-employee-id-readonly')).toHaveValue('EMP-0001');
     expect(screen.getByTestId('edit-employee-id-readonly')).toBeDisabled();
-    expect(screen.getByTestId('edit-employee-name-input')).toHaveValue('Casey Employee');
+    expect(screen.getByTestId('edit-employee-first-name-input')).toHaveValue('Casey');
+    expect(screen.getByTestId('edit-employee-last-name-input')).toHaveValue('Employee');
     expect(screen.getByTestId('edit-employee-email-input')).toHaveValue('casey@sails.example.com');
   });
 
   it('Story 7.4 AC3: a successful save closes the modal and the roster reflects the new value without a full page reload', async () => {
     const original = makeEmployee({ name: 'Casey Employee', employee_code: 'EMP-0001' });
-    vi.mocked(listEmployees)
-      .mockResolvedValueOnce([original])
-      .mockResolvedValueOnce([{ ...original, name: 'Casey Renamed' }]);
-    vi.mocked(updateEmployee).mockResolvedValue({ ...original, name: 'Casey Renamed' });
+    const renamed = { ...original, name: 'Casey Renamed', first_name: 'Casey', last_name: 'Renamed' };
+    vi.mocked(listEmployees).mockResolvedValueOnce([original]).mockResolvedValueOnce([renamed]);
+    vi.mocked(updateEmployee).mockResolvedValue(renamed);
     const user = userEvent.setup();
     renderPage();
-    await screen.findByText('Casey Employee');
+    await screen.findByText(displayName('Casey Employee'));
 
     await user.click(screen.getByLabelText('Edit Casey Employee'));
     await screen.findByTestId('edit-employee-header-title');
     await user.click(screen.getByTestId('edit-employee-btn-save'));
 
     await vi.waitFor(() => expect(screen.queryByTestId('edit-employee-header-title')).not.toBeInTheDocument());
-    expect(await screen.findByText('Casey Renamed')).toBeInTheDocument();
+    expect(await screen.findByText(displayName('Casey Renamed'))).toBeInTheDocument();
     expect(listEmployees).toHaveBeenCalledTimes(2);
   });
 
@@ -418,6 +446,116 @@ describe('EmployeesPage', () => {
     const table = await screen.findByTestId('employees-table');
 
     expect(table.parentElement).toHaveClass('overflow-x-auto');
-    expect(table).toHaveClass('min-w-[720px]');
+    expect(table).toHaveClass('min-w-[1080px]');
+  });
+
+  it('Story 10.2: renders Project/Location/Technologies columns and a plain Days in Talent Pool value under the threshold', async () => {
+    vi.mocked(listEmployees).mockResolvedValue([
+      makeEmployee({
+        name: 'Casey Employee',
+        project: 'Project Phoenix',
+        location: 'Remote',
+        technologies: 'Python, React',
+        days_in_talent_pool: 10,
+      }),
+    ]);
+    renderPage();
+    await screen.findByText(displayName('Casey Employee'));
+
+    expect(screen.getByText('Project Phoenix')).toBeInTheDocument();
+    expect(screen.getByText('Remote')).toBeInTheDocument();
+    expect(screen.getByText('Python, React')).toBeInTheDocument();
+    expect(screen.getByText('10d')).toBeInTheDocument();
+  });
+
+  it('Story 10.2 (FR-35): flags Days in Talent Pool past the 90-day threshold with an icon and red text', async () => {
+    vi.mocked(listEmployees).mockResolvedValue([makeEmployee({ name: 'Casey Employee', days_in_talent_pool: 91 })]);
+    renderPage();
+    await screen.findByText(displayName('Casey Employee'));
+
+    const flagged = screen.getByText(/91d/);
+    expect(flagged).toHaveTextContent('⚠ 91d');
+    expect(flagged).toHaveClass('text-red-600');
+  });
+
+  it('Story 10.2 (FR-35): does not flag Days in Talent Pool at exactly the 90-day threshold', async () => {
+    vi.mocked(listEmployees).mockResolvedValue([makeEmployee({ name: 'Casey Employee', days_in_talent_pool: 90 })]);
+    renderPage();
+    await screen.findByText(displayName('Casey Employee'));
+
+    const unflagged = screen.getByText('90d');
+    expect(unflagged).not.toHaveTextContent('⚠');
+    expect(unflagged).not.toHaveClass('text-red-600');
+  });
+
+  it('Story 10.2 AC5: the search box also matches Project, Location, and Technologies', async () => {
+    vi.mocked(listEmployees).mockResolvedValue([
+      makeEmployee({ id: 'emp-1', name: 'Casey Employee', project: 'Project Phoenix', location: 'Austin', technologies: 'Go' }),
+      makeEmployee({ id: 'emp-2', name: 'Morgan Mentor', employee_code: 'EMP-0002', project: 'Atlas', location: 'Remote', technologies: 'Python, React' }),
+    ]);
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText(displayName('Casey Employee'));
+
+    await user.type(screen.getByTestId('employees-tab-search-input'), 'Phoenix');
+    expect(screen.getByText(displayName('Casey Employee'))).toBeInTheDocument();
+    expect(screen.queryByText(displayName('Morgan Mentor'))).not.toBeInTheDocument();
+
+    await user.clear(screen.getByTestId('employees-tab-search-input'));
+    await user.type(screen.getByTestId('employees-tab-search-input'), 'remote');
+    expect(screen.queryByText(displayName('Casey Employee'))).not.toBeInTheDocument();
+    expect(screen.getByText(displayName('Morgan Mentor'))).toBeInTheDocument();
+
+    await user.clear(screen.getByTestId('employees-tab-search-input'));
+    await user.type(screen.getByTestId('employees-tab-search-input'), 'Python');
+    expect(screen.queryByText(displayName('Casey Employee'))).not.toBeInTheDocument();
+    expect(screen.getByText(displayName('Morgan Mentor'))).toBeInTheDocument();
+  });
+
+  it("Story 10.2 AC6: the acting HR Admin's own row shows a blank Days in Talent Pool and a (you) label instead of Delete/Archive", async () => {
+    vi.mocked(listEmployees).mockResolvedValue([
+      makeEmployee({
+        id: 'rita-1',
+        name: 'Sails Admin',
+        days_in_talent_pool: 500,
+        project: 'Internal',
+        location: 'HQ',
+        technologies: 'N/A',
+      }),
+      makeEmployee({
+        id: 'emp-2',
+        name: 'Morgan Mentor',
+        employee_code: 'EMP-0002',
+        project: 'Project Atlas',
+        location: 'Austin',
+        technologies: 'Go',
+        days_in_talent_pool: 5,
+      }),
+    ]);
+    renderPage();
+    await screen.findByText(displayName('Sails Admin'));
+
+    expect(screen.getByText('—')).toBeInTheDocument();
+    expect(screen.getByTestId('employees-row-you-rita-1')).toHaveTextContent('(you)');
+    expect(screen.queryByLabelText('Delete/Archive Sails Admin')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Edit Sails Admin')).toBeInTheDocument();
+    expect(screen.getByLabelText('Regenerate password for Sails Admin')).toBeInTheDocument();
+  });
+
+  it('Story 10.2 AC6: the acting HR Admin\'s own row drops out once a filter is active, but stays in the unfiltered view', async () => {
+    vi.mocked(listEmployees).mockResolvedValue([
+      makeEmployee({ id: 'rita-1', name: 'Sails Admin' }),
+      makeEmployee({ id: 'emp-2', name: 'Morgan Mentor', employee_code: 'EMP-0002' }),
+    ]);
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText(displayName('Sails Admin'));
+
+    await user.type(screen.getByTestId('employees-tab-search-input'), 'Morgan');
+    expect(screen.queryByText(displayName('Sails Admin'))).not.toBeInTheDocument();
+    expect(screen.getByText(displayName('Morgan Mentor'))).toBeInTheDocument();
+
+    await user.clear(screen.getByTestId('employees-tab-search-input'));
+    expect(screen.getByText(displayName('Sails Admin'))).toBeInTheDocument();
   });
 });

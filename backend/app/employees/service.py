@@ -22,6 +22,7 @@ from app.auth.service import require_hr_admin
 from app.core.errors import AppException
 from app.core.security import hash_password
 from app.employees import repository
+from app.employees.models import Employee
 from app.employees.schemas import (
     CreateEmployeeRequest,
     DeleteEmployeeResponse,
@@ -56,14 +57,18 @@ def generate_password() -> str:
     return "".join(secrets.choice(_PASSWORD_ALPHABET) for _ in range(_PASSWORD_LENGTH))
 
 
-def _with_assignment_history(response: EmployeeResponse, has_history: bool) -> EmployeeResponse:
-    """Sets the computed (non-ORM-column) has_assignment_history field on an
-    already-validated EmployeeResponse (Story 7.5). Pydantic v2 models are
-    mutable by default, so this is a plain attribute set after
-    `model_validate` rather than trying to smuggle the value through
-    `from_attributes=True`, which would require a real attribute on the ORM
-    object itself."""
+def _build_employee_response(employee: Employee, has_history: bool) -> EmployeeResponse:
+    """Builds an EmployeeResponse and sets its two computed (non-ORM-column)
+    fields -- has_assignment_history (Story 7.5) and days_in_talent_pool
+    (Story 10.2) -- in one place. Pydantic v2 models are mutable by default,
+    so these are plain attribute sets after `model_validate` rather than
+    trying to smuggle the values through `from_attributes=True`, which would
+    require real attributes on the ORM object itself."""
+    response = EmployeeResponse.model_validate(employee)
     response.has_assignment_history = has_history
+    # Clamped at 0 -- a negative value is never meaningful and would
+    # otherwise render as e.g. "-3d" under any DB/app clock skew.
+    response.days_in_talent_pool = max(0, (datetime.now(timezone.utc) - employee.created_at).days)
     return response
 
 
@@ -114,10 +119,7 @@ async def list_employees_service(db: AsyncSession, *, current_user: CurrentUser)
     require_hr_admin(current_user)
     employees = await repository.list_all_employees(db)
     history_ids = await _get_employee_ids_with_any_history(db)
-    return [
-        _with_assignment_history(EmployeeResponse.model_validate(employee), employee.id in history_ids)
-        for employee in employees
-    ]
+    return [_build_employee_response(employee, employee.id in history_ids) for employee in employees]
 
 
 def _code_conflict(employee_code: str) -> AppException:
@@ -173,7 +175,12 @@ async def create_employee_service(
 
     employee_data = {
         "employee_code": request.employee_code,
-        "name": request.name,
+        # `name` stays a real, auto-derived column (Story 10.2 Dev Notes) --
+        # kept in sync here so assignments/dashboard/auth/content, which all
+        # read Employee.name directly, need no changes.
+        "name": f"{request.first_name} {request.last_name}",
+        "first_name": request.first_name,
+        "last_name": request.last_name,
         "email": request.email,
         "role": "EMPLOYEE",
         "phone": request.phone,
@@ -216,7 +223,7 @@ async def create_employee_service(
         raise
 
     return EmployeeCreatedResponse(
-        **EmployeeResponse.model_validate(employee).model_dump(),
+        **_build_employee_response(employee, has_history=False).model_dump(),
         generated_password=plaintext_password,
     )
 
@@ -264,7 +271,9 @@ async def update_employee_service(
             raise _email_conflict(request.email)
 
     employee_data = {
-        "name": request.name,
+        "name": f"{request.first_name} {request.last_name}",
+        "first_name": request.first_name,
+        "last_name": request.last_name,
         "email": request.email,
         "phone": request.phone,
         "experience": request.experience,
@@ -304,7 +313,7 @@ async def update_employee_service(
         raise
 
     has_history = await _has_any_history_for_employee(db, employee_id)
-    return _with_assignment_history(EmployeeResponse.model_validate(employee), has_history)
+    return _build_employee_response(employee, has_history)
 
 
 # Shared by _archived_conflict and _archived_for_regenerate_conflict below
@@ -397,7 +406,7 @@ async def regenerate_password_service(
 
     has_history = await _has_any_history_for_employee(db, employee_id)
     return EmployeeCreatedResponse(
-        **_with_assignment_history(EmployeeResponse.model_validate(employee), has_history).model_dump(),
+        **_build_employee_response(employee, has_history).model_dump(),
         generated_password=plaintext_password,
     )
 

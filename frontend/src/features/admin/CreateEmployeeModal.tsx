@@ -28,7 +28,8 @@ function extractErrorMessage(err: unknown, fallback: string): string {
 
 const EMPTY_FIELDS = {
   employee_code: '',
-  name: '',
+  first_name: '',
+  last_name: '',
   email: '',
   position: '',
   department: '',
@@ -87,9 +88,10 @@ export function CreateEmployeeModal({ open, onClose, onCreated }: CreateEmployee
 
   async function handleCreate() {
     const trimmedCode = fields.employee_code.trim();
-    const trimmedName = fields.name.trim();
+    const trimmedFirstName = fields.first_name.trim();
+    const trimmedLastName = fields.last_name.trim();
     const trimmedEmail = fields.email.trim();
-    if (!trimmedCode || !trimmedName || !trimmedEmail) return;
+    if (!trimmedCode || !trimmedFirstName || !trimmedLastName || !trimmedEmail) return;
 
     const requestIdAtSubmit = ++requestIdRef.current;
     setStep('creating');
@@ -98,7 +100,8 @@ export function CreateEmployeeModal({ open, onClose, onCreated }: CreateEmployee
     try {
       const employee = await createEmployee({
         employee_code: trimmedCode,
-        name: trimmedName,
+        first_name: trimmedFirstName,
+        last_name: trimmedLastName,
         email: trimmedEmail,
         phone: fields.phone.trim() || null,
         experience: fields.experience.trim() || null,
@@ -186,14 +189,25 @@ export function CreateEmployeeModal({ open, onClose, onCreated }: CreateEmployee
               />
             </div>
             <div>
-              <Label htmlFor="create-emp-name">Name *</Label>
+              <Label htmlFor="create-emp-first-name">First Name *</Label>
               <Input
-                id="create-emp-name"
-                value={fields.name}
-                onChange={(e) => updateField('name', e.target.value)}
+                id="create-emp-first-name"
+                value={fields.first_name}
+                onChange={(e) => updateField('first_name', e.target.value)}
                 disabled={step === 'creating'}
                 aria-required="true"
-                data-testid="create-emp-name"
+                data-testid="create-emp-first-name"
+              />
+            </div>
+            <div>
+              <Label htmlFor="create-emp-last-name">Last Name *</Label>
+              <Input
+                id="create-emp-last-name"
+                value={fields.last_name}
+                onChange={(e) => updateField('last_name', e.target.value)}
+                disabled={step === 'creating'}
+                aria-required="true"
+                data-testid="create-emp-last-name"
               />
             </div>
             <div>
@@ -305,7 +319,13 @@ export function CreateEmployeeModal({ open, onClose, onCreated }: CreateEmployee
           <Button
             className="w-full"
             onClick={() => void handleCreate()}
-            disabled={step === 'creating' || !fields.employee_code.trim() || !fields.name.trim() || !fields.email.trim()}
+            disabled={
+              step === 'creating' ||
+              !fields.employee_code.trim() ||
+              !fields.first_name.trim() ||
+              !fields.last_name.trim() ||
+              !fields.email.trim()
+            }
             data-testid="create-employee-btn-submit"
           >
             {step === 'creating' ? 'Creating…' : 'Create Employee'}

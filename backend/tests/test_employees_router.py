@@ -46,6 +46,20 @@ async def _login(client: AsyncClient, email: str = "admin@sails.example.com") ->
     return token
 
 
+def _name_fields(full_name: str) -> dict:
+    """Splits a legacy-style full-name test literal into first_name/last_name
+    request fields (Story 10.2), using the same last-whitespace-token
+    strategy as this story's migration/seed backfill. Every existing literal
+    in this file is exactly two space-separated words, so `body["name"]`
+    (still auto-derived server-side as f"{first_name} {last_name}") always
+    reconstructs the original literal -- no assertion below needed to change."""
+    if " " in full_name:
+        first, last = full_name.rsplit(" ", 1)
+    else:
+        first, last = full_name, "Employee"
+    return {"first_name": first, "last_name": last}
+
+
 async def _delete_employee_by_code(employee_code: str) -> None:
     async with _session_factory() as session:
         result = await session.execute(select(Employee).where(Employee.employee_code == employee_code))
@@ -64,7 +78,7 @@ async def test_create_employee_with_only_required_fields_returns_201():
             await _login(client)
             response = await client.post(
                 "/api/admin/employees",
-                json={"employee_code": code, "name": "New Hire", "email": email},
+                json={"employee_code": code, **_name_fields("New Hire"), "email": email},
             )
 
             assert response.status_code == 201
@@ -94,7 +108,7 @@ async def test_create_employee_omitted_optional_fields_are_null():
             await _login(client)
             response = await client.post(
                 "/api/admin/employees",
-                json={"employee_code": code, "name": "Minimal Fields", "email": email},
+                json={"employee_code": code, **_name_fields("Minimal Fields"), "email": email},
             )
 
             assert response.status_code == 201
@@ -117,7 +131,7 @@ async def test_create_employee_is_immediately_visible_in_the_assignment_picker()
             await _login(client)
             response = await client.post(
                 "/api/admin/employees",
-                json={"employee_code": code, "name": "Pickable Hire", "email": email},
+                json={"employee_code": code, **_name_fields("Pickable Hire"), "email": email},
             )
             employee_id = response.json()["id"]
 
@@ -135,13 +149,13 @@ async def test_create_employee_duplicate_employee_code_returns_409():
             await _login(client)
             first = await client.post(
                 "/api/admin/employees",
-                json={"employee_code": code, "name": "First", "email": f"{code.lower()}-a@example.com"},
+                json={"employee_code": code, **_name_fields("First"), "email": f"{code.lower()}-a@example.com"},
             )
             assert first.status_code == 201
 
             second = await client.post(
                 "/api/admin/employees",
-                json={"employee_code": code, "name": "Second", "email": f"{code.lower()}-b@example.com"},
+                json={"employee_code": code, **_name_fields("Second"), "email": f"{code.lower()}-b@example.com"},
             )
 
             assert second.status_code == 409
@@ -161,14 +175,14 @@ async def test_create_employee_duplicate_email_different_case_returns_409():
             await _login(client)
             first = await client.post(
                 "/api/admin/employees",
-                json={"employee_code": code, "name": "First", "email": email},
+                json={"employee_code": code, **_name_fields("First"), "email": email},
             )
             assert first.status_code == 201
 
             second_code = f"TST-{uuid.uuid4().hex[:8]}"
             second = await client.post(
                 "/api/admin/employees",
-                json={"employee_code": second_code, "name": "Second", "email": email.upper()},
+                json={"employee_code": second_code, **_name_fields("Second"), "email": email.upper()},
             )
 
             assert second.status_code == 409
@@ -194,7 +208,7 @@ async def test_create_employee_account_side_email_conflict_returns_409_not_500()
             await _login(client)
             created_a = await client.post(
                 "/api/admin/employees",
-                json={"employee_code": code_a, "name": "Employee A", "email": email_a},
+                json={"employee_code": code_a, **_name_fields("Employee A"), "email": email_a},
             )
             assert created_a.status_code == 201
             employee_a_id = created_a.json()["id"]
@@ -210,7 +224,7 @@ async def test_create_employee_account_side_email_conflict_returns_409_not_500()
 
             response = await client.post(
                 "/api/admin/employees",
-                json={"employee_code": code_b, "name": "Employee B", "email": stale_email},
+                json={"employee_code": code_b, **_name_fields("Employee B"), "email": stale_email},
             )
 
             assert response.status_code == 409
@@ -232,7 +246,7 @@ async def test_create_employee_as_employee_returns_403():
             await _login(client, email="casey@sails.example.com")
             response = await client.post(
                 "/api/admin/employees",
-                json={"employee_code": code, "name": "Forbidden", "email": f"{code.lower()}@example.com"},
+                json={"employee_code": code, **_name_fields("Forbidden"), "email": f"{code.lower()}@example.com"},
             )
             assert response.status_code == 403
     finally:
@@ -243,7 +257,7 @@ async def test_create_employee_requires_authentication():
     async with _client() as client:
         response = await client.post(
             "/api/admin/employees",
-            json={"employee_code": "TST-NOAUTH", "name": "No Auth", "email": "noauth@example.com"},
+            json={"employee_code": "TST-NOAUTH", **_name_fields("No Auth"), "email": "noauth@example.com"},
         )
         assert response.status_code == 401
 
@@ -253,19 +267,78 @@ async def test_create_employee_rejects_missing_required_field():
         await _login(client)
         response = await client.post(
             "/api/admin/employees",
-            json={"name": "Missing Code And Email"},
+            json={"first_name": "Missing Code And Email"},
         )
         assert response.status_code == 422
 
 
-async def test_create_employee_rejects_blank_name():
+async def test_create_employee_rejects_blank_first_name():
     async with _client() as client:
         await _login(client)
         response = await client.post(
             "/api/admin/employees",
-            json={"employee_code": f"TST-{uuid.uuid4().hex[:8]}", "name": "   ", "email": "blank@example.com"},
+            json={
+                "employee_code": f"TST-{uuid.uuid4().hex[:8]}",
+                "first_name": "   ",
+                "last_name": "Blank",
+                "email": "blank@example.com",
+            },
         )
         assert response.status_code == 422
+
+
+async def test_create_employee_rejects_blank_last_name():
+    async with _client() as client:
+        await _login(client)
+        response = await client.post(
+            "/api/admin/employees",
+            json={
+                "employee_code": f"TST-{uuid.uuid4().hex[:8]}",
+                "first_name": "Blank",
+                "last_name": "   ",
+                "email": "blank2@example.com",
+            },
+        )
+        assert response.status_code == 422
+
+
+async def test_create_employee_rejects_combined_name_over_255_chars():
+    # Code review (Story 10.2): first_name/last_name are each independently
+    # capped at max_length=255, but the derived `name = f"{first} {last}"`
+    # column is also String(255) -- two near-max-length values combine past
+    # that limit. Must be a clean 422, not an unhandled DB error.
+    async with _client() as client:
+        await _login(client)
+        response = await client.post(
+            "/api/admin/employees",
+            json={
+                "employee_code": f"TST-{uuid.uuid4().hex[:8]}",
+                "first_name": "A" * 200,
+                "last_name": "B" * 100,
+                "email": "toolong@example.com",
+            },
+        )
+        assert response.status_code == 422
+
+
+async def test_create_employee_allows_combined_name_at_exactly_255_chars():
+    code = f"TST-{uuid.uuid4().hex[:8]}"
+    try:
+        async with _client() as client:
+            await _login(client)
+            # 127 + 1 (space) + 127 = 255, exactly at the limit.
+            response = await client.post(
+                "/api/admin/employees",
+                json={
+                    "employee_code": code,
+                    "first_name": "A" * 127,
+                    "last_name": "B" * 127,
+                    "email": f"{code.lower()}@example.com",
+                },
+            )
+            assert response.status_code == 201
+    finally:
+        await _delete_employee_by_code(code)
 
 
 async def test_create_employee_rejects_invalid_email():
@@ -273,7 +346,7 @@ async def test_create_employee_rejects_invalid_email():
         await _login(client)
         response = await client.post(
             "/api/admin/employees",
-            json={"employee_code": f"TST-{uuid.uuid4().hex[:8]}", "name": "Bad Email", "email": "not-an-email"},
+            json={"employee_code": f"TST-{uuid.uuid4().hex[:8]}", **_name_fields("Bad Email"), "email": "not-an-email"},
         )
         assert response.status_code == 422
 
@@ -285,7 +358,7 @@ async def test_create_employee_rejects_unknown_field():
             "/api/admin/employees",
             json={
                 "employee_code": f"TST-{uuid.uuid4().hex[:8]}",
-                "name": "Unknown Field",
+                **_name_fields("Unknown Field"),
                 "email": "unknown@example.com",
                 "salary": 100000,
             },
@@ -312,7 +385,7 @@ async def test_list_employees_returns_full_roster_with_all_fields():
                 "/api/admin/employees",
                 json={
                     "employee_code": code_a,
-                    "name": "Roster A",
+                    **_name_fields("Roster A"),
                     "email": email_a,
                     "phone": "555-0100",
                     "experience": "5 years",
@@ -326,7 +399,7 @@ async def test_list_employees_returns_full_roster_with_all_fields():
             )
             await client.post(
                 "/api/admin/employees",
-                json={"employee_code": code_b, "name": "Roster B", "email": f"{code_b.lower()}@example.com"},
+                json={"employee_code": code_b, **_name_fields("Roster B"), "email": f"{code_b.lower()}@example.com"},
             )
 
             response = await client.get("/api/admin/employees")
@@ -340,6 +413,9 @@ async def test_list_employees_returns_full_roster_with_all_fields():
             entry = next(e for e in body if e["employee_code"] == code_a)
             assert entry["employee_code"] == code_a
             assert entry["name"] == "Roster A"
+            assert entry["first_name"] == "Roster"
+            assert entry["last_name"] == "A"
+            assert entry["days_in_talent_pool"] == 0
             assert entry["email"] == email_a
             assert entry["role"] == "EMPLOYEE"
             assert entry["phone"] == "555-0100"
@@ -371,7 +447,7 @@ async def test_list_employees_includes_archived_rows_unfiltered():
             await _login(client)
             created = await client.post(
                 "/api/admin/employees",
-                json={"employee_code": code, "name": "Archived Row", "email": f"{code.lower()}@example.com"},
+                json={"employee_code": code, **_name_fields("Archived Row"), "email": f"{code.lower()}@example.com"},
             )
             employee_id = created.json()["id"]
 
@@ -402,11 +478,11 @@ async def test_list_employees_ordered_by_employee_code_ascending():
             # insertion/created_at order.
             await client.post(
                 "/api/admin/employees",
-                json={"employee_code": code_z, "name": "Z Employee", "email": f"{prefix.lower()}-z@example.com"},
+                json={"employee_code": code_z, **_name_fields("Z Employee"), "email": f"{prefix.lower()}-z@example.com"},
             )
             await client.post(
                 "/api/admin/employees",
-                json={"employee_code": code_a, "name": "A Employee", "email": f"{prefix.lower()}-a@example.com"},
+                json={"employee_code": code_a, **_name_fields("A Employee"), "email": f"{prefix.lower()}-a@example.com"},
             )
 
             response = await client.get("/api/admin/employees")
@@ -435,7 +511,7 @@ async def test_list_employees_requires_authentication():
 
 def _update_payload(**overrides) -> dict:
     payload = {
-        "name": "Updated Name",
+        **_name_fields("Updated Name"),
         "email": "updated@example.com",
         "phone": "555-0199",
         "experience": "10 years",
@@ -457,7 +533,7 @@ async def test_update_employee_all_editable_fields_returns_200():
             await _login(client)
             created = await client.post(
                 "/api/admin/employees",
-                json={"employee_code": code, "name": "Original Name", "email": f"{code.lower()}@example.com"},
+                json={"employee_code": code, **_name_fields("Original Name"), "email": f"{code.lower()}@example.com"},
             )
             employee_id = created.json()["id"]
 
@@ -471,6 +547,8 @@ async def test_update_employee_all_editable_fields_returns_200():
             body = response.json()
             assert body["employee_code"] == code  # immutable -- never in the request, unchanged in the response
             assert body["name"] == "Updated Name"
+            assert body["first_name"] == "Updated"
+            assert body["last_name"] == "Name"
             assert body["email"] == new_email
             assert body["phone"] == "555-0199"
             assert body["experience"] == "10 years"
@@ -494,7 +572,7 @@ async def test_update_employee_succeeds_regardless_of_assignment_history():
             await _login(client)
             created = await client.post(
                 "/api/admin/employees",
-                json={"employee_code": code, "name": "Has History", "email": f"{code.lower()}@example.com"},
+                json={"employee_code": code, **_name_fields("Has History"), "email": f"{code.lower()}@example.com"},
             )
             employee_id = created.json()["id"]
 
@@ -525,13 +603,35 @@ async def test_update_employee_rejects_employee_code_in_body():
             await _login(client)
             created = await client.post(
                 "/api/admin/employees",
-                json={"employee_code": code, "name": "Original", "email": f"{code.lower()}@example.com"},
+                json={"employee_code": code, **_name_fields("Original"), "email": f"{code.lower()}@example.com"},
             )
             employee_id = created.json()["id"]
 
             response = await client.patch(
                 f"/api/admin/employees/{employee_id}",
                 json=_update_payload(employee_code="TST-SHOULD-NOT-BE-ACCEPTED"),
+            )
+            assert response.status_code == 422
+    finally:
+        await _delete_employee_by_code(code)
+
+
+async def test_update_employee_rejects_combined_name_over_255_chars():
+    # Code review (Story 10.2): same combined-length guard as create, applied
+    # to the update path.
+    code = f"TST-{uuid.uuid4().hex[:8]}"
+    try:
+        async with _client() as client:
+            await _login(client)
+            created = await client.post(
+                "/api/admin/employees",
+                json={"employee_code": code, **_name_fields("Original"), "email": f"{code.lower()}@example.com"},
+            )
+            employee_id = created.json()["id"]
+
+            response = await client.patch(
+                f"/api/admin/employees/{employee_id}",
+                json=_update_payload(first_name="A" * 200, last_name="B" * 100),
             )
             assert response.status_code == 422
     finally:
@@ -547,11 +647,11 @@ async def test_update_employee_duplicate_email_returns_409():
             await _login(client)
             await client.post(
                 "/api/admin/employees",
-                json={"employee_code": code_a, "name": "First", "email": email_a},
+                json={"employee_code": code_a, **_name_fields("First"), "email": email_a},
             )
             created_b = await client.post(
                 "/api/admin/employees",
-                json={"employee_code": code_b, "name": "Second", "email": f"{code_b.lower()}@example.com"},
+                json={"employee_code": code_b, **_name_fields("Second"), "email": f"{code_b.lower()}@example.com"},
             )
             employee_b_id = created_b.json()["id"]
 
@@ -579,13 +679,13 @@ async def test_update_employee_unchanged_email_does_not_conflict():
             await _login(client)
             created = await client.post(
                 "/api/admin/employees",
-                json={"employee_code": code, "name": "Original", "email": email},
+                json={"employee_code": code, **_name_fields("Original"), "email": email},
             )
             employee_id = created.json()["id"]
 
             response = await client.patch(
                 f"/api/admin/employees/{employee_id}",
-                json=_update_payload(email=email, name="Renamed Only"),
+                json=_update_payload(email=email, first_name="Renamed", last_name="Only"),
             )
 
             assert response.status_code == 200
@@ -607,7 +707,7 @@ async def test_update_employee_case_only_email_change_still_syncs_account_email(
             original_email = f"{code.upper()}@example.com"
             created = await client.post(
                 "/api/admin/employees",
-                json={"employee_code": code, "name": "Original", "email": original_email},
+                json={"employee_code": code, **_name_fields("Original"), "email": original_email},
             )
             employee_id = created.json()["id"]
 
@@ -647,12 +747,12 @@ async def test_update_employee_account_side_email_conflict_returns_409_not_500()
             await _login(client)
             created_a = await client.post(
                 "/api/admin/employees",
-                json={"employee_code": code_a, "name": "Employee A", "email": f"{code_a.lower()}@example.com"},
+                json={"employee_code": code_a, **_name_fields("Employee A"), "email": f"{code_a.lower()}@example.com"},
             )
             employee_a_id = created_a.json()["id"]
             created_b = await client.post(
                 "/api/admin/employees",
-                json={"employee_code": code_b, "name": "Employee B", "email": f"{code_b.lower()}@example.com"},
+                json={"employee_code": code_b, **_name_fields("Employee B"), "email": f"{code_b.lower()}@example.com"},
             )
             employee_b_id = created_b.json()["id"]
 
@@ -692,7 +792,7 @@ async def test_update_employee_email_change_syncs_account_email():
             await _login(client)
             created = await client.post(
                 "/api/admin/employees",
-                json={"employee_code": code, "name": "Original", "email": f"{code.lower()}@example.com"},
+                json={"employee_code": code, **_name_fields("Original"), "email": f"{code.lower()}@example.com"},
             )
             employee_id = created.json()["id"]
 
@@ -730,7 +830,7 @@ async def test_update_employee_as_employee_returns_403():
             await _login(client)
             created = await client.post(
                 "/api/admin/employees",
-                json={"employee_code": code, "name": "Original", "email": f"{code.lower()}@example.com"},
+                json={"employee_code": code, **_name_fields("Original"), "email": f"{code.lower()}@example.com"},
             )
             employee_id = created.json()["id"]
 
@@ -761,7 +861,7 @@ async def test_update_employee_archived_employee_still_succeeds():
             await _login(client)
             created = await client.post(
                 "/api/admin/employees",
-                json={"employee_code": code, "name": "Archived", "email": f"{code.lower()}@example.com"},
+                json={"employee_code": code, **_name_fields("Archived"), "email": f"{code.lower()}@example.com"},
             )
             employee_id = created.json()["id"]
 
@@ -793,7 +893,7 @@ async def test_update_employee_concurrent_edits_last_write_wins():
             await _login(client)
             created = await client.post(
                 "/api/admin/employees",
-                json={"employee_code": code, "name": "Original", "email": f"{code.lower()}@example.com"},
+                json={"employee_code": code, **_name_fields("Original"), "email": f"{code.lower()}@example.com"},
             )
             employee_id = created.json()["id"]
 
@@ -838,7 +938,7 @@ async def test_delete_employee_with_no_assignment_history_hard_deletes():
             await _login(client)
             created = await client.post(
                 "/api/admin/employees",
-                json={"employee_code": code, "name": "No History", "email": f"{code.lower()}@example.com"},
+                json={"employee_code": code, **_name_fields("No History"), "email": f"{code.lower()}@example.com"},
             )
             employee_id = created.json()["id"]
 
@@ -868,7 +968,7 @@ async def test_delete_employee_with_assignment_history_archives_instead():
             await _login(client)
             created = await client.post(
                 "/api/admin/employees",
-                json={"employee_code": code, "name": "Has History", "email": f"{code.lower()}@example.com"},
+                json={"employee_code": code, **_name_fields("Has History"), "email": f"{code.lower()}@example.com"},
             )
             employee_id = created.json()["id"]
 
@@ -917,7 +1017,7 @@ async def test_delete_employee_with_only_soft_deleted_assignment_still_archives(
             await _login(client)
             created = await client.post(
                 "/api/admin/employees",
-                json={"employee_code": code, "name": "Soft Deleted History", "email": f"{code.lower()}@example.com"},
+                json={"employee_code": code, **_name_fields("Soft Deleted History"), "email": f"{code.lower()}@example.com"},
             )
             employee_id = created.json()["id"]
 
@@ -961,7 +1061,7 @@ async def test_delete_employee_archived_excluded_from_assignment_picker_not_hr_r
             await _login(client)
             created = await client.post(
                 "/api/admin/employees",
-                json={"employee_code": code, "name": "Picker Test", "email": f"{code.lower()}@example.com"},
+                json={"employee_code": code, **_name_fields("Picker Test"), "email": f"{code.lower()}@example.com"},
             )
             employee_id = created.json()["id"]
 
@@ -998,7 +1098,7 @@ async def test_list_employees_has_assignment_history_reflects_reality():
                 "/api/admin/employees",
                 json={
                     "employee_code": code_no_history,
-                    "name": "No History",
+                    **_name_fields("No History"),
                     "email": f"{code_no_history.lower()}@example.com",
                 },
             )
@@ -1008,7 +1108,7 @@ async def test_list_employees_has_assignment_history_reflects_reality():
                 "/api/admin/employees",
                 json={
                     "employee_code": code_has_history,
-                    "name": "Has History",
+                    **_name_fields("Has History"),
                     "email": f"{code_has_history.lower()}@example.com",
                 },
             )
@@ -1048,7 +1148,7 @@ async def test_delete_employee_as_employee_returns_403():
             await _login(client)
             created = await client.post(
                 "/api/admin/employees",
-                json={"employee_code": code, "name": "Original", "email": f"{code.lower()}@example.com"},
+                json={"employee_code": code, **_name_fields("Original"), "email": f"{code.lower()}@example.com"},
             )
             employee_id = created.json()["id"]
 
@@ -1088,7 +1188,7 @@ async def test_hard_deleted_employee_session_not_specifically_rejected_by_ac4():
             await _login(hr_client)
             created = await hr_client.post(
                 "/api/admin/employees",
-                json={"employee_code": code, "name": "Soon Hard Deleted", "email": email},
+                json={"employee_code": code, **_name_fields("Soon Hard Deleted"), "email": email},
             )
             employee_id = created.json()["id"]
 
@@ -1127,7 +1227,7 @@ async def test_archived_employee_with_history_session_rejected_on_next_request()
             await _login(hr_client)
             created = await hr_client.post(
                 "/api/admin/employees",
-                json={"employee_code": code, "name": "Soon Archived With History", "email": email},
+                json={"employee_code": code, **_name_fields("Soon Archived With History"), "email": email},
             )
             employee_id = created.json()["id"]
             await hr_client.post(
@@ -1167,7 +1267,7 @@ async def test_create_assignment_against_freshly_archived_employee_returns_409()
             await _login(client)
             created = await client.post(
                 "/api/admin/employees",
-                json={"employee_code": code, "name": "Stale Picker Target", "email": f"{code.lower()}@example.com"},
+                json={"employee_code": code, **_name_fields("Stale Picker Target"), "email": f"{code.lower()}@example.com"},
             )
             employee_id = created.json()["id"]
 
@@ -1237,7 +1337,7 @@ async def test_delete_employee_already_archived_is_a_no_op_that_preserves_the_or
             await _login(client)
             created = await client.post(
                 "/api/admin/employees",
-                json={"employee_code": code, "name": "Already Archived", "email": f"{code.lower()}@example.com"},
+                json={"employee_code": code, **_name_fields("Already Archived"), "email": f"{code.lower()}@example.com"},
             )
             employee_id = created.json()["id"]
             await client.post(
@@ -1284,12 +1384,12 @@ async def test_delete_employee_has_assignment_history_covers_assigner_not_just_t
             await _login(client)
             created_admin = await client.post(
                 "/api/admin/employees",
-                json={"employee_code": admin_code, "name": "Acting Admin", "email": f"{admin_code.lower()}@example.com"},
+                json={"employee_code": admin_code, **_name_fields("Acting Admin"), "email": f"{admin_code.lower()}@example.com"},
             )
             admin_id = created_admin.json()["id"]
             created_target = await client.post(
                 "/api/admin/employees",
-                json={"employee_code": target_code, "name": "Assignment Target", "email": f"{target_code.lower()}@example.com"},
+                json={"employee_code": target_code, **_name_fields("Assignment Target"), "email": f"{target_code.lower()}@example.com"},
             )
             target_id = created_target.json()["id"]
 
@@ -1347,7 +1447,7 @@ async def test_delete_employee_integrity_error_with_fk_violation_falls_back_to_a
             await _login(client)
             created = await client.post(
                 "/api/admin/employees",
-                json={"employee_code": code, "name": "Fake FK Violation", "email": f"{code.lower()}@example.com"},
+                json={"employee_code": code, **_name_fields("Fake FK Violation"), "email": f"{code.lower()}@example.com"},
             )
             employee_id = created.json()["id"]
 
@@ -1388,7 +1488,7 @@ async def test_delete_employee_integrity_error_without_fk_violation_reraises(mon
             await _login(client)
             created = await client.post(
                 "/api/admin/employees",
-                json={"employee_code": code, "name": "Fake Other Error", "email": f"{code.lower()}@example.com"},
+                json={"employee_code": code, **_name_fields("Fake Other Error"), "email": f"{code.lower()}@example.com"},
             )
             employee_id = created.json()["id"]
 
@@ -1426,7 +1526,7 @@ async def test_regenerate_password_active_employee_returns_new_password():
             await _login(client)
             created = await client.post(
                 "/api/admin/employees",
-                json={"employee_code": code, "name": "Regen Target", "email": f"{code.lower()}@example.com"},
+                json={"employee_code": code, **_name_fields("Regen Target"), "email": f"{code.lower()}@example.com"},
             )
             employee_id = created.json()["id"]
             old_password = created.json()["generated_password"]
@@ -1466,7 +1566,7 @@ async def test_regenerate_password_reflects_true_has_assignment_history():
             await _login(client)
             created = await client.post(
                 "/api/admin/employees",
-                json={"employee_code": code, "name": "Has History Regen", "email": f"{code.lower()}@example.com"},
+                json={"employee_code": code, **_name_fields("Has History Regen"), "email": f"{code.lower()}@example.com"},
             )
             employee_id = created.json()["id"]
             assert created.json()["has_assignment_history"] is False
@@ -1495,7 +1595,7 @@ async def test_regenerate_password_never_leaks_plaintext_via_list_endpoint():
             await _login(client)
             created = await client.post(
                 "/api/admin/employees",
-                json={"employee_code": code, "name": "No Leak", "email": f"{code.lower()}@example.com"},
+                json={"employee_code": code, **_name_fields("No Leak"), "email": f"{code.lower()}@example.com"},
             )
             employee_id = created.json()["id"]
 
@@ -1518,7 +1618,7 @@ async def test_regenerate_password_archived_employee_returns_409_and_leaves_hash
             await _login(client)
             created = await client.post(
                 "/api/admin/employees",
-                json={"employee_code": code, "name": "Archived Regen", "email": f"{code.lower()}@example.com"},
+                json={"employee_code": code, **_name_fields("Archived Regen"), "email": f"{code.lower()}@example.com"},
             )
             employee_id = created.json()["id"]
 
@@ -1555,7 +1655,7 @@ async def test_regenerate_password_does_not_touch_profile_fields():
                 "/api/admin/employees",
                 json={
                     "employee_code": code,
-                    "name": "Profile Untouched",
+                    **_name_fields("Profile Untouched"),
                     "email": f"{code.lower()}@example.com",
                     "department": "Engineering",
                 },
@@ -1590,7 +1690,7 @@ async def test_regenerate_password_employee_session_returns_403():
             await _login(client)
             created = await client.post(
                 "/api/admin/employees",
-                json={"employee_code": code, "name": "Role Gate", "email": f"{code.lower()}@example.com"},
+                json={"employee_code": code, **_name_fields("Role Gate"), "email": f"{code.lower()}@example.com"},
             )
             employee_id = created.json()["id"]
 

@@ -14,8 +14,13 @@ import { CreateEmployeeModal } from '@/features/admin/CreateEmployeeModal';
 import { EditEmployeeModal } from '@/features/admin/EditEmployeeModal';
 import { DeleteArchiveEmployeeModal } from '@/features/admin/DeleteArchiveEmployeeModal';
 import { RegeneratePasswordModal } from '@/features/admin/RegeneratePasswordModal';
+import { useAuth } from '@/lib/auth/AuthContext';
 
 const PAGE_SIZE = 15;
+
+// FR-35: fixed Days-in-Talent-Pool flag threshold -- a single named
+// constant, never inlined.
+const TALENT_POOL_FLAG_DAYS = 90;
 
 function extractErrorMessage(err: unknown, fallback: string): string {
   if (err && typeof err === 'object' && 'response' in err) {
@@ -27,6 +32,50 @@ function extractErrorMessage(err: unknown, fallback: string): string {
 
 function distinctSorted(values: (string | null)[]): string[] {
   return [...new Set(values.filter((v): v is string => Boolean(v)))].sort();
+}
+
+// Story 10.2 (FR-34): the roster's Name column shows "{Last Name}, {First
+// Name}" -- scoped to this grid/card display only (Dev Notes decision 2).
+function displayName(employee: EmployeeResponse): string {
+  return `${employee.last_name}, ${employee.first_name}`;
+}
+
+// Story 10.2 (FR-34/FR-35): renders the Days in Talent Pool value, blank for
+// the acting HR Admin's own row, flagged (red, icon + text) past the
+// threshold. `compact` picks between the table's "90d" and the card's
+// "90 days in Talent Pool" phrasing.
+function DaysInTalentPoolValue({
+  employee,
+  isSelf,
+  compact,
+}: {
+  employee: EmployeeResponse;
+  isSelf: boolean;
+  compact: boolean;
+}) {
+  if (isSelf) {
+    return <span className="text-gray-400 dark:text-gray-500">—</span>;
+  }
+  const days = employee.days_in_talent_pool;
+  const flagged = days > TALENT_POOL_FLAG_DAYS;
+  const suffix = compact ? 'd' : ` days in Talent Pool`;
+  if (flagged) {
+    return (
+      <span
+        className="inline-flex items-center gap-1 font-semibold text-red-600 dark:text-red-400"
+        title={`Over ${TALENT_POOL_FLAG_DAYS} days in the Talent Pool`}
+      >
+        ⚠ {days}
+        {suffix}
+      </span>
+    );
+  }
+  return (
+    <span className="text-gray-600 dark:text-gray-400">
+      {days}
+      {suffix}
+    </span>
+  );
 }
 
 function StatusBadge({ archived }: { archived: boolean }) {
@@ -46,11 +95,13 @@ function StatusBadge({ archived }: { archived: boolean }) {
 
 function RowActions({
   employee,
+  isSelf,
   onEdit,
   onRegeneratePassword,
   onDeleteOrArchive,
 }: {
   employee: EmployeeResponse;
+  isSelf: boolean;
   onEdit: (employee: EmployeeResponse) => void;
   onRegeneratePassword: (employee: EmployeeResponse) => void;
   onDeleteOrArchive: (employee: EmployeeResponse) => void;
@@ -75,20 +126,32 @@ function RowActions({
       >
         ⚿
       </button>
-      <button
-        type="button"
-        onClick={() => onDeleteOrArchive(employee)}
-        aria-label={`Delete/Archive ${employee.name}`}
-        title="Delete/Archive"
-        className="px-1 text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400"
-      >
-        ✕
-      </button>
+      {isSelf ? (
+        <span className="px-1 text-xs text-gray-400 dark:text-gray-500" data-testid={`employees-row-you-${employee.id}`}>
+          (you)
+        </span>
+      ) : (
+        <button
+          type="button"
+          onClick={() => onDeleteOrArchive(employee)}
+          aria-label={`Delete/Archive ${employee.name}`}
+          title="Delete/Archive"
+          className="px-1 text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400"
+        >
+          ✕
+        </button>
+      )}
     </>
   );
 }
 
 export function EmployeesPage() {
+  const { auth } = useAuth();
+  // Story 10.2 AC6: the acting HR Admin's own row is never meaningfully
+  // "in the Talent Pool" and can't Archive/Delete itself (mirrors the real
+  // backend's self-delete guard).
+  const currentUserId = auth.status === 'authenticated' ? auth.userId : null;
+
   const [employees, setEmployees] = useState<EmployeeResponse[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const requestIdRef = useRef(0);
@@ -178,14 +241,29 @@ export function EmployeesPage() {
   const filtered = useMemo(() => {
     if (!employees) return [];
     const q = search.trim().toLowerCase();
+    // Story 10.2 AC6: the acting HR Admin's own row drops out of the result
+    // set the moment any filter criterion (search/Department/Position) is
+    // active -- it stays in the default, unfiltered view like any other row.
+    const anyFilterActive = Boolean(q) || Boolean(department) || Boolean(position);
     return employees.filter((e) => {
-      if (q && !e.name.toLowerCase().includes(q)) return false;
+      if (anyFilterActive && e.id === currentUserId) return false;
+      // Story 10.2 AC5: Project/Location/Technologies join the existing
+      // filterable-field set -- the search box also matches against them
+      // (blank excludes only that field from matching, never the row).
+      if (
+        q &&
+        !e.name.toLowerCase().includes(q) &&
+        !(e.project ?? '').toLowerCase().includes(q) &&
+        !(e.location ?? '').toLowerCase().includes(q) &&
+        !(e.technologies ?? '').toLowerCase().includes(q)
+      )
+        return false;
       if (department && e.department !== department) return false;
       if (position && e.position !== position) return false;
       if (!showArchived && e.archived_at !== null) return false;
       return true;
     });
-  }, [employees, search, department, position, showArchived]);
+  }, [employees, search, department, position, showArchived, currentUserId]);
 
   // AC2: search/filter/archived-toggle reset pagination to page 1. View
   // toggle deliberately does NOT touch page (AC1 -- state is shared).
@@ -214,7 +292,7 @@ export function EmployeesPage() {
           <div className="flex flex-wrap items-center gap-2">
             <input
               type="text"
-              placeholder="Search by name…"
+              placeholder="Search by name, project, location, technologies…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-40 rounded-lg border border-gray-300 px-3 py-2 text-sm sm:w-48 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
@@ -310,7 +388,7 @@ export function EmployeesPage() {
         {employees !== null && !loadError && filtered.length > 0 && view === 'table' && (
           <div className="overflow-x-auto">
             <table
-              className="w-full min-w-[720px] overflow-hidden rounded-lg border border-gray-200 bg-white text-sm dark:border-gray-700 dark:bg-gray-900"
+              className="w-full min-w-[1080px] overflow-hidden rounded-lg border border-gray-200 bg-white text-sm dark:border-gray-700 dark:bg-gray-900"
               data-testid="employees-table"
             >
               <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-500 dark:bg-gray-800 dark:text-gray-400">
@@ -318,33 +396,45 @@ export function EmployeesPage() {
                   <th className="px-4 py-3 text-left">ID</th>
                   <th className="px-4 py-3 text-left">Name</th>
                   <th className="px-4 py-3 text-left">Position</th>
-                  <th className="px-4 py-3 text-left">Department</th>
+                  <th className="px-4 py-3 text-left">Project</th>
+                  <th className="px-4 py-3 text-left">Location</th>
+                  <th className="px-4 py-3 text-left">Technologies</th>
+                  <th className="px-4 py-3 text-left">Days in Talent Pool</th>
                   <th className="px-4 py-3 text-left">Email</th>
                   <th className="px-4 py-3 text-left">Status</th>
                   <th className="px-4 py-3 text-left">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {pageItems.map((employee) => (
-                  <tr key={employee.id} className="border-t border-gray-100 dark:border-gray-800">
-                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{employee.employee_code}</td>
-                    <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">{employee.name}</td>
-                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{employee.position ?? '—'}</td>
-                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{employee.department ?? '—'}</td>
-                    <td className="px-4 py-3 text-xs text-gray-400 dark:text-gray-500">{employee.email}</td>
-                    <td className="px-4 py-3">
-                      <StatusBadge archived={employee.archived_at !== null} />
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3">
-                      <RowActions
-                        employee={employee}
-                        onEdit={setEditingEmployee}
-                        onRegeneratePassword={setRegeneratingEmployee}
-                        onDeleteOrArchive={setDeletingEmployee}
-                      />
-                    </td>
-                  </tr>
-                ))}
+                {pageItems.map((employee) => {
+                  const isSelf = employee.id === currentUserId;
+                  return (
+                    <tr key={employee.id} className="border-t border-gray-100 dark:border-gray-800">
+                      <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{employee.employee_code}</td>
+                      <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">{displayName(employee)}</td>
+                      <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{employee.position ?? '—'}</td>
+                      <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{employee.project ?? '—'}</td>
+                      <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{employee.location ?? '—'}</td>
+                      <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{employee.technologies ?? '—'}</td>
+                      <td className="px-4 py-3">
+                        <DaysInTalentPoolValue employee={employee} isSelf={isSelf} compact />
+                      </td>
+                      <td className="px-4 py-3 text-xs text-gray-400 dark:text-gray-500">{employee.email}</td>
+                      <td className="px-4 py-3">
+                        <StatusBadge archived={employee.archived_at !== null} />
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3">
+                        <RowActions
+                          employee={employee}
+                          isSelf={isSelf}
+                          onEdit={setEditingEmployee}
+                          onRegeneratePassword={setRegeneratingEmployee}
+                          onDeleteOrArchive={setDeletingEmployee}
+                        />
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -352,28 +442,35 @@ export function EmployeesPage() {
 
         {employees !== null && !loadError && filtered.length > 0 && view === 'card' && (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3" data-testid="employees-grid">
-            {pageItems.map((employee) => (
-              <div key={employee.id} className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="font-semibold text-gray-900 dark:text-gray-100">{employee.name}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {employee.position ?? '—'} · {employee.department ?? '—'}
-                    </p>
+            {pageItems.map((employee) => {
+              const isSelf = employee.id === currentUserId;
+              return (
+                <div key={employee.id} className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="font-semibold text-gray-900 dark:text-gray-100">{displayName(employee)}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {employee.position ?? '—'} · {employee.project ?? 'No project'}
+                      </p>
+                    </div>
+                    <StatusBadge archived={employee.archived_at !== null} />
                   </div>
-                  <StatusBadge archived={employee.archived_at !== null} />
+                  <p className="mt-2 break-all text-xs text-gray-400 dark:text-gray-500">{employee.email}</p>
+                  <p className="mt-1 text-xs">
+                    <DaysInTalentPoolValue employee={employee} isSelf={isSelf} compact={false} />
+                  </p>
+                  <div className="mt-3 border-t border-gray-100 pt-3 dark:border-gray-800">
+                    <RowActions
+                      employee={employee}
+                      isSelf={isSelf}
+                      onEdit={setEditingEmployee}
+                      onRegeneratePassword={setRegeneratingEmployee}
+                      onDeleteOrArchive={setDeletingEmployee}
+                    />
+                  </div>
                 </div>
-                <p className="mt-2 break-all text-xs text-gray-400 dark:text-gray-500">{employee.email}</p>
-                <div className="mt-3 border-t border-gray-100 pt-3 dark:border-gray-800">
-                  <RowActions
-                    employee={employee}
-                    onEdit={setEditingEmployee}
-                    onRegeneratePassword={setRegeneratingEmployee}
-                    onDeleteOrArchive={setDeletingEmployee}
-                  />
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 

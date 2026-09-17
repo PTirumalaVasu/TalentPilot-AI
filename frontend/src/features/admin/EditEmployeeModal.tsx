@@ -26,7 +26,8 @@ interface ConflictError {
 }
 
 const EMPTY_FIELDS = {
-  name: '',
+  first_name: '',
+  last_name: '',
   email: '',
   phone: '',
   experience: '',
@@ -59,7 +60,8 @@ export function EditEmployeeModal({ open, employee, onClose, onSaved }: EditEmpl
     requestIdRef.current += 1;
     if (!open || !employee) return;
     setFields({
-      name: employee.name,
+      first_name: employee.first_name,
+      last_name: employee.last_name,
       email: employee.email,
       phone: employee.phone ?? '',
       experience: employee.experience ?? '',
@@ -82,9 +84,10 @@ export function EditEmployeeModal({ open, employee, onClose, onSaved }: EditEmpl
 
   async function handleSave() {
     if (!employee) return;
-    const trimmedName = fields.name.trim();
+    const trimmedFirstName = fields.first_name.trim();
+    const trimmedLastName = fields.last_name.trim();
     const trimmedEmail = fields.email.trim();
-    if (!trimmedName || !trimmedEmail) return;
+    if (!trimmedFirstName || !trimmedLastName || !trimmedEmail) return;
 
     const requestIdAtSubmit = requestIdRef.current;
     setSubmitting(true);
@@ -92,7 +95,8 @@ export function EditEmployeeModal({ open, employee, onClose, onSaved }: EditEmpl
     setDuplicateEmail(false);
     try {
       const updated = await updateEmployee(employee.id, {
-        name: trimmedName,
+        first_name: trimmedFirstName,
+        last_name: trimmedLastName,
         email: trimmedEmail,
         phone: fields.phone.trim() || null,
         experience: fields.experience.trim() || null,
@@ -145,13 +149,23 @@ export function EditEmployeeModal({ open, employee, onClose, onSaved }: EditEmpl
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
-            <Label htmlFor="edit-employee-name-input">Name</Label>
+            <Label htmlFor="edit-employee-first-name-input">First Name</Label>
             <Input
-              id="edit-employee-name-input"
-              value={fields.name}
-              onChange={(e) => updateField('name', e.target.value)}
+              id="edit-employee-first-name-input"
+              value={fields.first_name}
+              onChange={(e) => updateField('first_name', e.target.value)}
               disabled={submitting}
-              data-testid="edit-employee-name-input"
+              data-testid="edit-employee-first-name-input"
+            />
+          </div>
+          <div>
+            <Label htmlFor="edit-employee-last-name-input">Last Name</Label>
+            <Input
+              id="edit-employee-last-name-input"
+              value={fields.last_name}
+              onChange={(e) => updateField('last_name', e.target.value)}
+              disabled={submitting}
+              data-testid="edit-employee-last-name-input"
             />
           </div>
           <div>
@@ -260,7 +274,7 @@ export function EditEmployeeModal({ open, employee, onClose, onSaved }: EditEmpl
         <Button
           className="w-full"
           onClick={handleSave}
-          disabled={submitting || !fields.name.trim() || !fields.email.trim()}
+          disabled={submitting || !fields.first_name.trim() || !fields.last_name.trim() || !fields.email.trim()}
           data-testid="edit-employee-btn-save"
         >
           {submitting ? 'Saving…' : 'Save changes'}

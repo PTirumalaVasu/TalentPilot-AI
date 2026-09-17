@@ -43,7 +43,17 @@ async def test_get_db_commits_on_successful_completion():
 
     gen = get_db()
     session = await gen.__anext__()
-    session.add(Employee(id=new_id, employee_code=unique_code, name="Commit Test", email=unique_email, role="EMPLOYEE"))
+    session.add(
+        Employee(
+            id=new_id,
+            employee_code=unique_code,
+            name="Commit Test",
+            first_name="Commit",
+            last_name="Test",
+            email=unique_email,
+            role="EMPLOYEE",
+        )
+    )
     await session.flush()
 
     with pytest.raises(StopAsyncIteration):
@@ -73,7 +83,17 @@ async def test_get_db_rolls_back_on_exception():
 
     gen = get_db()
     session = await gen.__anext__()
-    session.add(Employee(id=new_id, employee_code=unique_code, name="Rollback Test", email=unique_email, role="EMPLOYEE"))
+    session.add(
+        Employee(
+            id=new_id,
+            employee_code=unique_code,
+            name="Rollback Test",
+            first_name="Rollback",
+            last_name="Test",
+            email=unique_email,
+            role="EMPLOYEE",
+        )
+    )
     await session.flush()
 
     with pytest.raises(RuntimeError):

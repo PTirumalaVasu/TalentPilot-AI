@@ -1,5 +1,5 @@
 # generated: 2026-07-09
-# last_updated: 2026-09-15 (epic-9-retrospective completed via bmad-retrospective -- epic-9-retrospective optional -> done; 5 new action items added, one -- the frontend HR-role-gate gap -- escalated to top priority per explicit user decision; see implementation-artifacts/epic-9-retro-2026-09-15.md)
+# last_updated: 2026-09-16 (10-2-employee-grid-columns-first-last-name-and-days-in-talent-pool: ready-for-dev -> in-progress -> review -> done via bmad-dev-story + bmad-code-review; 3-layer adversarial review, 1 decision + 9 patches applied, 2 deferred, 5 dismissed; full backend+frontend regression green)
 # project: TalentPilot-AI
 # project_key: NOKEY
 # tracking_system: file-system
@@ -302,7 +302,7 @@ development_status:
   # each of these full ACs/Dev Notes in epics.md before bmad-dev-story starts.
   epic-10: in-progress
   10-1-persona-rename-and-id-only-identity-references: done
-  10-2-employee-grid-columns-first-last-name-and-days-in-talent-pool: backlog
+  10-2-employee-grid-columns-first-last-name-and-days-in-talent-pool: done
   10-3-delete-archive-icon-clarity: backlog
   10-4-employee-experience-distribution-widget: backlog
   10-5-skills-tab-search-and-pagination: backlog

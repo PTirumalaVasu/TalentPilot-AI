@@ -51,6 +51,8 @@ async def _create_hr_admin() -> uuid.UUID:
                 id=employee_id,
                 employee_code=f"TST-{employee_id.hex[:8]}",
                 name="Other HR Admin",
+                first_name="Other HR",
+                last_name="Admin",
                 email=f"other-hr-{employee_id}@sails.example.com",
                 role="HR_ADMIN",
             )

@@ -390,7 +390,8 @@ async def test_dashboard_stats_excludes_archived_employee_and_their_assignments(
                 "/api/admin/employees",
                 json={
                     "employee_code": f"T9-1-{uuid.uuid4().hex[:8]}",
-                    "name": "Story 9.1 Test Employee",
+                    "first_name": "Story 9.1 Test",
+                    "last_name": "Employee",
                     "email": f"story9-1-{uuid.uuid4().hex[:8]}@example.com",
                 },
             )
@@ -476,7 +477,8 @@ async def _create_throwaway_employee(client: AsyncClient, label: str) -> uuid.UU
         "/api/admin/employees",
         json={
             "employee_code": f"T9-2-{label}-{uuid.uuid4().hex[:8]}",
-            "name": f"Story 9.2 Test Employee {label}",
+            "first_name": "Story 9.2 Test Employee",
+            "last_name": label,
             "email": f"story9-2-{label}-{uuid.uuid4().hex[:8]}@example.com",
         },
     )
