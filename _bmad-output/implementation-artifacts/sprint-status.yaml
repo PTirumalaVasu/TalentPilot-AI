@@ -303,7 +303,7 @@ development_status:
   epic-10: in-progress
   10-1-persona-rename-and-id-only-identity-references: done
   10-2-employee-grid-columns-first-last-name-and-days-in-talent-pool: done
-  10-3-delete-archive-icon-clarity: backlog
+  10-3-delete-archive-icon-clarity: done
   10-4-employee-experience-distribution-widget: backlog
   10-5-skills-tab-search-and-pagination: backlog
   10-6-skill-assignments-grid-search-and-pagination: backlog

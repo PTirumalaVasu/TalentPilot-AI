@@ -58,20 +58,22 @@ export function SkillCard({ skill, onEdit, onDelete, onView }: SkillCardProps) {
             <button
               type="button"
               aria-label="Edit"
-              className="text-xs text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400"
+              title="Edit"
+              className="inline-flex items-center justify-center w-8 h-8 rounded-full text-gray-500 dark:text-gray-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
               onClick={() => onEdit(skill)}
               data-testid="skills-tab-btn-edit-skill"
             >
-              ✎ Edit
+              ✎
             </button>
             <button
               type="button"
               aria-label="Delete"
-              className="text-xs text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400"
+              title="Delete"
+              className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
               onClick={() => onDelete(skill)}
               data-testid="skills-tab-btn-delete-skill"
             >
-              🗑 Delete
+              🗑
             </button>
           </>
         )}

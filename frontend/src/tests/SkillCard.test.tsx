@@ -59,6 +59,13 @@ describe('SkillCard', () => {
     expect(onDelete).toHaveBeenCalledWith(skill);
   });
 
+  it('Story 10.3 (AC4): Delete renders as a permanently-tinted red pill, distinct from Edit\'s neutral hover-only style', () => {
+    render(<SkillCard skill={makeSkill()} onEdit={vi.fn()} onDelete={vi.fn()} onView={vi.fn()} />);
+
+    expect(screen.getByTestId('skills-tab-btn-delete-skill')).toHaveClass('bg-red-50');
+    expect(screen.getByTestId('skills-tab-btn-edit-skill')).not.toHaveClass('bg-red-50');
+  });
+
   it('renders only the lock text for an assigned skill, with no Edit/Delete controls', () => {
     render(<SkillCard skill={makeSkill({ ever_assigned: true })} onEdit={vi.fn()} onDelete={vi.fn()} onView={vi.fn()} />);
 

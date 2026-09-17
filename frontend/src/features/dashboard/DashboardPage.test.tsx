@@ -176,7 +176,7 @@ describe("DashboardPage", () => {
     await expandGroup(/Test Employee/);
 
     await waitFor(() => {
-      const buttons = screen.getAllByText("View Details");
+      const buttons = screen.getAllByRole("button", { name: /View details/i });
       expect(buttons.length).toBeGreaterThan(0);
       // Button should not be disabled
       buttons.forEach((btn) => {

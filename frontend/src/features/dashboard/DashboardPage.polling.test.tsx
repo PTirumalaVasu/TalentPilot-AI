@@ -88,7 +88,7 @@ describe("DashboardPage live auto-update polling", () => {
     expect(getDashboard).toHaveBeenCalledTimes(1);
 
     expandGroup(/Casey the Continuer/);
-    expect(screen.getByText("View Details")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /View details/i })).toBeInTheDocument();
 
     await advance(POLL_INTERVAL_MS);
 
@@ -96,7 +96,7 @@ describe("DashboardPage live auto-update polling", () => {
     // The grid must still be present the whole time -- no loading-skeleton flash,
     // and the group stays expanded across a poll (no full unmount/remount).
     expect(screen.getByText(/Casey the Continuer/)).toBeInTheDocument();
-    expect(screen.getByText("View Details")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /View details/i })).toBeInTheDocument();
   });
 
   it("updates a row's Status in place when a poll response changes it, with no full unmount/remount", async () => {

@@ -33,6 +33,20 @@ function TrashIcon() {
   );
 }
 
+// Story 10.3 (AC4): View Details converts from a text link to an icon-only
+// button, matching the Edit/Regenerate-Password neutral tier on the
+// Employees/Skills pages -- same hand-rolled-SVG rationale as TrashIcon
+// above (no icon library in this codebase). Path data matches the locked
+// mockup exactly (01.1-Skills-Dashboard.html).
+function EyeIcon() {
+  return (
+    <svg viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5" aria-hidden="true">
+      <path d="M10 3.5c-4.14 0-7.65 2.61-9 6.5 1.35 3.89 4.86 6.5 9 6.5s7.65-2.61 9-6.5c-1.35-3.89-4.86-6.5-9-6.5zM10 14a4 4 0 110-8 4 4 0 010 8z" />
+      <path d="M10 8a2 2 0 100 4 2 2 0 000-4z" />
+    </svg>
+  );
+}
+
 interface DashboardState {
   assignments: AssignmentRow[];
   loading: boolean;
@@ -584,16 +598,17 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
                             <td className="px-3 py-2 align-middle">
                               <button
                                 onClick={() => handleViewDetails(row.assignment_id)}
-                                className="text-blue-600 hover:text-blue-800 text-sm font-medium whitespace-nowrap dark:text-blue-400 dark:hover:text-blue-300"
+                                className="inline-flex items-center justify-center w-8 h-8 rounded-full text-gray-500 hover:bg-blue-50 hover:text-blue-600 transition-colors dark:text-gray-400 dark:hover:bg-blue-900/30 dark:hover:text-blue-400"
                                 aria-label={`View details for ${row.employee_name} ${row.skill_name}`}
+                                title="View Details"
                               >
-                                View Details
+                                <EyeIcon />
                               </button>
                             </td>
                             <td className="px-3 py-2">
                               <button
                                 onClick={() => handleDeleteClick(row)}
-                                className="inline-flex items-center justify-center w-9 h-9 rounded-full text-red-600 hover:bg-red-100 hover:text-red-700 transition-colors dark:text-red-400 dark:hover:bg-red-950 dark:hover:text-red-300"
+                                className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
                                 aria-label={`Remove assignment for ${row.employee_name} ${row.skill_name}`}
                                 title="Delete"
                               >

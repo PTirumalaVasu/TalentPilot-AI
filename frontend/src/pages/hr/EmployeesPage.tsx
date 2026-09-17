@@ -93,6 +93,18 @@ function StatusBadge({ archived }: { archived: boolean }) {
   );
 }
 
+// Story 10.3 (AC4): the two-tier action-icon style shared by the Employees,
+// Skills, and Skill Assignments pages -- routine actions (Edit, Regenerate
+// Password, View) stay neutral-gray and only tint on hover; row-removing
+// actions (Archive, Delete) carry a permanently-visible tinted pill instead
+// of a hover-only cue, so the two are distinguishable at a glance.
+const NEUTRAL_ICON_BTN =
+  'inline-flex items-center justify-center w-8 h-8 rounded-full text-gray-500 dark:text-gray-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-blue-600 dark:hover:text-blue-400 transition-colors';
+const AMBER_PILL_BTN =
+  'inline-flex items-center justify-center w-8 h-8 rounded-full bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors';
+const RED_PILL_BTN =
+  'inline-flex items-center justify-center w-8 h-8 rounded-full bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors';
+
 function RowActions({
   employee,
   isSelf,
@@ -107,14 +119,8 @@ function RowActions({
   onDeleteOrArchive: (employee: EmployeeResponse) => void;
 }) {
   return (
-    <>
-      <button
-        type="button"
-        onClick={() => onEdit(employee)}
-        aria-label={`Edit ${employee.name}`}
-        title="Edit"
-        className="mr-2 px-1 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400"
-      >
+    <div className="flex items-center gap-0.5">
+      <button type="button" onClick={() => onEdit(employee)} aria-label={`Edit ${employee.name}`} title="Edit" className={NEUTRAL_ICON_BTN}>
         ✎
       </button>
       <button
@@ -122,7 +128,7 @@ function RowActions({
         onClick={() => onRegeneratePassword(employee)}
         aria-label={`Regenerate password for ${employee.name}`}
         title="Regenerate Password"
-        className="mr-2 px-1 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400"
+        className={NEUTRAL_ICON_BTN}
       >
         ⚿
       </button>
@@ -130,18 +136,28 @@ function RowActions({
         <span className="px-1 text-xs text-gray-400 dark:text-gray-500" data-testid={`employees-row-you-${employee.id}`}>
           (you)
         </span>
+      ) : employee.has_assignment_history ? (
+        <button
+          type="button"
+          onClick={() => onDeleteOrArchive(employee)}
+          aria-label={`Archive ${employee.name}`}
+          title="Archive"
+          className={AMBER_PILL_BTN}
+        >
+          🗄
+        </button>
       ) : (
         <button
           type="button"
           onClick={() => onDeleteOrArchive(employee)}
-          aria-label={`Delete/Archive ${employee.name}`}
-          title="Delete/Archive"
-          className="px-1 text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400"
+          aria-label={`Delete ${employee.name}`}
+          title="Delete"
+          className={RED_PILL_BTN}
         >
           ✕
         </button>
       )}
-    </>
+    </div>
   );
 }
 

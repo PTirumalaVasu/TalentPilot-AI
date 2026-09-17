@@ -253,7 +253,47 @@ describe('EmployeesPage', () => {
 
     expect(screen.getByLabelText('Edit Casey Employee')).toBeInTheDocument();
     expect(screen.getByLabelText('Regenerate password for Casey Employee')).toBeInTheDocument();
-    expect(screen.getByLabelText('Delete/Archive Casey Employee')).toBeInTheDocument();
+    expect(screen.getByLabelText('Delete Casey Employee')).toBeInTheDocument();
+  });
+
+  it('Story 10.3 (AC1): an employee with assignment history gets an Archive icon/label, not Delete', async () => {
+    vi.mocked(listEmployees).mockResolvedValue([
+      makeEmployee({ name: 'Casey Employee', has_assignment_history: true }),
+    ]);
+    renderPage();
+    await screen.findByText(displayName('Casey Employee'));
+
+    expect(screen.getByLabelText('Archive Casey Employee')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Delete Casey Employee')).not.toBeInTheDocument();
+  });
+
+  it('Story 10.3 (AC4): Delete/Archive render as permanently-tinted pills, distinct from Edit/Regenerate\'s neutral hover-only style', async () => {
+    vi.mocked(listEmployees).mockResolvedValue([
+      makeEmployee({ id: 'emp-1', name: 'Casey Employee', has_assignment_history: false }),
+      makeEmployee({ id: 'emp-2', name: 'Morgan Mentor', employee_code: 'EMP-0002', has_assignment_history: true }),
+    ]);
+    renderPage();
+    await screen.findByText(displayName('Casey Employee'));
+
+    expect(screen.getByLabelText('Delete Casey Employee')).toHaveClass('bg-red-50');
+    expect(screen.getByLabelText('Archive Morgan Mentor')).toHaveClass('bg-amber-50');
+    expect(screen.getByLabelText('Edit Casey Employee')).not.toHaveClass('bg-red-50', 'bg-amber-50');
+    expect(screen.getByLabelText('Regenerate password for Casey Employee')).not.toHaveClass('bg-red-50', 'bg-amber-50');
+  });
+
+  it('Story 10.3 (AC2): clicking the Archive icon opens the same confirm modal as Delete, unchanged behavior', async () => {
+    vi.mocked(listEmployees).mockResolvedValue([
+      makeEmployee({ id: 'emp-1', name: 'Casey Employee', has_assignment_history: true }),
+    ]);
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText(displayName('Casey Employee'));
+
+    await user.click(screen.getByLabelText('Archive Casey Employee'));
+
+    expect(await screen.findByTestId('delete-employee-heading')).toHaveTextContent('Remove Casey Employee?');
+    expect(screen.getByTestId('delete-employee-summary-archive')).toBeInTheDocument();
+    expect(screen.getByTestId('delete-employee-btn-confirm')).toHaveTextContent('Archive Employee');
   });
 
   it('Story 7.2: + New Employee creates a record, reveals the password once, then refetches and toasts', async () => {
@@ -342,7 +382,7 @@ describe('EmployeesPage', () => {
     renderPage();
     await screen.findByText(displayName('Casey Employee'));
 
-    await user.click(screen.getByLabelText('Delete/Archive Casey Employee'));
+    await user.click(screen.getByLabelText('Delete Casey Employee'));
 
     expect(await screen.findByTestId('delete-employee-heading')).toHaveTextContent('Remove Casey Employee?');
     expect(screen.getByTestId('delete-employee-summary-hard')).toBeInTheDocument();
@@ -357,7 +397,7 @@ describe('EmployeesPage', () => {
     renderPage();
     await screen.findByText(displayName('Casey Employee'));
 
-    await user.click(screen.getByLabelText('Delete/Archive Casey Employee'));
+    await user.click(screen.getByLabelText('Delete Casey Employee'));
     await screen.findByTestId('delete-employee-heading');
     await user.click(screen.getByTestId('delete-employee-btn-confirm'));
 
@@ -378,7 +418,7 @@ describe('EmployeesPage', () => {
     renderPage();
     await screen.findByText(displayName('Casey Employee'));
 
-    await user.click(screen.getByLabelText('Delete/Archive Casey Employee'));
+    await user.click(screen.getByLabelText('Delete Casey Employee'));
     await screen.findByTestId('delete-employee-heading');
     await user.click(screen.getByTestId('delete-employee-btn-confirm'));
 
@@ -392,7 +432,7 @@ describe('EmployeesPage', () => {
     renderPage();
     await screen.findByText(displayName('Casey Employee'));
 
-    await user.click(screen.getByLabelText('Delete/Archive Casey Employee'));
+    await user.click(screen.getByLabelText('Delete Casey Employee'));
     await screen.findByTestId('delete-employee-heading');
     await user.click(screen.getByTestId('delete-employee-btn-confirm'));
 
@@ -537,7 +577,8 @@ describe('EmployeesPage', () => {
 
     expect(screen.getByText('—')).toBeInTheDocument();
     expect(screen.getByTestId('employees-row-you-rita-1')).toHaveTextContent('(you)');
-    expect(screen.queryByLabelText('Delete/Archive Sails Admin')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Delete Sails Admin')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Archive Sails Admin')).not.toBeInTheDocument();
     expect(screen.getByLabelText('Edit Sails Admin')).toBeInTheDocument();
     expect(screen.getByLabelText('Regenerate password for Sails Admin')).toBeInTheDocument();
   });
