@@ -10,6 +10,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { HrAppShell } from '@/components/layout/HrAppShell';
 import { Toast } from '@/components/ui/toast';
 import { listEmployees, type EmployeeCreatedResponse, type EmployeeResponse } from '@/lib/api/employeesApi';
+import { dashboardApi } from '@/lib/api/dashboardApi';
+import type { ExperienceBucket } from '@/types/dashboard';
 import { CreateEmployeeModal } from '@/features/admin/CreateEmployeeModal';
 import { EditEmployeeModal } from '@/features/admin/EditEmployeeModal';
 import { DeleteArchiveEmployeeModal } from '@/features/admin/DeleteArchiveEmployeeModal';
@@ -172,6 +174,14 @@ export function EmployeesPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const requestIdRef = useRef(0);
 
+  // Story 10.4 (FR-36): the Experience Distribution panel's bucket
+  // definitions + counts, fetched separately from the roster and computed
+  // server-side over the *full* active roster regardless of any
+  // search/filter/pagination state currently applied below (Dev Notes:
+  // counts must not shrink just because a search term is also active).
+  const [distribution, setDistribution] = useState<ExperienceBucket[] | null>(null);
+  const [activeBucketLabel, setActiveBucketLabel] = useState<string | null>(null);
+
   const [search, setSearch] = useState('');
   const [department, setDepartment] = useState('');
   const [position, setPosition] = useState('');
@@ -187,13 +197,32 @@ export function EmployeesPage() {
   const refetch = useCallback(async () => {
     const requestId = ++requestIdRef.current;
     setLoadError(null);
-    try {
-      const result = await listEmployees();
-      if (requestIdRef.current !== requestId) return;
-      setEmployees(result);
-    } catch (err) {
-      if (requestIdRef.current !== requestId) return;
-      setLoadError(extractErrorMessage(err, "Couldn't load employees. Try again."));
+    // Story 10.4 code review: fired concurrently (not sequentially awaited)
+    // -- these are two independent requests, and the distribution fetch
+    // deliberately isn't gated on the roster fetch's success (a bucket-count
+    // failure shouldn't block the roster itself from rendering, and vice
+    // versa). Each branch keeps its own try/catch below so one failing
+    // never throws away the other's result.
+    const [employeesResult, distributionResult] = await Promise.allSettled([
+      listEmployees(),
+      dashboardApi.getExperienceDistribution(),
+    ]);
+    if (requestIdRef.current !== requestId) return;
+
+    if (employeesResult.status === 'fulfilled') {
+      setEmployees(employeesResult.value);
+    } else {
+      setLoadError(extractErrorMessage(employeesResult.reason, "Couldn't load employees. Try again."));
+    }
+
+    if (distributionResult.status === 'fulfilled') {
+      setDistribution(distributionResult.value.buckets);
+    } else {
+      // Intentionally silent in the UI -- a secondary panel's count failure
+      // shouldn't surface a second error banner alongside the roster's own.
+      // Logged so a real regression is still visible in dev tools instead
+      // of vanishing without a trace.
+      console.error('Failed to load Experience Distribution', distributionResult.reason);
     }
   }, []);
 
@@ -254,13 +283,22 @@ export function EmployeesPage() {
     [archivedRespectingEmployees]
   );
 
+  // Story 10.4: the currently-selected bucket's [min_years, max_years]
+  // range, looked up from the distribution response rather than a second
+  // hardcoded copy of the boundaries.
+  const activeBucket = useMemo(
+    () => distribution?.find((b) => b.label === activeBucketLabel) ?? null,
+    [distribution, activeBucketLabel]
+  );
+
   const filtered = useMemo(() => {
     if (!employees) return [];
     const q = search.trim().toLowerCase();
-    // Story 10.2 AC6: the acting HR Admin's own row drops out of the result
-    // set the moment any filter criterion (search/Department/Position) is
-    // active -- it stays in the default, unfiltered view like any other row.
-    const anyFilterActive = Boolean(q) || Boolean(department) || Boolean(position);
+    // Story 10.2 AC6 (updated for Story 10.4): the acting HR Admin's own row
+    // drops out of the result set the moment any filter criterion --
+    // search/Department/Position/Experience-bucket -- is active; it stays
+    // in the default, unfiltered view like any other row.
+    const anyFilterActive = Boolean(q) || Boolean(department) || Boolean(position) || Boolean(activeBucket);
     return employees.filter((e) => {
       if (anyFilterActive && e.id === currentUserId) return false;
       // Story 10.2 AC5: Project/Location/Technologies join the existing
@@ -276,16 +314,38 @@ export function EmployeesPage() {
         return false;
       if (department && e.department !== department) return false;
       if (position && e.position !== position) return false;
+      // Story 10.4 (FR-36): click-through reuses this same client-side
+      // filter + the existing 15/page pagination below, matching FR-25's
+      // established convention rather than a separate paginated endpoint. A
+      // null experience_years never matches any bucket.
+      if (activeBucket) {
+        if (e.experience_years === null) return false;
+        if (e.experience_years < activeBucket.min_years) return false;
+        if (activeBucket.max_years !== null && e.experience_years > activeBucket.max_years) return false;
+        // Code review (Story 10.4): the bucket's own count (AC2) is
+        // computed over the active roster only -- an archived row matching
+        // this range must never appear here even with "Show archived" on,
+        // or the visible list would disagree with the number on the chip
+        // that filtered it. Checked unconditionally here rather than
+        // relying on the general showArchived check below, which a bucket
+        // filter must always override.
+        if (e.archived_at !== null) return false;
+      }
       if (!showArchived && e.archived_at !== null) return false;
       return true;
     });
-  }, [employees, search, department, position, showArchived, currentUserId]);
+  }, [employees, search, department, position, activeBucket, showArchived, currentUserId]);
 
-  // AC2: search/filter/archived-toggle reset pagination to page 1. View
-  // toggle deliberately does NOT touch page (AC1 -- state is shared).
+  // AC2: search/filter/archived-toggle/Experience-bucket reset pagination to
+  // page 1. View toggle deliberately does NOT touch page (AC1 -- state is
+  // shared).
   useEffect(() => {
     setPage(1);
-  }, [search, department, position, showArchived]);
+  }, [search, department, position, showArchived, activeBucketLabel]);
+
+  function handleSelectBucket(label: string) {
+    setActiveBucketLabel((current) => (current === label ? null : label));
+  }
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
@@ -381,6 +441,48 @@ export function EmployeesPage() {
             </button>
           </div>
         </div>
+
+        {distribution && distribution.length > 0 && (
+          <div className="mb-2 flex flex-wrap items-center gap-2" data-testid="experience-distribution-buckets">
+            <span className="shrink-0 text-xs font-medium text-gray-500 dark:text-gray-400">Experience:</span>
+            {distribution.map((bucket, index) => {
+              const isActive = activeBucketLabel === bucket.label;
+              return (
+                <button
+                  key={bucket.label}
+                  type="button"
+                  onClick={() => handleSelectBucket(bucket.label)}
+                  aria-pressed={isActive}
+                  className={
+                    'rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ' +
+                    (isActive
+                      ? 'border-blue-600 bg-blue-600 text-white'
+                      : 'border-gray-300 text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800')
+                  }
+                  // Code review (Story 10.4): index-based, not built from
+                  // bucket.label -- the label is server-supplied text (with
+                  // embedded Unicode en-dashes/spaces) that could be
+                  // relabeled independently of this component; a stable
+                  // positional id keeps every test that targets a specific
+                  // bucket from silently breaking on a wording change.
+                  data-testid={`experience-distribution-bucket-${index}`}
+                >
+                  {bucket.label} ({bucket.count})
+                </button>
+              );
+            })}
+            {activeBucketLabel && (
+              <button
+                type="button"
+                onClick={() => setActiveBucketLabel(null)}
+                className="text-xs font-medium text-blue-600 hover:underline dark:text-blue-400"
+                data-testid="experience-distribution-clear"
+              >
+                Clear filter
+              </button>
+            )}
+          </div>
+        )}
 
         {employees === null && !loadError && <p className="text-sm text-gray-500 dark:text-gray-400">Loading…</p>}
 

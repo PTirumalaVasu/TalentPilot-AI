@@ -5,6 +5,7 @@ import {
   DrillDownResponse,
   DashboardStatsResponse,
   EmployeeSegmentationResponse,
+  ExperienceDistributionResponse,
 } from "../../types/dashboard";
 
 export interface DashboardAssignmentRow {
@@ -50,6 +51,18 @@ async function getEmployeeSegmentation(): Promise<EmployeeSegmentationResponse> 
   return response.data;
 }
 
+/**
+ * Headcount broken down by years of experience for the Employees page's
+ * Experience Distribution panel (Story 10.4, consuming that story's
+ * dashboard/-owned endpoint, FR-36).
+ */
+async function getExperienceDistribution(): Promise<ExperienceDistributionResponse> {
+  const response = await apiClient.get<ExperienceDistributionResponse>(
+    '/api/dashboard/experience-distribution'
+  );
+  return response.data;
+}
+
 async function getDrillDown(assignmentId: string): Promise<DrillDownResponse> {
   const response = await apiClient.get<DrillDownResponse>(
     `/api/assignments/${assignmentId}/progress/drill-down`
@@ -87,6 +100,7 @@ export const dashboardApi = {
   getDashboard,
   getDashboardStats,
   getEmployeeSegmentation,
+  getExperienceDistribution,
   getDrillDown,
   setOverride,
   deleteAssignment,

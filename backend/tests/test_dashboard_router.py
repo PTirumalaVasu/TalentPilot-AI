@@ -882,3 +882,190 @@ async def test_employee_segmentation_excludes_archived_employee():
             await _cleanup_assignment(assignment_id)
         if employee_id is not None:
             await _delete_employee_hard(employee_id)
+
+
+# --- Story 10.4: GET /api/dashboard/experience-distribution (FR-36) ----------
+
+
+async def _get_experience_distribution(client: AsyncClient) -> dict:
+    response = await client.get("/api/dashboard/experience-distribution")
+    assert response.status_code == 200
+    return response.json()
+
+
+async def _create_throwaway_employee_with_experience(
+    client: AsyncClient, label: str, experience_years: int | None
+) -> uuid.UUID:
+    """Mirrors _create_throwaway_employee -- a fresh Employee so bucket-count
+    assertions aren't polluted by the seeded demo roster's own
+    experience_years values (Story 10.4, same reasoning as Story 9.2's
+    identical throwaway-employee pattern)."""
+    payload = {
+        "employee_code": f"T10-4-{label}-{uuid.uuid4().hex[:8]}",
+        "first_name": "Story 10.4 Test Employee",
+        "last_name": label,
+        "email": f"story10-4-{label}-{uuid.uuid4().hex[:8]}@example.com",
+    }
+    if experience_years is not None:
+        payload["experience_years"] = experience_years
+    response = await client.post("/api/admin/employees", json=payload)
+    assert response.status_code == 201
+    return uuid.UUID(response.json()["id"])
+
+
+def _bucket(body: dict, label: str) -> dict:
+    return next(b for b in body["buckets"] if b["label"] == label)
+
+
+async def test_experience_distribution_requires_authentication():
+    async with _client() as client:
+        response = await client.get("/api/dashboard/experience-distribution")
+        assert response.status_code == 401
+
+
+async def test_experience_distribution_forbidden_for_employee_role():
+    async with _client() as client:
+        await _login(client, email="casey@sails.example.com")
+        response = await client.get("/api/dashboard/experience-distribution")
+        assert response.status_code == 403
+        assert response.json()["code"] == "FORBIDDEN_NOT_HR_ADMIN"
+
+
+async def test_experience_distribution_returns_seven_fixed_contiguous_buckets():
+    """Story 10.4 AC2: exactly 7 buckets, exact labels/boundaries, locked
+    2026-09-15 -- 0-4, 5-7, 8-9, 10-11, 12-14, 15-19, 20+ years."""
+    async with _client() as client:
+        await _login(client)
+        body = await _get_experience_distribution(client)
+
+    assert [b["label"] for b in body["buckets"]] == [
+        "0–4 yrs", "5–7 yrs", "8–9 yrs", "10–11 yrs", "12–14 yrs", "15–19 yrs", "20+ yrs",
+    ]
+    assert [(b["min_years"], b["max_years"]) for b in body["buckets"]] == [
+        (0, 4), (5, 7), (8, 9), (10, 11), (12, 14), (15, 19), (20, None),
+    ]
+
+
+async def test_experience_distribution_counts_active_employee_in_matching_bucket():
+    employee_id = None
+    try:
+        async with _client() as client:
+            await _login(client)
+            before = await _get_experience_distribution(client)
+
+            employee_id = await _create_throwaway_employee_with_experience(client, "eightyears", 8)
+
+            after = await _get_experience_distribution(client)
+
+        assert _bucket(after, "8–9 yrs")["count"] - _bucket(before, "8–9 yrs")["count"] == 1
+        # Every other bucket's count is untouched.
+        for label in ("0–4 yrs", "5–7 yrs", "10–11 yrs", "12–14 yrs", "15–19 yrs", "20+ yrs"):
+            assert _bucket(after, label)["count"] == _bucket(before, label)["count"]
+    finally:
+        if employee_id is not None:
+            await _delete_employee_hard(employee_id)
+
+
+async def test_experience_distribution_open_ended_final_bucket_counts_twenty_plus():
+    employee_id = None
+    try:
+        async with _client() as client:
+            await _login(client)
+            before = await _get_experience_distribution(client)
+
+            employee_id = await _create_throwaway_employee_with_experience(client, "twentyfive", 25)
+
+            after = await _get_experience_distribution(client)
+
+        assert _bucket(after, "20+ yrs")["count"] - _bucket(before, "20+ yrs")["count"] == 1
+    finally:
+        if employee_id is not None:
+            await _delete_employee_hard(employee_id)
+
+
+async def test_experience_distribution_bucket_boundaries_are_correctly_inclusive():
+    """Story 10.4 code review: the earlier tests only ever checked one
+    mid-bucket value (8) and one deep-tail value (25) -- an off-by-one in
+    EXPERIENCE_BUCKETS' `years >= min_years` / `years <= max_years`
+    comparison at any adjacent-bucket edge would have passed the whole
+    suite undetected. Directly exercises both edges of two adjacent-bucket
+    boundaries (4/5 and 19/20) in one pass."""
+    employee_ids: dict[str, uuid.UUID] = {}
+    try:
+        async with _client() as client:
+            await _login(client)
+            before = await _get_experience_distribution(client)
+
+            employee_ids["four"] = await _create_throwaway_employee_with_experience(client, "four", 4)
+            employee_ids["five"] = await _create_throwaway_employee_with_experience(client, "five", 5)
+            employee_ids["nineteen"] = await _create_throwaway_employee_with_experience(client, "nineteen", 19)
+            employee_ids["twenty"] = await _create_throwaway_employee_with_experience(client, "twenty", 20)
+
+            after = await _get_experience_distribution(client)
+
+        # 4 -> "0–4 yrs" (its own top edge), not "5–7 yrs".
+        assert _bucket(after, "0–4 yrs")["count"] - _bucket(before, "0–4 yrs")["count"] == 1
+        # 5 -> "5–7 yrs" (its own bottom edge), not "0–4 yrs".
+        assert _bucket(after, "5–7 yrs")["count"] - _bucket(before, "5–7 yrs")["count"] == 1
+        # 19 -> "15–19 yrs" (its own top edge), not the open-ended "20+ yrs".
+        assert _bucket(after, "15–19 yrs")["count"] - _bucket(before, "15–19 yrs")["count"] == 1
+        # 20 -> "20+ yrs" (its own bottom edge), not "15–19 yrs".
+        assert _bucket(after, "20+ yrs")["count"] - _bucket(before, "20+ yrs")["count"] == 1
+    finally:
+        for eid in employee_ids.values():
+            await _delete_employee_hard(eid)
+
+
+async def test_experience_distribution_excludes_employee_with_null_experience_years():
+    employee_id = None
+    try:
+        async with _client() as client:
+            await _login(client)
+            before = await _get_experience_distribution(client)
+
+            employee_id = await _create_throwaway_employee_with_experience(client, "noexperience", None)
+
+            after = await _get_experience_distribution(client)
+
+        # No bucket's count moves -- a null experience_years is excluded
+        # from every bucket rather than guessed (AC2).
+        for bucket_before, bucket_after in zip(before["buckets"], after["buckets"]):
+            assert bucket_after["count"] == bucket_before["count"]
+    finally:
+        if employee_id is not None:
+            await _delete_employee_hard(employee_id)
+
+
+async def test_experience_distribution_excludes_archived_employee():
+    # Needs real Assignment history first -- otherwise DELETE hard-deletes
+    # rather than archives (FR-27), which would exclude the row for the
+    # wrong reason. Mirrors test_employee_segmentation_excludes_archived_employee.
+    employee_id = None
+    assignment_id = None
+    try:
+        async with _client() as client:
+            await _login(client)
+            before_create = await _get_experience_distribution(client)
+
+            employee_id = await _create_throwaway_employee_with_experience(client, "archived", 6)
+            assignment_response = await client.post(
+                "/api/assignments",
+                json={"employee_id": str(employee_id), "skill_id": str(SKILL_DATA_VIZ_ID)},
+            )
+            assert assignment_response.status_code == 201
+            assignment_id = uuid.UUID(assignment_response.json()["id"])
+
+            after_create = await _get_experience_distribution(client)
+            assert _bucket(after_create, "5–7 yrs")["count"] - _bucket(before_create, "5–7 yrs")["count"] == 1
+
+            archive_response = await client.delete(f"/api/admin/employees/{employee_id}")
+            assert archive_response.status_code == 200
+            assert archive_response.json()["action"] == "archived"
+
+            after_archive = await _get_experience_distribution(client)
+            assert _bucket(after_archive, "5–7 yrs")["count"] == _bucket(before_create, "5–7 yrs")["count"]
+    finally:
+        if assignment_id is not None:
+            await _cleanup_assignment(assignment_id)
+        if employee_id is not None:
+            await _delete_employee_hard(employee_id)

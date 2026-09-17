@@ -15,6 +15,8 @@ from app.dashboard.schemas import (
     DashboardResponse,
     DashboardStatsResponse,
     EmployeeSegmentationResponse,
+    ExperienceBucketResponse,
+    ExperienceDistributionResponse,
     NeedsAttentionEntry,
 )
 from app.progress.service import STATUS_DISPLAY, ProgressService
@@ -31,6 +33,23 @@ logger = logging.getLogger(__name__)
 # dashboard-owned aggregation (AR-26), not part of progress/'s AD-3
 # per-Assignment Status/Provenance derivation authority.
 ON_TRACK_THRESHOLD = 0.8
+
+# Story 10.4 (FR-36): 7 contiguous, exhaustive experience-year buckets,
+# locked 2026-09-15 -- a single named constant, not inlined, mirroring
+# employees/service.py's TALENT_POOL_FLAG_DAYS precedent for a fixed,
+# product-decided threshold. Lives here (not employees/service.py) because
+# the Experience Distribution panel is a dashboard-owned aggregation
+# (AR-26), same reasoning as ON_TRACK_THRESHOLD above. `max_years=None`
+# marks the open-ended final bucket ("20+ yrs").
+EXPERIENCE_BUCKETS: list[tuple[str, int, int | None]] = [
+    ("0–4 yrs", 0, 4),
+    ("5–7 yrs", 5, 7),
+    ("8–9 yrs", 8, 9),
+    ("10–11 yrs", 10, 11),
+    ("12–14 yrs", 12, 14),
+    ("15–19 yrs", 15, 19),
+    ("20+ yrs", 20, None),
+]
 
 
 class DashboardService:
@@ -307,6 +326,41 @@ class DashboardService:
             needs_attention_count=needs_attention_employee_count,
             needs_attention=needs_attention_entries,
         )
+
+    @staticmethod
+    async def get_experience_distribution(session: AsyncSession) -> ExperienceDistributionResponse:
+        """
+        Headcount broken down by years of experience for the Employees
+        page's Experience Distribution panel (Story 10.4, FR-36).
+
+        Read-composition only (AR-26, no new table): reads
+        `employees/`'s active, non-null `experience_years` values via
+        `list_active_employee_experience_years` (AD-1 -- dashboard/ never
+        queries the `employees` table directly) and buckets them in Python
+        against the fixed `EXPERIENCE_BUCKETS` ranges, mirroring
+        `get_employee_segmentation`'s existing fetch-then-groupby-in-Python
+        shape rather than issuing 7 separate range-COUNT queries.
+
+        Distinct from `get_employee_segmentation`'s On Track/In Progress/
+        Needs Attention chart -- this is a headcount-by-tenure view with no
+        relationship to Assignment/watch-progress status.
+        """
+        from app.employees.repository import list_active_employee_experience_years
+
+        years_values = await list_active_employee_experience_years(session)
+
+        buckets = []
+        for label, min_years, max_years in EXPERIENCE_BUCKETS:
+            count = sum(
+                1
+                for years in years_values
+                if years >= min_years and (max_years is None or years <= max_years)
+            )
+            buckets.append(
+                ExperienceBucketResponse(label=label, min_years=min_years, max_years=max_years, count=count)
+            )
+
+        return ExperienceDistributionResponse(buckets=buckets)
 
     @staticmethod
     async def _batch_load_progress(

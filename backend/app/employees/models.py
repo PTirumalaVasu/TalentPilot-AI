@@ -9,7 +9,7 @@ writes the `employees` table directly (AD-1).
 """
 import uuid
 
-from sqlalchemy import UUID, Column, DateTime, Enum, String, func
+from sqlalchemy import UUID, Column, DateTime, Enum, Integer, String, func
 from sqlalchemy.orm import relationship
 
 from app.core.db import Base
@@ -49,6 +49,12 @@ class Employee(Base):
     employee_code = Column(String(50), unique=True, nullable=False)  # DB-level: migration 011's uq_employees_employee_code
     phone = Column(String(50), nullable=True)
     experience = Column(String(255), nullable=True)
+    # Story 10.4 (FR-36): a strict numeric companion to the free-text
+    # `experience` column above -- nullable, unaffected by/independent of it.
+    # Feeds the Experience Distribution panel's 7 fixed buckets; an Employee
+    # with a null value here is excluded from every bucket rather than
+    # guessed (migration 016).
+    experience_years = Column(Integer, nullable=True)
     technologies = Column(String(500), nullable=True)
     position = Column(String(255), nullable=True)
     project = Column(String(255), nullable=True)

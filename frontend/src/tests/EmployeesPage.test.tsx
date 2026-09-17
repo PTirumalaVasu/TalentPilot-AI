@@ -36,6 +36,15 @@ vi.mock('@/lib/api/employeesApi', () => ({
   regeneratePassword: vi.fn(),
 }));
 
+// Story 10.4: the Experience Distribution panel's bucket-count fetch --
+// mocked so tests don't hit a real network call for a panel most tests
+// don't otherwise care about.
+vi.mock('@/lib/api/dashboardApi', () => ({
+  dashboardApi: {
+    getExperienceDistribution: vi.fn().mockResolvedValue({ buckets: [] }),
+  },
+}));
+
 import {
   listEmployees,
   createEmployee,
@@ -44,6 +53,7 @@ import {
   regeneratePassword,
   type EmployeeResponse,
 } from '@/lib/api/employeesApi';
+import { dashboardApi } from '@/lib/api/dashboardApi';
 
 // Story 10.2: splits a legacy-style "First Last" test literal into
 // first_name/last_name on the last whitespace token, mirroring the
@@ -74,6 +84,7 @@ function makeEmployee(overrides: Partial<EmployeeResponse> = {}): EmployeeRespon
     role: 'EMPLOYEE',
     phone: null,
     experience: null,
+    experience_years: null,
     technologies: null,
     position: 'Engineer',
     project: null,
@@ -107,6 +118,8 @@ describe('EmployeesPage', () => {
     vi.mocked(updateEmployee).mockReset();
     vi.mocked(deleteOrArchiveEmployee).mockReset();
     vi.mocked(regeneratePassword).mockReset();
+    vi.mocked(dashboardApi.getExperienceDistribution).mockReset();
+    vi.mocked(dashboardApi.getExperienceDistribution).mockResolvedValue({ buckets: [] });
   });
 
   it('renders one row per fetched employee in Table view by default', async () => {
@@ -597,6 +610,104 @@ describe('EmployeesPage', () => {
     expect(screen.getByText(displayName('Morgan Mentor'))).toBeInTheDocument();
 
     await user.clear(screen.getByTestId('employees-tab-search-input'));
+    expect(screen.getByText(displayName('Sails Admin'))).toBeInTheDocument();
+  });
+
+  // --- Story 10.4: Experience Distribution panel (FR-36) ---------------------
+
+  // Code review (Story 10.4): the real, canonical 7-bucket set (matching
+  // backend/app/dashboard/service.py::EXPERIENCE_BUCKETS exactly) -- the
+  // original tests only ever mocked a subset, never exercising the full
+  // bucket set these components actually render against in production.
+  const FULL_BUCKET_SET = [
+    { label: '0–4 yrs', min_years: 0, max_years: 4, count: 1 },
+    { label: '5–7 yrs', min_years: 5, max_years: 7, count: 0 },
+    { label: '8–9 yrs', min_years: 8, max_years: 9, count: 1 },
+    { label: '10–11 yrs', min_years: 10, max_years: 11, count: 0 },
+    { label: '12–14 yrs', min_years: 12, max_years: 14, count: 0 },
+    { label: '15–19 yrs', min_years: 15, max_years: 19, count: 0 },
+    { label: '20+ yrs', min_years: 20, max_years: null, count: 0 },
+  ];
+
+  it('renders a bucket chip per bucket with its server-computed count, and clicking one filters the roster', async () => {
+    vi.mocked(listEmployees).mockResolvedValue([
+      makeEmployee({ id: 'emp-1', name: 'Casey Employee', experience_years: 3 }),
+      makeEmployee({ id: 'emp-2', name: 'Morgan Mentor', employee_code: 'EMP-0002', experience_years: 9 }),
+    ]);
+    vi.mocked(dashboardApi.getExperienceDistribution).mockResolvedValue({ buckets: FULL_BUCKET_SET });
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText(displayName('Casey Employee'));
+
+    // All 7 buckets render, in order, with their server-computed counts.
+    expect(screen.getByTestId('experience-distribution-bucket-0')).toHaveTextContent('0–4 yrs (1)');
+    expect(screen.getByTestId('experience-distribution-bucket-2')).toHaveTextContent('8–9 yrs (1)');
+    expect(screen.getByTestId('experience-distribution-bucket-6')).toHaveTextContent('20+ yrs (0)');
+    expect(screen.queryByTestId('experience-distribution-clear')).not.toBeInTheDocument();
+
+    await user.click(screen.getByTestId('experience-distribution-bucket-2'));
+    expect(screen.queryByText(displayName('Casey Employee'))).not.toBeInTheDocument();
+    expect(screen.getByText(displayName('Morgan Mentor'))).toBeInTheDocument();
+    expect(screen.getByTestId('experience-distribution-bucket-2')).toHaveAttribute('aria-pressed', 'true');
+
+    await user.click(screen.getByTestId('experience-distribution-clear'));
+    expect(screen.getByText(displayName('Casey Employee'))).toBeInTheDocument();
+    expect(screen.getByText(displayName('Morgan Mentor'))).toBeInTheDocument();
+    expect(screen.queryByTestId('experience-distribution-clear')).not.toBeInTheDocument();
+  });
+
+  it('an Employee with no experience_years is excluded when a bucket filter is active', async () => {
+    vi.mocked(listEmployees).mockResolvedValue([
+      makeEmployee({ id: 'emp-1', name: 'No Experience Nancy', experience_years: null }),
+      makeEmployee({ id: 'emp-2', name: 'Morgan Mentor', employee_code: 'EMP-0002', experience_years: 3 }),
+    ]);
+    vi.mocked(dashboardApi.getExperienceDistribution).mockResolvedValue({ buckets: FULL_BUCKET_SET });
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText(displayName('No Experience Nancy'));
+
+    await user.click(screen.getByTestId('experience-distribution-bucket-0'));
+    expect(screen.queryByText(displayName('No Experience Nancy'))).not.toBeInTheDocument();
+    expect(screen.getByText(displayName('Morgan Mentor'))).toBeInTheDocument();
+  });
+
+  it('an archived Employee matching the active bucket stays excluded even with "Show archived" on (code review)', async () => {
+    // Code review (Story 10.4): the bucket's own displayed count comes from
+    // the active roster only (server-side) -- an archived row matching the
+    // same range must never appear in the filtered list, even if the HR
+    // Admin has separately toggled "Show archived" on, or the list and the
+    // chip's count would disagree.
+    vi.mocked(listEmployees).mockResolvedValue([
+      makeEmployee({ id: 'emp-1', name: 'Archived Alex', employee_code: 'EMP-0002', experience_years: 3, archived_at: '2026-08-01T00:00:00Z' }),
+      makeEmployee({ id: 'emp-2', name: 'Morgan Mentor', experience_years: 3 }),
+    ]);
+    vi.mocked(dashboardApi.getExperienceDistribution).mockResolvedValue({ buckets: FULL_BUCKET_SET });
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText(displayName('Morgan Mentor'));
+
+    await user.click(screen.getByRole('checkbox', { name: /show archived/i }));
+    await user.click(screen.getByTestId('experience-distribution-bucket-0'));
+
+    expect(screen.queryByText(displayName('Archived Alex'))).not.toBeInTheDocument();
+    expect(screen.getByText(displayName('Morgan Mentor'))).toBeInTheDocument();
+  });
+
+  it("Story 10.2 AC6 (extended by 10.4): the acting HR Admin's own row drops out once a bucket filter is active", async () => {
+    vi.mocked(listEmployees).mockResolvedValue([
+      makeEmployee({ id: 'rita-1', name: 'Sails Admin', experience_years: null }),
+      makeEmployee({ id: 'emp-2', name: 'Morgan Mentor', employee_code: 'EMP-0002', experience_years: 3 }),
+    ]);
+    vi.mocked(dashboardApi.getExperienceDistribution).mockResolvedValue({ buckets: FULL_BUCKET_SET });
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText(displayName('Sails Admin'));
+
+    await user.click(screen.getByTestId('experience-distribution-bucket-0'));
+    expect(screen.queryByText(displayName('Sails Admin'))).not.toBeInTheDocument();
+    expect(screen.getByText(displayName('Morgan Mentor'))).toBeInTheDocument();
+
+    await user.click(screen.getByTestId('experience-distribution-clear'));
     expect(screen.getByText(displayName('Sails Admin'))).toBeInTheDocument();
   });
 });

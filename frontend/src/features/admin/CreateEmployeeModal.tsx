@@ -39,6 +39,7 @@ const EMPTY_FIELDS = {
   project: '',
   technologies: '',
   experience: '',
+  experience_years: '',
 };
 
 /**
@@ -105,6 +106,7 @@ export function CreateEmployeeModal({ open, onClose, onCreated }: CreateEmployee
         email: trimmedEmail,
         phone: fields.phone.trim() || null,
         experience: fields.experience.trim() || null,
+        experience_years: fields.experience_years.trim() === '' ? null : Number(fields.experience_years),
         technologies: fields.technologies.trim() || null,
         position: fields.position.trim() || null,
         project: fields.project.trim() || null,
@@ -302,6 +304,20 @@ export function CreateEmployeeModal({ open, onClose, onCreated }: CreateEmployee
                 onChange={(e) => updateField('experience', e.target.value)}
                 disabled={step === 'creating'}
                 data-testid="create-emp-experience"
+              />
+            </div>
+            <div>
+              <Label htmlFor="create-emp-experience-years">Experience (years)</Label>
+              <Input
+                id="create-emp-experience-years"
+                type="number"
+                min={0}
+                step={1}
+                placeholder="e.g. 3"
+                value={fields.experience_years}
+                onChange={(e) => updateField('experience_years', e.target.value)}
+                disabled={step === 'creating'}
+                data-testid="create-emp-experience-years"
               />
             </div>
           </div>

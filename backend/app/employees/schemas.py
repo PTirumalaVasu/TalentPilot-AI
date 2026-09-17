@@ -14,6 +14,16 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
 
 
+# Story 10.4 code review: an unbounded `experience_years` (only `ge=0`) let an
+# implausibly large value (e.g. 999999999999) pass Pydantic and crash at the
+# DB layer with an unhandled `NumericValueOutOfRangeError` (Postgres
+# `Integer`'s ~2.1B ceiling) -- a generic 500 instead of a clean 422. 75 is a
+# generous, still-plausible upper bound on a real career length; a single
+# named constant, not inlined, mirroring employees/service.py's
+# TALENT_POOL_FLAG_DAYS precedent for a fixed, product-decided threshold.
+MAX_EXPERIENCE_YEARS = 75
+
+
 def _reject_blank(value: str) -> str:
     # Mirrors skills/schemas.py::_reject_blank -- Field(min_length=1) alone
     # would accept a whitespace-only value.
@@ -51,6 +61,13 @@ class CreateEmployeeRequest(BaseModel):
 
     phone: str | None = Field(default=None, max_length=50)
     experience: str | None = Field(default=None, max_length=255)
+    # Story 10.4 (FR-36): numeric companion to the free-text `experience`
+    # field above -- independent, both may be set. ge=0 rejects a negative
+    # years value at the API boundary rather than letting it silently land
+    # in a bucket comparison downstream; le=MAX_EXPERIENCE_YEARS rejects an
+    # implausibly large one before it can reach the DB (see that constant's
+    # docstring).
+    experience_years: int | None = Field(default=None, ge=0, le=MAX_EXPERIENCE_YEARS)
     technologies: str | None = Field(default=None, max_length=500)
     position: str | None = Field(default=None, max_length=255)
     project: str | None = Field(default=None, max_length=255)
@@ -85,6 +102,7 @@ class UpdateEmployeeRequest(BaseModel):
 
     phone: str | None = Field(default=None, max_length=50)
     experience: str | None = Field(default=None, max_length=255)
+    experience_years: int | None = Field(default=None, ge=0, le=MAX_EXPERIENCE_YEARS)
     technologies: str | None = Field(default=None, max_length=500)
     position: str | None = Field(default=None, max_length=255)
     project: str | None = Field(default=None, max_length=255)
@@ -120,6 +138,7 @@ class EmployeeResponse(BaseModel):
     role: str
     phone: str | None
     experience: str | None
+    experience_years: int | None
     technologies: str | None
     position: str | None
     project: str | None

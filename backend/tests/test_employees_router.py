@@ -114,7 +114,7 @@ async def test_create_employee_omitted_optional_fields_are_null():
             assert response.status_code == 201
             body = response.json()
             for field in (
-                "phone", "experience", "technologies", "position",
+                "phone", "experience", "experience_years", "technologies", "position",
                 "project", "manager_name", "location", "department",
             ):
                 assert body[field] is None
@@ -351,6 +351,43 @@ async def test_create_employee_rejects_invalid_email():
         assert response.status_code == 422
 
 
+async def test_create_employee_rejects_negative_experience_years():
+    # Story 10.4 (FR-36): a negative years value would silently corrupt the
+    # Experience Distribution panel's bucket comparisons -- rejected at the
+    # API boundary (ge=0) instead.
+    async with _client() as client:
+        await _login(client)
+        response = await client.post(
+            "/api/admin/employees",
+            json={
+                "employee_code": f"TST-{uuid.uuid4().hex[:8]}",
+                **_name_fields("Negative Experience"),
+                "email": "negative-experience@example.com",
+                "experience_years": -1,
+            },
+        )
+        assert response.status_code == 422
+
+
+async def test_create_employee_rejects_implausibly_large_experience_years():
+    # Story 10.4 code review: without an upper bound, a value like
+    # 999999999999 passed Pydantic and crashed at the DB layer with an
+    # unhandled NumericValueOutOfRangeError (a generic 500) instead of a
+    # clean 422 -- le=MAX_EXPERIENCE_YEARS (schemas.py) rejects it here.
+    async with _client() as client:
+        await _login(client)
+        response = await client.post(
+            "/api/admin/employees",
+            json={
+                "employee_code": f"TST-{uuid.uuid4().hex[:8]}",
+                **_name_fields("Oversized Experience"),
+                "email": "oversized-experience@example.com",
+                "experience_years": 999999999999,
+            },
+        )
+        assert response.status_code == 422
+
+
 async def test_create_employee_rejects_unknown_field():
     async with _client() as client:
         await _login(client)
@@ -389,6 +426,7 @@ async def test_list_employees_returns_full_roster_with_all_fields():
                     "email": email_a,
                     "phone": "555-0100",
                     "experience": "5 years",
+                    "experience_years": 5,
                     "technologies": "Python, React",
                     "position": "Engineer",
                     "project": "Project Phoenix",
@@ -420,6 +458,7 @@ async def test_list_employees_returns_full_roster_with_all_fields():
             assert entry["role"] == "EMPLOYEE"
             assert entry["phone"] == "555-0100"
             assert entry["experience"] == "5 years"
+            assert entry["experience_years"] == 5
             assert entry["technologies"] == "Python, React"
             assert entry["position"] == "Engineer"
             assert entry["project"] == "Project Phoenix"
@@ -515,6 +554,7 @@ def _update_payload(**overrides) -> dict:
         "email": "updated@example.com",
         "phone": "555-0199",
         "experience": "10 years",
+        "experience_years": 10,
         "technologies": "Go, Kubernetes",
         "position": "Senior Engineer",
         "project": "Project Atlas",
@@ -552,6 +592,7 @@ async def test_update_employee_all_editable_fields_returns_200():
             assert body["email"] == new_email
             assert body["phone"] == "555-0199"
             assert body["experience"] == "10 years"
+            assert body["experience_years"] == 10
             assert body["technologies"] == "Go, Kubernetes"
             assert body["position"] == "Senior Engineer"
             assert body["project"] == "Project Atlas"

@@ -103,3 +103,28 @@ class EmployeeSegmentationResponse(BaseModel):
     in_progress_count: int
     needs_attention_count: int
     needs_attention: list[NeedsAttentionEntry]
+
+
+class ExperienceBucketResponse(BaseModel):
+    """One of the 7 fixed, contiguous, exhaustive experience-year buckets
+    (Story 10.4, FR-36, locked 2026-09-15). `max_years` is null only for the
+    open-ended final bucket ("20+ yrs"). The frontend filters its
+    already-fetched roster by this exact [min_years, max_years] range when a
+    bucket is clicked, rather than hardcoding a second copy of the
+    boundaries -- this response is the single source of truth for them."""
+
+    label: str
+    min_years: int
+    max_years: int | None
+    count: int
+
+
+class ExperienceDistributionResponse(BaseModel):
+    """Response for GET /api/dashboard/experience-distribution -- headcount
+    of the active (non-archived) roster broken down by years of experience
+    (Story 10.4, FR-36, AR-26 read-composition, no new table). An Employee
+    with a null `experience_years` is excluded from every bucket rather than
+    guessed. Distinct from EmployeeSegmentationResponse above -- this is a
+    headcount-by-tenure view, unrelated to readiness/watch-progress status."""
+
+    buckets: list[ExperienceBucketResponse]

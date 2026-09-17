@@ -13,6 +13,10 @@ export interface EmployeeResponse {
   role: string;
   phone: string | null;
   experience: string | null;
+  /** Story 10.4 (FR-36): numeric companion to the free-text `experience`
+   * field above -- feeds the Experience Distribution panel's fixed buckets.
+   * Independent of `experience`; either, both, or neither may be set. */
+  experience_years: number | null;
   technologies: string | null;
   position: string | null;
   project: string | null;
@@ -48,6 +52,7 @@ export interface CreateEmployeeRequest {
   email: string;
   phone: string | null;
   experience: string | null;
+  experience_years: number | null;
   technologies: string | null;
   position: string | null;
   project: string | null;
@@ -79,6 +84,7 @@ export interface UpdateEmployeeRequest {
   email: string;
   phone: string | null;
   experience: string | null;
+  experience_years: number | null;
   technologies: string | null;
   position: string | null;
   project: string | null;

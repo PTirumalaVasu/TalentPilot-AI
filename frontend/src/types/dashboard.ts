@@ -96,3 +96,28 @@ export interface EmployeeSegmentationResponse {
   needs_attention_count: number;
   needs_attention: NeedsAttentionEntry[];
 }
+
+/**
+ * One of the 7 fixed, contiguous, exhaustive experience-year buckets (Story
+ * 10.4, FR-36, locked 2026-09-15). `max_years` is null only for the
+ * open-ended final bucket ("20+ yrs"). This is the single source of truth
+ * for the bucket boundaries -- the Employees page filters its own
+ * already-fetched roster against these min/max values rather than keeping a
+ * second hardcoded copy.
+ */
+export interface ExperienceBucket {
+  label: string;
+  min_years: number;
+  max_years: number | null;
+  count: number;
+}
+
+/**
+ * Response for GET /api/dashboard/experience-distribution (Story 10.4,
+ * FR-36) -- headcount of the active roster broken down by years of
+ * experience. Distinct from EmployeeSegmentationResponse above: a
+ * headcount-by-tenure view, unrelated to readiness/watch-progress status.
+ */
+export interface ExperienceDistributionResponse {
+  buckets: ExperienceBucket[];
+}

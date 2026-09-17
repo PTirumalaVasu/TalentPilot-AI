@@ -31,6 +31,7 @@ const EMPTY_FIELDS = {
   email: '',
   phone: '',
   experience: '',
+  experience_years: '',
   technologies: '',
   position: '',
   project: '',
@@ -65,6 +66,7 @@ export function EditEmployeeModal({ open, employee, onClose, onSaved }: EditEmpl
       email: employee.email,
       phone: employee.phone ?? '',
       experience: employee.experience ?? '',
+      experience_years: employee.experience_years !== null ? String(employee.experience_years) : '',
       technologies: employee.technologies ?? '',
       position: employee.position ?? '',
       project: employee.project ?? '',
@@ -100,6 +102,7 @@ export function EditEmployeeModal({ open, employee, onClose, onSaved }: EditEmpl
         email: trimmedEmail,
         phone: fields.phone.trim() || null,
         experience: fields.experience.trim() || null,
+        experience_years: fields.experience_years.trim() === '' ? null : Number(fields.experience_years),
         technologies: fields.technologies.trim() || null,
         position: fields.position.trim() || null,
         project: fields.project.trim() || null,
@@ -197,6 +200,19 @@ export function EditEmployeeModal({ open, employee, onClose, onSaved }: EditEmpl
               onChange={(e) => updateField('experience', e.target.value)}
               disabled={submitting}
               data-testid="edit-employee-experience-input"
+            />
+          </div>
+          <div>
+            <Label htmlFor="edit-employee-experience-years-input">Experience (years)</Label>
+            <Input
+              id="edit-employee-experience-years-input"
+              type="number"
+              min={0}
+              step={1}
+              value={fields.experience_years}
+              onChange={(e) => updateField('experience_years', e.target.value)}
+              disabled={submitting}
+              data-testid="edit-employee-experience-years-input"
             />
           </div>
           <div>

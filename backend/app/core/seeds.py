@@ -56,6 +56,11 @@ async def seed_employees(session: AsyncSession) -> None:
             last_name="Continuer",
             email="casey@sails.example.com",
             role="EMPLOYEE",
+            # Story 10.4 (FR-36): spread across distinct buckets so a fresh
+            # seed demos the Experience Distribution panel non-trivially
+            # (Sails Admin is deliberately left null -- excluded from every
+            # bucket, same as any Employee with no value set).
+            experience_years=3,
         ),
         Employee(
             id=MORGAN_ID,
@@ -65,6 +70,7 @@ async def seed_employees(session: AsyncSession) -> None:
             last_name="Motivated",
             email="morgan@sails.example.com",
             role="EMPLOYEE",
+            experience_years=6,
         ),
         Employee(
             id=JORDAN_ID,
@@ -74,6 +80,7 @@ async def seed_employees(session: AsyncSession) -> None:
             last_name="Juggernaut",
             email="jordan@sails.example.com",
             role="EMPLOYEE",
+            experience_years=9,
         ),
         Employee(
             id=SAM_ID,
@@ -83,6 +90,7 @@ async def seed_employees(session: AsyncSession) -> None:
             last_name="Stellar",
             email="sam@sails.example.com",
             role="EMPLOYEE",
+            experience_years=13,
         ),
     ]
 

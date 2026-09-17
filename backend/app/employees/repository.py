@@ -33,6 +33,25 @@ async def count_active_employees(db: AsyncSession) -> int:
     return result.scalar_one()
 
 
+async def list_active_employee_experience_years(db: AsyncSession) -> list[int]:
+    """Raw `experience_years` values for every active (non-archived)
+    Employee that has one set, for the Experience Distribution panel (Story
+    10.4, FR-36, dashboard/-owned aggregation). Excludes archived Employees
+    (mirrors `count_active_employees`) and rows with a null
+    `experience_years` -- an Employee with no value set is excluded from
+    every bucket rather than guessed. A plain column read, not a COUNT --
+    bucketing happens in Python at the call site (dashboard/service.py),
+    matching that module's existing groupby-in-Python pattern for
+    Employee Segmentation (Story 9.2) rather than 7 separate range-COUNT
+    queries."""
+    result = await db.execute(
+        select(Employee.experience_years).where(
+            Employee.archived_at.is_(None), Employee.experience_years.is_not(None)
+        )
+    )
+    return list(result.scalars().all())
+
+
 async def list_all_employees(db: AsyncSession) -> list[Employee]:
     """Full roster read (Story 7.3, FR-25) -- every Employee, active and
     archived alike. No `archived_at` filter: the frontend's "show archived"

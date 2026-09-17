@@ -7,7 +7,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.schemas import CurrentUser
 from app.auth.service import get_current_user, require_hr_admin
 from app.core.db import get_db
-from app.dashboard.schemas import DashboardResponse, DashboardStatsResponse, EmployeeSegmentationResponse
+from app.dashboard.schemas import (
+    DashboardResponse,
+    DashboardStatsResponse,
+    EmployeeSegmentationResponse,
+    ExperienceDistributionResponse,
+)
 from app.dashboard.service import DashboardService
 
 router = APIRouter(tags=["dashboard"], dependencies=[Depends(get_current_user)])
@@ -94,3 +99,25 @@ async def get_employee_segmentation(
         second round-trip).
     """
     return await DashboardService.get_employee_segmentation(session)
+
+
+@router.get("/experience-distribution", response_model=ExperienceDistributionResponse)
+async def get_experience_distribution(
+    current_user: Annotated[CurrentUser, Depends(require_hr_admin)],
+    session: Annotated[AsyncSession, Depends(get_db)],
+) -> ExperienceDistributionResponse:
+    """
+    Headcount broken down by years of experience for the Employees page's
+    Experience Distribution panel (Story 10.4, FR-36) -- 7 fixed,
+    contiguous buckets, active roster only, distinct from FR-32's Employee
+    Segmentation chart above.
+
+    **Access Control (AD-6):** identical to `GET /api/dashboard` -- requires
+    HR_ADMIN (403 for EMPLOYEE, 401 for unauthenticated).
+
+    Not paginated -- this is a single computed aggregate object, not a list.
+
+    Returns:
+        ExperienceDistributionResponse with per-bucket counts
+    """
+    return await DashboardService.get_experience_distribution(session)

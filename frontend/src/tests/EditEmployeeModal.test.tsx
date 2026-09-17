@@ -20,6 +20,7 @@ function makeEmployee(overrides: Partial<EmployeeResponse> = {}): EmployeeRespon
     role: 'EMPLOYEE',
     phone: '555-0100',
     experience: '3 years',
+    experience_years: 3,
     technologies: 'Python',
     position: 'Engineer',
     project: 'Project Phoenix',
