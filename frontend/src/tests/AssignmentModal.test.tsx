@@ -1,7 +1,16 @@
+import type { ReactElement } from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, type RenderResult } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
 import { AssignmentModal } from '@/features/assignments/AssignmentModal';
+
+// Story 10.7: the Step 3 empty-content state now includes a <Link to="/skills">
+// (react-router-dom), so every render needs a Router ancestor -- mirrors
+// SkillAssignmentDashboard.test.tsx's identical MemoryRouter wrap.
+function renderModal(ui: ReactElement): RenderResult {
+  return render(<MemoryRouter>{ui}</MemoryRouter>);
+}
 
 vi.mock('@/lib/api/assignmentsApi', () => ({
   listEmployees: vi.fn(),
@@ -87,13 +96,13 @@ describe('AssignmentModal', () => {
   });
 
   it('renders nothing when closed', () => {
-    render(<AssignmentModal open={false} onClose={vi.fn()} />);
+    renderModal(<AssignmentModal open={false} onClose={vi.fn()} />);
     expect(screen.queryByText('Assign a New Skill')).not.toBeInTheDocument();
   });
 
   it('loads employees on Step 1, shows role (not email) in results, and requires a selection before continuing', async () => {
     const user = userEvent.setup();
-    render(<AssignmentModal open onClose={vi.fn()} />);
+    renderModal(<AssignmentModal open onClose={vi.fn()} />);
 
     expect(screen.getByText('Step 1 of 3')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /continue to skill selection/i })).toBeDisabled();
@@ -107,7 +116,7 @@ describe('AssignmentModal', () => {
 
   it('advances to Step 2 and loads skills', async () => {
     const user = userEvent.setup();
-    render(<AssignmentModal open onClose={vi.fn()} />);
+    renderModal(<AssignmentModal open onClose={vi.fn()} />);
 
     await goToStep2(user);
 
@@ -119,7 +128,7 @@ describe('AssignmentModal', () => {
   it('has a Cancel button on Step 2 that closes without side effects', async () => {
     const onClose = vi.fn();
     const user = userEvent.setup();
-    render(<AssignmentModal open onClose={onClose} />);
+    renderModal(<AssignmentModal open onClose={onClose} />);
 
     await goToStep2(user);
     await user.click(screen.getByRole('button', { name: /^cancel$/i }));
@@ -130,7 +139,7 @@ describe('AssignmentModal', () => {
 
   it('checks for a duplicate assignment and loads content (with thumbnail/duration/description) when advancing to Step 3', async () => {
     const user = userEvent.setup();
-    render(<AssignmentModal open onClose={vi.fn()} />);
+    renderModal(<AssignmentModal open onClose={vi.fn()} />);
 
     await goToStep3(user);
 
@@ -148,7 +157,7 @@ describe('AssignmentModal', () => {
 
   it('shows the read-only Assignment Summary on Step 3', async () => {
     const user = userEvent.setup();
-    render(<AssignmentModal open onClose={vi.fn()} />);
+    renderModal(<AssignmentModal open onClose={vi.fn()} />);
 
     await goToStep3(user);
 
@@ -173,7 +182,7 @@ describe('AssignmentModal', () => {
       },
     ]);
     const user = userEvent.setup();
-    render(<AssignmentModal open onClose={vi.fn()} />);
+    renderModal(<AssignmentModal open onClose={vi.fn()} />);
 
     await goToStep2(user);
     await selectSkill(user);
@@ -200,7 +209,7 @@ describe('AssignmentModal', () => {
       },
     ]);
     const user = userEvent.setup();
-    render(<AssignmentModal open onClose={vi.fn()} />);
+    renderModal(<AssignmentModal open onClose={vi.fn()} />);
 
     await goToStep2(user);
     await selectSkill(user);
@@ -225,7 +234,7 @@ describe('AssignmentModal', () => {
       },
     ]);
     const user = userEvent.setup();
-    render(<AssignmentModal open onClose={vi.fn()} />);
+    renderModal(<AssignmentModal open onClose={vi.fn()} />);
 
     await goToStep2(user);
     await selectSkill(user);
@@ -254,7 +263,7 @@ describe('AssignmentModal', () => {
     ]);
     const onClose = vi.fn();
     const user = userEvent.setup();
-    render(<AssignmentModal open onClose={onClose} />);
+    renderModal(<AssignmentModal open onClose={onClose} />);
 
     await goToStep2(user);
     await selectSkill(user);
@@ -268,18 +277,78 @@ describe('AssignmentModal', () => {
   it('shows the empty-content state and an "Assign without content" label when no content matches the skill', async () => {
     vi.mocked(matchContentForSkill).mockResolvedValue(null);
     const user = userEvent.setup();
-    render(<AssignmentModal open onClose={vi.fn()} />);
+    renderModal(<AssignmentModal open onClose={vi.fn()} />);
 
     await goToStep3(user);
 
-    expect(screen.getByText(/no approved content found yet for this skill/i)).toBeInTheDocument();
+    expect(screen.getByText(/no approved content yet for this skill/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /assign without content/i })).toBeInTheDocument();
+  });
+
+  // Story 10.7 (FR-39): a distinct empty state -- separate from the generic
+  // copy above -- links back to the Skills tab's search-and-attach flow so
+  // an HR Admin doesn't mistake "nothing ingested yet" for a broken matcher.
+  it('Story 10.7: the empty-content state links back to the Skills tab and closes the modal on click', async () => {
+    vi.mocked(matchContentForSkill).mockResolvedValue(null);
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    renderModal(<AssignmentModal open onClose={onClose} />);
+
+    await goToStep3(user);
+
+    const link = screen.getByRole('link', { name: /go to skills tab to add content/i });
+    expect(link).toHaveAttribute('href', '/skills');
+
+    await user.click(link);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  // Code review finding (2026-09-18): the Link has no built-in `disabled`,
+  // unlike Cancel/Back's disabled={submitting} -- without an explicit guard
+  // it would navigate away mid-request, tearing down this modal's parent
+  // page before the pending createAssignment() call's callbacks can fire.
+  it('Story 10.7: ignores the Skills-tab link click while an Assign request is in flight, then works normally once it resolves', async () => {
+    vi.mocked(matchContentForSkill).mockResolvedValue(null);
+    type CreatedAssignment = Awaited<ReturnType<typeof createAssignment>>;
+    let resolveCreate!: (value: CreatedAssignment) => void;
+    vi.mocked(createAssignment).mockReturnValue(
+      new Promise<CreatedAssignment>((resolve) => {
+        resolveCreate = resolve;
+      })
+    );
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    renderModal(<AssignmentModal open onClose={onClose} />);
+
+    await goToStep3(user);
+    await user.click(screen.getByRole('button', { name: /assign without content/i }));
+
+    const link = screen.getByRole('link', { name: /go to skills tab to add content/i });
+    expect(link).toHaveAttribute('aria-disabled', 'true');
+    await user.click(link);
+    expect(onClose).not.toHaveBeenCalled();
+
+    resolveCreate({
+      id: 'assignment-1',
+      employee_id: EMPLOYEE.id,
+      skill_id: SKILL.id,
+      content_id: null,
+      assigned_at: '2026-01-01T00:00:00Z',
+      assigned_by: 'hr-1',
+      status: 'NOT_STARTED',
+      provenance: 'Assigned · Awaiting first watch',
+    });
+    await waitFor(() => expect(createAssignment).toHaveBeenCalledTimes(1));
+    // handleAssign's own success path calls handleClose() itself once the
+    // request resolves -- confirms the earlier link click was genuinely a
+    // no-op, not merely queued.
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   it('shows an inline error with a Retry button on Step 3 when the content match request fails, and Retry re-fetches', async () => {
     vi.mocked(matchContentForSkill).mockRejectedValueOnce(new Error('network error'));
     const user = userEvent.setup();
-    render(<AssignmentModal open onClose={vi.fn()} />);
+    renderModal(<AssignmentModal open onClose={vi.fn()} />);
 
     await goToStep3(user);
 
@@ -299,7 +368,7 @@ describe('AssignmentModal', () => {
     const onClose = vi.fn();
     const onAssigned = vi.fn();
     const user = userEvent.setup();
-    render(<AssignmentModal open onClose={onClose} onAssigned={onAssigned} />);
+    renderModal(<AssignmentModal open onClose={onClose} onAssigned={onAssigned} />);
 
     await goToStep3(user);
     await user.click(screen.getByRole('button', { name: /^assign$/i }));
@@ -321,7 +390,7 @@ describe('AssignmentModal', () => {
     vi.mocked(createAssignment).mockRejectedValueOnce(new Error('network error'));
     const onClose = vi.fn();
     const user = userEvent.setup();
-    render(<AssignmentModal open onClose={onClose} />);
+    renderModal(<AssignmentModal open onClose={onClose} />);
 
     await goToStep3(user);
     await user.click(screen.getByRole('button', { name: /^assign$/i }));
@@ -336,7 +405,7 @@ describe('AssignmentModal', () => {
     });
     const onClose = vi.fn();
     const user = userEvent.setup();
-    render(<AssignmentModal open onClose={onClose} />);
+    renderModal(<AssignmentModal open onClose={onClose} />);
 
     await goToStep3(user);
     await user.click(screen.getByRole('button', { name: /^assign$/i }));
@@ -349,7 +418,7 @@ describe('AssignmentModal', () => {
   it('closes without side effects when Cancel is clicked on Step 1', async () => {
     const onClose = vi.fn();
     const user = userEvent.setup();
-    render(<AssignmentModal open onClose={onClose} />);
+    renderModal(<AssignmentModal open onClose={onClose} />);
 
     await user.click(screen.getByRole('button', { name: /cancel/i }));
 
@@ -361,7 +430,7 @@ describe('AssignmentModal', () => {
   it('closes without side effects when the close (×) button is clicked', async () => {
     const onClose = vi.fn();
     const user = userEvent.setup();
-    render(<AssignmentModal open onClose={onClose} />);
+    renderModal(<AssignmentModal open onClose={onClose} />);
 
     await user.click(screen.getByRole('button', { name: /close/i }));
 
@@ -372,7 +441,7 @@ describe('AssignmentModal', () => {
   it('closes without side effects when Cancel is clicked on Step 3', async () => {
     const onClose = vi.fn();
     const user = userEvent.setup();
-    render(<AssignmentModal open onClose={onClose} />);
+    renderModal(<AssignmentModal open onClose={onClose} />);
 
     await goToStep3(user);
     await user.click(screen.getByRole('button', { name: /^cancel$/i }));
@@ -390,7 +459,7 @@ describe('AssignmentModal', () => {
       })
     );
     const user = userEvent.setup();
-    render(<AssignmentModal open onClose={vi.fn()} />);
+    renderModal(<AssignmentModal open onClose={vi.fn()} />);
 
     await goToStep3(user);
     await user.click(screen.getByRole('button', { name: /^assign$/i }));
@@ -415,7 +484,7 @@ describe('AssignmentModal', () => {
   it('clears a previously-chosen Skill when the Employee is changed after a Back round-trip', async () => {
     vi.mocked(listEmployees).mockResolvedValue([EMPLOYEE, EMPLOYEE2]);
     const user = userEvent.setup();
-    render(<AssignmentModal open onClose={vi.fn()} />);
+    renderModal(<AssignmentModal open onClose={vi.fn()} />);
 
     await goToStep2(user);
     await selectSkill(user);
@@ -436,7 +505,7 @@ describe('AssignmentModal', () => {
   it('closes without side effects when the backdrop is clicked on Step 1', async () => {
     const onClose = vi.fn();
     const user = userEvent.setup();
-    render(<AssignmentModal open onClose={onClose} />);
+    renderModal(<AssignmentModal open onClose={onClose} />);
 
     const backdrop = getBackdrop();
     await user.pointer({ target: backdrop, keys: '[MouseLeft]' });
@@ -450,7 +519,7 @@ describe('AssignmentModal', () => {
   it('closes without side effects when the backdrop is clicked on Step 3 (after the duplicate-check and content-match reads have already fired)', async () => {
     const onClose = vi.fn();
     const user = userEvent.setup();
-    render(<AssignmentModal open onClose={onClose} />);
+    renderModal(<AssignmentModal open onClose={onClose} />);
 
     await goToStep3(user);
     expect(checkDuplicateAssignment).toHaveBeenCalledTimes(1);
@@ -470,7 +539,7 @@ describe('AssignmentModal', () => {
   it('closes without side effects when Escape is pressed on Step 1', async () => {
     const onClose = vi.fn();
     const user = userEvent.setup();
-    render(<AssignmentModal open onClose={onClose} />);
+    renderModal(<AssignmentModal open onClose={onClose} />);
 
     await user.keyboard('{Escape}');
 
@@ -483,7 +552,7 @@ describe('AssignmentModal', () => {
   it('closes without side effects when Escape is pressed on Step 3 (after the duplicate-check and content-match reads have already fired)', async () => {
     const onClose = vi.fn();
     const user = userEvent.setup();
-    render(<AssignmentModal open onClose={onClose} />);
+    renderModal(<AssignmentModal open onClose={onClose} />);
 
     await goToStep3(user);
     expect(checkDuplicateAssignment).toHaveBeenCalledTimes(1);
@@ -507,7 +576,7 @@ describe('AssignmentModal', () => {
     );
     const onClose = vi.fn();
     const user = userEvent.setup();
-    render(<AssignmentModal open onClose={onClose} />);
+    renderModal(<AssignmentModal open onClose={onClose} />);
 
     await goToStep3(user);
     await user.click(screen.getByRole('button', { name: /^assign$/i }));
@@ -547,7 +616,7 @@ describe('AssignmentModal', () => {
     );
     const onClose = vi.fn();
     const user = userEvent.setup();
-    render(<AssignmentModal open onClose={onClose} />);
+    renderModal(<AssignmentModal open onClose={onClose} />);
 
     await goToStep2(user);
     await selectSkill(user);
@@ -575,7 +644,7 @@ describe('AssignmentModal', () => {
       })
     );
     const user = userEvent.setup();
-    render(<AssignmentModal open onClose={vi.fn()} />);
+    renderModal(<AssignmentModal open onClose={vi.fn()} />);
 
     await goToStep3(user);
     await user.click(screen.getByRole('button', { name: /^back$/i }));

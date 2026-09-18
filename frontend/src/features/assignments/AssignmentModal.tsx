@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { Link } from 'react-router-dom';
 import { Dialog } from '@/components/ui/dialog';
 import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
 import { Button } from '@/components/ui/button';
@@ -449,7 +450,31 @@ export function AssignmentModal({ open, onClose, onAssigned }: AssignmentModalPr
             </div>
           ) : (
             <div className="rounded-lg border border-dashed border-gray-300 p-4 text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
-              No approved content found yet for this skill.
+              No approved content yet for this skill.{' '}
+              <Link
+                to="/skills"
+                aria-disabled={submitting}
+                // Mirrors Cancel/Back's disabled={submitting} guard just below --
+                // without this, clicking the link while "Assign without content"
+                // is in flight navigates away (tearing down this modal's parent
+                // page) before the pending createAssignment() call resolves, so
+                // its onAssigned/onClose callbacks would fire against an
+                // already-unmounted tree (code review finding, 2026-09-18).
+                onClick={(e) => {
+                  if (submitting) {
+                    e.preventDefault();
+                    return;
+                  }
+                  handleClose();
+                }}
+                className={
+                  submitting
+                    ? 'cursor-not-allowed font-medium text-gray-300 underline dark:text-gray-600'
+                    : 'font-medium text-talentpilot-600 underline hover:no-underline dark:text-blue-400'
+                }
+              >
+                Go to Skills tab to add content
+              </Link>
               <div className="mt-2">
                 <span aria-disabled="true" className="cursor-not-allowed text-gray-300 dark:text-gray-600">
                   Choose Different Content
