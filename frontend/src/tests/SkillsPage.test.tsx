@@ -237,4 +237,118 @@ describe('SkillsPage', () => {
 
     expect(await screen.findByTestId('api-keys-modal-header-title')).toBeInTheDocument();
   });
+
+  // Story 10.5 (FR-37): search + pagination, mirroring EmployeesPage.tsx (Story 7.3).
+  describe('search and pagination (Story 10.5)', () => {
+    function makeManySkills(count: number) {
+      return Array.from({ length: count }, (_, i) => makeSkill({ id: `skill-${i + 1}`, name: `Skill ${String(i + 1).padStart(2, '0')}` }));
+    }
+
+    it('search filters the grid by Skill name (case-insensitive); clearing restores the full list', async () => {
+      vi.mocked(listSkillsWithContent).mockResolvedValue([
+        makeSkill({ id: 'skill-1', name: 'Data Visualization' }),
+        makeSkill({ id: 'skill-2', name: 'Docker Fundamentals' }),
+      ]);
+      const user = userEvent.setup();
+      renderPage();
+      await screen.findByText('Data Visualization');
+
+      await user.type(screen.getByTestId('skills-tab-search-input'), 'docker');
+
+      expect(screen.queryByText('Data Visualization')).not.toBeInTheDocument();
+      expect(screen.getByText('Docker Fundamentals')).toBeInTheDocument();
+
+      await user.clear(screen.getByTestId('skills-tab-search-input'));
+
+      expect(await screen.findByText('Data Visualization')).toBeInTheDocument();
+      expect(screen.getByText('Docker Fundamentals')).toBeInTheDocument();
+    });
+
+    it('shows "No skills match your search." when the search term matches nothing', async () => {
+      vi.mocked(listSkillsWithContent).mockResolvedValue([makeSkill({ id: 'skill-1', name: 'Data Visualization' })]);
+      const user = userEvent.setup();
+      renderPage();
+      await screen.findByText('Data Visualization');
+
+      await user.type(screen.getByTestId('skills-tab-search-input'), 'nonexistent-skill-xyz');
+
+      expect(await screen.findByText('No skills match your search.')).toBeInTheDocument();
+      expect(screen.queryByText('No skills yet.')).not.toBeInTheDocument();
+    });
+
+    it('does not render pagination controls when there are 15 or fewer matching skills', async () => {
+      vi.mocked(listSkillsWithContent).mockResolvedValue(makeManySkills(15));
+      renderPage();
+
+      await screen.findByText('Skill 01');
+      expect(screen.getByText('Skill 15')).toBeInTheDocument();
+      expect(screen.queryByTestId('skills-tab-pagination')).not.toBeInTheDocument();
+    });
+
+    it('paginates at 15 per page and Next/page-number/Prev controls page correctly', async () => {
+      vi.mocked(listSkillsWithContent).mockResolvedValue(makeManySkills(20));
+      const user = userEvent.setup();
+      renderPage();
+
+      await screen.findByText('Skill 01');
+      expect(screen.getByText('Skill 15')).toBeInTheDocument();
+      expect(screen.queryByText('Skill 16')).not.toBeInTheDocument();
+      // Review finding: Prev/Next disabled state must be asserted directly,
+      // not just inferred from which skill names are visible.
+      expect(screen.getByLabelText('Previous page')).toBeDisabled();
+      expect(screen.getByLabelText('Next page')).toBeEnabled();
+
+      await user.click(screen.getByLabelText('Next page'));
+
+      expect(await screen.findByText('Skill 16')).toBeInTheDocument();
+      expect(screen.getByText('Skill 20')).toBeInTheDocument();
+      expect(screen.queryByText('Skill 01')).not.toBeInTheDocument();
+      expect(screen.getByLabelText('Previous page')).toBeEnabled();
+      expect(screen.getByLabelText('Next page')).toBeDisabled();
+
+      await user.click(screen.getByLabelText('Previous page'));
+
+      expect(await screen.findByText('Skill 01')).toBeInTheDocument();
+      expect(screen.queryByText('Skill 16')).not.toBeInTheDocument();
+
+      await user.click(screen.getByLabelText('Page 2'));
+
+      expect(await screen.findByText('Skill 16')).toBeInTheDocument();
+    });
+
+    it('keeps skills-tab-summary-count on the full unfiltered/unpaginated total while a search term and page 2 are active', async () => {
+      const skills = makeManySkills(20);
+      vi.mocked(listSkillsWithContent).mockResolvedValue(skills);
+      const user = userEvent.setup();
+      renderPage();
+
+      await screen.findByText('Skill 01');
+      expect(screen.getByTestId('skills-tab-summary-count')).toHaveTextContent('20 skills · 0 with approved content');
+
+      await user.click(screen.getByLabelText('Page 2'));
+      expect(screen.getByTestId('skills-tab-summary-count')).toHaveTextContent('20 skills · 0 with approved content');
+
+      await user.type(screen.getByTestId('skills-tab-search-input'), 'Skill 0');
+      await screen.findByText('Skill 01');
+      expect(screen.getByTestId('skills-tab-summary-count')).toHaveTextContent('20 skills · 0 with approved content');
+    });
+
+    it('a new search term resets pagination to page 1', async () => {
+      const skills = makeManySkills(20);
+      // Give one page-2-only skill a distinct, searchable name.
+      skills[19] = makeSkill({ id: 'skill-20', name: 'Special Topic' });
+      vi.mocked(listSkillsWithContent).mockResolvedValue(skills);
+      const user = userEvent.setup();
+      renderPage();
+
+      await screen.findByText('Skill 01');
+      await user.click(screen.getByLabelText('Page 2'));
+      expect(await screen.findByText('Special Topic')).toBeInTheDocument();
+
+      await user.type(screen.getByTestId('skills-tab-search-input'), 'Skill 01');
+
+      expect(await screen.findByText('Skill 01')).toBeInTheDocument();
+      expect(screen.queryByText('Special Topic')).not.toBeInTheDocument();
+    });
+  });
 });

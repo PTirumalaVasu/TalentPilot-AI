@@ -1,6 +1,10 @@
 /** Skills tab (Story 6.10): Card Grid, Content Lookup, API Keys, Watch Modal.
- * Left-pane nav shell: Story 7.7. */
-import { useCallback, useEffect, useRef, useState } from 'react';
+ * Left-pane nav shell: Story 7.7.
+ * Search + 15/page pagination (Story 10.5, FR-37): client-side over the same
+ * fetched list, no new API/query params -- mirrors EmployeesPage.tsx's
+ * existing FR-25 search/pagination shape (Story 7.3). Table/Card view toggle
+ * is a separate, later story (10.13) and is not built here. */
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { HrAppShell } from '@/components/layout/HrAppShell';
 import { Toast } from '@/components/ui/toast';
 import { SkillCard, type SkillCardViewContent } from '@/features/admin/SkillCard';
@@ -10,6 +14,8 @@ import { ContentLookupPanel } from '@/features/admin/ContentLookupPanel';
 import { ApiKeysModal } from '@/features/admin/ApiKeysModal';
 import { ContentPreviewModal } from '@/features/admin/ContentPreviewModal';
 import { listSkillsWithContent, type SkillWithContent } from '@/lib/api/skillsApi';
+
+const PAGE_SIZE = 15;
 
 function extractErrorMessage(err: unknown, fallback: string): string {
   if (err && typeof err === 'object' && 'response' in err) {
@@ -36,6 +42,16 @@ export function SkillsPage() {
   const [watchModalContent, setWatchModalContent] = useState<SkillCardViewContent | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  // Story 10.5 (FR-37): search matches Skill name only -- SkillWithContent
+  // does carry a `description` field, but it's never rendered anywhere on
+  // SkillCard (unlike EmployeesPage's displayed Project/Location/
+  // Technologies columns), so there's no visible content a name-only search
+  // box could plausibly be expected to also match against. 15/page
+  // pagination -- both purely additive over the already-fetched `skills`
+  // array (Scope Note 1: no backend change).
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+
   const refetch = useCallback(async () => {
     const requestId = ++requestIdRef.current;
     setLoadError(null);
@@ -57,7 +73,26 @@ export function SkillsPage() {
     return skills?.find((s) => s.id === skillId);
   }
 
+  // `skills-tab-summary-count` keeps counting the full fetched list, not the
+  // filtered/paginated subset -- matches EmployeesPage.tsx's equivalent
+  // summary-count convention.
   const approvedCount = skills?.filter((s) => s.approved_content).length ?? 0;
+
+  const filtered = useMemo(() => {
+    if (!skills) return [];
+    const q = search.trim().toLowerCase();
+    if (!q) return skills;
+    return skills.filter((s) => s.name.toLowerCase().includes(q));
+  }, [skills, search]);
+
+  // AC2: a new search term resets pagination to page 1.
+  useEffect(() => {
+    setPage(1);
+  }, [search]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pageItems = filtered.slice((currentPage - 1) * PAGE_SIZE, (currentPage - 1) * PAGE_SIZE + PAGE_SIZE);
 
   return (
     <HrAppShell>
@@ -72,6 +107,14 @@ export function SkillsPage() {
             </span>
           </div>
           <div className="flex items-center gap-2">
+            <input
+              type="text"
+              placeholder="Search skills…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-40 rounded-lg border border-gray-300 px-3 py-2 text-sm sm:w-48 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
+              data-testid="skills-tab-search-input"
+            />
             <button
               type="button"
               className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600"
@@ -106,9 +149,13 @@ export function SkillsPage() {
           <p className="text-sm text-gray-500 dark:text-gray-400">No skills yet.</p>
         )}
 
-        {skills !== null && !loadError && skills.length > 0 && (
+        {skills !== null && !loadError && skills.length > 0 && filtered.length === 0 && (
+          <p className="text-sm text-gray-500 dark:text-gray-400">No skills match your search.</p>
+        )}
+
+        {skills !== null && !loadError && filtered.length > 0 && (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3" data-testid="skills-tab-grid-skills">
-            {skills.map((skill) => (
+            {pageItems.map((skill) => (
               <SkillCard
                 key={skill.id}
                 skill={skill}
@@ -117,6 +164,44 @@ export function SkillsPage() {
                 onView={(content) => setWatchModalContent(content)}
               />
             ))}
+          </div>
+        )}
+
+        {filtered.length > PAGE_SIZE && (
+          <div
+            className="mt-4 flex items-center justify-center gap-3 text-sm text-gray-600 dark:text-gray-400"
+            data-testid="skills-tab-pagination"
+          >
+            <button
+              type="button"
+              onClick={() => setPage(currentPage - 1)}
+              disabled={currentPage === 1}
+              className="disabled:opacity-30"
+              aria-label="Previous page"
+            >
+              ‹
+            </button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => setPage(p)}
+                className={p === currentPage ? 'font-bold text-blue-600 dark:text-blue-400' : ''}
+                aria-label={`Page ${p}`}
+                aria-current={p === currentPage ? 'page' : undefined}
+              >
+                {p}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => setPage(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              className="disabled:opacity-30"
+              aria-label="Next page"
+            >
+              ›
+            </button>
           </div>
         )}
       </main>
