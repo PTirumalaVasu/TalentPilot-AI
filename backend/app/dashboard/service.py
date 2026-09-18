@@ -61,6 +61,7 @@ class DashboardService:
         hr_admin_id: UUID,
         page: int = 1,
         page_size: int = 50,
+        search: str | None = None,
     ) -> DashboardResponse:
         """
         Fetch all Assignments for an HR Admin with computed Status & Provenance.
@@ -73,6 +74,10 @@ class DashboardService:
             hr_admin_id: UUID of the HR Admin requesting the dashboard
             page: Page number (1-indexed)
             page_size: Number of rows per page
+            search: Story 10.6 (FR-38) -- optional case-insensitive substring
+                match against Employee name OR Skill name, passed straight
+                through to AssignmentsService/the repository (AD-1: this
+                module owns no table, so it never filters rows itself).
 
         Returns:
             DashboardResponse with paginated assignments and computed Status badges
@@ -81,7 +86,7 @@ class DashboardService:
 
         # Get all assignments for this HR Admin (AD-6: HR Admin sees all their assignments)
         assignments_page = await AssignmentsService.list_assignments_for_hr(
-            session, hr_admin_id=hr_admin_id, page=page, page_size=page_size
+            session, hr_admin_id=hr_admin_id, page=page, page_size=page_size, search=search
         )
 
         # Batch-load all progress records and overrides for this page (prevents N+1 queries)

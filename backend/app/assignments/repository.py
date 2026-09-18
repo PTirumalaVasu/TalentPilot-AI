@@ -232,6 +232,7 @@ async def list_assignments_for_hr(
     hr_admin_id: uuid.UUID,
     page: int = 1,
     page_size: int = 50,
+    search: str | None = None,
 ) -> AssignmentPage:
     """Fetch all Assignments created by an HR Admin with pagination.
 
@@ -245,6 +246,19 @@ async def list_assignments_for_hr(
     dashboard grid correct. The filter is expressed once (`base_filters`,
     code review patch 4) rather than duplicated across both statements, so a
     future edit to one can't silently drift from the other.
+
+    Story 10.6 (FR-38): `search` does a case-insensitive substring match
+    against Employee name OR Skill name, applied to both the count and the
+    page query so pagination stays consistent with the filtered result set.
+    Unlike `page`/`page_size` (server-side pagination since Story 3.5,
+    predating this story), search is new here -- mirrors the exact
+    `Employee.name.ilike(...)`/`Skill.name.ilike(...)` pattern
+    `list_employees`/`list_skills` above already use for the assignment
+    modal's own combobox search, not a new bespoke approach. The explicit
+    `.join(Assignment.employee).join(Assignment.skill)` (relationship-based,
+    so SQLAlchemy resolves the correct FK among Employee's 3 relationships
+    to Assignment) only runs when a search term is present -- an unfiltered
+    page load stays exactly the join-free query it always was.
     """
     from sqlalchemy import desc
     from sqlalchemy.orm import selectinload
@@ -253,14 +267,15 @@ async def list_assignments_for_hr(
 
     # Count total assignments for this HR Admin
     count_stmt = select(func.count(Assignment.id)).where(*base_filters)
-    count_result = await session.execute(count_stmt)
-    total_count = count_result.scalar() or 0
 
-    # Fetch paginated assignments with eager-loaded relationships
+    # Fetch paginated assignments with eager-loaded relationships. Code
+    # review patch: Assignment.id is a secondary sort key so LIMIT/OFFSET
+    # pagination has a stable, deterministic order even when two rows share
+    # the same assigned_at timestamp (assigned_at alone had no tiebreaker).
     stmt = (
         select(Assignment)
         .where(*base_filters)
-        .order_by(desc(Assignment.assigned_at))
+        .order_by(desc(Assignment.assigned_at), Assignment.id)
         .offset((page - 1) * page_size)
         .limit(page_size)
         .options(
@@ -269,6 +284,15 @@ async def list_assignments_for_hr(
             selectinload(Assignment.content),
         )
     )
+
+    if search:
+        pattern = f"%{search}%"
+        search_filter = or_(Employee.name.ilike(pattern), Skill.name.ilike(pattern))
+        count_stmt = count_stmt.join(Assignment.employee).join(Assignment.skill).where(search_filter)
+        stmt = stmt.join(Assignment.employee).join(Assignment.skill).where(search_filter)
+
+    count_result = await session.execute(count_stmt)
+    total_count = count_result.scalar() or 0
 
     result = await session.execute(stmt)
     assignments = list(result.scalars().all())

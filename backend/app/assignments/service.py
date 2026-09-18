@@ -57,10 +57,16 @@ class AssignmentsService:
         hr_admin_id: uuid.UUID,
         page: int = 1,
         page_size: int = 50,
+        search: str | None = None,
     ) -> AssignmentPage:
-        """Fetch paginated assignments for an HR Admin (cross-module API per AD-1)."""
+        """Fetch paginated assignments for an HR Admin (cross-module API per AD-1).
+
+        Story 10.6 (FR-38): `search` matches Employee name or Skill name --
+        passed straight through to the repository, no transformation needed
+        here.
+        """
         return await list_assignments_for_hr(
-            session, hr_admin_id=hr_admin_id, page=page, page_size=page_size
+            session, hr_admin_id=hr_admin_id, page=page, page_size=page_size, search=search
         )
 
 

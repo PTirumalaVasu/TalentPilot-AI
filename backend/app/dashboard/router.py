@@ -24,6 +24,7 @@ async def get_dashboard(
     session: Annotated[AsyncSession, Depends(get_db)],
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=500),
+    search: str | None = Query(None, max_length=200),
 ) -> DashboardResponse:
     """
     Fetch HR Admin's dashboard with all assignments and their statuses.
@@ -37,6 +38,12 @@ async def get_dashboard(
     - Default: page=1, page_size=50
     - Returns assignments sorted by assigned_at DESC (newest first)
 
+    **Search (Story 10.6, FR-38):**
+    - Optional `search` matches Employee name OR Skill name (case-insensitive
+      substring), applied server-side so pagination counts stay consistent
+      with the filtered result set
+    - A blank/whitespace-only value behaves the same as omitting it
+
     **Status & Provenance (AD-3):**
     - Status computed from {watch signal, HR override}
     - Provenance indicates signal type: Verified / Self-reported / Needs Attention / HR Override
@@ -47,6 +54,7 @@ async def get_dashboard(
         session: Database session
         page: Page number (1-indexed)
         page_size: Rows per page (max 500)
+        search: Optional Employee-name/Skill-name filter (FR-38)
 
     Returns:
         DashboardResponse with paginated assignments
@@ -56,6 +64,7 @@ async def get_dashboard(
         hr_admin_id=current_user.user_id,
         page=page,
         page_size=page_size,
+        search=search.strip() if search and search.strip() else None,
     )
 
 

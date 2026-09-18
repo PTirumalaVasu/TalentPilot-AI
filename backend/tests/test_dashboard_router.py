@@ -459,6 +459,158 @@ async def test_dashboard_assignments_returns_multiple_org_wide_rows_for_hr_admin
             await _cleanup_assignment(cid)
 
 
+# --- Story 10.6: GET /api/dashboard?search= (FR-38) --------------------------
+
+
+async def _create_throwaway_employee_for_search(client: AsyncClient, label: str) -> uuid.UUID:
+    """Mirrors _create_throwaway_employee (below) -- a fresh, uniquely-named
+    Employee so substring search assertions aren't polluted by the seeded
+    demo roster or other tests' rows in this shared dev DB.
+
+    Code review patch: `last_name` now carries the same random hex suffix as
+    `employee_code`/`email` (it didn't before). These tests, unlike the
+    plain `_create_throwaway_employee` this mirrors, actively search by this
+    literal name and assert an exact `total_count` -- an orphaned employee
+    left behind by a crashed prior run (before its own `finally` cleanup)
+    would otherwise collide with that assertion. The suffix is appended, so
+    the fixed `search=` substrings the tests below use (e.g.
+    "zEphYrineSearchTargetemp") still match."""
+    suffix = uuid.uuid4().hex[:8]
+    response = await client.post(
+        "/api/admin/employees",
+        json={
+            "employee_code": f"T10-6-{label}-{suffix}",
+            "first_name": "Story10.6",
+            "last_name": f"ZephyrineSearchTarget{label}{suffix}",
+            "email": f"story10-6-{label}-{suffix}@example.com",
+        },
+    )
+    assert response.status_code == 201
+    return uuid.UUID(response.json()["id"])
+
+
+async def _get_dashboard(client: AsyncClient, **params) -> dict:
+    response = await client.get("/api/dashboard", params=params)
+    assert response.status_code == 200
+    return response.json()
+
+
+async def test_dashboard_search_matches_employee_name_case_insensitive():
+    """AC1: search matches at least Employee name -- mixed-case substring."""
+    employee_id = None
+    assignment_id = None
+    try:
+        async with _client() as client:
+            await _login(client)
+            employee_id = await _create_throwaway_employee_for_search(client, "emp")
+            create_response = await client.post(
+                "/api/assignments",
+                json={"employee_id": str(employee_id), "skill_id": str(SKILL_DATA_VIZ_ID)},
+            )
+            assert create_response.status_code == 201
+            assignment_id = uuid.UUID(create_response.json()["id"])
+
+            body = await _get_dashboard(client, search="zEphYrineSearchTargetemp")
+            found_ids = {r["assignment_id"] for r in body["assignments"]}
+            assert str(assignment_id) in found_ids
+            assert body["total_count"] == 1
+
+            no_match_body = await _get_dashboard(client, search="no-such-employee-or-skill-zzz")
+            assert no_match_body["total_count"] == 0
+            assert no_match_body["assignments"] == []
+    finally:
+        if assignment_id is not None:
+            await _cleanup_assignment(assignment_id)
+        if employee_id is not None:
+            await _delete_employee_hard(employee_id)
+
+
+async def test_dashboard_search_matches_skill_name_and_excludes_non_matching_rows():
+    """AC1: search matches at least Skill name, and only returns the
+    matching row -- not every Assignment belonging to the same Employee."""
+    employee_id = None
+    matching_assignment_id = None
+    other_assignment_id = None
+    try:
+        async with _client() as client:
+            await _login(client)
+            employee_id = await _create_throwaway_employee_for_search(client, "skill")
+
+            create_response = await client.post(
+                "/api/assignments",
+                json={"employee_id": str(employee_id), "skill_id": str(SKILL_SALESFORCE_ID)},
+            )
+            assert create_response.status_code == 201
+            matching_assignment_id = uuid.UUID(create_response.json()["id"])
+
+            create_response = await client.post(
+                "/api/assignments",
+                json={"employee_id": str(employee_id), "skill_id": str(SKILL_PYTHON_ID)},
+            )
+            assert create_response.status_code == 201
+            other_assignment_id = uuid.UUID(create_response.json()["id"])
+
+            body = await _get_dashboard(client, search="salesforce")
+            found_ids = {r["assignment_id"] for r in body["assignments"]}
+            assert str(matching_assignment_id) in found_ids
+            assert str(other_assignment_id) not in found_ids
+    finally:
+        for aid in (matching_assignment_id, other_assignment_id):
+            if aid is not None:
+                await _cleanup_assignment(aid)
+        if employee_id is not None:
+            await _delete_employee_hard(employee_id)
+
+
+async def test_dashboard_search_pagination_count_reflects_filtered_total():
+    """total_count and the paginated rows must both reflect the *filtered*
+    result set, not the full unfiltered roster -- proves search is applied
+    server-side to both the count and page queries, not just the page query."""
+    employee_id = None
+    assignment_ids: list[uuid.UUID] = []
+    try:
+        async with _client() as client:
+            await _login(client)
+            employee_id = await _create_throwaway_employee_for_search(client, "paged")
+            for skill_id in (SKILL_DATA_VIZ_ID, SKILL_SALESFORCE_ID):
+                create_response = await client.post(
+                    "/api/assignments",
+                    json={"employee_id": str(employee_id), "skill_id": str(skill_id)},
+                )
+                assert create_response.status_code == 201
+                assignment_ids.append(uuid.UUID(create_response.json()["id"]))
+
+            page1 = await _get_dashboard(
+                client, search="zEphYrineSearchTargetpaged", page=1, page_size=1
+            )
+            assert page1["total_count"] == 2
+            assert len(page1["assignments"]) == 1
+
+            page2 = await _get_dashboard(
+                client, search="zEphYrineSearchTargetpaged", page=2, page_size=1
+            )
+            assert page2["total_count"] == 2
+            assert len(page2["assignments"]) == 1
+            assert page1["assignments"][0]["assignment_id"] != page2["assignments"][0]["assignment_id"]
+    finally:
+        for aid in assignment_ids:
+            await _cleanup_assignment(aid)
+        if employee_id is not None:
+            await _delete_employee_hard(employee_id)
+
+
+async def test_dashboard_search_blank_string_behaves_as_no_filter():
+    """A whitespace-only `search` value must behave identically to omitting
+    it entirely (trimmed server-side), not as a literal-whitespace filter
+    that would (harmlessly, but confusingly) match everything via ILIKE."""
+    async with _client() as client:
+        await _login(client)
+        unfiltered = await _get_dashboard(client)
+        blank_search = await _get_dashboard(client, search="   ")
+
+    assert blank_search["total_count"] == unfiltered["total_count"]
+
+
 async def _get_segmentation(client: AsyncClient) -> dict:
     response = await client.get("/api/dashboard/segmentation")
     assert response.status_code == 200

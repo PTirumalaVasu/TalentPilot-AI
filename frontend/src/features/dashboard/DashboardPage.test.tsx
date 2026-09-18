@@ -674,4 +674,152 @@ describe("DashboardPage", () => {
       expect(screen.queryByText(/recorded progress/i)).not.toBeInTheDocument();
     });
   });
+
+  describe("Story 10.6: search + 15/page pagination (FR-38)", () => {
+    function makeRow(overrides: Partial<Record<string, unknown>> = {}) {
+      return {
+        assignment_id: "id-1",
+        employee_id: "emp-1",
+        employee_name: "Casey the Continuer",
+        employee_group: "Engineering",
+        skill_id: "skill-1",
+        skill_name: "Data Visualization",
+        status: "Not Started" as const,
+        status_percentage: null,
+        provenance: "Verified" as const,
+        last_updated: new Date().toISOString(),
+        assignment_created_at: new Date().toISOString(),
+        ...overrides,
+      };
+    }
+
+    it("requests page_size 15 by default (was 50 pre-Story-10.6)", async () => {
+      vi.mocked(dashboardApi.dashboardApi.getDashboard).mockResolvedValue({
+        assignments: [],
+        total_count: 0,
+        page: 1,
+        page_size: 15,
+      });
+
+      render(<DashboardPage onNewAssignment={() => {}} />);
+
+      await waitFor(() => {
+        expect(dashboardApi.dashboardApi.getDashboard).toHaveBeenCalledWith(1, 15, undefined);
+      });
+    });
+
+    it("renders a search input matching Employee or Skill name", async () => {
+      vi.mocked(dashboardApi.dashboardApi.getDashboard).mockResolvedValue({
+        assignments: [makeRow()],
+        total_count: 1,
+        page: 1,
+        page_size: 15,
+      });
+
+      render(<DashboardPage onNewAssignment={() => {}} />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId("dashboard-search-input")).toBeInTheDocument();
+      });
+    });
+
+    it("typing a search term re-fetches with that term", async () => {
+      vi.mocked(dashboardApi.dashboardApi.getDashboard).mockResolvedValue({
+        assignments: [makeRow()],
+        total_count: 1,
+        page: 1,
+        page_size: 15,
+      });
+
+      render(<DashboardPage onNewAssignment={() => {}} />);
+
+      await waitFor(() => {
+        expect(dashboardApi.dashboardApi.getDashboard).toHaveBeenCalledWith(1, 15, undefined);
+      });
+
+      fireEvent.change(screen.getByTestId("dashboard-search-input"), {
+        target: { value: "casey" },
+      });
+
+      await waitFor(() => {
+        expect(dashboardApi.dashboardApi.getDashboard).toHaveBeenCalledWith(1, 15, "casey");
+      });
+    });
+
+    it("a new search term resets pagination to page 1", async () => {
+      vi.mocked(dashboardApi.dashboardApi.getDashboard).mockResolvedValue({
+        assignments: Array.from({ length: 15 }, (_, i) => makeRow({ assignment_id: `id-${i}`, employee_name: `Employee ${i}` })),
+        total_count: 30,
+        page: 1,
+        page_size: 15,
+      });
+
+      render(<DashboardPage onNewAssignment={() => {}} />);
+
+      await waitFor(() => {
+        expect(screen.getByRole("button", { name: "Next" })).toBeEnabled();
+      });
+
+      fireEvent.click(screen.getByRole("button", { name: "Next" }));
+
+      await waitFor(() => {
+        expect(dashboardApi.dashboardApi.getDashboard).toHaveBeenCalledWith(2, 15, undefined);
+      });
+
+      fireEvent.change(screen.getByTestId("dashboard-search-input"), {
+        target: { value: "skill" },
+      });
+
+      await waitFor(() => {
+        expect(dashboardApi.dashboardApi.getDashboard).toHaveBeenCalledWith(1, 15, "skill");
+      });
+    });
+
+    it("shows a distinct empty state when a search term matches nothing", async () => {
+      vi.mocked(dashboardApi.dashboardApi.getDashboard).mockResolvedValueOnce({
+        assignments: [makeRow()],
+        total_count: 1,
+        page: 1,
+        page_size: 15,
+      });
+
+      render(<DashboardPage onNewAssignment={() => {}} />);
+
+      await waitFor(() => {
+        expect(dashboardApi.dashboardApi.getDashboard).toHaveBeenCalledTimes(1);
+      });
+
+      vi.mocked(dashboardApi.dashboardApi.getDashboard).mockResolvedValueOnce({
+        assignments: [],
+        total_count: 0,
+        page: 1,
+        page_size: 15,
+      });
+
+      fireEvent.change(screen.getByTestId("dashboard-search-input"), {
+        target: { value: "zzz-no-such-employee-or-skill" },
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText("No assignments match your search.")).toBeInTheDocument();
+      });
+      expect(screen.queryByText(/No assignments yet/)).not.toBeInTheDocument();
+    });
+
+    it("an empty roster with no search term still shows the original empty-state copy", async () => {
+      vi.mocked(dashboardApi.dashboardApi.getDashboard).mockResolvedValue({
+        assignments: [],
+        total_count: 0,
+        page: 1,
+        page_size: 15,
+      });
+
+      render(<DashboardPage onNewAssignment={() => {}} />);
+
+      await waitFor(() => {
+        expect(screen.getByText(/No assignments yet/)).toBeInTheDocument();
+      });
+      expect(screen.queryByText("No assignments match your search.")).not.toBeInTheDocument();
+    });
+  });
 });

@@ -55,6 +55,12 @@ interface DashboardState {
   pageSize: number;
   totalCount: number;
   requestId: number;
+  // Story 10.6 (FR-38): server-side search term, matched against Employee
+  // name or Skill name (backend/app/dashboard/router.py). Lives on
+  // DashboardState (not a separate useState) so it flows through the same
+  // fetchDashboard/pollDashboard closures and the same 150ms debounce
+  // effect that page/pageSize already use -- no new debounce mechanism.
+  search: string;
 }
 
 // AC2/Finding 1: Status/Provenance/percentage changes matter for "did this
@@ -126,9 +132,13 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
       loading: true,
       error: null,
       page: 1,
-      pageSize: 50,
+      // Story 10.6 (FR-38): 15/page, same pattern as Story 10.5 -- was 50
+      // (Story 3.5's original server-side-pagination default, predating
+      // this story).
+      pageSize: 15,
       totalCount: 0,
       requestId: 0,
+      search: "",
     });
     const [selectedAssignmentId, setSelectedAssignmentId] = useState<string | null>(null);
     // Story 5.7: which row's delete-confirmation modal is open.
@@ -150,6 +160,11 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
     const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
     const pollIntervalRef = useRef<number | null>(null);
     const isPollingRef = useRef(false);
+    // Code review patch: mirrors state.search without being a poll-lifecycle
+    // effect dependency (see below) -- pollDashboard reads the latest value
+    // via this ref instead of closing over state.search, so the poll
+    // interval itself doesn't tear down/restart on every keystroke.
+    const searchRef = useRef("");
 
     function handleViewDetails(assignmentId: string) {
       // Code review patch: never let the drill-down and delete-confirm
@@ -213,6 +228,14 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
       fetchDashboard(targetPage);
     }
 
+    // Story 10.6 (FR-38/AC2): a new search term resets pagination to page 1,
+    // same convention as Story 10.5 -- one state update so the debounce
+    // effect below (which already depends on both state.page and
+    // state.search) fires exactly one fetch, not two.
+    function handleSearchChange(value: string) {
+      setState((prev) => ({ ...prev, search: value, page: 1 }));
+    }
+
     useImperativeHandle(ref, () => ({
       refreshGrid: () => fetchDashboard(),
       announceToast: (message: string) => setToastMessage(message),
@@ -228,13 +251,26 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+    // Story 10.6: state.search added to the deps below reuses this exact
+    // 150ms debounce for the search box too -- typing updates state.search
+    // on every keystroke, but the actual fetch only fires 150ms after the
+    // last change (same mechanism a page/pageSize change already relies on),
+    // no separate debounce implementation needed.
     useEffect(() => {
       const timer = setTimeout(() => {
         fetchDashboard();
       }, 150);
 
       return () => clearTimeout(timer);
-    }, [state.page, state.pageSize]);
+    }, [state.page, state.pageSize, state.search]);
+
+    // Code review patch: keeps searchRef current for pollDashboard to read,
+    // without making state.search a poll-lifecycle effect dependency below
+    // (that was the bug: restarting setInterval on every keystroke silently
+    // paused the 12s live-update poll for as long as an admin kept typing).
+    useEffect(() => {
+      searchRef.current = state.search;
+    }, [state.search]);
 
     // Task 2/3 (AC1,2,4,5,7,8; Findings 1,3,4): silent background poll, kept
     // decoupled from fetchDashboard()'s loading/blanking behavior so a poll
@@ -243,7 +279,13 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
     // closure never goes stale after a page change (see story file's
     // "Closure trap" note) -- requestId is included too so the poll's
     // requestId snapshot (below) tracks fetchDashboard's optimistic bump
-    // instead of freezing at its pre-mount-fetch value forever.
+    // instead of freezing at its pre-mount-fetch value forever. Story 10.6
+    // originally added state.search here too (so a poll tick couldn't
+    // silently revert the grid to the unfiltered set while an admin is
+    // mid-search) -- code review patch: that made every keystroke tear down
+    // and restart the poll interval, indefinitely deferring it while typing.
+    // pollDashboard now reads searchRef.current instead, so the interval's
+    // own lifecycle no longer depends on state.search at all.
     useEffect(() => {
       function startPolling() {
         if (pollIntervalRef.current !== null) {
@@ -270,7 +312,7 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
         // mirrors fetchDashboard's own requestId staleness guard.
         const requestIdAtPollStart = state.requestId;
         try {
-          const response = await dashboardApi.getDashboard(state.page, state.pageSize);
+          const response = await dashboardApi.getDashboard(state.page, state.pageSize, searchRef.current || undefined);
           setState((prev) => {
             if (prev.requestId !== requestIdAtPollStart) {
               return prev;
@@ -325,7 +367,7 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
       setState((prev) => ({ ...prev, requestId: currentRequestId, loading: true, error: null, assignments: [] }));
 
       try {
-        const response = await dashboardApi.getDashboard(targetPage, state.pageSize);
+        const response = await dashboardApi.getDashboard(targetPage, state.pageSize, state.search || undefined);
 
         setState((prev) => {
           if (prev.requestId !== currentRequestId) {
@@ -417,6 +459,36 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
       />
     );
 
+    // Story 10.6 (FR-38): the "+ New Assignment" button + search input,
+    // defined once and rendered at the same tree position (right after
+    // drillDownModal) in every branch below -- same pattern as
+    // liveRegion/toastElement/drillDownModal above. This is what keeps the
+    // search `<input>` DOM node (and the admin's typing focus/cursor) alive
+    // across a Loading<->Loaded branch swap: a search keystroke triggers
+    // fetchDashboard (via the debounce effect), which blanks assignments and
+    // sets loading=true, briefly switching which `if` branch renders -- if
+    // the input were declared separately inside each branch, React would
+    // unmount/remount it every debounced re-fetch and steal focus mid-type.
+    const toolbar = (
+      <div className="py-3 flex items-center justify-between gap-3">
+        <button
+          onClick={onNewAssignment}
+          className="bg-blue-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors dark:bg-blue-700 dark:hover:bg-blue-600"
+        >
+          + New Assignment
+        </button>
+        <input
+          type="text"
+          data-testid="dashboard-search-input"
+          placeholder="Search by employee or skill…"
+          value={state.search}
+          maxLength={200}
+          onChange={(e) => handleSearchChange(e.target.value)}
+          className="w-40 sm:w-64 rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+        />
+      </div>
+    );
+
     // Loading state
     if (state.loading && state.assignments.length === 0) {
       return (
@@ -424,14 +496,7 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
           {liveRegion}
           {toastElement}
           {drillDownModal}
-          <div className="py-3 flex items-center justify-between">
-            <button
-              onClick={onNewAssignment}
-              className="bg-blue-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors dark:bg-blue-700 dark:hover:bg-blue-600"
-            >
-              + New Assignment
-            </button>
-          </div>
+          {toolbar}
           <div data-testid="dashboard-loading" className="bg-white rounded-lg shadow-sm p-4 space-y-3 dark:bg-gray-900">
             <div className="h-6 bg-gray-100 rounded animate-pulse w-full dark:bg-gray-800"></div>
             <div className="h-6 bg-gray-100 rounded animate-pulse w-full dark:bg-gray-800"></div>
@@ -449,14 +514,7 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
           {liveRegion}
           {toastElement}
           {drillDownModal}
-          <div className="py-3 flex items-center justify-between">
-            <button
-              onClick={onNewAssignment}
-              className="bg-blue-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors dark:bg-blue-700 dark:hover:bg-blue-600"
-            >
-              + New Assignment
-            </button>
-          </div>
+          {toolbar}
           <div className="text-center py-12 border-2 border-dashed border-red-200 rounded-lg text-red-600 dark:border-red-900 dark:text-red-400">
             <span role="alert">{state.error}</span>
             <button onClick={handleRetry} className="underline font-medium ml-1">
@@ -469,21 +527,24 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
 
     // Empty state
     if (state.assignments.length === 0 && !state.loading) {
+      // Story 10.6 (AC, mirroring Story 10.5's AC2 empty-search-result
+      // message): distinct from the genuinely-zero-assignments message
+      // below, which stays reserved for a search-less empty dashboard.
+      const isSearchEmpty = state.search.trim().length > 0;
       return (
         <div>
           {liveRegion}
           {toastElement}
           {drillDownModal}
-          <div className="py-3 flex items-center justify-between">
-            <button
-              onClick={onNewAssignment}
-              className="bg-blue-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors dark:bg-blue-700 dark:hover:bg-blue-600"
-            >
-              + New Assignment
-            </button>
-          </div>
+          {toolbar}
           <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-lg text-gray-500 dark:border-gray-700 dark:text-gray-400">
-            No assignments yet — click <strong>+ New Assignment</strong> to get started
+            {isSearchEmpty ? (
+              "No assignments match your search."
+            ) : (
+              <>
+                No assignments yet — click <strong>+ New Assignment</strong> to get started
+              </>
+            )}
           </div>
         </div>
       );
@@ -498,15 +559,7 @@ export const DashboardPage = forwardRef<DashboardPageHandle, DashboardPageProps>
         {liveRegion}
         {toastElement}
         {drillDownModal}
-        {/* Toolbar */}
-        <div className="py-3 flex items-center justify-between">
-          <button
-            onClick={onNewAssignment}
-            className="bg-blue-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors dark:bg-blue-700 dark:hover:bg-blue-600"
-          >
-            + New Assignment
-          </button>
-        </div>
+        {toolbar}
 
         {/* Title and Summary */}
         <div className="flex items-center justify-between mb-4">

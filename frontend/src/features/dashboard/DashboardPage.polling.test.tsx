@@ -229,4 +229,49 @@ describe("DashboardPage live auto-update polling", () => {
     expect(region).not.toBeNull();
     expect(region?.textContent).toBe("");
   });
+
+  // Story 10.6 code review patch: typing in the search box used to make
+  // state.search a poll-lifecycle effect dependency, tearing down and
+  // restarting the 12s setInterval on every keystroke -- a continuously
+  // typing admin could defer the live-update poll indefinitely. Fixed by
+  // reading the search term via a ref inside pollDashboard instead.
+  it("code review patch: typing rapidly in the search box does not tear down/restart the live-poll interval on every keystroke", async () => {
+    getDashboard.mockResolvedValue(makeResponse([makeRow()]));
+    const setIntervalSpy = vi.spyOn(window, "setInterval");
+
+    render(<DashboardPage onNewAssignment={vi.fn()} />);
+    await advance(MOUNT_DEBOUNCE_MS);
+
+    const callsAfterMount = setIntervalSpy.mock.calls.length;
+    expect(callsAfterMount).toBeGreaterThan(0);
+
+    const input = screen.getByTestId("dashboard-search-input");
+    for (const term of ["c", "ca", "cas", "case", "casey"]) {
+      fireEvent.change(input, { target: { value: term } });
+    }
+
+    // No new setInterval registrations from typing alone -- the poll's own
+    // lifecycle effect no longer depends on state.search.
+    expect(setIntervalSpy.mock.calls.length).toBe(callsAfterMount);
+
+    setIntervalSpy.mockRestore();
+  });
+
+  it("a poll tick carries the current search term (AC3)", async () => {
+    getDashboard.mockResolvedValue(makeResponse([makeRow()]));
+
+    render(<DashboardPage onNewAssignment={vi.fn()} />);
+    await advance(MOUNT_DEBOUNCE_MS);
+    expect(getDashboard).toHaveBeenLastCalledWith(1, 15, undefined);
+
+    fireEvent.change(screen.getByTestId("dashboard-search-input"), { target: { value: "casey" } });
+    await advance(MOUNT_DEBOUNCE_MS); // let the debounced fetch settle
+    expect(getDashboard).toHaveBeenLastCalledWith(1, 15, "casey");
+
+    await advance(POLL_INTERVAL_MS);
+
+    // The poll tick itself (not just the debounced fetch that preceded it)
+    // must also carry "casey" -- proves searchRef, not a stale closure.
+    expect(getDashboard).toHaveBeenLastCalledWith(1, 15, "casey");
+  });
 });

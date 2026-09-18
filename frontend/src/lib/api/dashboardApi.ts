@@ -25,9 +25,19 @@ async function getDashboardAssignments(): Promise<DashboardAssignmentRow[]> {
   return response.data;
 }
 
-async function getDashboard(page: number = 1, pageSize: number = 50): Promise<DashboardResponse> {
+/**
+ * `search` (Story 10.6, FR-38) matches Employee name or Skill name,
+ * server-side (see backend/app/dashboard/router.py) -- an empty/omitted
+ * value is dropped from the request entirely (axios omits `undefined`
+ * params), not sent as an empty-string filter.
+ */
+async function getDashboard(
+  page: number = 1,
+  pageSize: number = 15,
+  search?: string
+): Promise<DashboardResponse> {
   const response = await apiClient.get<DashboardResponse>("/api/dashboard", {
-    params: { page, page_size: pageSize },
+    params: { page, page_size: pageSize, search: search || undefined },
   });
   return response.data;
 }
